@@ -20,7 +20,7 @@ export function Header({
 
   const ancestors = getAncestors(pathname);
   const currentNode = ancestors[ancestors.length - 1];
-  const title = currentNode?.label ?? "FitStage Admin";
+  const title = currentNode?.label ?? "FIT STAGE ポータル";
 
   async function handleLogout() {
     if (!confirm("ログアウトしますか？")) return;

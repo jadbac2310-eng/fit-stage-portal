@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { CheckSquare, ArrowRight, Database, BookOpen } from "lucide-react";
 import { getTodos } from "@/lib/todos";
-import { getCurrentMember, getMembers } from "@/lib/members";
+import { getCurrentMember } from "@/lib/members";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [todos, members, currentMember] = await Promise.all([
+  const [todos, currentMember] = await Promise.all([
     getTodos(),
-    getMembers(),
     getCurrentMember(),
   ]);
 
@@ -23,8 +22,6 @@ export default async function DashboardPage() {
       iconColor:   "text-blue-600",
       label:       "タスク",
       description: "タスク管理",
-      badge:       myPendingCount > 0 ? `自分に${myPendingCount}件` : "自分の担当なし",
-      badgeColor:  myPendingCount > 0 ? "text-amber-600 bg-amber-50" : "text-gray-400 bg-gray-100",
     },
     {
       href:        "/wiki",
@@ -33,8 +30,6 @@ export default async function DashboardPage() {
       iconColor:   "text-green-600",
       label:       "Wiki",
       description: "社内ナレッジベース",
-      badge:       null,
-      badgeColor:  "",
     },
     {
       href:        "/master",
@@ -43,8 +38,6 @@ export default async function DashboardPage() {
       iconColor:   "text-orange-600",
       label:       "マスタ管理",
       description: "担当者・各種マスタ",
-      badge:       `${members.length}名`,
-      badgeColor:  "text-gray-500 bg-gray-100",
     },
   ];
 
@@ -52,7 +45,7 @@ export default async function DashboardPage() {
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="mb-6 hidden md:block">
         <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
-        <p className="text-sm text-gray-500 mt-0.5">FitStage 管理者ポータル</p>
+        <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-6">
@@ -67,7 +60,7 @@ export default async function DashboardPage() {
       </div>
 
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-        セクション
+        メニュー
       </h2>
 
       <div className="space-y-2">
@@ -86,14 +79,7 @@ export default async function DashboardPage() {
                 <p className="font-semibold text-gray-900 text-sm">{s.label}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{s.description}</p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {s.badge && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.badgeColor}`}>
-                    {s.badge}
-                  </span>
-                )}
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition" />
-              </div>
+              <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
             </Link>
           );
         })}

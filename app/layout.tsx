@@ -8,8 +8,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "FitStage Admin",
-  description: "FitStage 管理者ポータル",
+  title: "FIT STAGE ポータル",
+  description: "FIT STAGE ポータル",
 };
 
 export const viewport: Viewport = {

@@ -5,7 +5,7 @@ import { createAuthClient } from "@/lib/supabase";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
-const SYSTEM = `あなたはFitStage管理システムのWikiエージェントです。
+const SYSTEM = `あなたはFIT STAGEポータルのWikiエージェントです。
 ユーザーの指示に従って、Wikiページを作成・編集・削除します。
 
 ## フォルダについて
