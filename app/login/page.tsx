@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,11 +43,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-600 rounded-xl mb-4">
-            <span className="text-white font-bold text-lg">F</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">FitStage Admin</h1>
-          <p className="text-sm text-gray-500 mt-1">管理者ポータル</p>
+          <Image
+            src="/logo.png"
+            alt="FIT STAGE"
+            width={180}
+            height={62}
+            className="mx-auto mb-4"
+            priority
+          />
+          <p className="text-lg font-semibold text-gray-700">ポータル</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">

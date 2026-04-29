@@ -122,8 +122,8 @@ export function Sidebar({
             <span className="text-white font-bold text-sm">F</span>
           </div>
           <div className="flex-1">
-            <p className="font-semibold text-gray-900 text-sm leading-tight">FitStage</p>
-            <p className="text-xs text-gray-400">管理者ポータル</p>
+            <p className="font-semibold text-gray-900 text-sm leading-tight">FIT STAGE</p>
+            <p className="text-xs text-gray-400">ポータル</p>
           </div>
           {mobile && (
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
