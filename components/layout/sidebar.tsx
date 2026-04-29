@@ -119,9 +119,8 @@ export function Sidebar({
     )}>
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">F</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="FIT STAGE" className="w-8 h-8 rounded-lg object-contain flex-shrink-0" />
           <div className="flex-1">
             <p className="font-semibold text-gray-900 text-sm leading-tight">FIT STAGE</p>
             <p className="text-xs text-gray-400">ポータル</p>
