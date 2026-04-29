@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { CheckSquare, ArrowRight, Database, BookOpen } from "lucide-react";
 import { getTodos } from "@/lib/todos";
-import { getMembers } from "@/lib/members";
+import { getCurrentMember, getMembers } from "@/lib/members";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [todos, members] = await Promise.all([getTodos(), getMembers()]);
-  const pendingCount   = todos.filter((t) => !t.completed).length;
-  const completedCount = todos.filter((t) => t.completed).length;
+  const [todos, members, currentMember] = await Promise.all([
+    getTodos(),
+    getMembers(),
+    getCurrentMember(),
+  ]);
+
+  const myPendingCount    = todos.filter((t) => !t.completed && t.assignedTo?.id === currentMember?.id).length;
+  const totalPendingCount = todos.filter((t) => !t.completed).length;
 
   const sections = [
     {
@@ -18,8 +23,8 @@ export default async function DashboardPage() {
       iconColor:   "text-blue-600",
       label:       "タスク",
       description: "タスク管理",
-      badge:       pendingCount > 0 ? `${pendingCount}件未対応` : "すべて完了",
-      badgeColor:  pendingCount > 0 ? "text-amber-600 bg-amber-50" : "text-green-600 bg-green-50",
+      badge:       myPendingCount > 0 ? `自分に${myPendingCount}件` : "自分の担当なし",
+      badgeColor:  myPendingCount > 0 ? "text-amber-600 bg-amber-50" : "text-gray-400 bg-gray-100",
     },
     {
       href:        "/wiki",
@@ -52,12 +57,12 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">未対応タスク</p>
-          <p className="text-3xl font-bold text-gray-900">{pendingCount}</p>
+          <p className="text-xs font-medium text-gray-500 mb-1">自分の未対応</p>
+          <p className="text-3xl font-bold text-gray-900">{myPendingCount}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">完了済み</p>
-          <p className="text-3xl font-bold text-green-600">{completedCount}</p>
+          <p className="text-xs font-medium text-gray-500 mb-1">全体の未対応</p>
+          <p className="text-3xl font-bold text-amber-500">{totalPendingCount}</p>
         </div>
       </div>
 
