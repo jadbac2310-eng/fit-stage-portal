@@ -23,6 +23,7 @@ export function Header({
   const title = currentNode?.label ?? "FitStage Admin";
 
   async function handleLogout() {
+    if (!confirm("ログアウトしますか？")) return;
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();

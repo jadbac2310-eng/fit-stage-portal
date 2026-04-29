@@ -106,6 +106,7 @@ export function Sidebar({
   });
 
   async function handleLogout() {
+    if (!confirm("ログアウトしますか？")) return;
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
