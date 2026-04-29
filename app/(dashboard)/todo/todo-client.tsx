@@ -442,7 +442,7 @@ function TodoCard({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TodoClient({ todos, members }: { todos: Todo[]; members: Member[] }) {
+export function TodoClient({ todos, members, currentMemberId }: { todos: Todo[]; members: Member[]; currentMemberId?: string }) {
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -571,17 +571,32 @@ export function TodoClient({ todos, members }: { todos: Todo[]; members: Member[
             </button>
           ))}
         </div>
-        <select
-          value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-          className="ml-auto px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="all">全担当者</option>
-          <option value="unassigned">未割り当て</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>{m.name}</option>
-          ))}
-        </select>
+        <div className="ml-auto flex items-center gap-1.5">
+          {currentMemberId && (
+            <button
+              onClick={() => setAssigneeFilter(assigneeFilter === currentMemberId ? "all" : currentMemberId)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition",
+                assigneeFilter === currentMemberId
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+              )}
+            >
+              自分のみ
+            </button>
+          )}
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">全担当者</option>
+            <option value="unassigned">未割り当て</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* PC インライン追加フォーム */}
