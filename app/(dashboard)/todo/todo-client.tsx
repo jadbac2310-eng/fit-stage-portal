@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useRef } from "react";
 import { Plus, Check, Trash2, Pencil, X, ChevronLeft } from "lucide-react";
 import { Todo, Priority } from "@/lib/todos";
 import { Member } from "@/lib/members";
@@ -8,6 +8,7 @@ import { createTodo, toggleTodoAction, deleteTodoAction, updateTodoAction } from
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Spinner } from "@/components/ui/spinner";
 
 type StatusFilter   = "all" | "pending" | "completed";
 type PriorityFilter = "all" | Priority;
@@ -112,8 +113,9 @@ function AddForm({ members, onClose }: { members: Member[]; onClose: () => void 
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition"
+          className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
         >
+          {loading && <Spinner size={14} />}
           {loading ? "追加中..." : "追加する"}
         </button>
       </div>
@@ -131,22 +133,21 @@ function EditForm({
   members: Member[];
   onClose: () => void;
 }) {
-  const [, startTransition] = useTransition();
-  const [title, setTitle]       = useState(todo.title);
-  const [desc, setDesc]         = useState(todo.description ?? "");
-  const [priority, setPriority] = useState<Priority>(todo.priority);
+  const [saving, setSaving]         = useState(false);
+  const [title, setTitle]           = useState(todo.title);
+  const [desc, setDesc]             = useState(todo.description ?? "");
+  const [priority, setPriority]     = useState<Priority>(todo.priority);
   const [assignedToId, setAssignee] = useState(todo.assignedTo?.id ?? "");
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim()) return;
-    startTransition(() =>
-      updateTodoAction(todo.id, {
-        title:        title.trim(),
-        description:  desc.trim(),
-        priority,
-        assignedToId: assignedToId || null,
-      })
-    );
+    setSaving(true);
+    await updateTodoAction(todo.id, {
+      title:        title.trim(),
+      description:  desc.trim(),
+      priority,
+      assignedToId: assignedToId || null,
+    });
     onClose();
   }
 
@@ -196,9 +197,11 @@ function EditForm({
         </button>
         <button
           onClick={handleSave}
-          className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition"
+          disabled={saving}
+          className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
         >
-          保存する
+          {saving && <Spinner size={14} />}
+          {saving ? "保存中..." : "保存する"}
         </button>
       </div>
     </div>
@@ -215,18 +218,21 @@ function TodoDetailModal({
   members: Member[];
   onClose: () => void;
 }) {
-  const [, startTransition] = useTransition();
-  const [editing, setEditing] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [deleting, setDeleting]     = useState(false);
+  const [editing, setEditing]       = useState(false);
   const pc = priorityConfig[todo.priority];
 
-  function handleComplete() {
-    startTransition(() => toggleTodoAction(todo.id));
+  async function handleComplete() {
+    setCompleting(true);
+    await toggleTodoAction(todo.id);
     onClose();
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirm("このタスクを削除しますか？")) return;
-    startTransition(() => deleteTodoAction(todo.id));
+    setDeleting(true);
+    await deleteTodoAction(todo.id);
     onClose();
   }
 
@@ -331,27 +337,32 @@ function TodoDetailModal({
               <div className="space-y-2">
                 <button
                   onClick={handleComplete}
+                  disabled={completing || deleting}
                   className={cn(
-                    "w-full py-3 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2",
+                    "w-full py-3 rounded-xl font-semibold text-sm transition flex items-center justify-center gap-2 disabled:opacity-60",
                     todo.completed
                       ? "bg-gray-100 hover:bg-gray-200 text-gray-600"
                       : "bg-green-500 hover:bg-green-600 active:scale-[0.98] text-white shadow-sm shadow-green-200"
                   )}
                 >
-                  {todo.completed ? "未対応に戻す" : <><Check size={16} strokeWidth={2.5} /> 完了にする</>}
+                  {completing
+                    ? <><Spinner size={15} /> 処理中...</>
+                    : todo.completed ? "未対応に戻す" : <><Check size={16} strokeWidth={2.5} /> 完了にする</>}
                 </button>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditing(true)}
-                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition flex items-center justify-center gap-1.5"
+                    disabled={completing || deleting}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition flex items-center justify-center gap-1.5 disabled:opacity-60"
                   >
                     <Pencil size={13} /> 編集
                   </button>
                   <button
                     onClick={handleDelete}
-                    className="flex-1 py-2.5 rounded-xl border border-red-100 text-sm font-medium text-red-500 hover:bg-red-50 transition flex items-center justify-center gap-1.5"
+                    disabled={deleting || completing}
+                    className="flex-1 py-2.5 rounded-xl border border-red-100 text-sm font-medium text-red-500 hover:bg-red-50 transition flex items-center justify-center gap-1.5 disabled:opacity-60"
                   >
-                    <Trash2 size={13} /> 削除
+                    {deleting ? <><Spinner size={13} /> 削除中...</> : <><Trash2 size={13} /> 削除</>}
                   </button>
                 </div>
               </div>
@@ -405,11 +416,12 @@ function TodoCard({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
           <div className="flex items-center gap-x-3 mt-2 flex-wrap">
             {todo.assignedTo ? (
               <span className="flex items-center gap-1 text-xs text-gray-600">
+                <span className="text-gray-400">担当:</span>
                 <Avatar name={todo.assignedTo.name} src={todo.assignedTo.avatarUrl} size="sm" />
                 {todo.assignedTo.name}
               </span>
             ) : (
-              <span className="text-xs text-gray-300">未割り当て</span>
+              <span className="text-xs text-gray-300">担当: 未割り当て</span>
             )}
             {todo.completed && todo.completedBy && (
               <span className="text-xs text-green-600 flex items-center gap-1">

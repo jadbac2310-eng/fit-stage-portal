@@ -10,6 +10,7 @@ import { createMember, updateMemberAction, deleteMemberAction } from "./actions"
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Spinner } from "@/components/ui/spinner";
 
 // ─── アバター選択 ─────────────────────────────────────
 function AvatarPicker({ currentSrc, name }: { currentSrc?: string; name?: string }) {
@@ -176,8 +177,6 @@ function MemberForm({
     setError("");
     setLoading(true);
     await action(fd);
-    formRef.current?.reset();
-    setLoading(false);
     onClose();
   }
 
@@ -273,8 +272,9 @@ function MemberForm({
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition"
+          className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
         >
+          {loading && <Spinner size={14} />}
           {loading ? "保存中..." : submitLabel}
         </button>
       </div>
@@ -286,11 +286,16 @@ function MemberForm({
 function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAdmin: boolean; currentMemberId?: string }) {
 
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateMemberAction.bind(null, member.id);
 
   async function handleDelete() {
-    if (confirm(`「${member.name}」を削除しますか？`)) {
+    if (!confirm(`「${member.name}」を削除しますか？`)) return;
+    setDeleting(true);
+    try {
       await deleteMemberAction(member.id);
+    } catch {
+      setDeleting(false);
     }
   }
 
@@ -362,9 +367,10 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
         {isAdmin && (
           <button
             onClick={handleDelete}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition py-1 px-2 rounded-lg hover:bg-red-50 ml-auto"
+            disabled={deleting}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 disabled:text-red-400 transition py-1 px-2 rounded-lg hover:bg-red-50 ml-auto"
           >
-            <Trash2 size={11} /> 削除
+            {deleting ? <><Spinner size={11} /> 削除中...</> : <><Trash2 size={11} /> 削除</>}
           </button>
         )}
       </div>

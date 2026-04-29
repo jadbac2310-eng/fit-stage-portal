@@ -138,8 +138,36 @@ async function runTool(name: string, input: ToolInput, currentUserId?: string): 
   }
 }
 
+type ApiFile = { name: string; type: string; data: string };
+
+function buildUserContent(text: string, files: ApiFile[]): Anthropic.ContentBlockParam[] {
+  const blocks: Anthropic.ContentBlockParam[] = [];
+
+  for (const file of files) {
+    if (file.type.startsWith("image/")) {
+      blocks.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: file.type as Anthropic.Base64ImageSource["media_type"],
+          data: file.data,
+        },
+      });
+    } else {
+      const decoded = Buffer.from(file.data, "base64").toString("utf-8");
+      blocks.push({
+        type: "text",
+        text: `添付ファイル「${file.name}」の内容:\n\`\`\`\n${decoded}\n\`\`\``,
+      });
+    }
+  }
+
+  if (text) blocks.push({ type: "text", text });
+  return blocks;
+}
+
 export async function POST(request: NextRequest) {
-  const { messages, folder } = await request.json();
+  const { messages, folder, files = [] } = await request.json();
   const { data: { user } } = await (await createAuthClient()).auth.getUser();
   const currentUserId = user?.id;
   const encoder = new TextEncoder();
@@ -154,7 +182,15 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
 
       try {
-        let currentMessages: Anthropic.MessageParam[] = messages;
+        const baseMessages: Anthropic.MessageParam[] = messages.map(
+          (m: { role: string; content: string }, idx: number) => {
+            if (idx === messages.length - 1 && m.role === "user" && files.length > 0) {
+              return { role: m.role, content: buildUserContent(m.content, files) };
+            }
+            return m;
+          }
+        );
+        let currentMessages: Anthropic.MessageParam[] = baseMessages;
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
