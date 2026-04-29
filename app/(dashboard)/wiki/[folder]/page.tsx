@@ -1,10 +1,26 @@
 import Link from "next/link";
-import { BookOpen, Bot, ChevronLeft, ChevronRight, Clock, Plus } from "lucide-react";
+import { BookOpen, Bot, ChevronLeft, Clock, Plus } from "lucide-react";
 import { getWikiPagesByFolder } from "@/lib/wiki";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { DeleteFolderButton } from "./delete-folder-button";
-import { Avatar } from "@/components/ui/avatar";
+import { MemberBadge } from "@/components/ui/member-badge";
 import { wikiAgent, wikiPage } from "@/lib/paths";
+
+function toExcerpt(markdown: string, maxLen = 120): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`]*`/g, "")
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    .replace(/\[([^\]]+)\]\(.*?\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/^[-*>]\s+/gm, "")
+    .replace(/^\d+\.\s+/gm, "")
+    .replace(/\n+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -60,29 +76,35 @@ export default async function WikiFolderPage({
           </Link>
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {pages.map((page) => (
-            <Link
-              key={page.slug}
-              href={wikiPage(decodedFolder, page.slug)}
-              className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
-            >
-              <BookOpen size={16} className="text-gray-400 flex-shrink-0" />
-              <span className="flex-1 text-sm font-medium text-gray-900 truncate">
-                {page.title}
-              </span>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {page.authorName && (
-                  <Avatar name={page.authorName} src={page.authorAvatarUrl ?? undefined} size="sm" title={page.authorName} />
+        <div className="space-y-2">
+          {pages.map((page) => {
+            const excerpt = toExcerpt(page.content);
+            return (
+              <Link
+                key={page.slug}
+                href={wikiPage(decodedFolder, page.slug)}
+                className="block bg-white rounded-2xl border border-gray-200 px-4 py-4 hover:border-blue-300 hover:shadow-sm transition group"
+              >
+                <p className="text-sm font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition">
+                  {page.title}
+                </p>
+                {excerpt && (
+                  <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-2">
+                    {excerpt}
+                  </p>
                 )}
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <Clock size={11} />
-                  {new Date(page.updatedAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
-                </span>
-              </div>
-              <ChevronRight size={14} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
-            </Link>
-          ))}
+                <div className="flex items-center gap-2">
+                  {page.authorName && (
+                    <MemberBadge name={page.authorName} avatarUrl={page.authorAvatarUrl ?? undefined} />
+                  )}
+                  <span className="flex items-center gap-1 text-xs text-gray-400 ml-auto">
+                    <Clock size={11} />
+                    {new Date(page.updatedAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
 

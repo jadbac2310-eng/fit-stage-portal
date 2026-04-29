@@ -5,7 +5,7 @@ import { getWikiPage } from "@/lib/wiki";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { DeleteButton } from "./delete-button";
-import { Avatar } from "@/components/ui/avatar";
+import { MemberBadge } from "@/components/ui/member-badge";
 import { wikiAgent, wikiFolder } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export default async function WikiDetailPage({
         <div className="flex items-center gap-2 mt-3">
           <Link
             href={wikiAgent({ edit: page.slug, folder: decodedFolder })}
-            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 border border-blue-300 hover:border-blue-400 px-3 py-1.5 rounded-lg transition"
           >
             <Bot size={13} /> エージェントで編集
           </Link>
@@ -49,10 +49,7 @@ export default async function WikiDetailPage({
             </span>
           )}
           {page.authorName && (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <Avatar name={page.authorName} src={page.authorAvatarUrl ?? undefined} size="sm" />
-              {page.authorName}
-            </span>
+            <MemberBadge name={page.authorName} avatarUrl={page.authorAvatarUrl ?? undefined} />
           )}
           <span className="flex items-center gap-1 text-xs text-gray-400">
             <Clock size={11} />

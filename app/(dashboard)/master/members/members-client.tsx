@@ -118,7 +118,7 @@ function PasswordSection({ isEdit, hasPassword }: { isEdit: boolean; hasPassword
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
           <Lock size={12} /> {isEdit ? "新しいパスワード" : "パスワード"}
-          {!isEdit && <span className="text-gray-400 font-normal">（任意）</span>}
+          {!isEdit && <span className="text-red-500 ml-0.5">*</span>}
         </label>
         {isEdit && (
           <button
@@ -131,7 +131,7 @@ function PasswordSection({ isEdit, hasPassword }: { isEdit: boolean; hasPassword
         )}
       </div>
       <div>
-        <PasswordInput name="password" placeholder={isEdit ? "新しいパスワード" : "パスワード（省略可）"} />
+        <PasswordInput name="password" placeholder={isEdit ? "新しいパスワード" : "パスワード"} />
         {/* 値追跡用の隠れinputは使わず、直接formDataから取得 */}
       </div>
       <div>
@@ -170,6 +170,10 @@ function MemberForm({
   async function handleSubmit(fd: FormData) {
     const pw = (fd.get("password") as string)?.trim();
     const pc = (fd.get("passwordConfirm") as string)?.trim();
+    if (!isEdit && !pw) {
+      setError("パスワードは必須です");
+      return;
+    }
     if (pw && pw !== pc) {
       setError("パスワードが一致しません");
       return;
@@ -201,10 +205,11 @@ function MemberForm({
 
       <div>
         <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-          <Briefcase size={12} /> 役割
+          <Briefcase size={12} /> 役割 <span className="text-red-500">*</span>
         </label>
         <input
           name="role"
+          required
           defaultValue={defaultValues?.role}
           placeholder="トレーナー、マネージャー など"
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -213,11 +218,12 @@ function MemberForm({
 
       <div>
         <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-          <Mail size={12} /> メールアドレス
+          <Mail size={12} /> メールアドレス <span className="text-red-500">*</span>
         </label>
         <input
           name="email"
           type="email"
+          required
           defaultValue={defaultValues?.email}
           placeholder="example@fitstage.jp"
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -323,7 +329,7 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-sm transition-shadow">
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-        <Avatar name={member.name} src={member.avatarUrl} size="lg" />
+        <Avatar name={member.name} src={member.avatarUrl} size="xl" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900 leading-snug">{member.name}</p>
           {member.role && <p className="text-xs text-blue-600 font-medium mt-0.5">{member.role}</p>}
@@ -342,16 +348,6 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
               <ShieldCheck size={11} /> 管理者
             </span>
           )}
-          {member.authUserId
-            ? (
-              <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">
-                <KeyRound size={11} /> ログイン可
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-                <Lock size={11} /> 未設定
-              </span>
-            )}
         </div>
       </div>
 
@@ -359,7 +355,7 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
         {(isAdmin || member.id === currentMemberId) && (
           <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-600 transition py-1 px-2 rounded-lg hover:bg-blue-50"
+            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-blue-600 font-medium bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition"
           >
             <Pencil size={11} /> 編集
           </button>
@@ -368,7 +364,7 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 disabled:text-red-400 transition py-1 px-2 rounded-lg hover:bg-red-50 ml-auto"
+            className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 disabled:text-red-400 font-medium bg-red-50 hover:bg-red-100 border border-red-300 px-3 py-1.5 rounded-lg transition ml-auto"
           >
             {deleting ? <><Spinner size={11} /> 削除中...</> : <><Trash2 size={11} /> 削除</>}
           </button>

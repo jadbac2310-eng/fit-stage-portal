@@ -6,7 +6,7 @@ import { Todo, Priority } from "@/lib/todos";
 import { Member } from "@/lib/members";
 import { createTodo, toggleTodoAction, deleteTodoAction, updateTodoAction } from "./actions";
 import { cn } from "@/lib/cn";
-import { Avatar } from "@/components/ui/avatar";
+import { MemberBadge } from "@/components/ui/member-badge";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -296,20 +296,12 @@ function TodoDetailModal({
               {/* メタ情報 */}
               <div className="mb-5">
                 {metaRow("担当者",
-                  todo.assignedTo ? (
-                    <span className="flex items-center gap-1.5">
-                      <Avatar name={todo.assignedTo.name} src={todo.assignedTo.avatarUrl} size="sm" />
-                      {todo.assignedTo.name}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">未割り当て</span>
-                  )
+                  todo.assignedTo
+                    ? <MemberBadge name={todo.assignedTo.name} avatarUrl={todo.assignedTo.avatarUrl} />
+                    : <span className="text-gray-400">未割り当て</span>
                 )}
                 {todo.createdBy && metaRow("作成者",
-                  <span className="flex items-center gap-1.5">
-                    <Avatar name={todo.createdBy.name} src={todo.createdBy.avatarUrl} size="sm" />
-                    {todo.createdBy.name}
-                  </span>
+                  <MemberBadge name={todo.createdBy.name} avatarUrl={todo.createdBy.avatarUrl} />
                 )}
                 {metaRow("作成日",
                   <span className="text-gray-500">
@@ -326,10 +318,7 @@ function TodoDetailModal({
                   </span>
                 )}
                 {todo.completedBy && metaRow("完了者",
-                  <span className="flex items-center gap-1.5 text-green-600">
-                    <Avatar name={todo.completedBy.name} src={todo.completedBy.avatarUrl} size="sm" />
-                    {todo.completedBy.name}
-                  </span>
+                  <MemberBadge name={todo.completedBy.name} avatarUrl={todo.completedBy.avatarUrl} className="text-green-600" />
                 )}
               </div>
 
@@ -415,19 +404,15 @@ function TodoCard({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 
           <div className="flex items-center gap-x-3 mt-2 flex-wrap">
             {todo.assignedTo ? (
-              <span className="flex items-center gap-1 text-xs text-gray-600">
+              <span className="flex items-center gap-1 text-xs">
                 <span className="text-gray-400">担当:</span>
-                <Avatar name={todo.assignedTo.name} src={todo.assignedTo.avatarUrl} size="sm" />
-                {todo.assignedTo.name}
+                <MemberBadge name={todo.assignedTo.name} avatarUrl={todo.assignedTo.avatarUrl} className="text-gray-600" />
               </span>
             ) : (
               <span className="text-xs text-gray-300">担当: 未割り当て</span>
             )}
             {todo.completed && todo.completedBy && (
-              <span className="text-xs text-green-600 flex items-center gap-1">
-                <Avatar name={todo.completedBy.name} src={todo.completedBy.avatarUrl} size="sm" />
-                {todo.completedBy.name}が完了
-              </span>
+              <MemberBadge name={todo.completedBy.name} avatarUrl={todo.completedBy.avatarUrl} suffix="が完了" className="text-green-600" />
             )}
             <span className="text-xs text-gray-400 ml-auto">
               {todo.completed && todo.completedAt

@@ -3,6 +3,7 @@ import {
   CheckSquare,
   Database,
   Users,
+  Image,
   BookOpen,
   type LucideIcon,
 } from "lucide-react";
@@ -39,6 +40,11 @@ export const NAV_TREE: NavNode[] = [
         label: "担当者マスタ",
         href: "/master/members",
         icon: Users,
+      },
+      {
+        label: "素材マスタ",
+        href: "/master/materials",
+        icon: Image,
       },
     ],
   },

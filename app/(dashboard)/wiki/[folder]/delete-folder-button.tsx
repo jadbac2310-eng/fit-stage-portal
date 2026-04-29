@@ -15,9 +15,9 @@ export function DeleteFolderButton({ folder, pageCount }: { folder: string; page
   return (
     <button
       onClick={handleDelete}
-      className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 font-medium bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"
+      className="flex items-center gap-2 text-sm text-red-500 hover:text-red-600 font-semibold bg-red-50 hover:bg-red-100 border border-red-300 px-4 py-2.5 rounded-xl transition"
     >
-      <Trash2 size={13} /> フォルダを削除
+      <Trash2 size={15} /> フォルダを削除
     </button>
   );
 }

@@ -37,7 +37,7 @@ export default async function DashboardPage() {
       iconBg:      "bg-orange-100",
       iconColor:   "text-orange-600",
       label:       "マスタ管理",
-      description: "担当者・各種マスタ",
+      description: "各種マスタデータの管理",
     },
   ];
 

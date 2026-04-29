@@ -6,6 +6,7 @@ const sizeClasses = {
   sm: { wrap: "w-7 h-7",   text: "text-xs",     icon: 14 },
   md: { wrap: "w-9 h-9",   text: "text-sm",     icon: 16 },
   lg: { wrap: "w-12 h-12", text: "text-base",   icon: 20 },
+  xl: { wrap: "w-16 h-16", text: "text-xl",     icon: 26 },
 } as const;
 
 type Size = keyof typeof sizeClasses;
