@@ -175,13 +175,14 @@ export function WikiAgentClient() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const editSlug = searchParams.get("edit") ?? undefined;
+
   useEffect(() => {
-    const editSlug = searchParams.get("edit");
-    if (editSlug) {
-      setInput(`「${editSlug}」のページを編集してください`);
-      textareaRef.current?.focus();
-    }
-  }, [searchParams]);
+    if (!editSlug) return;
+    // 編集モードの場合は自動でエージェントを起動する
+    autoStart(editSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -211,6 +212,80 @@ export function WikiAgentClient() {
         setAttachedFiles((prev) => [...prev, { name: file.name, type: file.type, data, previewUrl }]);
       };
       reader.readAsDataURL(file);
+    }
+  }
+
+  async function autoStart(slug: string) {
+    setLoading(true);
+    const assistantMessage: Message = { role: "assistant", parts: [] };
+    setMessages([assistantMessage]);
+
+    try {
+      const res = await fetch("/api/wiki/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: "" }], folder: currentFolder, files: [], editSlug: slug }),
+      });
+      if (!res.body) throw new Error("No response body");
+      await streamResponse(res);
+    } catch (e) {
+      setMessages((prev) => {
+        const msgs = [...prev];
+        msgs[msgs.length - 1].parts.push({ kind: "text", text: `エラーが発生しました: ${String(e)}` });
+        return msgs;
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function streamResponse(res: Response) {
+    if (!res.body) return;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          setMessages((prev) => {
+            const msgs = [...prev];
+            const last = { ...msgs[msgs.length - 1], parts: [...msgs[msgs.length - 1].parts] };
+
+            if (event.type === "text") {
+              const lastPart = last.parts[last.parts.length - 1];
+              if (lastPart?.kind === "text") {
+                last.parts[last.parts.length - 1] = { kind: "text", text: lastPart.text + event.text };
+              } else {
+                last.parts.push({ kind: "text", text: event.text });
+              }
+            } else if (event.type === "tool") {
+              last.parts.push({ kind: "tool", name: event.name, input: event.input });
+            } else if (event.type === "tool_result") {
+              const toolIdx = [...last.parts].reverse().findIndex(
+                (p): p is ToolPart => p.kind === "tool" && p.name === event.name && !p.result
+              );
+              if (toolIdx !== -1) {
+                const realIdx = last.parts.length - 1 - toolIdx;
+                last.parts[realIdx] = { ...(last.parts[realIdx] as ToolPart), result: event.result };
+              }
+            } else if (event.type === "done") {
+              router.refresh();
+            }
+
+            msgs[msgs.length - 1] = last;
+            return msgs;
+          });
+        } catch { /* ignore parse errors */ }
+      }
     }
   }
 
@@ -252,56 +327,10 @@ export function WikiAgentClient() {
       const res = await fetch("/api/wiki/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages, folder: currentFolder, files: filesToSend }),
+        body: JSON.stringify({ messages: apiMessages, folder: currentFolder, files: filesToSend, editSlug }),
       });
       if (!res.body) throw new Error("No response body");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line);
-            setMessages((prev) => {
-              const msgs = [...prev];
-              const last = { ...msgs[msgs.length - 1], parts: [...msgs[msgs.length - 1].parts] };
-
-              if (event.type === "text") {
-                const lastPart = last.parts[last.parts.length - 1];
-                if (lastPart?.kind === "text") {
-                  last.parts[last.parts.length - 1] = { kind: "text", text: lastPart.text + event.text };
-                } else {
-                  last.parts.push({ kind: "text", text: event.text });
-                }
-              } else if (event.type === "tool") {
-                last.parts.push({ kind: "tool", name: event.name, input: event.input });
-              } else if (event.type === "tool_result") {
-                const toolIdx = [...last.parts].reverse().findIndex(
-                  (p): p is ToolPart => p.kind === "tool" && p.name === event.name && !p.result
-                );
-                if (toolIdx !== -1) {
-                  const realIdx = last.parts.length - 1 - toolIdx;
-                  last.parts[realIdx] = { ...(last.parts[realIdx] as ToolPart), result: event.result };
-                }
-              } else if (event.type === "done") {
-                router.refresh();
-              }
-
-              msgs[msgs.length - 1] = last;
-              return msgs;
-            });
-          } catch { /* ignore parse errors */ }
-        }
-      }
+      await streamResponse(res);
     } catch (e) {
       setMessages((prev) => {
         const msgs = [...prev];
@@ -319,7 +348,7 @@ export function WikiAgentClient() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-57px)] md:h-[calc(100vh-0px)] max-w-2xl mx-auto">
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
+      <div className="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 space-y-5">
         {messages.length === 0 && (
           <div className="text-center py-16">
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">

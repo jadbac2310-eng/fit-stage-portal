@@ -167,14 +167,14 @@ function buildUserContent(text: string, files: ApiFile[]): Anthropic.ContentBloc
 }
 
 export async function POST(request: NextRequest) {
-  const { messages, folder, files = [] } = await request.json();
+  const { messages, folder, files = [], editSlug } = await request.json();
   const { data: { user } } = await (await createAuthClient()).auth.getUser();
   const currentUserId = user?.id;
   const encoder = new TextEncoder();
 
-  const systemPrompt = folder
-    ? `${SYSTEM}\n\n## 現在のコンテキスト\n操作対象フォルダ：「${folder}」\nこのセッションで作成するページは特に指定がない限り「${folder}」フォルダに作成してください。`
-    : SYSTEM;
+  let systemPrompt = SYSTEM;
+  if (folder)   systemPrompt += `\n\n## 現在のコンテキスト\n操作対象フォルダ：「${folder}」\nこのセッションで作成するページは特に指定がない限り「${folder}」フォルダに作成してください。`;
+  if (editSlug) systemPrompt += `\n\n## 編集対象ページ\nslug「${editSlug}」のページを編集するセッションです。まず get_page でページ内容を読み込み、ユーザーの指示に従って更新してください。`;
 
   const stream = new ReadableStream({
     async start(controller) {

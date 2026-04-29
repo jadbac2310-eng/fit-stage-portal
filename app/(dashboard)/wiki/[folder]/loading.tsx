@@ -10,22 +10,21 @@ export default function WikiFolderLoading() {
             <Skeleton className="h-7 w-40 mb-1.5" />
             <Skeleton className="h-4 w-24" />
           </div>
-          <div className="hidden md:flex items-center gap-2">
-            <Skeleton className="h-10 w-40 rounded-xl" />
-          </div>
+          <Skeleton className="hidden md:block h-10 w-44 rounded-xl" />
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3">
-            <Skeleton className="w-4 h-4 flex-shrink-0" />
-            <Skeleton className="flex-1 h-4" />
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Skeleton className="w-5 h-5 rounded-full" />
-              <Skeleton className="w-10 h-3" />
+          <div key={i} className="bg-white rounded-2xl border border-gray-200 px-4 py-4">
+            <Skeleton className="h-4 w-3/4 mb-2" />
+            <Skeleton className="h-3 w-full mb-1" />
+            <Skeleton className="h-3 w-2/3 mb-3" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="w-7 h-7 rounded-full flex-shrink-0" />
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-12 ml-auto" />
             </div>
-            <Skeleton className="w-4 h-4 flex-shrink-0" />
           </div>
         ))}
       </div>

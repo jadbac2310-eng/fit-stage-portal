@@ -10,6 +10,12 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "FIT STAGE ポータル",
   description: "FIT STAGE ポータル",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FIT STAGE",
+  },
 };
 
 export const viewport: Viewport = {

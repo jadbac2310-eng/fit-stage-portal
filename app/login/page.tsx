@@ -44,7 +44,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Image
-            src="/logo.png"
+            src="/title.png"
             alt="FIT STAGE"
             width={180}
             height={62}
