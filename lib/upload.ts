@@ -26,7 +26,8 @@ export async function saveMaterialImage(
 
   if (error) return null;
 
-  return supabase.storage.from(MATERIAL_BUCKET).getPublicUrl(path).data.publicUrl;
+  const { publicUrl } = supabase.storage.from(MATERIAL_BUCKET).getPublicUrl(path).data;
+  return `${publicUrl}?t=${Date.now()}`;
 }
 
 export async function deleteMaterialImage(imageUrl: string): Promise<void> {
@@ -55,7 +56,8 @@ export async function saveMemberAvatar(
 
   if (error) return null;
 
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const { publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(path).data;
+  return `${publicUrl}?t=${Date.now()}`;
 }
 
 export async function deleteMemberAvatar(avatarUrl: string): Promise<void> {

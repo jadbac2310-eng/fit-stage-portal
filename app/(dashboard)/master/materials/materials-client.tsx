@@ -1,7 +1,6 @@
 "use client";
 
 import { ReactNode, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X,
   Image as ImageIcon, FileText, ChevronLeft, ChevronRight,
@@ -82,13 +81,11 @@ function MaterialForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(fd: FormData) {
     setLoading(true);
     await action(fd);
-    router.refresh();
     onClose();
   }
 
@@ -155,7 +152,6 @@ function MaterialCard({
   isAdmin: boolean;
   onEdit: (m: Material) => void;
 }) {
-  const router = useRouter();
   const [deleting, setDeleting] = useState(false);
 
   async function handleDelete() {
@@ -163,7 +159,6 @@ function MaterialCard({
     setDeleting(true);
     try {
       await deleteMaterialAction(material.id);
-      router.refresh();
     } catch {
       setDeleting(false);
     }
