@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Cell, Legend,
   BarChart, Bar,
 } from "recharts";
+import type { PieLabelRenderProps } from "recharts";
 import type { DailyPageViewRow, TrafficSourceRow, PageViewRow } from "@/lib/analytics";
 
 // ---- 色定義 ----
@@ -53,15 +54,14 @@ export function DailyTrendChart({ data }: { data: DailyPageViewRow[] }) {
 // ---- 流入元 円グラフ ----
 const renderCustomLabel = ({
   cx, cy, midAngle, innerRadius, outerRadius, percent,
-}: {
-  cx: number; cy: number; midAngle: number;
-  innerRadius: number; outerRadius: number; percent: number;
-}) => {
-  if (percent < 0.06) return null;
+}: PieLabelRenderProps) => {
+  if (!percent || percent < 0.06) return null;
   const RADIAN = Math.PI / 180;
-  const r  = innerRadius + (outerRadius - innerRadius) * 0.55;
-  const x  = cx + r * Math.cos(-midAngle * RADIAN);
-  const y  = cy + r * Math.sin(-midAngle * RADIAN);
+  const ir = Number(innerRadius);
+  const or = Number(outerRadius);
+  const r  = ir + (or - ir) * 0.55;
+  const x  = Number(cx) + r * Math.cos(-Number(midAngle) * RADIAN);
+  const y  = Number(cy) + r * Math.sin(-Number(midAngle) * RADIAN);
   return (
     <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
       {`${Math.round(percent * 100)}%`}
