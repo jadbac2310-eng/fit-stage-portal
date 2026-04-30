@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X,
   Image as ImageIcon, FileText, ChevronLeft, ChevronRight,
@@ -157,11 +158,7 @@ function MaterialCard({
   async function handleDelete() {
     if (!confirm(`「${material.name}」を削除しますか？`)) return;
     setDeleting(true);
-    try {
-      await deleteMaterialAction(material.id);
-    } catch {
-      setDeleting(false);
-    }
+    await deleteMaterialAction(material.id);
   }
 
   return (

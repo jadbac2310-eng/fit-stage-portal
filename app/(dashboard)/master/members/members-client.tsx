@@ -298,11 +298,7 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
   async function handleDelete() {
     if (!confirm(`「${member.name}」を削除しますか？`)) return;
     setDeleting(true);
-    try {
-      await deleteMemberAction(member.id);
-    } catch {
-      setDeleting(false);
-    }
+    await deleteMemberAction(member.id);
   }
 
   if (editing) {
