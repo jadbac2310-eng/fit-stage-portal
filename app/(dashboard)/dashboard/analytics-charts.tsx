@@ -34,7 +34,7 @@ export function DailyTrendChart({ data }: { data: DailyPageViewRow[] }) {
           />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-            formatter={(v: number) => [v.toLocaleString(), "PV"]}
+            formatter={(v) => [Number(v).toLocaleString(), "PV"]}
           />
           <Line
             type="monotone"
@@ -100,7 +100,7 @@ export function TrafficPieChart({ data }: { data: TrafficSourceRow[] }) {
           />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-            formatter={(v: number) => [v.toLocaleString(), "セッション"]}
+            formatter={(v) => [Number(v).toLocaleString(), "セッション"]}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -146,7 +146,7 @@ export function PopularPagesChart({ data }: { data: PageViewRow[] }) {
           />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-            formatter={(v: number) => [v.toLocaleString(), "PV"]}
+            formatter={(v) => [Number(v).toLocaleString(), "PV"]}
             cursor={{ fill: "#f9fafb" }}
           />
           <Bar dataKey="views" fill="#3b82f6" radius={[0, 4, 4, 0]} />
