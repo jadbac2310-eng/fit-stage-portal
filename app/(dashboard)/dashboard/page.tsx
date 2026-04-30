@@ -8,7 +8,6 @@ import {
   getPopularPages,
   getTrafficSources,
   getDeviceBreakdown,
-  getRealtimeUsers,
   getDailyPageViews,
   getAnalyticsDiagnostic,
 } from "@/lib/analytics";
@@ -23,14 +22,13 @@ const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ s
 };
 
 export default async function DashboardPage() {
-  const [todos, currentMember, popularPages, trafficSources, deviceBreakdown, realtimeUsers, dailyPageViews, analyticsError] =
+  const [todos, currentMember, popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError] =
     await Promise.all([
       getTodos(),
       getCurrentMember(),
       getPopularPages(28, 5),
       getTrafficSources(28, 6),
       getDeviceBreakdown(28),
-      getRealtimeUsers(),
       getDailyPageViews(28),
       getAnalyticsDiagnostic(),
     ]);
@@ -71,20 +69,9 @@ export default async function DashboardPage() {
 
       {(dailyPageViews.length > 0 || trafficSources.length > 0 || popularPages.length > 0) && (
         <>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-              サイト分析 <span className="normal-case font-normal text-gray-300">（過去28日間）</span>
-            </h2>
-            {realtimeUsers > 0 && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-                </span>
-                現在 {realtimeUsers} 人が閲覧中
-              </span>
-            )}
-          </div>
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+            サイト分析 <span className="normal-case font-normal text-gray-300">（過去28日間）</span>
+          </h2>
 
           {dailyPageViews.length > 0 && <DailyTrendChart data={dailyPageViews} />}
           {trafficSources.length > 0 && <TrafficPieChart data={trafficSources} />}
