@@ -3,7 +3,7 @@
 import { ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Pencil, Trash2, X,
+  Plus, Pencil, Trash2, X, Download,
   Image as ImageIcon, FileText, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Material } from "@/lib/materials";
@@ -161,6 +161,18 @@ function MaterialCard({
     await deleteMaterialAction(material.id);
   }
 
+  async function handleDownload() {
+    const res  = await fetch(material.imageUrl);
+    const blob = await res.blob();
+    const ext  = material.imageUrl.split("?")[0].split(".").pop() ?? "jpg";
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `${material.name}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:shadow-sm transition-shadow flex flex-col">
       <div className="aspect-square bg-gray-100 overflow-hidden">
@@ -183,6 +195,12 @@ function MaterialCard({
       </div>
 
       <div className="px-3 pb-3 flex items-center gap-1.5 flex-wrap">
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 px-2.5 py-1.5 rounded-lg transition"
+        >
+          <Download size={11} /> DL
+        </button>
         {isAdmin && (
           <>
             <button
