@@ -156,6 +156,28 @@ export async function getDailyPageViews(days = 28): Promise<DailyPageViewRow[]> 
   }
 }
 
+export async function getAnalyticsDiagnostic(): Promise<string | null> {
+  try {
+    const token = await getToken();
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${process.env.GA4_PROPERTY_ID}:runReport`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
+          metrics:    [{ name: "activeUsers" }],
+        }),
+      }
+    );
+    const data = await res.json();
+    if (data.error) return JSON.stringify(data.error, null, 2);
+    return null;
+  } catch (e) {
+    return String(e);
+  }
+}
+
 export async function getRealtimeUsers(): Promise<number> {
   try {
     const token = await getToken();

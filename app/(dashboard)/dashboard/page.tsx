@@ -10,6 +10,7 @@ import {
   getDeviceBreakdown,
   getRealtimeUsers,
   getDailyPageViews,
+  getAnalyticsDiagnostic,
 } from "@/lib/analytics";
 import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "./analytics-charts";
 
@@ -22,7 +23,7 @@ const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ s
 };
 
 export default async function DashboardPage() {
-  const [todos, currentMember, popularPages, trafficSources, deviceBreakdown, realtimeUsers, dailyPageViews] =
+  const [todos, currentMember, popularPages, trafficSources, deviceBreakdown, realtimeUsers, dailyPageViews, analyticsError] =
     await Promise.all([
       getTodos(),
       getCurrentMember(),
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
       getDeviceBreakdown(28),
       getRealtimeUsers(),
       getDailyPageViews(28),
+      getAnalyticsDiagnostic(),
     ]);
 
   const myPendingCount    = todos.filter((t) => !t.completed && t.assignedTo?.id === currentMember?.id).length;
@@ -60,6 +62,13 @@ export default async function DashboardPage() {
       </div>
 
       {/* Google Analytics */}
+      {analyticsError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+          <p className="text-xs font-bold text-red-600 mb-2">GA4 エラー</p>
+          <pre className="text-xs text-red-500 whitespace-pre-wrap break-all">{analyticsError}</pre>
+        </div>
+      )}
+
       {(dailyPageViews.length > 0 || trafficSources.length > 0 || popularPages.length > 0) && (
         <>
           <div className="flex items-center justify-between mb-3">
