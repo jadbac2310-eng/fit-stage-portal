@@ -30,7 +30,7 @@ async function getToken(): Promise<string> {
   const auth = new GoogleAuth({
     credentials: {
       client_email: process.env.GA4_CLIENT_EMAIL!,
-      private_key:  process.env.GA4_PRIVATE_KEY!,
+      private_key:  process.env.GA4_PRIVATE_KEY!.replace(/\\n/g, "\n"),
     },
     scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
   });
