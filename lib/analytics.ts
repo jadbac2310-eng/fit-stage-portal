@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 export interface AnalyticsSummary {
   activeUsers: number;
   sessions:    number;
@@ -77,7 +79,7 @@ export async function getAnalyticsSummary(days = 7): Promise<AnalyticsSummary | 
   }
 }
 
-export async function getPopularPages(days = 7, limit = 5): Promise<PageViewRow[]> {
+async function fetchPopularPages(days = 7, limit = 5): Promise<PageViewRow[]> {
   try {
     const data = await runReport({
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
@@ -97,7 +99,7 @@ export async function getPopularPages(days = 7, limit = 5): Promise<PageViewRow[
   }
 }
 
-export async function getTrafficSources(days = 7, limit = 5): Promise<TrafficSourceRow[]> {
+async function fetchTrafficSources(days = 7, limit = 5): Promise<TrafficSourceRow[]> {
   try {
     const data = await runReport({
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
@@ -117,7 +119,7 @@ export async function getTrafficSources(days = 7, limit = 5): Promise<TrafficSou
   }
 }
 
-export async function getDeviceBreakdown(days = 7): Promise<DeviceRow[]> {
+async function fetchDeviceBreakdown(days = 7): Promise<DeviceRow[]> {
   try {
     const data = await runReport({
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
@@ -136,7 +138,7 @@ export async function getDeviceBreakdown(days = 7): Promise<DeviceRow[]> {
   }
 }
 
-export async function getDailyPageViews(days = 28): Promise<DailyPageViewRow[]> {
+async function fetchDailyPageViews(days = 28): Promise<DailyPageViewRow[]> {
   try {
     const data = await runReport({
       dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
@@ -156,28 +158,38 @@ export async function getDailyPageViews(days = 28): Promise<DailyPageViewRow[]> 
   }
 }
 
-export async function getAnalyticsDiagnostic(): Promise<string | null> {
-  try {
-    const token = await getToken();
-    const res = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${process.env.GA4_PROPERTY_ID}:runReport`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
-          metrics:    [{ name: "activeUsers" }],
-        }),
-      }
-    );
-    const data = await res.json();
-    if (data.error) return JSON.stringify(data.error, null, 2);
-    return null;
-  } catch (e) {
-    return String(e);
-  }
-}
+// 1時間キャッシュ（リアルタイム以外）
+export const getPopularPages    = unstable_cache(fetchPopularPages,    ["ga4-popular-pages"],    { revalidate: 3600 });
+export const getTrafficSources  = unstable_cache(fetchTrafficSources,  ["ga4-traffic-sources"],  { revalidate: 3600 });
+export const getDeviceBreakdown = unstable_cache(fetchDeviceBreakdown, ["ga4-device-breakdown"], { revalidate: 3600 });
+export const getDailyPageViews  = unstable_cache(fetchDailyPageViews,  ["ga4-daily-pageviews"],  { revalidate: 3600 });
+export const getAnalyticsDiagnostic = unstable_cache(
+  async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/properties/${process.env.GA4_PROPERTY_ID}:runReport`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
+            metrics:    [{ name: "activeUsers" }],
+          }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) return JSON.stringify(data.error, null, 2);
+      return null;
+    } catch (e) {
+      return String(e);
+    }
+  },
+  ["ga4-diagnostic"],
+  { revalidate: 300 }
+);
 
+// リアルタイムはキャッシュしない
 export async function getRealtimeUsers(): Promise<number> {
   try {
     const token = await getToken();
