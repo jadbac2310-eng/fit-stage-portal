@@ -1,45 +1,41 @@
-import Link from "next/link";
-import { CheckSquare, ArrowRight, Database, BookOpen } from "lucide-react";
+import {
+  MonitorSmartphone,
+  Smartphone, Monitor, Tablet,
+} from "lucide-react";
 import { getTodos } from "@/lib/todos";
 import { getCurrentMember } from "@/lib/members";
+import {
+  getPopularPages,
+  getTrafficSources,
+  getDeviceBreakdown,
+  getRealtimeUsers,
+  getDailyPageViews,
+} from "@/lib/analytics";
+import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "./analytics-charts";
 
 export const dynamic = "force-dynamic";
 
+const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ size: number; className: string }> }> = {
+  mobile:  { label: "スマートフォン", Icon: Smartphone },
+  desktop: { label: "デスクトップ",   Icon: Monitor },
+  tablet:  { label: "タブレット",     Icon: Tablet },
+};
+
 export default async function DashboardPage() {
-  const [todos, currentMember] = await Promise.all([
-    getTodos(),
-    getCurrentMember(),
-  ]);
+  const [todos, currentMember, popularPages, trafficSources, deviceBreakdown, realtimeUsers, dailyPageViews] =
+    await Promise.all([
+      getTodos(),
+      getCurrentMember(),
+      getPopularPages(28, 5),
+      getTrafficSources(28, 6),
+      getDeviceBreakdown(28),
+      getRealtimeUsers(),
+      getDailyPageViews(28),
+    ]);
 
   const myPendingCount    = todos.filter((t) => !t.completed && t.assignedTo?.id === currentMember?.id).length;
   const totalPendingCount = todos.filter((t) => !t.completed).length;
-
-  const sections = [
-    {
-      href:        "/todo",
-      icon:        CheckSquare,
-      iconBg:      "bg-blue-100",
-      iconColor:   "text-blue-600",
-      label:       "タスク",
-      description: "タスク管理",
-    },
-    {
-      href:        "/wiki",
-      icon:        BookOpen,
-      iconBg:      "bg-green-100",
-      iconColor:   "text-green-600",
-      label:       "Wiki",
-      description: "社内ナレッジベース",
-    },
-    {
-      href:        "/master",
-      icon:        Database,
-      iconBg:      "bg-orange-100",
-      iconColor:   "text-orange-600",
-      label:       "マスタ管理",
-      description: "各種マスタデータの管理",
-    },
-  ];
+  const deviceTotal       = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
@@ -48,6 +44,10 @@ export default async function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
 
+      {/* タスク概要 */}
+      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+        タスク
+      </h2>
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs font-medium text-gray-500 mb-1">自分の未対応</p>
@@ -59,31 +59,59 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-        メニュー
-      </h2>
+      {/* Google Analytics */}
+      {(dailyPageViews.length > 0 || trafficSources.length > 0 || popularPages.length > 0) && (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              サイト分析 <span className="normal-case font-normal text-gray-300">（過去28日間）</span>
+            </h2>
+            {realtimeUsers > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-600">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+                現在 {realtimeUsers} 人が閲覧中
+              </span>
+            )}
+          </div>
 
-      <div className="space-y-2">
-        {sections.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Link
-              key={s.href}
-              href={s.href}
-              className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
-            >
-              <div className={`w-10 h-10 ${s.iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                <Icon size={20} className={s.iconColor} />
+          {dailyPageViews.length > 0 && <DailyTrendChart data={dailyPageViews} />}
+          {trafficSources.length > 0 && <TrafficPieChart data={trafficSources} />}
+          {popularPages.length > 0 && <PopularPagesChart data={popularPages} />}
+
+          {deviceBreakdown.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <MonitorSmartphone size={14} className="text-gray-400" />
+                <p className="text-xs font-bold text-gray-500">デバイス別</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 text-sm">{s.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{s.description}</p>
+              <div className="space-y-2.5">
+                {deviceBreakdown.map((d) => {
+                  const meta = DEVICE_META[d.device];
+                  const pct  = deviceTotal > 0 ? Math.round((d.sessions / deviceTotal) * 100) : 0;
+                  const Icon = meta?.Icon;
+                  return (
+                    <div key={d.device}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="flex items-center gap-1 text-xs text-gray-600">
+                          {Icon && <Icon size={11} className="text-gray-400 flex-shrink-0" />}
+                          {meta?.label ?? d.device}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-500">{pct}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
-            </Link>
-          );
-        })}
-      </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
