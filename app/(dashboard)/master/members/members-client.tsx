@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
   Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck,
@@ -162,6 +163,7 @@ function MemberForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState(defaultValues?.name ?? "");
@@ -181,6 +183,7 @@ function MemberForm({
     setError("");
     setLoading(true);
     await action(fd);
+    router.refresh();
     onClose();
   }
 
@@ -291,6 +294,7 @@ function MemberForm({
 // ─── 担当者カード ─────────────────────────────────────
 function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAdmin: boolean; currentMemberId?: string }) {
 
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateMemberAction.bind(null, member.id);
@@ -300,6 +304,7 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
     setDeleting(true);
     try {
       await deleteMemberAction(member.id);
+      router.refresh();
     } catch {
       setDeleting(false);
     }
