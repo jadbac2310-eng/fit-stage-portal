@@ -100,13 +100,13 @@ export function KeywordsClient({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-[36%]">キーワード</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500">ブログ</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">カテゴリ</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">検索Vol.</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">難易度</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500">CPC</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500">競合</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 w-[36%] whitespace-nowrap">キーワード</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">ブログ</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">カテゴリ</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">検索Vol.</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">難易度</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">CPC</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">競合</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -118,8 +118,8 @@ export function KeywordsClient({
                 </tr>
               ) : keywords.map((kw) => (
                 <tr key={kw.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-900">{kw.keyword}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{kw.keyword}</td>
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
                     {kw.article_slug ? (
                       <a
                         href={`https://www.fitstage.jp/blog/${kw.article_slug}`}
@@ -133,23 +133,23 @@ export function KeywordsClient({
                       <span className="text-xs text-gray-300">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     {kw.category ? (
                       <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
                         <Tag size={10} />{kw.category}
                       </span>
                     ) : <span className="text-gray-300">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-700 whitespace-nowrap">
                     {kw.search_volume !== null ? kw.search_volume.toLocaleString() : <span className="text-gray-300">-</span>}
                   </td>
-                  <td className={`px-4 py-3 text-right tabular-nums ${difficultyColor(kw.seo_difficulty)}`}>
+                  <td className={`px-4 py-3 text-right tabular-nums whitespace-nowrap ${difficultyColor(kw.seo_difficulty)}`}>
                     {kw.seo_difficulty !== null ? kw.seo_difficulty : <span className="text-gray-300">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+                  <td className="px-4 py-3 text-right tabular-nums text-gray-700 whitespace-nowrap">
                     {kw.cpc !== null ? `¥${kw.cpc.toFixed(2)}` : <span className="text-gray-300">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-center text-xs">
+                  <td className="px-4 py-3 text-center text-xs whitespace-nowrap">
                     {competitionLabel(kw.competition)}
                   </td>
                 </tr>
