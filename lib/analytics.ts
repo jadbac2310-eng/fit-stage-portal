@@ -1,12 +1,5 @@
 import { unstable_cache } from "next/cache";
 
-export interface AnalyticsSummary {
-  activeUsers: number;
-  sessions:    number;
-  pageViews:   number;
-  newUsers:    number;
-}
-
 export interface PageViewRow {
   path:  string;
   views: number;
@@ -52,31 +45,6 @@ async function runReport(body: object) {
     }
   );
   return res.json();
-}
-
-export async function getAnalyticsSummary(days = 7): Promise<AnalyticsSummary | null> {
-  try {
-    const data = await runReport({
-      dateRanges: [{ startDate: `${days}daysAgo`, endDate: "today" }],
-      metrics: [
-        { name: "activeUsers" },
-        { name: "sessions" },
-        { name: "screenPageViews" },
-        { name: "newUsers" },
-      ],
-    });
-    const row = data.rows?.[0]?.metricValues;
-    if (!row) return null;
-    return {
-      activeUsers: parseInt(row[0]?.value ?? "0"),
-      sessions:    parseInt(row[1]?.value ?? "0"),
-      pageViews:   parseInt(row[2]?.value ?? "0"),
-      newUsers:    parseInt(row[3]?.value ?? "0"),
-    };
-  } catch (e) {
-    console.error("[GA4]", e);
-    return null;
-  }
 }
 
 async function fetchPopularPages(days = 7, limit = 5): Promise<PageViewRow[]> {
@@ -189,22 +157,3 @@ export const getAnalyticsDiagnostic = unstable_cache(
   { revalidate: 300 }
 );
 
-// リアルタイムはキャッシュしない
-export async function getRealtimeUsers(): Promise<number> {
-  try {
-    const token = await getToken();
-    const res = await fetch(
-      `https://analyticsdata.googleapis.com/v1beta/properties/${process.env.GA4_PROPERTY_ID}:runRealtimeReport`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ metrics: [{ name: "activeUsers" }] }),
-      }
-    );
-    const data = await res.json();
-    return parseInt(data.rows?.[0]?.metricValues?.[0]?.value ?? "0");
-  } catch (e) {
-    console.error("[GA4]", e);
-    return 0;
-  }
-}

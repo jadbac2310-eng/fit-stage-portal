@@ -6,17 +6,13 @@ import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { cn } from "@/lib/cn";
 
-type DynamicNavItem = { label: string; href: string; children?: DynamicNavItem[] };
-
 export function DrawerLayout({
   userName,
   avatarUrl,
-  wikiNavItems = [],
   children,
 }: {
   userName?: string;
   avatarUrl?: string;
-  wikiNavItems?: DynamicNavItem[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -29,7 +25,7 @@ export function DrawerLayout({
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* デスクトップ: 常時表示サイドバー */}
-      <Sidebar userName={userName} avatarUrl={avatarUrl} wikiNavItems={wikiNavItems} />
+      <Sidebar userName={userName} avatarUrl={avatarUrl} />
 
       {/* モバイル: ドロワー背景 */}
       <div
@@ -50,7 +46,6 @@ export function DrawerLayout({
         <Sidebar
           userName={userName}
           avatarUrl={avatarUrl}
-          wikiNavItems={wikiNavItems}
           mobile
           onClose={() => setOpen(false)}
         />
