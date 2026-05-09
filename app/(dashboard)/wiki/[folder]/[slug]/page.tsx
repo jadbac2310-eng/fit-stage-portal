@@ -41,7 +41,7 @@ export default async function WikiDetailPage({
             <Bot size={13} /> エージェントで編集
           </Link>
           {isAdmin && <DeleteButton slug={page.slug} folder={decodedFolder} title={page.title} />}
-          <ShareButtons title={page.title} />
+          <ShareButtons title={page.title} content={page.content} />
         </div>
 
         <div className="flex items-center gap-3 mt-2 flex-wrap">

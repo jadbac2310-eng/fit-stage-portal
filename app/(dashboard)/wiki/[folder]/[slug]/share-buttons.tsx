@@ -1,14 +1,15 @@
 "use client";
 
-import { Check, Copy, MessageCircle, Share2 } from "lucide-react";
+import { Check, Copy, Share2 } from "lucide-react";
 import { useState } from "react";
 
 type ShareButtonsProps = {
   title: string;
+  content: string;
 };
 
-export function ShareButtons({ title }: ShareButtonsProps) {
-  const [copied, setCopied] = useState(false);
+export function ShareButtons({ title, content }: ShareButtonsProps) {
+  const [copiedArticle, setCopiedArticle] = useState(false);
 
   function getUrl() {
     return window.location.href;
@@ -23,19 +24,15 @@ export function ShareButtons({ title }: ShareButtonsProps) {
     await copyUrl(url);
   }
 
-  async function handleCopy() {
-    await copyUrl(getUrl());
+  async function handleCopyArticle() {
+    const articleText = `# ${title}\n\n${content}`.trim();
+    await navigator.clipboard.writeText(articleText);
+    setCopiedArticle(true);
+    window.setTimeout(() => setCopiedArticle(false), 1800);
   }
 
   async function copyUrl(url: string) {
     await navigator.clipboard.writeText(url);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-
-  function handleLineShare() {
-    const lineShareUrl = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(getUrl())}`;
-    window.open(lineShareUrl, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -49,18 +46,11 @@ export function ShareButtons({ title }: ShareButtonsProps) {
       </button>
       <button
         type="button"
-        onClick={handleLineShare}
-        className="flex items-center gap-1.5 text-xs text-green-700 hover:text-green-800 font-medium bg-green-50 hover:bg-green-100 border border-green-300 hover:border-green-400 px-3 py-1.5 rounded-lg transition"
-      >
-        <MessageCircle size={13} /> LINE
-      </button>
-      <button
-        type="button"
-        onClick={handleCopy}
+        onClick={handleCopyArticle}
         className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 font-medium bg-gray-50 hover:bg-gray-100 border border-gray-300 hover:border-gray-400 px-3 py-1.5 rounded-lg transition"
       >
-        {copied ? <Check size={13} /> : <Copy size={13} />}
-        {copied ? "コピー済み" : "URLコピー"}
+        {copiedArticle ? <Check size={13} /> : <Copy size={13} />}
+        {copiedArticle ? "コピー済み" : "記事コピー"}
       </button>
     </div>
   );
