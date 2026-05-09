@@ -5,6 +5,7 @@ import { getWikiPage } from "@/lib/wiki";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { DeleteButton } from "./delete-button";
+import { ShareButtons } from "./share-buttons";
 import { MemberBadge } from "@/components/ui/member-badge";
 import { wikiAgent, wikiFolder } from "@/lib/paths";
 
@@ -32,7 +33,7 @@ export default async function WikiDetailPage({
 
         <h1 className="text-xl font-bold text-gray-900 leading-snug">{page.title}</h1>
 
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
           <Link
             href={wikiAgent({ edit: page.slug, folder: decodedFolder })}
             className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 border border-blue-300 hover:border-blue-400 px-3 py-1.5 rounded-lg transition"
@@ -40,6 +41,7 @@ export default async function WikiDetailPage({
             <Bot size={13} /> エージェントで編集
           </Link>
           {isAdmin && <DeleteButton slug={page.slug} folder={decodedFolder} title={page.title} />}
+          <ShareButtons title={page.title} />
         </div>
 
         <div className="flex items-center gap-3 mt-2 flex-wrap">
