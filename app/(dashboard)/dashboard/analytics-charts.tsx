@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import type { PieLabelRenderProps } from "recharts";
 import type { DailyPageViewRow, TrafficSourceRow, PageViewRow } from "@/lib/analytics";
+import type { SearchPageRow, SearchQueryRow } from "@/lib/search-console";
 
 // ---- 色定義 ----
 const PIE_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
@@ -152,6 +153,63 @@ export function PopularPagesChart({ data }: { data: PageViewRow[] }) {
           <Bar dataKey="views" fill="#3b82f6" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+const formatPct = (value: number) =>
+  `${Math.round(value * 1000) / 10}%`;
+
+const formatPosition = (value: number) =>
+  value > 0 ? value.toFixed(1) : "-";
+
+const truncateText = (value: string, max = 34) =>
+  value.length > max ? value.slice(0, max - 1) + "..." : value;
+
+export function SearchQueriesTable({ data }: { data: SearchQueryRow[] }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-3">
+      <p className="text-xs font-bold text-gray-500 mb-3">Google検索ワード</p>
+      <div className="space-y-3">
+        {data.map((row) => (
+          <div key={row.query} className="border-b border-gray-100 last:border-0 last:pb-0 pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-semibold text-gray-800 leading-snug">{row.query}</p>
+              <span className="text-xs font-bold text-blue-600 whitespace-nowrap">{row.clicks} clicks</span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400">
+              <span>{row.impressions.toLocaleString()} impressions</span>
+              <span>CTR {formatPct(row.ctr)}</span>
+              <span>平均 {formatPosition(row.position)}位</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SearchPagesTable({ data }: { data: SearchPageRow[] }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
+      <p className="text-xs font-bold text-gray-500 mb-3">Google検索から見られたページ</p>
+      <div className="space-y-3">
+        {data.map((row) => (
+          <div key={row.page} className="border-b border-gray-100 last:border-0 last:pb-0 pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs font-semibold text-gray-700 leading-snug break-all">
+                {truncateText(row.page)}
+              </p>
+              <span className="text-xs font-bold text-blue-600 whitespace-nowrap">{row.clicks} clicks</span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400">
+              <span>{row.impressions.toLocaleString()} impressions</span>
+              <span>CTR {formatPct(row.ctr)}</span>
+              <span>平均 {formatPosition(row.position)}位</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -11,7 +11,18 @@ import {
   getDailyPageViews,
   getAnalyticsDiagnostic,
 } from "@/lib/analytics";
-import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "./analytics-charts";
+import {
+  getSearchQueries,
+  getSearchPages,
+  getSearchConsoleDiagnostic,
+} from "@/lib/search-console";
+import {
+  DailyTrendChart,
+  TrafficPieChart,
+  PopularPagesChart,
+  SearchQueriesTable,
+  SearchPagesTable,
+} from "./analytics-charts";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +33,18 @@ const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ s
 };
 
 export default async function DashboardPage() {
-  const [todos, currentMember, popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError] =
+  const [
+    todos,
+    currentMember,
+    popularPages,
+    trafficSources,
+    deviceBreakdown,
+    dailyPageViews,
+    analyticsError,
+    searchQueries,
+    searchPages,
+    searchConsoleError,
+  ] =
     await Promise.all([
       getTodos(),
       getCurrentMember(),
@@ -31,6 +53,9 @@ export default async function DashboardPage() {
       getDeviceBreakdown(28),
       getDailyPageViews(28),
       getAnalyticsDiagnostic(),
+      getSearchQueries(28, 10),
+      getSearchPages(28, 10),
+      getSearchConsoleDiagnostic(),
     ]);
 
   const myPendingCount    = todos.filter((t) => !t.completed && t.assignedTo?.id === currentMember?.id).length;
@@ -67,7 +92,18 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {(dailyPageViews.length > 0 || trafficSources.length > 0 || popularPages.length > 0) && (
+      {searchConsoleError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+          <p className="text-xs font-bold text-amber-700 mb-2">Search Console エラー</p>
+          <pre className="text-xs text-amber-600 whitespace-pre-wrap break-all">{searchConsoleError}</pre>
+        </div>
+      )}
+
+      {(dailyPageViews.length > 0 ||
+        trafficSources.length > 0 ||
+        popularPages.length > 0 ||
+        searchQueries.length > 0 ||
+        searchPages.length > 0) && (
         <>
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
             サイト分析 <span className="normal-case font-normal text-gray-300">（過去28日間）</span>
@@ -76,6 +112,8 @@ export default async function DashboardPage() {
           {dailyPageViews.length > 0 && <DailyTrendChart data={dailyPageViews} />}
           {trafficSources.length > 0 && <TrafficPieChart data={trafficSources} />}
           {popularPages.length > 0 && <PopularPagesChart data={popularPages} />}
+          {searchQueries.length > 0 && <SearchQueriesTable data={searchQueries} />}
+          {searchPages.length > 0 && <SearchPagesTable data={searchPages} />}
 
           {deviceBreakdown.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
