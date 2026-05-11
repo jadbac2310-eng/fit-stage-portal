@@ -24,6 +24,19 @@ type SearchConsoleRow = {
   position?: number;
 };
 
+type GoogleApiError = {
+  code?: number;
+  message?: string;
+  status?: string;
+  details?: Array<{
+    reason?: string;
+    metadata?: {
+      activationUrl?: string;
+      serviceTitle?: string;
+    };
+  }>;
+};
+
 const DEFAULT_SITE_URL = "https://www.fitstage.jp/";
 
 function formatDate(date: Date) {
@@ -65,9 +78,33 @@ async function runSearchAnalytics(body: object) {
   );
   const data = await res.json();
   if (!res.ok || data.error) {
-    throw new Error(JSON.stringify(data.error ?? data, null, 2));
+    throw new Error(formatSearchConsoleError(data.error ?? data));
   }
   return data;
+}
+
+function formatSearchConsoleError(error: GoogleApiError) {
+  const serviceDisabled = error.details?.some((detail) => detail.reason === "SERVICE_DISABLED");
+  const activationUrl = error.details?.find((detail) => detail.metadata?.activationUrl)?.metadata?.activationUrl;
+
+  if (serviceDisabled) {
+    return [
+      "Google Search Console API が無効です。",
+      "Google Cloud Consoleで Search Console API を有効化してください。",
+      activationUrl ? `有効化URL: ${activationUrl}` : null,
+      "有効化後、反映まで数分かかることがあります。",
+    ].filter(Boolean).join("\n");
+  }
+
+  if (error.code === 403 || error.status === "PERMISSION_DENIED") {
+    return [
+      "Search Console の閲覧権限がありません。",
+      "GA4_CLIENT_EMAIL のサービスアカウントを Search Console の https://www.fitstage.jp/ プロパティに追加してください。",
+      error.message ? `詳細: ${error.message}` : null,
+    ].filter(Boolean).join("\n");
+  }
+
+  return error.message ?? JSON.stringify(error, null, 2);
 }
 
 async function fetchSearchQueries(days = 28, limit = 10): Promise<SearchQueryRow[]> {
