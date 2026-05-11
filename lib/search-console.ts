@@ -24,6 +24,8 @@ type SearchConsoleRow = {
   position?: number;
 };
 
+const DEFAULT_SITE_URL = "https://www.fitstage.jp/";
+
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
@@ -51,12 +53,8 @@ async function getToken(): Promise<string> {
 }
 
 async function runSearchAnalytics(body: object) {
-  if (!process.env.SEARCH_CONSOLE_SITE_URL) {
-    throw new Error("SEARCH_CONSOLE_SITE_URL is not set.");
-  }
-
   const token = await getToken();
-  const siteUrl = encodeURIComponent(process.env.SEARCH_CONSOLE_SITE_URL);
+  const siteUrl = encodeURIComponent(process.env.SEARCH_CONSOLE_SITE_URL ?? DEFAULT_SITE_URL);
   const res = await fetch(
     `https://www.googleapis.com/webmasters/v3/sites/${siteUrl}/searchAnalytics/query`,
     {
