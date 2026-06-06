@@ -18,14 +18,22 @@ export interface Lesson {
   updatedAt: string;
 }
 
-export const PAYMENT_LABEL: Record<LessonPaymentType, string> = {
-  monthly:      "月会費",
-  session_pass: "回数券",
-  single:       "ショット",
-};
-
 export const LESSON_STATUS_LABEL: Record<LessonStatus, string> = {
   scheduled: "予定",
   completed: "完了",
   cancelled: "キャンセル",
 };
+
+export const COURSE_OPTIONS: { value: string; label: string; paymentType: LessonPaymentType }[] = [
+  { value: "回数券8回",  label: "回数券 8回",  paymentType: "session_pass" },
+  { value: "回数券16回", label: "回数券 16回", paymentType: "session_pass" },
+  { value: "回数券32回", label: "回数券 32回", paymentType: "session_pass" },
+  { value: "月2回",      label: "月2回",       paymentType: "monthly"      },
+  { value: "月4回",      label: "月4回",       paymentType: "monthly"      },
+  { value: "月8回",      label: "月8回",       paymentType: "monthly"      },
+  { value: "都度",       label: "都度",        paymentType: "single"       },
+];
+
+export function courseToPaymentType(course: string | undefined): LessonPaymentType | null {
+  return COURSE_OPTIONS.find((o) => o.value === course)?.paymentType ?? null;
+}

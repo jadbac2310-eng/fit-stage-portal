@@ -1,6 +1,6 @@
 import { createAdminClient } from "./supabase";
 export type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
-export { PAYMENT_LABEL, LESSON_STATUS_LABEL } from "./lessons-types";
+export { LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "./lessons-types";
 import type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
 
 type DbRow = {

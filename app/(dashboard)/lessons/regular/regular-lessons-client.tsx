@@ -6,7 +6,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket,
 } from "lucide-react";
-import { Lesson, LessonPaymentType, LessonStatus, PAYMENT_LABEL, LESSON_STATUS_LABEL } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
@@ -19,16 +19,18 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
 // ─── バッジ ───────────────────────────────────────────
-function PaymentBadge({ type }: { type?: LessonPaymentType }) {
-  if (!type) return null;
+function CourseBadge({ course }: { course?: string }) {
+  if (!course) return null;
+  const isSessionPass = course.startsWith("回数券");
+  const isMonthly = course.startsWith("月");
   return (
     <span className={cn(
       "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-      type === "monthly"      ? "bg-blue-100 text-blue-700"   :
-      type === "session_pass" ? "bg-amber-100 text-amber-700" :
-                                "bg-gray-100 text-gray-600"
+      isSessionPass ? "bg-amber-100 text-amber-700" :
+      isMonthly     ? "bg-blue-100 text-blue-700"   :
+                      "bg-gray-100 text-gray-600"
     )}>
-      {PAYMENT_LABEL[type]}
+      {course}
     </span>
   );
 }
@@ -69,7 +71,7 @@ function LessonForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
-  const [paymentType, setPaymentType] = useState(defaultValues?.paymentType ?? "");
+  const [selectedCourse, setSelectedCourse] = useState(defaultValues?.course ?? "");
 
   async function handleSubmit(fd: FormData) {
     setError(""); setLoading(true);
@@ -82,6 +84,7 @@ function LessonForm({
   const defaultScheduledAt = defaultValues?.scheduledAt
     ? new Date(defaultValues.scheduledAt).toISOString().slice(0, 16) : "";
 
+  const isSessionPassCourse = selectedCourse.startsWith("回数券");
   const availablePasses = sessionPasses.filter(
     (p) => p.customerId === selectedCustomerId && (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId)
   );
@@ -121,21 +124,28 @@ function LessonForm({
 
       <div>
         <label className={labelClass}>コース</label>
-        <input name="course" defaultValue={defaultValues?.course} placeholder="パーソナルトレーニング など" className={inputClass} />
-      </div>
-
-      <div>
-        <label className={labelClass}>料金区分</label>
-        <select name="paymentType" value={paymentType} onChange={(e) => setPaymentType(e.target.value)} className={inputClass}>
+        <select name="course" value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className={inputClass}>
           <option value="">未選択</option>
-          <option value="monthly">月会費</option>
-          <option value="session_pass">回数券</option>
-          <option value="single">ショット</option>
+          <optgroup label="回数券">
+            {COURSE_OPTIONS.filter((o) => o.paymentType === "session_pass").map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="月会費">
+            {COURSE_OPTIONS.filter((o) => o.paymentType === "monthly").map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="都度">
+            {COURSE_OPTIONS.filter((o) => o.paymentType === "single").map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </optgroup>
         </select>
       </div>
 
-      {/* 回数券選択（回数券の場合のみ） */}
-      {paymentType === "session_pass" && (
+      {/* 回数券選択（回数券コースの場合のみ） */}
+      {isSessionPassCourse && (
         <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
           <label className={cn(labelClass, "text-amber-700")}>
             <Ticket size={12} /> 使用する回数券 <span className="text-red-500">*</span>
@@ -336,10 +346,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, isAdmin }: {
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-1.5 mb-1">
           <StatusBadge status={lesson.status} />
-          {lesson.paymentType && <PaymentBadge type={lesson.paymentType} />}
-          {lesson.course && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{lesson.course}</span>
-          )}
+          <CourseBadge course={lesson.course} />
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-0.5">
           <p className={cn("text-xs flex items-center gap-1",
