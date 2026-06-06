@@ -12,6 +12,7 @@ export interface Lesson {
   course?: string;
   paymentType?: LessonPaymentType;
   status: LessonStatus;
+  sessionPassId?: string;
   note?: string;
   createdAt: string;
   updatedAt: string;
