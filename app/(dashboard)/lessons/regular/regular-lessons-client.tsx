@@ -85,6 +85,7 @@ function LessonForm({
   const availablePasses = sessionPasses.filter(
     (p) => p.customerId === selectedCustomerId && (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId)
   );
+  const noPassAvailable = isSessionPassCourse && selectedCustomerId !== "" && availablePasses.length === 0;
 
   return (
     <form action={handleSubmit} className="space-y-4">
@@ -124,9 +125,14 @@ function LessonForm({
         <select name="course" value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className={inputClass}>
           <option value="">未選択</option>
           <optgroup label="回数券">
-            {COURSE_OPTIONS.filter((o) => o.paymentType === "session_pass").map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+            {COURSE_OPTIONS.filter((o) => o.paymentType === "session_pass").map((o) => {
+              const disabled = selectedCustomerId !== "" && availablePasses.length === 0 && !defaultValues?.sessionPassId;
+              return (
+                <option key={o.value} value={o.value} disabled={disabled}>
+                  {o.label}{disabled ? "（有効な回数券なし）" : ""}
+                </option>
+              );
+            })}
           </optgroup>
           <optgroup label="月会費">
             {COURSE_OPTIONS.filter((o) => o.paymentType === "monthly").map((o) => (
@@ -143,12 +149,14 @@ function LessonForm({
 
       {/* 回数券選択（回数券コースの場合のみ） */}
       {isSessionPassCourse && (
-        <div className="bg-amber-50 rounded-xl p-3 border border-amber-200">
-          <label className={cn(labelClass, "text-amber-700")}>
+        <div className={cn("rounded-xl p-3 border", noPassAvailable ? "bg-red-50 border-red-300" : "bg-amber-50 border-amber-200")}>
+          <label className={cn(labelClass, noPassAvailable ? "text-red-600" : "text-amber-700")}>
             <Ticket size={12} /> 使用する回数券 <span className="text-red-500">*</span>
           </label>
-          {availablePasses.length === 0 ? (
-            <p className="text-xs text-amber-600">この顧客の有効な回数券がありません</p>
+          {noPassAvailable ? (
+            <p className="text-xs text-red-600 font-medium">
+              有効な回数券がありません。顧客マスタから追加してください。
+            </p>
           ) : (
             <select name="sessionPassId" required defaultValue={defaultValues?.sessionPassId ?? ""} className={inputClass}>
               <option value="">回数券を選択...</option>
@@ -183,7 +191,7 @@ function LessonForm({
           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
           キャンセル
         </button>
-        <button type="submit" disabled={loading}
+        <button type="submit" disabled={loading || noPassAvailable}
           className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
           {loading && <Spinner size={14} />}{loading ? "保存中..." : submitLabel}
         </button>
