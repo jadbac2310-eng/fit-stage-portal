@@ -147,21 +147,6 @@ function CustomerForm({
         />
       </div>
 
-      {/* ステータス */}
-      <div>
-        <label className={labelClass}>ステータス</label>
-        <select
-          name="status"
-          defaultValue={defaultValues?.status ?? "trial"}
-          className={inputClass}
-        >
-          <option value="trial">体験申し込み</option>
-          <option value="active">在籍中</option>
-          <option value="pending">審査中</option>
-          <option value="inactive">退会</option>
-        </select>
-      </div>
-
       {/* 利用開始希望日 */}
       <div>
         <label className={labelClass}>

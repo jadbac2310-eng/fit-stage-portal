@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
-import type { CustomerPlan, CustomerStatus } from "@/lib/customers-types";
+import type { CustomerPlan } from "@/lib/customers-types";
 
 export async function createCustomerAction(formData: FormData) {
   const fullName         = (formData.get("fullName")         as string)?.trim();
@@ -14,13 +14,11 @@ export async function createCustomerAction(formData: FormData) {
   const planRaw          = (formData.get("plan")             as string)?.trim();
   const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim();
   const note             = (formData.get("note")             as string)?.trim() || undefined;
-  const agreedToTerms    = formData.get("agreedToTerms") === "on";
-  const status           = ((formData.get("status") as string)?.trim() || "trial") as CustomerStatus;
   const plan             = planRaw ? planRaw as CustomerPlan : undefined;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, plan, desiredStartDate, agreedToTerms, status, note });
+  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, plan, desiredStartDate, agreedToTerms: false, status: "trial", note });
   revalidatePath("/master/customers");
 }
 
@@ -32,14 +30,12 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   const phoneNumber      = (formData.get("phoneNumber")      as string)?.trim();
   const planRaw          = (formData.get("plan")             as string)?.trim();
   const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim();
-  const status           = (formData.get("status")           as string)?.trim() as CustomerStatus;
   const note             = (formData.get("note")             as string)?.trim() || undefined;
-  const agreedToTerms    = formData.get("agreedToTerms") === "on";
   const plan             = planRaw ? planRaw as CustomerPlan : undefined;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, plan, desiredStartDate, agreedToTerms, status, note });
+  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, plan, desiredStartDate, note });
   revalidatePath("/master/customers");
 }
 
