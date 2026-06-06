@@ -270,10 +270,16 @@ function LessonRow({ lesson, customers, members, isAdmin }: {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 justify-end">
-          {lesson.status === "scheduled" && (
+          {lesson.status !== "cancelled" && (
             <button onClick={() => setMode("report")}
-              className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium bg-green-50 hover:bg-green-100 border border-green-300 px-2.5 py-1.5 rounded-lg transition">
-              <ClipboardList size={11} /> レポート
+              className={cn(
+                "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
+                lesson.status === "scheduled"
+                  ? "text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 border-green-300"
+                  : "text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300"
+              )}>
+              <ClipboardList size={11} />
+              {lesson.status === "scheduled" ? "レポート記入" : "レポート確認"}
             </button>
           )}
           {isAdmin && (
@@ -349,10 +355,16 @@ function LessonCard({ lesson, customers, members, isAdmin }: {
         {lesson.location && <p className="text-xs text-gray-600 flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" />{lesson.location}</p>}
       </div>
       <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-        {lesson.status === "scheduled" && (
+        {lesson.status !== "cancelled" && (
           <button onClick={() => setMode("report")}
-            className="flex items-center gap-1 text-xs text-green-600 font-medium bg-green-50 hover:bg-green-100 border border-green-300 px-2.5 py-1.5 rounded-lg transition">
-            <ClipboardList size={11} /> レポート
+            className={cn(
+              "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
+              lesson.status === "scheduled"
+                ? "text-green-600 bg-green-50 hover:bg-green-100 border-green-300"
+                : "text-gray-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+            )}>
+            <ClipboardList size={11} />
+            {lesson.status === "scheduled" ? "レポート記入" : "レポート確認"}
           </button>
         )}
         {isAdmin && (
