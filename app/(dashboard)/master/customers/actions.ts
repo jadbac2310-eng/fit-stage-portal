@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
+import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
 import type { CustomerPlan, CustomerStatus } from "@/lib/customers-types";
 
 export async function createCustomerAction(formData: FormData) {
@@ -45,4 +46,24 @@ export async function updateCustomerAction(id: string, formData: FormData) {
 export async function deleteCustomerAction(id: string) {
   await deleteCustomer(id);
   revalidatePath("/master/customers");
+}
+
+export async function createSessionPassAction(formData: FormData) {
+  const customerId  = (formData.get("customerId")  as string)?.trim();
+  const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
+  const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
+  const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || undefined;
+  const note        = (formData.get("note")        as string)?.trim() || undefined;
+
+  if (!customerId || !totalCount || !purchasedAt) return;
+
+  await addSessionPass({ customerId, totalCount, purchasedAt, expiredAt, note });
+  revalidatePath("/master/customers");
+  revalidatePath("/lessons/regular");
+}
+
+export async function deleteSessionPassAction(id: string) {
+  await deleteSessionPass(id);
+  revalidatePath("/master/customers");
+  revalidatePath("/lessons/regular");
 }

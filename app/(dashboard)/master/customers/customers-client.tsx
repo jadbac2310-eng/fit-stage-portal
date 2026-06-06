@@ -3,10 +3,14 @@
 import { useState } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
-  MapPin, Calendar, FileText, StickyNote,
+  MapPin, Calendar, FileText, StickyNote, Ticket,
 } from "lucide-react";
 import { Customer, CustomerPlan, CustomerStatus, PLAN_LABEL, STATUS_LABEL } from "@/lib/customers-types";
-import { createCustomerAction, updateCustomerAction, deleteCustomerAction } from "./actions";
+import { SessionPass } from "@/lib/session-passes-types";
+import {
+  createCustomerAction, updateCustomerAction, deleteCustomerAction,
+  createSessionPassAction, deleteSessionPassAction,
+} from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
@@ -237,11 +241,111 @@ function CustomerForm({
   );
 }
 
+// ─── 回数券パネル ─────────────────────────────────────
+function SessionPassPanel({ customerId, passes }: { customerId: string; passes: SessionPass[] }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const inputClass = "w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
+
+  async function handleAdd(fd: FormData) {
+    setLoading(true);
+    try { await createSessionPassAction(fd); setShowAdd(false); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
+          <Ticket size={12} /> 回数券一覧
+        </p>
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+          <Plus size={11} /> 追加
+        </button>
+      </div>
+
+      {showAdd && (
+        <form action={handleAdd} className="bg-amber-50 rounded-xl p-3 border border-amber-200 space-y-2">
+          <input type="hidden" name="customerId" value={customerId} />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
+              <input name="totalCount" type="number" min="1" required placeholder="10" className={inputClass} />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
+              <input name="purchasedAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-1">有効期限（任意）</p>
+            <input name="expiredAt" type="date" className={inputClass} />
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-1">メモ</p>
+            <input name="note" placeholder="備考など" className={inputClass} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={() => setShowAdd(false)}
+              className="flex-1 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
+              キャンセル
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-semibold flex items-center justify-center gap-1">
+              {loading && <Spinner size={12} />}{loading ? "追加中..." : "追加する"}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {passes.length === 0 && !showAdd ? (
+        <p className="text-xs text-gray-400">回数券なし</p>
+      ) : (
+        <div className="space-y-1.5">
+          {passes.map((pass) => (
+            <div key={pass.id} className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-xl text-xs border",
+              pass.remainingCount === 0 ? "bg-gray-50 border-gray-200 text-gray-400" :
+              pass.remainingCount <= 2  ? "bg-red-50 border-red-200" :
+                                          "bg-amber-50 border-amber-200"
+            )}>
+              <Ticket size={12} className={pass.remainingCount === 0 ? "text-gray-300" : "text-amber-500"} />
+              <div className="flex-1">
+                <span className="font-semibold">{pass.totalCount}回券</span>
+                <span className={cn("ml-2 font-bold",
+                  pass.remainingCount === 0 ? "text-gray-400" :
+                  pass.remainingCount <= 2  ? "text-red-600"  : "text-amber-700")}>
+                  残り{pass.remainingCount}回
+                </span>
+                {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">（使い切り）</span>}
+              </div>
+              <span className="text-gray-400">{pass.purchasedAt}{pass.expiredAt && `～${pass.expiredAt}`}</span>
+              <button onClick={async () => {
+                if (!confirm("この回数券を削除しますか？")) return;
+                setDeletingId(pass.id);
+                await deleteSessionPassAction(pass.id);
+                setDeletingId(null);
+              }} disabled={deletingId === pass.id}
+                className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
+                {deletingId === pass.id ? <Spinner size={11} /> : <Trash2 size={11} />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 顧客行（テーブル） ───────────────────────────────
-function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boolean }) {
-  const [editing, setEditing] = useState(false);
+function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmin: boolean; passes: SessionPass[] }) {
+  const [mode, setMode] = useState<"view" | "edit" | "passes">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
+  const totalRemaining = passes.reduce((s, p) => s + p.remainingCount, 0);
 
   async function handleDelete() {
     if (!confirm(`「${customer.fullName}」を削除しますか？`)) return;
@@ -249,29 +353,33 @@ function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boole
     await deleteCustomerAction(customer.id);
   }
 
-  if (editing) {
-    return (
-      <tr>
-        <td colSpan={6} className="px-4 py-3">
-          <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-bold text-gray-900">顧客を編集</p>
-              <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={16} />
-              </button>
-            </div>
-            <CustomerForm
-              defaultValues={customer}
-              isEdit
-              onClose={() => setEditing(false)}
-              action={boundUpdate}
-              submitLabel="保存する"
-            />
+  if (mode === "edit") return (
+    <tr>
+      <td colSpan={6} className="px-4 py-3">
+        <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold text-gray-900">顧客を編集</p>
+            <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-        </td>
-      </tr>
-    );
-  }
+          <CustomerForm defaultValues={customer} isEdit onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+        </div>
+      </td>
+    </tr>
+  );
+
+  if (mode === "passes") return (
+    <tr>
+      <td colSpan={6} className="px-4 py-4">
+        <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold text-gray-900">{customer.fullName} の回数券</p>
+            <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+          </div>
+          <SessionPassPanel customerId={customer.id} passes={passes} />
+        </div>
+      </td>
+    </tr>
+  );
 
   return (
     <tr className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
@@ -282,32 +390,31 @@ function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boole
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{customer.phoneNumber}</p>
       </td>
-      <td className="px-4 py-3">
-        <StatusBadge status={customer.status} />
-      </td>
-      <td className="px-4 py-3">
-        <PlanBadge plan={customer.plan} />
-      </td>
+      <td className="px-4 py-3"><StatusBadge status={customer.status} /></td>
+      <td className="px-4 py-3"><PlanBadge plan={customer.plan} /></td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{customer.desiredStartDate}</p>
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-2 justify-end">
+        <div className="flex items-center gap-1.5 justify-end">
+          <button onClick={() => setMode("passes")}
+            className={cn(
+              "flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg transition border",
+              totalRemaining > 0
+                ? "text-amber-600 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                : "text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-200"
+            )}>
+            <Ticket size={11} />
+            {totalRemaining > 0 ? `残${totalRemaining}回` : "回数券"}
+          </button>
           {isAdmin && (
             <>
-              <button
-                onClick={() => setEditing(true)}
-                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                aria-label="編集"
-              >
+              <button onClick={() => setMode("edit")}
+                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
                 <Pencil size={13} />
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
-                aria-label="削除"
-              >
+              <button onClick={handleDelete} disabled={deleting}
+                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
                 {deleting ? <Spinner size={13} /> : <Trash2 size={13} />}
               </button>
             </>
@@ -319,10 +426,11 @@ function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boole
 }
 
 // ─── 顧客カード（モバイル） ───────────────────────────
-function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: boolean }) {
-  const [editing, setEditing] = useState(false);
+function CustomerCard({ customer, isAdmin, passes }: { customer: Customer; isAdmin: boolean; passes: SessionPass[] }) {
+  const [mode, setMode] = useState<"view" | "edit" | "passes">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
+  const totalRemaining = passes.reduce((s, p) => s + p.remainingCount, 0);
 
   async function handleDelete() {
     if (!confirm(`「${customer.fullName}」を削除しますか？`)) return;
@@ -330,25 +438,15 @@ function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: bool
     await deleteCustomerAction(customer.id);
   }
 
-  if (editing) {
-    return (
-      <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-bold text-gray-900">顧客を編集</p>
-          <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600">
-            <X size={16} />
-          </button>
-        </div>
-        <CustomerForm
-          defaultValues={customer}
-          isEdit
-          onClose={() => setEditing(false)}
-          action={boundUpdate}
-          submitLabel="保存する"
-        />
+  if (mode === "edit") return (
+    <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-bold text-gray-900">顧客を編集</p>
+        <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-    );
-  }
+      <CustomerForm defaultValues={customer} isEdit onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+    </div>
+  );
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
@@ -368,21 +466,32 @@ function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: bool
         </div>
       </div>
 
+      {/* 回数券パネル */}
+      {mode === "passes" && (
+        <div className="mt-3 pt-3 border-t border-amber-200 bg-amber-50 rounded-xl p-3 -mx-1">
+          <SessionPassPanel customerId={customer.id} passes={passes} />
+        </div>
+      )}
+
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-        <p className="text-xs text-gray-400">開始日: {customer.desiredStartDate}</p>
+        <button onClick={() => setMode(mode === "passes" ? "view" : "passes")}
+          className={cn(
+            "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
+            totalRemaining > 0
+              ? "text-amber-600 bg-amber-50 hover:bg-amber-100 border-amber-300"
+              : "text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-200"
+          )}>
+          <Ticket size={11} />
+          {totalRemaining > 0 ? `回数券 残${totalRemaining}回` : "回数券"}
+        </button>
         {isAdmin && (
           <div className="flex gap-2">
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 font-medium bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 px-2.5 py-1.5 rounded-lg transition"
-            >
+            <button onClick={() => setMode("edit")}
+              className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 font-medium bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 px-2.5 py-1.5 rounded-lg transition">
               <Pencil size={11} /> 編集
             </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 disabled:text-red-400 font-medium bg-red-50 hover:bg-red-100 border border-red-300 px-2.5 py-1.5 rounded-lg transition"
-            >
+            <button onClick={handleDelete} disabled={deleting}
+              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 disabled:text-red-400 font-medium bg-red-50 hover:bg-red-100 border border-red-300 px-2.5 py-1.5 rounded-lg transition">
               {deleting ? <><Spinner size={11} /> 削除中...</> : <><Trash2 size={11} /> 削除</>}
             </button>
           </div>
@@ -393,7 +502,7 @@ function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: bool
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function CustomersClient({ customers, isAdmin }: { customers: Customer[]; isAdmin: boolean }) {
+export function CustomersClient({ customers, sessionPasses, isAdmin }: { customers: Customer[]; sessionPasses: SessionPass[]; isAdmin: boolean }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState<CustomerPlan | "">("");
@@ -517,7 +626,8 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} />
+                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin}
+                    passes={sessionPasses.filter((p) => p.customerId === c.id)} />
                 ))}
               </tbody>
             </table>
@@ -526,7 +636,8 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
           {/* モバイル：カード */}
           <div className="md:hidden space-y-2">
             {filtered.map((c) => (
-              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} />
+              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin}
+                passes={sessionPasses.filter((p) => p.customerId === c.id)} />
             ))}
           </div>
         </>
