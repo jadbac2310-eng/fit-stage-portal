@@ -4,6 +4,7 @@ import {
   Database,
   BookOpen,
   Dumbbell,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "Todo",           href: "/todo",       icon: CheckSquare },
   { label: "Wiki",           href: "/wiki",       icon: BookOpen },
   { label: "レッスン",       href: "/lessons",    icon: Dumbbell },
+  { label: "プラン管理",     href: "/plans",      icon: CreditCard },
   { label: "マスタ管理",     href: "/master",     icon: Database },
 ];
 
