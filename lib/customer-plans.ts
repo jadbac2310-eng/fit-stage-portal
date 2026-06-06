@@ -1,12 +1,12 @@
 import { createAdminClient } from "./supabase";
-export type { CustomerPlanRecord, CustomerPlan } from "./customer-plans-types";
-export { PLAN_LABEL, plansOverlap } from "./customer-plans-types";
-import type { CustomerPlanRecord, CustomerPlan } from "./customer-plans-types";
+export type { ContractPlan, CustomerPlanRecord } from "./customer-plans-types";
+export { CONTRACT_PLAN_LABEL, plansOverlap } from "./customer-plans-types";
+import type { ContractPlan, CustomerPlanRecord } from "./customer-plans-types";
 
 type DbRow = {
   id: string;
   customer_id: string;
-  plan: CustomerPlan;
+  plan: ContractPlan;
   started_at: string;
   ended_at: string | null;
   note: string | null;
@@ -48,7 +48,7 @@ export async function getCustomerPlans(customerId: string): Promise<CustomerPlan
 
 export async function addCustomerPlan(input: {
   customerId: string;
-  plan: CustomerPlan;
+  plan: ContractPlan;
   startedAt: string;
   endedAt?: string;
   note?: string;
@@ -71,7 +71,7 @@ export async function addCustomerPlan(input: {
 export async function updateCustomerPlan(
   id: string,
   input: Partial<{
-    plan: CustomerPlan;
+    plan: ContractPlan;
     startedAt: string;
     endedAt: string | null;
     note: string | null;

@@ -5,21 +5,22 @@ import {
   Plus, Pencil, Trash2, X, Search,
   ChevronDown, ChevronUp, CalendarRange,
 } from "lucide-react";
-import { CustomerPlanRecord, PLAN_LABEL } from "@/lib/customer-plans-types";
-import type { CustomerPlan } from "@/lib/customer-plans-types";
+import { CustomerPlanRecord, ContractPlan, CONTRACT_PLAN_LABEL } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
 import { createPlanAction, updatePlanAction, deletePlanAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
 
 // ─── バッジ ───────────────────────────────────────────
-function PlanBadge({ plan }: { plan: CustomerPlan }) {
+function PlanBadge({ plan }: { plan: ContractPlan }) {
+  const colors: Record<ContractPlan, string> = {
+    "月2回": "bg-sky-100 text-sky-700",
+    "月4回": "bg-blue-100 text-blue-700",
+    "月8回": "bg-indigo-100 text-indigo-700",
+  };
   return (
-    <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-      plan === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
-    )}>
-      {PLAN_LABEL[plan]}
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", colors[plan])}>
+      {CONTRACT_PLAN_LABEL[plan]}
     </span>
   );
 }
@@ -72,8 +73,9 @@ function PlanForm({
         <label className={labelClass}>プラン <span className="text-red-500">*</span></label>
         <select name="plan" required defaultValue={defaultValues?.plan ?? ""} className={inputClass}>
           <option value="">選択...</option>
-          <option value="monthly">月額制プラン</option>
-          <option value="pay_as_you_go">都度払いプラン</option>
+          <option value="月2回">月2回</option>
+          <option value="月4回">月4回</option>
+          <option value="月8回">月8回</option>
         </select>
       </div>
 

@@ -1,11 +1,15 @@
-import type { CustomerPlan } from "./customers-types";
-export type { CustomerPlan };
-export { PLAN_LABEL } from "./customers-types";
+export type ContractPlan = "月2回" | "月4回" | "月8回";
+
+export const CONTRACT_PLAN_LABEL: Record<ContractPlan, string> = {
+  "月2回": "月2回",
+  "月4回": "月4回",
+  "月8回": "月8回",
+};
 
 export interface CustomerPlanRecord {
   id: string;
   customerId: string;
-  plan: CustomerPlan;
+  plan: ContractPlan;
   startedAt: string;
   endedAt?: string;
   note?: string;
