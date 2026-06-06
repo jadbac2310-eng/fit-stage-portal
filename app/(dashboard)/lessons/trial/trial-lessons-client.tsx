@@ -174,16 +174,6 @@ function ReportForm({
         </select>
       </div>
 
-      {contracted === "true" && (
-        <div>
-          <label className={labelClass}>契約プラン</label>
-          <select name="contractPlan" defaultValue={lesson.contractPlan ?? ""} className={inputClass}>
-            <option value="">未選択</option>
-            <option value="monthly">月額制プラン</option>
-            <option value="pay_as_you_go">都度払いプラン</option>
-          </select>
-        </div>
-      )}
 
       <div>
         <label className={labelClass}><StickyNote size={12} /> 備考</label>

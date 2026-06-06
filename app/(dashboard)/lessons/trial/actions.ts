@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson } from "@/lib/trial-lessons";
-import type { CustomerPlan } from "@/lib/customers-types";
 
 export async function createTrialLessonAction(formData: FormData) {
   const customerId      = (formData.get("customerId")      as string)?.trim();
@@ -34,18 +33,14 @@ export async function saveReportAction(id: string, formData: FormData) {
   const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;
   const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
   const contractedRaw      = (formData.get("contracted")         as string)?.trim();
-  const contractPlanRaw    = (formData.get("contractPlan")       as string)?.trim();
   const note               = (formData.get("note")               as string)?.trim() || null;
 
   const contracted: boolean | null =
     contractedRaw === "true"  ? true  :
     contractedRaw === "false" ? false : null;
 
-  const contractPlan: CustomerPlan | null =
-    contracted === true && contractPlanRaw ? contractPlanRaw as CustomerPlan : null;
-
   await updateTrialLesson(id, {
-    trainingContent, customerImpression, contracted, contractPlan, note,
+    trainingContent, customerImpression, contracted, contractPlan: null, note,
     status: "completed",
   });
   revalidatePath("/lessons/trial");
