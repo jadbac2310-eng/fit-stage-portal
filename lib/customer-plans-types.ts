@@ -1,9 +1,11 @@
-export type ContractPlan = "月2回" | "月4回" | "月8回";
+export type ContractPlan = "月2回" | "月4回" | "月8回" | "都度払い" | "回数券";
 
 export const CONTRACT_PLAN_LABEL: Record<ContractPlan, string> = {
-  "月2回": "月2回",
-  "月4回": "月4回",
-  "月8回": "月8回",
+  "月2回":  "月2回",
+  "月4回":  "月4回",
+  "月8回":  "月8回",
+  "都度払い": "都度払い",
+  "回数券":  "回数券",
 };
 
 export interface CustomerPlanRecord {

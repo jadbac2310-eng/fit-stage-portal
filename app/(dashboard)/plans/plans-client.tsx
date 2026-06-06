@@ -14,9 +14,11 @@ import { Spinner } from "@/components/ui/spinner";
 // ─── バッジ ───────────────────────────────────────────
 function PlanBadge({ plan }: { plan: ContractPlan }) {
   const colors: Record<ContractPlan, string> = {
-    "月2回": "bg-sky-100 text-sky-700",
-    "月4回": "bg-blue-100 text-blue-700",
-    "月8回": "bg-indigo-100 text-indigo-700",
+    "月2回":  "bg-sky-100 text-sky-700",
+    "月4回":  "bg-blue-100 text-blue-700",
+    "月8回":  "bg-indigo-100 text-indigo-700",
+    "都度払い": "bg-amber-100 text-amber-700",
+    "回数券":  "bg-orange-100 text-orange-700",
   };
   return (
     <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", colors[plan])}>
@@ -73,9 +75,15 @@ function PlanForm({
         <label className={labelClass}>プラン <span className="text-red-500">*</span></label>
         <select name="plan" required defaultValue={defaultValues?.plan ?? ""} className={inputClass}>
           <option value="">選択...</option>
-          <option value="月2回">月2回</option>
-          <option value="月4回">月4回</option>
-          <option value="月8回">月8回</option>
+          <optgroup label="月額">
+            <option value="月2回">月2回</option>
+            <option value="月4回">月4回</option>
+            <option value="月8回">月8回</option>
+          </optgroup>
+          <optgroup label="その他">
+            <option value="都度払い">都度払い</option>
+            <option value="回数券">回数券</option>
+          </optgroup>
         </select>
       </div>
 
