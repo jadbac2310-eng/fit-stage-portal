@@ -14,6 +14,8 @@ type DbRow = {
   status: TrialLessonStatus;
   contracted: boolean | null;
   contract_plan: CustomerPlan | null;
+  training_content: string | null;
+  customer_impression: string | null;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -36,6 +38,8 @@ function fromDb(row: DbRow): TrialLesson {
     status:              row.status,
     contracted:          row.contracted,
     contractPlan:        row.contract_plan ?? undefined,
+    trainingContent:     row.training_content ?? undefined,
+    customerImpression:  row.customer_impression ?? undefined,
     note:                row.note ?? undefined,
     createdAt:           row.created_at,
     updatedAt:           row.updated_at,
@@ -69,10 +73,6 @@ export async function addTrialLesson(input: {
   trainerMemberId?: string;
   scheduledAt: string;
   location?: string;
-  status?: TrialLessonStatus;
-  contracted?: boolean | null;
-  contractPlan?: CustomerPlan;
-  note?: string;
 }): Promise<TrialLesson> {
   const { data, error } = await createAdminClient()
     .from("trial_lessons")
@@ -82,10 +82,8 @@ export async function addTrialLesson(input: {
       trainer_member_id: input.trainerMemberId ?? null,
       scheduled_at:      input.scheduledAt,
       location:          input.location ?? null,
-      status:            input.status ?? "scheduled",
-      contracted:        input.contracted ?? null,
-      contract_plan:     input.contractPlan ?? null,
-      note:              input.note ?? null,
+      status:            "scheduled",
+      contracted:        null,
     })
     .select(SELECT)
     .single();
@@ -104,19 +102,23 @@ export async function updateTrialLesson(
     status: TrialLessonStatus;
     contracted: boolean | null;
     contractPlan: CustomerPlan | null;
+    trainingContent: string | null;
+    customerImpression: string | null;
     note: string | null;
   }>
 ): Promise<TrialLesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (input.customerId       !== undefined) patch.customer_id       = input.customerId;
-  if (input.salesMemberId    !== undefined) patch.sales_member_id   = input.salesMemberId;
-  if (input.trainerMemberId  !== undefined) patch.trainer_member_id = input.trainerMemberId;
-  if (input.scheduledAt      !== undefined) patch.scheduled_at      = input.scheduledAt;
-  if (input.location         !== undefined) patch.location          = input.location;
-  if (input.status           !== undefined) patch.status            = input.status;
-  if (input.contracted       !== undefined) patch.contracted        = input.contracted;
-  if (input.contractPlan     !== undefined) patch.contract_plan     = input.contractPlan;
-  if (input.note             !== undefined) patch.note              = input.note;
+  if (input.customerId          !== undefined) patch.customer_id          = input.customerId;
+  if (input.salesMemberId       !== undefined) patch.sales_member_id      = input.salesMemberId;
+  if (input.trainerMemberId     !== undefined) patch.trainer_member_id    = input.trainerMemberId;
+  if (input.scheduledAt         !== undefined) patch.scheduled_at         = input.scheduledAt;
+  if (input.location            !== undefined) patch.location             = input.location;
+  if (input.status              !== undefined) patch.status               = input.status;
+  if (input.contracted          !== undefined) patch.contracted           = input.contracted;
+  if (input.contractPlan        !== undefined) patch.contract_plan        = input.contractPlan;
+  if (input.trainingContent     !== undefined) patch.training_content     = input.trainingContent;
+  if (input.customerImpression  !== undefined) patch.customer_impression  = input.customerImpression;
+  if (input.note                !== undefined) patch.note                 = input.note;
 
   const { data, error } = await createAdminClient()
     .from("trial_lessons")

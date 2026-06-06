@@ -15,6 +15,8 @@ export interface TrialLesson {
   status: TrialLessonStatus;
   contracted: boolean | null;
   contractPlan?: CustomerPlan;
+  trainingContent?: string;
+  customerImpression?: string;
   note?: string;
   createdAt: string;
   updatedAt: string;
