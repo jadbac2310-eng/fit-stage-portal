@@ -10,10 +10,7 @@ import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib
 import { SessionPass } from "@/lib/session-passes-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
-import {
-  createLessonAction, updateLessonAction, deleteLessonAction,
-  createSessionPassAction, deleteSessionPassAction,
-} from "./actions";
+import { createLessonAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
@@ -195,75 +192,16 @@ function LessonForm({
   );
 }
 
-// ─── 回数券追加フォーム ───────────────────────────────
-function SessionPassForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(fd: FormData) {
-    setLoading(true);
-    try { await createSessionPassAction(fd); onClose(); }
-    catch { setLoading(false); }
-  }
-
-  const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
-  const labelClass = "text-xs font-semibold text-gray-600 mb-1.5";
-
-  return (
-    <form action={handleSubmit} className="space-y-3 pt-2">
-      <input type="hidden" name="customerId" value={customerId} />
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <label className={labelClass}>回数</label>
-          <input name="totalCount" type="number" min="1" required placeholder="10" className={inputClass} />
-        </div>
-        <div className="flex-1">
-          <label className={labelClass}>購入日</label>
-          <input name="purchasedAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
-        </div>
-      </div>
-      <div>
-        <label className={labelClass}>有効期限（任意）</label>
-        <input name="expiredAt" type="date" className={inputClass} />
-      </div>
-      <div>
-        <label className={labelClass}>メモ</label>
-        <input name="note" placeholder="備考など" className={inputClass} />
-      </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={onClose}
-          className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-          キャンセル
-        </button>
-        <button type="submit" disabled={loading}
-          className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-sm font-semibold transition flex items-center justify-center gap-1.5">
-          {loading && <Spinner size={13} />}{loading ? "追加中..." : "追加する"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-// ─── 回数券セクション ─────────────────────────────────
-function SessionPassSection({ customerId, passes }: { customerId: string; passes: SessionPass[] }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
+// ─── 回数券セクション（閲覧のみ） ────────────────────
+function SessionPassSection({ passes }: { passes: SessionPass[] }) {
   return (
     <div className="py-3 border-t border-gray-100">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
-          <Ticket size={11} /> 回数券
-        </p>
-        <button onClick={() => setShowAdd(!showAdd)}
-          className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-          <Plus size={11} /> 追加
-        </button>
-      </div>
-
-      {showAdd && <SessionPassForm customerId={customerId} onClose={() => setShowAdd(false)} />}
-
-      {passes.length === 0 && !showAdd ? (
-        <p className="text-xs text-gray-400">回数券なし</p>
+      <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-2">
+        <Ticket size={11} /> 回数券
+      </p>
+      {passes.length === 0 ? (
+        <p className="text-xs text-gray-400">回数券なし（顧客マスタから追加できます）</p>
       ) : (
         <div className="space-y-1.5">
           {passes.map((pass) => (
@@ -291,18 +229,6 @@ function SessionPassSection({ customerId, passes }: { customerId: string; passes
                 <p>{pass.purchasedAt}</p>
                 {pass.expiredAt && <p>～{pass.expiredAt}</p>}
               </div>
-              <button
-                onClick={async () => {
-                  if (!confirm("この回数券を削除しますか？")) return;
-                  setDeletingId(pass.id);
-                  await deleteSessionPassAction(pass.id);
-                  setDeletingId(null);
-                }}
-                disabled={deletingId === pass.id}
-                className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50"
-              >
-                {deletingId === pass.id ? <Spinner size={11} /> : <Trash2 size={11} />}
-              </button>
             </div>
           ))}
         </div>
@@ -463,8 +389,8 @@ function CustomerGroup({ customer, lessons, sessionPasses, customers, members, i
             )
           )}
 
-          {/* 回数券セクション */}
-          <SessionPassSection customerId={customer.id} passes={customerPasses} />
+          {/* 回数券セクション（閲覧のみ） */}
+          <SessionPassSection passes={customerPasses} />
         </div>
       )}
     </div>
