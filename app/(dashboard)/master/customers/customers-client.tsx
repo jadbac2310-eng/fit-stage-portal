@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
-  MapPin, Calendar, FileText, StickyNote, Ticket,
+  MapPin, Calendar, StickyNote, Ticket,
 } from "lucide-react";
 import { Customer, CustomerPlan, CustomerStatus, PLAN_LABEL, STATUS_LABEL } from "@/lib/customers-types";
 import { SessionPass } from "@/lib/session-passes-types";
@@ -162,22 +162,6 @@ function CustomerForm({
         </select>
       </div>
 
-      {/* プラン */}
-      <div>
-        <label className={labelClass}>
-          <FileText size={12} /> プラン
-        </label>
-        <select
-          name="plan"
-          defaultValue={defaultValues?.plan ?? ""}
-          className={inputClass}
-        >
-          <option value="">体験中（プラン未定）</option>
-          <option value="monthly">月額制プラン（毎月27日前払い）</option>
-          <option value="pay_as_you_go">都度払いプラン（月末締め・翌月10日後払い）</option>
-        </select>
-      </div>
-
       {/* 利用開始希望日 */}
       <div>
         <label className={labelClass}>
@@ -189,19 +173,6 @@ function CustomerForm({
           defaultValue={defaultValues?.desiredStartDate}
           className={inputClass}
         />
-      </div>
-
-      {/* 会員規約への同意 */}
-      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-        <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-xs font-semibold text-gray-600">会員規約への同意</span>
-          <input
-            type="checkbox"
-            name="agreedToTerms"
-            defaultChecked={defaultValues?.agreedToTerms ?? false}
-            className="w-4 h-4 accent-blue-600"
-          />
-        </label>
       </div>
 
       {/* メモ */}
