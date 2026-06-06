@@ -12,21 +12,23 @@ function parseContracted(value: string): boolean | null {
 }
 
 export async function createTrialLessonAction(formData: FormData) {
-  const customerId    = (formData.get("customerId")   as string)?.trim();
-  const memberId      = (formData.get("memberId")     as string)?.trim();
-  const scheduledAt   = (formData.get("scheduledAt")  as string)?.trim();
-  const location      = (formData.get("location")     as string)?.trim() || undefined;
-  const status        = ((formData.get("status")      as string)?.trim() || "scheduled") as TrialLessonStatus;
-  const contractedRaw = (formData.get("contracted")   as string)?.trim() ?? "null";
-  const contracted    = parseContracted(contractedRaw);
-  const contractPlan  = (formData.get("contractPlan") as string)?.trim() as CustomerPlan | undefined;
-  const note          = (formData.get("note")         as string)?.trim() || undefined;
+  const customerId       = (formData.get("customerId")       as string)?.trim();
+  const salesMemberId    = (formData.get("salesMemberId")    as string)?.trim();
+  const trainerMemberId  = (formData.get("trainerMemberId")  as string)?.trim() || undefined;
+  const scheduledAt      = (formData.get("scheduledAt")      as string)?.trim();
+  const location         = (formData.get("location")         as string)?.trim() || undefined;
+  const status           = ((formData.get("status")          as string)?.trim() || "scheduled") as TrialLessonStatus;
+  const contractedRaw    = (formData.get("contracted")       as string)?.trim() ?? "null";
+  const contracted       = parseContracted(contractedRaw);
+  const contractPlan     = (formData.get("contractPlan")     as string)?.trim() as CustomerPlan | undefined;
+  const note             = (formData.get("note")             as string)?.trim() || undefined;
 
-  if (!customerId || !memberId || !scheduledAt) return;
+  if (!customerId || !salesMemberId || !scheduledAt) return;
 
   await addTrialLesson({
     customerId,
-    memberId,
+    salesMemberId,
+    trainerMemberId,
     scheduledAt,
     location,
     status,
@@ -38,21 +40,23 @@ export async function createTrialLessonAction(formData: FormData) {
 }
 
 export async function updateTrialLessonAction(id: string, formData: FormData) {
-  const customerId    = (formData.get("customerId")   as string)?.trim();
-  const memberId      = (formData.get("memberId")     as string)?.trim();
-  const scheduledAt   = (formData.get("scheduledAt")  as string)?.trim();
-  const location      = (formData.get("location")     as string)?.trim() || null;
-  const status        = (formData.get("status")       as string)?.trim() as TrialLessonStatus;
-  const contractedRaw = (formData.get("contracted")   as string)?.trim() ?? "null";
-  const contracted    = parseContracted(contractedRaw);
-  const contractPlan  = (formData.get("contractPlan") as string)?.trim() as CustomerPlan | null;
-  const note          = (formData.get("note")         as string)?.trim() || null;
+  const customerId       = (formData.get("customerId")       as string)?.trim();
+  const salesMemberId    = (formData.get("salesMemberId")    as string)?.trim();
+  const trainerMemberId  = (formData.get("trainerMemberId")  as string)?.trim() || null;
+  const scheduledAt      = (formData.get("scheduledAt")      as string)?.trim();
+  const location         = (formData.get("location")         as string)?.trim() || null;
+  const status           = (formData.get("status")           as string)?.trim() as TrialLessonStatus;
+  const contractedRaw    = (formData.get("contracted")       as string)?.trim() ?? "null";
+  const contracted       = parseContracted(contractedRaw);
+  const contractPlan     = (formData.get("contractPlan")     as string)?.trim() as CustomerPlan | null;
+  const note             = (formData.get("note")             as string)?.trim() || null;
 
-  if (!customerId || !memberId || !scheduledAt) return;
+  if (!customerId || !salesMemberId || !scheduledAt) return;
 
   await updateTrialLesson(id, {
     customerId,
-    memberId,
+    salesMemberId,
+    trainerMemberId,
     scheduledAt,
     location,
     status,

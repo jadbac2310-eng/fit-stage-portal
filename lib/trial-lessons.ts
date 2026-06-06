@@ -7,7 +7,8 @@ import type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 type DbRow = {
   id: string;
   customer_id: string;
-  member_id: string;
+  sales_member_id: string;
+  trainer_member_id: string | null;
   scheduled_at: string;
   location: string | null;
   status: TrialLessonStatus;
@@ -17,31 +18,36 @@ type DbRow = {
   created_at: string;
   updated_at: string;
   customers: { full_name: string } | null;
-  members: { name: string } | null;
+  sales_member: { name: string } | null;
+  trainer_member: { name: string } | null;
 };
 
 function fromDb(row: DbRow): TrialLesson {
   return {
-    id:            row.id,
-    customerId:    row.customer_id,
-    customerName:  row.customers?.full_name ?? "",
-    memberId:      row.member_id,
-    memberName:    row.members?.name ?? "",
-    scheduledAt:   row.scheduled_at,
-    location:      row.location ?? undefined,
-    status:        row.status,
-    contracted:    row.contracted,
-    contractPlan:  row.contract_plan ?? undefined,
-    note:          row.note ?? undefined,
-    createdAt:     row.created_at,
-    updatedAt:     row.updated_at,
+    id:                  row.id,
+    customerId:          row.customer_id,
+    customerName:        row.customers?.full_name ?? "",
+    salesMemberId:       row.sales_member_id,
+    salesMemberName:     row.sales_member?.name ?? "",
+    trainerMemberId:     row.trainer_member_id ?? undefined,
+    trainerMemberName:   row.trainer_member?.name ?? undefined,
+    scheduledAt:         row.scheduled_at,
+    location:            row.location ?? undefined,
+    status:              row.status,
+    contracted:          row.contracted,
+    contractPlan:        row.contract_plan ?? undefined,
+    note:                row.note ?? undefined,
+    createdAt:           row.created_at,
+    updatedAt:           row.updated_at,
   };
 }
+
+const SELECT = "*, customers(full_name), sales_member:members!sales_member_id(name), trainer_member:members!trainer_member_id(name)";
 
 export async function getTrialLessons(): Promise<TrialLesson[]> {
   const { data, error } = await createAdminClient()
     .from("trial_lessons")
-    .select("*, customers(full_name), members(name)")
+    .select(SELECT)
     .order("scheduled_at", { ascending: false });
   if (error) throw error;
   return (data as DbRow[]).map(fromDb);
@@ -50,7 +56,7 @@ export async function getTrialLessons(): Promise<TrialLesson[]> {
 export async function getTrialLesson(id: string): Promise<TrialLesson | null> {
   const { data, error } = await createAdminClient()
     .from("trial_lessons")
-    .select("*, customers(full_name), members(name)")
+    .select(SELECT)
     .eq("id", id)
     .single();
   if (error || !data) return null;
@@ -59,7 +65,8 @@ export async function getTrialLesson(id: string): Promise<TrialLesson | null> {
 
 export async function addTrialLesson(input: {
   customerId: string;
-  memberId: string;
+  salesMemberId: string;
+  trainerMemberId?: string;
   scheduledAt: string;
   location?: string;
   status?: TrialLessonStatus;
@@ -70,16 +77,17 @@ export async function addTrialLesson(input: {
   const { data, error } = await createAdminClient()
     .from("trial_lessons")
     .insert({
-      customer_id:   input.customerId,
-      member_id:     input.memberId,
-      scheduled_at:  input.scheduledAt,
-      location:      input.location ?? null,
-      status:        input.status ?? "scheduled",
-      contracted:    input.contracted ?? null,
-      contract_plan: input.contractPlan ?? null,
-      note:          input.note ?? null,
+      customer_id:       input.customerId,
+      sales_member_id:   input.salesMemberId,
+      trainer_member_id: input.trainerMemberId ?? null,
+      scheduled_at:      input.scheduledAt,
+      location:          input.location ?? null,
+      status:            input.status ?? "scheduled",
+      contracted:        input.contracted ?? null,
+      contract_plan:     input.contractPlan ?? null,
+      note:              input.note ?? null,
     })
-    .select("*, customers(full_name), members(name)")
+    .select(SELECT)
     .single();
   if (error) throw error;
   return fromDb(data as DbRow);
@@ -89,7 +97,8 @@ export async function updateTrialLesson(
   id: string,
   input: Partial<{
     customerId: string;
-    memberId: string;
+    salesMemberId: string;
+    trainerMemberId: string | null;
     scheduledAt: string;
     location: string | null;
     status: TrialLessonStatus;
@@ -99,20 +108,21 @@ export async function updateTrialLesson(
   }>
 ): Promise<TrialLesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (input.customerId   !== undefined) patch.customer_id   = input.customerId;
-  if (input.memberId     !== undefined) patch.member_id     = input.memberId;
-  if (input.scheduledAt  !== undefined) patch.scheduled_at  = input.scheduledAt;
-  if (input.location     !== undefined) patch.location      = input.location;
-  if (input.status       !== undefined) patch.status        = input.status;
-  if (input.contracted   !== undefined) patch.contracted    = input.contracted;
-  if (input.contractPlan !== undefined) patch.contract_plan = input.contractPlan;
-  if (input.note         !== undefined) patch.note          = input.note;
+  if (input.customerId       !== undefined) patch.customer_id       = input.customerId;
+  if (input.salesMemberId    !== undefined) patch.sales_member_id   = input.salesMemberId;
+  if (input.trainerMemberId  !== undefined) patch.trainer_member_id = input.trainerMemberId;
+  if (input.scheduledAt      !== undefined) patch.scheduled_at      = input.scheduledAt;
+  if (input.location         !== undefined) patch.location          = input.location;
+  if (input.status           !== undefined) patch.status            = input.status;
+  if (input.contracted       !== undefined) patch.contracted        = input.contracted;
+  if (input.contractPlan     !== undefined) patch.contract_plan     = input.contractPlan;
+  if (input.note             !== undefined) patch.note              = input.note;
 
   const { data, error } = await createAdminClient()
     .from("trial_lessons")
     .update(patch)
     .eq("id", id)
-    .select("*, customers(full_name), members(name)")
+    .select(SELECT)
     .single();
   if (error) throw error;
   return fromDb(data as DbRow);
@@ -125,4 +135,3 @@ export async function deleteTrialLesson(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
-

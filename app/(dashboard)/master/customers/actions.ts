@@ -17,7 +17,7 @@ export async function createCustomerAction(formData: FormData) {
   const status           = ((formData.get("status") as string)?.trim() || "trial") as CustomerStatus;
   const plan             = planRaw ? planRaw as CustomerPlan : undefined;
 
-  if (!fullName || !email || !dateOfBirth || !address || !phoneNumber || !desiredStartDate) return;
+  if (!fullName || !email || !dateOfBirth) return;
 
   await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, plan, desiredStartDate, agreedToTerms, status, note });
   revalidatePath("/master/customers");
@@ -36,7 +36,7 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   const agreedToTerms    = formData.get("agreedToTerms") === "on";
   const plan             = planRaw ? planRaw as CustomerPlan : undefined;
 
-  if (!fullName || !email || !dateOfBirth || !address || !phoneNumber || !desiredStartDate) return;
+  if (!fullName || !email || !dateOfBirth) return;
 
   await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, plan, desiredStartDate, agreedToTerms, status, note });
   revalidatePath("/master/customers");

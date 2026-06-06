@@ -119,11 +119,10 @@ function CustomerForm({
       {/* 住所 */}
       <div>
         <label className={labelClass}>
-          <MapPin size={12} /> 住所 <span className="text-red-500">*</span>
+          <MapPin size={12} /> 住所
         </label>
         <input
           name="address"
-          required
           defaultValue={defaultValues?.address}
           placeholder="東京都渋谷区..."
           className={inputClass}
@@ -133,12 +132,11 @@ function CustomerForm({
       {/* 電話番号 */}
       <div>
         <label className={labelClass}>
-          <Phone size={12} /> 電話番号 <span className="text-red-500">*</span>
+          <Phone size={12} /> 電話番号
         </label>
         <input
           name="phoneNumber"
           type="tel"
-          required
           defaultValue={defaultValues?.phoneNumber}
           placeholder="090-0000-0000"
           className={inputClass}
@@ -179,12 +177,11 @@ function CustomerForm({
       {/* 利用開始希望日 */}
       <div>
         <label className={labelClass}>
-          <Calendar size={12} /> 利用開始希望日 <span className="text-red-500">*</span>
+          <Calendar size={12} /> 利用開始希望日
         </label>
         <input
           name="desiredStartDate"
           type="date"
-          required
           defaultValue={defaultValues?.desiredStartDate}
           className={inputClass}
         />
@@ -404,7 +401,7 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
-    const matchSearch = !q || c.fullName.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phoneNumber.includes(q);
+    const matchSearch = !q || c.fullName.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phoneNumber ?? "").includes(q);
     const matchPlan   = !filterPlan   || c.plan   === filterPlan;
     const matchStatus = !filterStatus || c.status === filterStatus;
     return matchSearch && matchPlan && matchStatus;

@@ -6,8 +6,10 @@ export interface TrialLesson {
   id: string;
   customerId: string;
   customerName: string;
-  memberId: string;
-  memberName: string;
+  salesMemberId: string;
+  salesMemberName: string;
+  trainerMemberId?: string;
+  trainerMemberName?: string;
   scheduledAt: string;
   location?: string;
   status: TrialLessonStatus;

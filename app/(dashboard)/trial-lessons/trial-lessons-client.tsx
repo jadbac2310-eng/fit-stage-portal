@@ -106,18 +106,35 @@ function TrialLessonForm({
         </select>
       </div>
 
-      {/* 担当者 */}
+      {/* 営業担当者 */}
       <div>
         <label className={labelClass}>
-          <User size={12} /> 担当者 <span className="text-red-500">*</span>
+          <User size={12} /> 営業担当者 <span className="text-red-500">*</span>
         </label>
         <select
-          name="memberId"
+          name="salesMemberId"
           required
-          defaultValue={defaultValues?.memberId ?? ""}
+          defaultValue={defaultValues?.salesMemberId ?? ""}
           className={inputClass}
         >
-          <option value="">担当者を選択...</option>
+          <option value="">営業担当者を選択...</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* トレーニング担当者 */}
+      <div>
+        <label className={labelClass}>
+          <User size={12} /> トレーニング担当者
+        </label>
+        <select
+          name="trainerMemberId"
+          defaultValue={defaultValues?.trainerMemberId ?? ""}
+          className={inputClass}
+        >
+          <option value="">未定</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>
           ))}
@@ -287,7 +304,10 @@ function LessonRow({
         <p className="text-sm font-semibold text-gray-900">{lesson.customerName}</p>
       </td>
       <td className="px-4 py-3">
-        <p className="text-xs text-gray-600">{lesson.memberName}</p>
+        <p className="text-xs text-gray-600">{lesson.salesMemberName}</p>
+      </td>
+      <td className="px-4 py-3">
+        <p className="text-xs text-gray-600">{lesson.trainerMemberName ?? <span className="text-gray-300">—</span>}</p>
       </td>
       <td className="px-4 py-3">
         {lesson.location
@@ -382,7 +402,10 @@ function LessonCard({
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <p className="text-sm font-bold text-gray-900">{lesson.customerName}</p>
-          <p className="text-xs text-gray-500 mt-0.5">担当: {lesson.memberName}</p>
+          <p className="text-xs text-gray-500 mt-0.5">営業: {lesson.salesMemberName}</p>
+        {lesson.trainerMemberName && (
+          <p className="text-xs text-gray-500">TR: {lesson.trainerMemberName}</p>
+        )}
         </div>
         <StatusBadge status={lesson.status} />
       </div>
@@ -436,7 +459,7 @@ export function TrialLessonsClient({
 
   const filtered = lessons.filter((l) => {
     const q = search.toLowerCase();
-    const matchSearch = !q || l.customerName.toLowerCase().includes(q) || l.memberName.toLowerCase().includes(q) || (l.location ?? "").toLowerCase().includes(q);
+    const matchSearch = !q || l.customerName.toLowerCase().includes(q) || l.salesMemberName.toLowerCase().includes(q) || (l.trainerMemberName ?? "").toLowerCase().includes(q) || (l.location ?? "").toLowerCase().includes(q);
     const matchStatus = !filterStatus || l.status === filterStatus;
     const matchContracted =
       !filterContracted ||
@@ -550,7 +573,8 @@ export function TrialLessonsClient({
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">日時</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">顧客</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">担当者</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">営業担当</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">トレーナー</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">場所</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">ステータス</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">契約結果</th>

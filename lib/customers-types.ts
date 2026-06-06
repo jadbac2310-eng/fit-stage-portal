@@ -6,10 +6,10 @@ export interface Customer {
   email: string;
   fullName: string;
   dateOfBirth: string;
-  address: string;
-  phoneNumber: string;
+  address?: string;
+  phoneNumber?: string;
   plan?: CustomerPlan;
-  desiredStartDate: string;
+  desiredStartDate?: string;
   agreedToTerms: boolean;
   status: CustomerStatus;
   note?: string;

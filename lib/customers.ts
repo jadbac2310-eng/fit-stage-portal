@@ -8,10 +8,10 @@ type DbRow = {
   email: string;
   full_name: string;
   date_of_birth: string;
-  address: string;
-  phone_number: string;
+  address: string | null;
+  phone_number: string | null;
   plan: CustomerPlan | null;
-  desired_start_date: string;
+  desired_start_date: string | null;
   agreed_to_terms: boolean;
   electronic_signature: string | null;
   status: CustomerStatus;
@@ -26,10 +26,10 @@ function fromDb(row: DbRow): Customer {
     email:            row.email,
     fullName:         row.full_name,
     dateOfBirth:      row.date_of_birth,
-    address:          row.address,
-    phoneNumber:      row.phone_number,
-    plan:             row.plan ?? undefined,
-    desiredStartDate: row.desired_start_date,
+    address:          row.address          ?? undefined,
+    phoneNumber:      row.phone_number      ?? undefined,
+    plan:             row.plan              ?? undefined,
+    desiredStartDate: row.desired_start_date ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
     note:             row.note ?? undefined,
@@ -66,10 +66,10 @@ export async function addCustomer(
       email:              input.email,
       full_name:          input.fullName,
       date_of_birth:      input.dateOfBirth,
-      address:            input.address,
-      phone_number:       input.phoneNumber,
-      plan:               input.plan ?? null,
-      desired_start_date: input.desiredStartDate,
+      address:            input.address            ?? null,
+      phone_number:       input.phoneNumber         ?? null,
+      plan:               input.plan               ?? null,
+      desired_start_date: input.desiredStartDate    ?? null,
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
       note:               input.note ?? null,
