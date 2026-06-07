@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
+import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import { createLessonAction, updateLessonAction, deleteLessonAction } from "./actions";
@@ -52,14 +53,59 @@ function passLabel(pass: SessionPass) {
   return `${pass.totalCount}回券（残り${pass.remainingCount}回）${pass.expiredAt ? "　期限: " + pass.expiredAt : ""}`;
 }
 
+// ─── プラン照合ロジック ───────────────────────────────
+function computeSuggestion(
+  customerId: string,
+  scheduledAt: string,
+  allLessons: Lesson[],
+  customerPlans: CustomerPlanRecord[],
+  excludeLessonId?: string,
+): { course: string; withinPlan: boolean; message: string } | null {
+  const date = scheduledAt.slice(0, 10);
+  if (!date || date.length < 10) return null;
+  const month = date.slice(0, 7);
+
+  const activePlan = customerPlans.find(
+    (p) => p.customerId === customerId && p.startedAt <= date && (!p.endedAt || p.endedAt >= date)
+  );
+
+  const monthCount = allLessons.filter(
+    (l) => l.customerId === customerId &&
+            l.scheduledAt.slice(0, 7) === month &&
+            l.status !== "cancelled" &&
+            l.id !== excludeLessonId
+  ).length;
+
+  if (!activePlan) {
+    return { course: "", withinPlan: false, message: "この日付に適用中のプランがありません" };
+  }
+
+  const planSessions = parseInt(activePlan.plan.replace("月", "").replace("回", ""), 10);
+  if (monthCount < planSessions) {
+    return {
+      course: activePlan.plan,
+      withinPlan: true,
+      message: `プラン内（${activePlan.plan}：今月 ${monthCount + 1} / ${planSessions} 回目）`,
+    };
+  }
+  return {
+    course: "",
+    withinPlan: false,
+    message: `${activePlan.plan} の上限（${planSessions}回/月）を超えています。都度 または 回数券 を選択してください。`,
+  };
+}
+
 // ─── レッスンフォーム ─────────────────────────────────
 function LessonForm({
-  defaultValues, customers, members, sessionPasses, fixedCustomerId, onClose, action, submitLabel,
+  defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
+  fixedCustomerId, onClose, action, submitLabel,
 }: {
   defaultValues?: Partial<Lesson>;
   customers: Customer[];
   members: Member[];
   sessionPasses: SessionPass[];
+  customerPlans: CustomerPlanRecord[];
+  allLessons: Lesson[];
   fixedCustomerId?: string;
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
@@ -69,6 +115,23 @@ function LessonForm({
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
   const [selectedCourse, setSelectedCourse] = useState(defaultValues?.course ?? "");
+  const [scheduledDate, setScheduledDate] = useState(
+    defaultValues?.scheduledAt ? defaultValues.scheduledAt.slice(0, 10) : ""
+  );
+
+  const suggestion = useMemo(
+    () => selectedCustomerId && scheduledDate
+      ? computeSuggestion(selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id)
+      : null,
+    [selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id]
+  );
+
+  function applySuggestion(customerId: string, date: string) {
+    if (!defaultValues?.id) {
+      const sug = computeSuggestion(customerId, date, allLessons, customerPlans);
+      if (sug?.course) setSelectedCourse(sug.course);
+    }
+  }
 
   async function handleSubmit(fd: FormData) {
     setError(""); setLoading(true);
@@ -95,7 +158,8 @@ function LessonForm({
         <div>
           <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
           <select name="customerId" required defaultValue={defaultValues?.customerId ?? ""}
-            onChange={(e) => setSelectedCustomerId(e.target.value)} className={inputClass}>
+            onChange={(e) => { setSelectedCustomerId(e.target.value); applySuggestion(e.target.value, scheduledDate); }}
+            className={inputClass}>
             <option value="">顧客を選択...</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
           </select>
@@ -112,8 +176,25 @@ function LessonForm({
 
       <div>
         <label className={labelClass}><Calendar size={12} /> 日時 <span className="text-red-500">*</span></label>
-        <input name="scheduledAt" type="datetime-local" required defaultValue={defaultScheduledAt} className={inputClass} />
+        <input name="scheduledAt" type="datetime-local" required defaultValue={defaultScheduledAt}
+          onChange={(e) => { const d = e.target.value.slice(0, 10); setScheduledDate(d); applySuggestion(selectedCustomerId, d); }}
+          className={inputClass} />
       </div>
+
+      {/* プラン照合バナー */}
+      {suggestion && (
+        <div className={cn(
+          "rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2",
+          suggestion.withinPlan
+            ? "bg-green-50 border border-green-200 text-green-700"
+            : suggestion.message.includes("適用中のプランがありません")
+              ? "bg-gray-50 border border-gray-200 text-gray-500"
+              : "bg-orange-50 border border-orange-200 text-orange-700"
+        )}>
+          {suggestion.withinPlan ? <CheckCircle size={13} /> : <AlertTriangle size={13} />}
+          {suggestion.message}
+        </div>
+      )}
 
       <div>
         <label className={labelClass}><MapPin size={12} /> 場所</label>
@@ -246,8 +327,9 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
 }
 
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, isAdmin }: {
-  lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[]; isAdmin: boolean;
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin }: {
+  lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
+  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; isAdmin: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -266,6 +348,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, isAdmin }: {
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
       <LessonForm defaultValues={lesson} customers={customers} members={members} sessionPasses={sessionPasses}
+        customerPlans={customerPlans} allLessons={allLessons}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
         action={boundUpdate} submitLabel="保存する" />
     </div>
@@ -322,10 +405,12 @@ function LessonItem({ lesson, customers, members, sessionPasses, isAdmin }: {
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customers, members, isAdmin }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
+  customerPlans: CustomerPlanRecord[];
+  allLessons: Lesson[];
   customers: Customer[];
   members: Member[];
   isAdmin: boolean;
@@ -377,12 +462,13 @@ function CustomerGroup({ customer, lessons, sessionPasses, customers, members, i
           {/* レッスン一覧 */}
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
-              sessionPasses={sessionPasses} isAdmin={isAdmin} />
+              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} isAdmin={isAdmin} />
           ))}
 
           {showAdd ? (
             <div className="py-3">
               <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
+                customerPlans={customerPlans} allLessons={allLessons}
                 fixedCustomerId={customer.id} onClose={() => setShowAdd(false)}
                 action={createLessonAction} submitLabel="追加する" />
             </div>
@@ -406,9 +492,9 @@ function CustomerGroup({ customer, lessons, sessionPasses, customers, members, i
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, isAdmin }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
-  sessionPasses: SessionPass[]; isAdmin: boolean;
+  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; isAdmin: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -480,6 +566,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
+            customerPlans={customerPlans} allLessons={lessons}
             onClose={() => setShowAdd(false)} action={createLessonAction} submitLabel="追加する" />
         </div>
       )}
@@ -503,7 +590,8 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
         <div className="space-y-2">
           {filtered.map(({ customer, lessons: ls }) => (
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
-              sessionPasses={sessionPasses} customers={customers} members={members} isAdmin={isAdmin} />
+              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
+              customers={customers} members={members} isAdmin={isAdmin} />
           ))}
         </div>
       )}
@@ -519,6 +607,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
       {showAdd && (
         <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
+            customerPlans={customerPlans} allLessons={lessons}
             onClose={() => setShowAdd(false)} action={createLessonAction} submitLabel="追加する" />
         </BottomSheet>
       )}

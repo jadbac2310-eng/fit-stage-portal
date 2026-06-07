@@ -1,7 +1,7 @@
 import { createAdminClient } from "./supabase";
 export type { CustomerPlan, CustomerStatus, Customer } from "./customers-types";
-export { PLAN_LABEL, STATUS_LABEL } from "./customers-types";
-import type { Customer, CustomerPlan, CustomerStatus } from "./customers-types";
+export { STATUS_LABEL } from "./customers-types";
+import type { Customer, CustomerStatus } from "./customers-types";
 
 type DbRow = {
   id: string;
@@ -10,7 +10,6 @@ type DbRow = {
   date_of_birth: string;
   address: string | null;
   phone_number: string | null;
-  plan: CustomerPlan | null;
   desired_start_date: string | null;
   agreed_to_terms: boolean;
   electronic_signature: string | null;
@@ -28,7 +27,6 @@ function fromDb(row: DbRow): Customer {
     dateOfBirth:      row.date_of_birth,
     address:          row.address          ?? undefined,
     phoneNumber:      row.phone_number      ?? undefined,
-    plan:             row.plan              ?? undefined,
     desiredStartDate: row.desired_start_date ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
@@ -68,7 +66,6 @@ export async function addCustomer(
       date_of_birth:      input.dateOfBirth,
       address:            input.address            ?? null,
       phone_number:       input.phoneNumber         ?? null,
-      plan:               input.plan               ?? null,
       desired_start_date: input.desiredStartDate    ?? null,
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
@@ -90,7 +87,6 @@ export async function updateCustomer(
   if (input.dateOfBirth      !== undefined) patch.date_of_birth      = input.dateOfBirth;
   if (input.address          !== undefined) patch.address            = input.address;
   if (input.phoneNumber      !== undefined) patch.phone_number       = input.phoneNumber;
-  if (input.plan             !== undefined) patch.plan               = input.plan ?? null;
   if (input.desiredStartDate !== undefined) patch.desired_start_date = input.desiredStartDate;
   if (input.agreedToTerms    !== undefined) patch.agreed_to_terms    = input.agreedToTerms;
   if (input.status           !== undefined) patch.status             = input.status;

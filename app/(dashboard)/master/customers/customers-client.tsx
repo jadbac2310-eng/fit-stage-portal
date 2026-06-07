@@ -5,7 +5,7 @@ import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
   MapPin, Calendar, StickyNote, Ticket,
 } from "lucide-react";
-import { Customer, CustomerPlan, CustomerStatus, PLAN_LABEL, STATUS_LABEL } from "@/lib/customers-types";
+import { Customer, CustomerStatus, STATUS_LABEL } from "@/lib/customers-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import {
   createCustomerAction, updateCustomerAction, deleteCustomerAction,
@@ -16,18 +16,6 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
 // ─── バッジ ───────────────────────────────────────────
-function PlanBadge({ plan }: { plan?: CustomerPlan }) {
-  if (!plan) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">体験中</span>;
-  return (
-    <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-      plan === "monthly" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
-    )}>
-      {PLAN_LABEL[plan]}
-    </span>
-  );
-}
-
 function StatusBadge({ status }: { status: CustomerStatus }) {
   return (
     <span className={cn(
@@ -311,7 +299,7 @@ function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmi
 
   if (mode === "edit") return (
     <tr>
-      <td colSpan={6} className="px-4 py-3">
+      <td colSpan={5} className="px-4 py-3">
         <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-bold text-gray-900">顧客を編集</p>
@@ -325,7 +313,7 @@ function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmi
 
   if (mode === "passes") return (
     <tr>
-      <td colSpan={6} className="px-4 py-4">
+      <td colSpan={5} className="px-4 py-4">
         <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold text-gray-900">{customer.fullName} の回数券</p>
@@ -347,7 +335,6 @@ function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmi
         <p className="text-xs text-gray-600">{customer.phoneNumber}</p>
       </td>
       <td className="px-4 py-3"><StatusBadge status={customer.status} /></td>
-      <td className="px-4 py-3"><PlanBadge plan={customer.plan} /></td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{customer.desiredStartDate}</p>
       </td>
@@ -418,7 +405,6 @@ function CustomerCard({ customer, isAdmin, passes }: { customer: Customer; isAdm
         </div>
         <div className="flex flex-col items-end gap-1">
           <StatusBadge status={customer.status} />
-          <PlanBadge plan={customer.plan} />
         </div>
       </div>
 
@@ -461,15 +447,13 @@ function CustomerCard({ customer, isAdmin, passes }: { customer: Customer; isAdm
 export function CustomersClient({ customers, sessionPasses, isAdmin }: { customers: Customer[]; sessionPasses: SessionPass[]; isAdmin: boolean }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterPlan, setFilterPlan] = useState<CustomerPlan | "">("");
   const [filterStatus, setFilterStatus] = useState<CustomerStatus | "">("");
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
     const matchSearch = !q || c.fullName.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phoneNumber ?? "").includes(q);
-    const matchPlan   = !filterPlan   || c.plan   === filterPlan;
     const matchStatus = !filterStatus || c.status === filterStatus;
-    return matchSearch && matchPlan && matchStatus;
+    return matchSearch && matchStatus;
   });
 
   return (
@@ -517,15 +501,6 @@ export function CustomersClient({ customers, sessionPasses, isAdmin }: { custome
           <option value="active">在籍中</option>
           <option value="pending">審査中</option>
           <option value="inactive">退会</option>
-        </select>
-        <select
-          value={filterPlan}
-          onChange={(e) => setFilterPlan(e.target.value as CustomerPlan | "")}
-          className="px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">全プラン</option>
-          <option value="monthly">月額制</option>
-          <option value="pay_as_you_go">都度払い</option>
         </select>
       </div>
 
@@ -575,7 +550,6 @@ export function CustomersClient({ customers, sessionPasses, isAdmin }: { custome
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">氏名 / メール</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">電話番号</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">ステータス</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">プラン</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">開始日</th>
                   <th className="px-4 py-3" />
                 </tr>
