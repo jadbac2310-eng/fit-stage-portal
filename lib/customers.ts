@@ -1,7 +1,7 @@
 import { createAdminClient } from "./supabase";
-export type { CustomerPlan, CustomerStatus, Customer } from "./customers-types";
-export { STATUS_LABEL } from "./customers-types";
-import type { Customer, CustomerStatus } from "./customers-types";
+export type { CustomerPlan, CustomerStatus, CustomerType, Customer } from "./customers-types";
+export { STATUS_LABEL, CUSTOMER_TYPE_LABEL } from "./customers-types";
+import type { Customer, CustomerStatus, CustomerType } from "./customers-types";
 
 type DbRow = {
   id: string;
@@ -14,6 +14,7 @@ type DbRow = {
   agreed_to_terms: boolean;
   electronic_signature: string | null;
   status: CustomerStatus;
+  customer_type: CustomerType;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -30,6 +31,7 @@ function fromDb(row: DbRow): Customer {
     desiredStartDate: row.desired_start_date ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
+    customerType:     row.customer_type ?? "individual",
     note:             row.note ?? undefined,
     createdAt:        row.created_at,
     updatedAt:        row.updated_at,
@@ -69,6 +71,7 @@ export async function addCustomer(
       desired_start_date: input.desiredStartDate    ?? null,
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
+      customer_type:      input.customerType        ?? "individual",
       note:               input.note ?? null,
     })
     .select()
@@ -90,6 +93,7 @@ export async function updateCustomer(
   if (input.desiredStartDate !== undefined) patch.desired_start_date = input.desiredStartDate;
   if (input.agreedToTerms    !== undefined) patch.agreed_to_terms    = input.agreedToTerms;
   if (input.status           !== undefined) patch.status             = input.status;
+  if (input.customerType     !== undefined) patch.customer_type      = input.customerType;
   if (input.note             !== undefined) patch.note               = input.note ?? null;
 
   const { data, error } = await createAdminClient()

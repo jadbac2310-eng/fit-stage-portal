@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       fullName: full_name as string,
       dateOfBirth: date_of_birth ?? undefined,
       status: "trial",
+      customerType: "individual",
       agreedToTerms: false,
       note: note ?? undefined,
     });

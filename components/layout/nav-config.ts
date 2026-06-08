@@ -5,6 +5,7 @@ import {
   BookOpen,
   Dumbbell,
   CreditCard,
+  PiggyBank,
   type LucideIcon,
 } from "lucide-react";
 
@@ -15,12 +16,13 @@ export type NavNode = {
 };
 
 export const NAV_TREE: NavNode[] = [
-  { label: "ダッシュボード", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Todo",           href: "/todo",       icon: CheckSquare },
-  { label: "Wiki",           href: "/wiki",       icon: BookOpen },
-  { label: "レッスン",       href: "/lessons",    icon: Dumbbell },
-  { label: "プラン管理",     href: "/plans",      icon: CreditCard },
-  { label: "マスタ管理",     href: "/master",     icon: Database },
+  { label: "ダッシュボード", href: "/dashboard",   icon: LayoutDashboard },
+  { label: "Todo",           href: "/todo",         icon: CheckSquare },
+  { label: "Wiki",           href: "/wiki",         icon: BookOpen },
+  { label: "レッスン",       href: "/lessons",      icon: Dumbbell },
+  { label: "プラン管理",     href: "/plans",        icon: CreditCard },
+  { label: "歩合管理",       href: "/commissions",  icon: PiggyBank },
+  { label: "マスタ管理",     href: "/master",       icon: Database },
 ];
 
 export function getAncestors(pathname: string): NavNode[] {

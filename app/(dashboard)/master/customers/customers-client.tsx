@@ -5,7 +5,7 @@ import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
   MapPin, Calendar, StickyNote, Ticket, ChevronDown,
 } from "lucide-react";
-import { Customer, CustomerStatus, STATUS_LABEL } from "@/lib/customers-types";
+import { Customer, CustomerStatus, CustomerType, STATUS_LABEL, CUSTOMER_TYPE_LABEL } from "@/lib/customers-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import {
   createCustomerAction, updateCustomerAction, deleteCustomerAction,
@@ -208,6 +208,27 @@ function CustomerForm({
         />
       </div>
 
+      {/* 個人/法人 */}
+      <div>
+        <label className={labelClass}>
+          <User size={12} /> 顧客区分 <span className="text-red-500">*</span>
+        </label>
+        <div className="flex gap-2">
+          {(["individual", "corporate"] as CustomerType[]).map((t) => (
+            <label key={t} className="flex-1 flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="customerType"
+                value={t}
+                defaultChecked={(defaultValues?.customerType ?? "individual") === t}
+                className="accent-blue-600"
+              />
+              <span className="text-sm">{CUSTOMER_TYPE_LABEL[t]}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
       {/* メモ */}
       <div>
         <label className={labelClass}>
@@ -388,7 +409,17 @@ function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmi
   return (
     <tr className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
       <td className="px-4 py-3">
-        <p className="text-sm font-semibold text-gray-900">{customer.fullName}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold text-gray-900">{customer.fullName}</p>
+          <span className={cn(
+            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+            customer.customerType === "corporate"
+              ? "bg-blue-100 text-blue-700"
+              : "bg-gray-100 text-gray-600"
+          )}>
+            {CUSTOMER_TYPE_LABEL[customer.customerType]}
+          </span>
+        </div>
         <p className="text-xs text-gray-400 mt-0.5">{customer.email}</p>
       </td>
       <td className="px-4 py-3">
@@ -459,7 +490,17 @@ function CustomerCard({ customer, isAdmin, passes }: { customer: Customer; isAdm
     <div className="bg-white rounded-2xl border border-gray-200 p-4 hover:shadow-sm transition-shadow">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900">{customer.fullName}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-bold text-gray-900">{customer.fullName}</p>
+            <span className={cn(
+              "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+              customer.customerType === "corporate"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600"
+            )}>
+              {CUSTOMER_TYPE_LABEL[customer.customerType]}
+            </span>
+          </div>
           <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
             <Mail size={10} className="flex-shrink-0" />{customer.email}
           </p>

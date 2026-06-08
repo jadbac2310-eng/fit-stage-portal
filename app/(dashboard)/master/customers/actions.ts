@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
-import type { CustomerStatus } from "@/lib/customers-types";
+import type { CustomerStatus, CustomerType } from "@/lib/customers-types";
 
 export async function createCustomerAction(formData: FormData) {
   const fullName         = (formData.get("fullName")         as string)?.trim();
@@ -12,11 +12,12 @@ export async function createCustomerAction(formData: FormData) {
   const address          = (formData.get("address")          as string)?.trim();
   const phoneNumber      = (formData.get("phoneNumber")      as string)?.trim();
   const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim();
+  const customerType     = ((formData.get("customerType") as string)?.trim() || "individual") as CustomerType;
   const note             = (formData.get("note")             as string)?.trim() || undefined;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, agreedToTerms: false, status: "trial", note });
+  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, agreedToTerms: false, status: "trial", customerType, note });
   revalidatePath("/master/customers");
 }
 
@@ -27,11 +28,12 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   const address          = (formData.get("address")          as string)?.trim();
   const phoneNumber      = (formData.get("phoneNumber")      as string)?.trim();
   const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim();
+  const customerType     = ((formData.get("customerType") as string)?.trim() || "individual") as CustomerType;
   const note             = (formData.get("note")             as string)?.trim() || undefined;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, note });
+  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note });
   revalidatePath("/master/customers");
 }
 
