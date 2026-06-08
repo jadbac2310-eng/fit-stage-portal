@@ -95,6 +95,18 @@ function computeSuggestion(
   };
 }
 
+// datetime-local の値（ローカル時刻）を UTC ISO 文字列に変換
+function localInputToISO(value: string): string {
+  return new Date(value).toISOString();
+}
+
+// UTC ISO 文字列を datetime-local input 用のローカル時刻文字列に変換
+function isoToLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ─── レッスンフォーム ─────────────────────────────────
 function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
@@ -135,6 +147,9 @@ function LessonForm({
 
   async function handleSubmit(fd: FormData) {
     setError(""); setLoading(true);
+    // datetime-local はローカル時刻を返すので、UTC ISO に変換してから送信
+    const raw = fd.get("scheduledAt") as string;
+    if (raw) fd.set("scheduledAt", localInputToISO(raw));
     try { await action(fd); onClose(); }
     catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
   }
@@ -142,7 +157,7 @@ function LessonForm({
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
   const defaultScheduledAt = defaultValues?.scheduledAt
-    ? new Date(defaultValues.scheduledAt).toISOString().slice(0, 16) : "";
+    ? isoToLocalInput(defaultValues.scheduledAt) : "";
 
   const isSessionPassCourse = selectedCourse.startsWith("回数券");
   const availablePasses = sessionPasses.filter(
