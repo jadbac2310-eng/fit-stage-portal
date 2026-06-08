@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
+import type { CustomerStatus } from "@/lib/customers-types";
 
 export async function createCustomerAction(formData: FormData) {
   const fullName         = (formData.get("fullName")         as string)?.trim();
@@ -31,6 +32,11 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   if (!fullName || !email || !dateOfBirth) return;
 
   await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, note });
+  revalidatePath("/master/customers");
+}
+
+export async function updateCustomerStatusAction(id: string, status: CustomerStatus) {
+  await updateCustomer(id, { status });
   revalidatePath("/master/customers");
 }
 

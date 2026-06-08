@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addTrialLesson, updateTrialLesson, deleteTrialLesson } from "@/lib/trial-lessons";
+import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
+import { updateCustomer } from "@/lib/customers";
 import type { CustomerPlan } from "@/lib/customers-types";
 
 export async function createTrialLessonAction(formData: FormData) {
@@ -52,7 +53,17 @@ export async function saveReportAction(id: string, formData: FormData) {
     note,
     status: "completed",
   });
+
+  // 契約成功 → 顧客ステータスを「審査中」へ自動変更
+  if (contracted === true) {
+    const lesson = await getTrialLesson(id);
+    if (lesson?.customerId) {
+      await updateCustomer(lesson.customerId, { status: "pending" });
+    }
+  }
+
   revalidatePath("/trial-lessons");
+  revalidatePath("/master/customers");
 }
 
 export async function deleteTrialLessonAction(id: string) {

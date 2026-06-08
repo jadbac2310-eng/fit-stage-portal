@@ -3,30 +3,90 @@
 import { useState } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
-  MapPin, Calendar, StickyNote, Ticket,
+  MapPin, Calendar, StickyNote, Ticket, ChevronDown,
 } from "lucide-react";
 import { Customer, CustomerStatus, STATUS_LABEL } from "@/lib/customers-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import {
   createCustomerAction, updateCustomerAction, deleteCustomerAction,
-  createSessionPassAction, deleteSessionPassAction,
+  createSessionPassAction, deleteSessionPassAction, updateCustomerStatusAction,
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
 // ─── バッジ ───────────────────────────────────────────
+function statusColor(status: CustomerStatus) {
+  return status === "trial"   ? "bg-purple-100 text-purple-700" :
+         status === "active"  ? "bg-green-100 text-green-700"   :
+         status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                                "bg-gray-100 text-gray-500";
+}
+
 function StatusBadge({ status }: { status: CustomerStatus }) {
   return (
-    <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-      status === "trial"    ? "bg-purple-100 text-purple-700" :
-      status === "active"   ? "bg-green-100 text-green-700"   :
-      status === "pending"  ? "bg-yellow-100 text-yellow-700" :
-                              "bg-gray-100 text-gray-500"
-    )}>
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", statusColor(status))}>
       {STATUS_LABEL[status]}
     </span>
+  );
+}
+
+// ─── ステータス変更セレクト（管理者のみ） ─────────────
+const STATUS_OPTIONS: CustomerStatus[] = ["trial", "pending", "active", "inactive"];
+
+function StatusSelect({ customerId, status }: { customerId: string; status: CustomerStatus }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [current, setCurrent] = useState(status);
+
+  async function handleChange(next: CustomerStatus) {
+    if (next === current) { setOpen(false); return; }
+    setLoading(true);
+    await updateCustomerStatusAction(customerId, next);
+    setCurrent(next);
+    setOpen(false);
+    setLoading(false);
+  }
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onClick={() => setOpen(!open)}
+        disabled={loading}
+        className={cn(
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition",
+          statusColor(current),
+          "hover:opacity-80 disabled:opacity-60"
+        )}
+      >
+        {loading ? <Spinner size={10} /> : STATUS_LABEL[current]}
+        <ChevronDown size={10} className="flex-shrink-0" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 min-w-28">
+            {STATUS_OPTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => handleChange(s)}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 flex items-center gap-2",
+                  s === current && "font-semibold"
+                )}
+              >
+                <span className={cn("inline-block w-1.5 h-1.5 rounded-full flex-shrink-0",
+                  s === "trial"   ? "bg-purple-400" :
+                  s === "active"  ? "bg-green-400"  :
+                  s === "pending" ? "bg-yellow-400" : "bg-gray-400"
+                )} />
+                {STATUS_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -334,7 +394,11 @@ function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmi
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{customer.phoneNumber}</p>
       </td>
-      <td className="px-4 py-3"><StatusBadge status={customer.status} /></td>
+      <td className="px-4 py-3">
+        {isAdmin
+          ? <StatusSelect customerId={customer.id} status={customer.status} />
+          : <StatusBadge status={customer.status} />}
+      </td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{customer.desiredStartDate}</p>
       </td>
@@ -404,7 +468,9 @@ function CustomerCard({ customer, isAdmin, passes }: { customer: Customer; isAdm
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <StatusBadge status={customer.status} />
+          {isAdmin
+            ? <StatusSelect customerId={customer.id} status={customer.status} />
+            : <StatusBadge status={customer.status} />}
         </div>
       </div>
 

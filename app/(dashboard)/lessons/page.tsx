@@ -1,15 +1,22 @@
 import Link from "next/link";
-import { ArrowRight, Dumbbell, FlaskConical } from "lucide-react";
+import { ArrowRight, Dumbbell, FlaskConical, FileText } from "lucide-react";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getAllMonthlyReports } from "@/lib/monthly-reports";
 
 export const dynamic = "force-dynamic";
 
 export default async function LessonsPage() {
-  const [lessons, trialLessons] = await Promise.all([
+  const today = new Date();
+  const currentYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+  const [lessons, trialLessons, monthlyReports] = await Promise.all([
     getLessons(),
     getTrialLessons(),
+    getAllMonthlyReports(),
   ]);
+
+  const thisMonthReports = monthlyReports.filter((r) => r.yearMonth === currentYM).length;
 
   const scheduledTrials = trialLessons.filter((l) => l.status === "scheduled").length;
 
@@ -21,6 +28,7 @@ export default async function LessonsPage() {
       </div>
 
       <div className="space-y-2">
+
         <Link
           href="/lessons/regular"
           className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
@@ -56,6 +64,23 @@ export default async function LessonsPage() {
               </span>
             )}
             <ArrowRight size={16} className="text-gray-400 group-hover:text-purple-500 transition" />
+          </div>
+        </Link>
+
+        <Link
+          href="/lessons/monthly-reports"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <FileText size={20} className="text-green-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">月次レポート</p>
+            <p className="text-xs text-gray-500 mt-0.5">トレーナーによる月次指導報告</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400">今月 {thisMonthReports}件</span>
+            <ArrowRight size={16} className="text-gray-400 group-hover:text-green-500 transition" />
           </div>
         </Link>
       </div>
