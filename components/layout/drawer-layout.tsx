@@ -9,10 +9,12 @@ import { cn } from "@/lib/cn";
 export function DrawerLayout({
   userName,
   avatarUrl,
+  isAdmin = false,
   children,
 }: {
   userName?: string;
   avatarUrl?: string;
+  isAdmin?:  boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -25,7 +27,7 @@ export function DrawerLayout({
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* デスクトップ: 常時表示サイドバー */}
-      <Sidebar userName={userName} avatarUrl={avatarUrl} />
+      <Sidebar userName={userName} avatarUrl={avatarUrl} isAdmin={isAdmin} />
 
       {/* モバイル: ドロワー背景 */}
       <div
@@ -46,6 +48,7 @@ export function DrawerLayout({
         <Sidebar
           userName={userName}
           avatarUrl={avatarUrl}
+          isAdmin={isAdmin}
           mobile
           onClose={() => setOpen(false)}
         />

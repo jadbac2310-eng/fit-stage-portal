@@ -10,11 +10,13 @@ import { Avatar } from "@/components/ui/avatar";
 export function Sidebar({
   userName,
   avatarUrl,
+  isAdmin = false,
   mobile = false,
   onClose,
 }: {
   userName?: string;
   avatarUrl?: string;
+  isAdmin?:  boolean;
   mobile?: boolean;
   onClose?: () => void;
 }) {
@@ -51,7 +53,7 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto p-3">
         <ul className="space-y-0.5">
-          {NAV_TREE.map((node) => {
+          {NAV_TREE.filter((node) => !node.adminOnly || isAdmin).map((node) => {
             const Icon = node.icon;
             const isActive =
               pathname === node.href ||

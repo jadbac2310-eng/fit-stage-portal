@@ -8,6 +8,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <DrawerLayout
       userName={currentMember?.name}
       avatarUrl={currentMember?.avatarUrl}
+      isAdmin={currentMember?.isAdmin ?? false}
     >
       {children}
     </DrawerLayout>

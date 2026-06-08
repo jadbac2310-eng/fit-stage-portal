@@ -10,9 +10,10 @@ import {
 } from "lucide-react";
 
 export type NavNode = {
-  label: string;
-  href: string;
-  icon?: LucideIcon;
+  label:      string;
+  href:       string;
+  icon?:      LucideIcon;
+  adminOnly?: boolean;
 };
 
 export const NAV_TREE: NavNode[] = [
@@ -21,7 +22,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "Wiki",           href: "/wiki",         icon: BookOpen },
   { label: "レッスン",       href: "/lessons",      icon: Dumbbell },
   { label: "プラン管理",     href: "/plans",        icon: CreditCard },
-  { label: "歩合管理",       href: "/commissions",  icon: PiggyBank },
+  { label: "歩合管理",       href: "/commissions",  icon: PiggyBank, adminOnly: true },
   { label: "マスタ管理",     href: "/master",       icon: Database },
 ];
 
