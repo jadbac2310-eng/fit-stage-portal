@@ -1,9 +1,14 @@
 import {
   MonitorSmartphone,
   Smartphone, Monitor, Tablet,
+  Dumbbell, Users, TrendingUp, Award,
 } from "lucide-react";
 import { getTodos } from "@/lib/todos";
 import { getCurrentMember } from "@/lib/members";
+import { getLessons } from "@/lib/lessons";
+import { getTrialLessons } from "@/lib/trial-lessons";
+import { getCustomers } from "@/lib/customers";
+import { getLessonFee } from "@/lib/commissions-types";
 import {
   getPopularPages,
   getTrafficSources,
@@ -26,6 +31,18 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function thisMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+function isoToMonth(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function yen(n: number) {
+  return `¥${n.toLocaleString("ja-JP")}`;
+}
+
 const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ size: number; className: string }> }> = {
   mobile:  { label: "スマートフォン", Icon: Smartphone },
   desktop: { label: "デスクトップ",   Icon: Monitor },
@@ -36,6 +53,9 @@ export default async function DashboardPage() {
   const [
     todos,
     currentMember,
+    lessons,
+    trialLessons,
+    customers,
     popularPages,
     trafficSources,
     deviceBreakdown,
@@ -48,6 +68,9 @@ export default async function DashboardPage() {
     await Promise.all([
       getTodos(),
       getCurrentMember(),
+      getLessons(),
+      getTrialLessons(),
+      getCustomers(),
       getPopularPages(28, 5),
       getTrafficSources(28, 6),
       getDeviceBreakdown(28),
@@ -62,11 +85,72 @@ export default async function DashboardPage() {
   const totalPendingCount = todos.filter((t) => !t.completed).length;
   const deviceTotal       = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);
 
+  // ─── 今月サマリー ──────────────────────────────────────
+  const mon = thisMonth();
+
+  const completedThisMonth = lessons.filter(
+    (l) => l.status === "completed" && isoToMonth(l.scheduledAt) === mon
+  );
+  const scheduledThisMonth = lessons.filter(
+    (l) => l.status === "scheduled" && isoToMonth(l.scheduledAt) === mon
+  );
+  const salesThisMonth = completedThisMonth.reduce(
+    (sum, l) => sum + getLessonFee(l.course), 0
+  );
+  const newCustomersThisMonth = customers.filter(
+    (c) => isoToMonth(c.createdAt) === mon
+  ).length;
+  const contractedThisMonth = trialLessons.filter(
+    (tl) => tl.contracted === true && isoToMonth(tl.scheduledAt) === mon
+  ).length;
+  const activeCustomers = customers.filter((c) => c.status === "active").length;
+
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="mb-6 hidden md:block">
         <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
+      </div>
+
+      {/* 今月サマリー */}
+      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+        今月のサマリー
+      </h2>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4">
+          <div className="flex items-center gap-1.5 mb-1">
+            <TrendingUp size={13} className="text-blue-500" />
+            <p className="text-xs font-semibold text-blue-600">今月の売上</p>
+          </div>
+          <p className="text-2xl font-bold text-blue-700">{yen(salesThisMonth)}</p>
+          <p className="text-xs text-blue-400 mt-0.5">完了レッスン {completedThisMonth.length}件</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Dumbbell size={13} className="text-gray-400" />
+            <p className="text-xs font-semibold text-gray-500">レッスン</p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{completedThisMonth.length}</p>
+          <p className="text-xs text-gray-400 mt-0.5">予定 {scheduledThisMonth.length}件</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Users size={13} className="text-gray-400" />
+            <p className="text-xs font-semibold text-gray-500">新規顧客</p>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{newCustomersThisMonth}</p>
+          <p className="text-xs text-gray-400 mt-0.5">在籍中 {activeCustomers}名</p>
+        </div>
+        <div className="bg-green-50 rounded-2xl border border-green-100 p-4">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Award size={13} className="text-green-500" />
+            <p className="text-xs font-semibold text-green-600">今月の成約</p>
+          </div>
+          <p className="text-2xl font-bold text-green-700">{contractedThisMonth}</p>
+          <p className="text-xs text-green-400 mt-0.5">件</p>
+        </div>
       </div>
 
       {/* タスク概要 */}
