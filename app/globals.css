@@ -23,6 +23,19 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* iOS Safari のネイティブ日付/時刻入力は width:100% を無視し最小幅を保持するため、
+   コンテナを突き破る。appearance:none で通常の入力同様に幅を制御できるようにする。 */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* Markdown レンダリング */
 .markdown {
   font-size: 0.875rem;
