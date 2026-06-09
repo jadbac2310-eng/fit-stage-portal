@@ -7,6 +7,7 @@ import {
 } from "@/lib/customer-plans";
 import { plansOverlap } from "@/lib/customer-plans-types";
 import { requireAdmin } from "@/lib/members";
+import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
 import type { ContractPlan } from "@/lib/customer-plans-types";
 
 async function checkOverlap(
@@ -64,4 +65,27 @@ export async function deletePlanAction(id: string) {
   await requireAdmin();
   await deleteCustomerPlan(id);
   revalidatePath("/plans");
+}
+
+// ─── 回数券 ───────────────────────────────────────────
+export async function createSessionPassAction(formData: FormData) {
+  await requireAdmin();
+  const customerId  = (formData.get("customerId")  as string)?.trim();
+  const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
+  const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
+  const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || undefined;
+  const note        = (formData.get("note")        as string)?.trim() || undefined;
+
+  if (!customerId || !totalCount || !purchasedAt) return;
+
+  await addSessionPass({ customerId, totalCount, purchasedAt, expiredAt, note });
+  revalidatePath("/plans");
+  revalidatePath("/lessons/regular");
+}
+
+export async function deleteSessionPassAction(id: string) {
+  await requireAdmin();
+  await deleteSessionPass(id);
+  revalidatePath("/plans");
+  revalidatePath("/lessons/regular");
 }

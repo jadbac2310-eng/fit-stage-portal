@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
+import { TopProgress } from "./top-progress";
 import { cn } from "@/lib/cn";
 
 export function DrawerLayout({
@@ -26,6 +27,11 @@ export function DrawerLayout({
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      {/* 画面遷移の進捗バー */}
+      <Suspense fallback={null}>
+        <TopProgress />
+      </Suspense>
+
       {/* デスクトップ: 常時表示サイドバー */}
       <Sidebar userName={userName} avatarUrl={avatarUrl} isAdmin={isAdmin} />
 
