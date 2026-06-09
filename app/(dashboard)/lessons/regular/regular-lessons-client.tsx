@@ -165,6 +165,41 @@ function LessonForm({
   );
   const noPassAvailable = isSessionPassCourse && selectedCustomerId !== "" && availablePasses.length === 0;
 
+  // ─── 選択可能なコースの算出 ───────────────────────────
+  // 回数券コース → 所持している回数券の枚数(totalCount)に対応するものだけ
+  const PASS_COURSE_COUNT: Record<string, number> = { "回数券8回": 8, "回数券16回": 16, "回数券32回": 32 };
+  const today = new Date().toISOString().slice(0, 10);
+  const refDate = scheduledDate || today;
+
+  function courseAllowed(value: string, paymentType: string, customerId: string, date: string): boolean {
+    if (value === defaultValues?.course) return true;          // 編集時は元のコースを常に許可
+    if (paymentType === "single") return true;                 // 都度は常に選べる
+    if (!customerId) return false;                             // 顧客未選択なら都度のみ
+    if (paymentType === "session_pass") {
+      const cnt = PASS_COURSE_COUNT[value];
+      return sessionPasses.some((p) =>
+        p.customerId === customerId && p.totalCount === cnt &&
+        (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId));
+    }
+    if (paymentType === "monthly") {
+      return customerPlans.some((p) =>
+        p.customerId === customerId && p.plan === value &&
+        p.startedAt <= date && (!p.endedAt || p.endedAt >= date));
+    }
+    return false;
+  }
+
+  const passCourses    = COURSE_OPTIONS.filter((o) => o.paymentType === "session_pass" && courseAllowed(o.value, o.paymentType, selectedCustomerId, refDate));
+  const monthlyCourses = COURSE_OPTIONS.filter((o) => o.paymentType === "monthly"      && courseAllowed(o.value, o.paymentType, selectedCustomerId, refDate));
+  const singleCourses  = COURSE_OPTIONS.filter((o) => o.paymentType === "single");
+
+  // 顧客・日付の変更で現在の選択が無効になったらクリア（イベント駆動）
+  function revalidateCourse(customerId: string, date: string) {
+    if (!selectedCourse) return;
+    const opt = COURSE_OPTIONS.find((o) => o.value === selectedCourse);
+    if (opt && !courseAllowed(opt.value, opt.paymentType, customerId, date)) setSelectedCourse("");
+  }
+
   return (
     <form action={handleSubmit} className="space-y-4">
       {fixedCustomerId ? (
@@ -173,7 +208,7 @@ function LessonForm({
         <div>
           <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
           <select name="customerId" required defaultValue={defaultValues?.customerId ?? ""}
-            onChange={(e) => { setSelectedCustomerId(e.target.value); applySuggestion(e.target.value, scheduledDate); }}
+            onChange={(e) => { setSelectedCustomerId(e.target.value); revalidateCourse(e.target.value, refDate); applySuggestion(e.target.value, scheduledDate); }}
             className={inputClass}>
             <option value="">顧客を選択...</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
@@ -192,7 +227,7 @@ function LessonForm({
       <div>
         <label className={labelClass}><Calendar size={12} /> 日時 <span className="text-red-500">*</span></label>
         <input name="scheduledAt" type="datetime-local" required defaultValue={defaultScheduledAt}
-          onChange={(e) => { const d = e.target.value.slice(0, 10); setScheduledDate(d); applySuggestion(selectedCustomerId, d); }}
+          onChange={(e) => { const d = e.target.value.slice(0, 10); setScheduledDate(d); revalidateCourse(selectedCustomerId, d || today); applySuggestion(selectedCustomerId, d); }}
           className={inputClass} />
       </div>
 
@@ -220,27 +255,25 @@ function LessonForm({
         <label className={labelClass}>コース</label>
         <select name="course" value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className={inputClass}>
           <option value="">未選択</option>
-          <optgroup label="回数券">
-            {COURSE_OPTIONS.filter((o) => o.paymentType === "session_pass").map((o) => {
-              const disabled = selectedCustomerId !== "" && availablePasses.length === 0 && !defaultValues?.sessionPassId;
-              return (
-                <option key={o.value} value={o.value} disabled={disabled}>
-                  {o.label}{disabled ? "（有効な回数券なし）" : ""}
-                </option>
-              );
-            })}
-          </optgroup>
-          <optgroup label="月会費">
-            {COURSE_OPTIONS.filter((o) => o.paymentType === "monthly").map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </optgroup>
+          {passCourses.length > 0 && (
+            <optgroup label="回数券">
+              {passCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </optgroup>
+          )}
+          {monthlyCourses.length > 0 && (
+            <optgroup label="月会費">
+              {monthlyCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </optgroup>
+          )}
           <optgroup label="都度">
-            {COURSE_OPTIONS.filter((o) => o.paymentType === "single").map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
+            {singleCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </optgroup>
         </select>
+        {selectedCustomerId !== "" && passCourses.length === 0 && monthlyCourses.length === 0 && (
+          <p className="text-xs text-gray-400 mt-1.5">
+            この顧客は有効な回数券・加入中プランがありません（都度のみ選択できます）
+          </p>
+        )}
       </div>
 
       {/* 回数券選択（回数券コースの場合のみ） */}
@@ -251,7 +284,7 @@ function LessonForm({
           </label>
           {noPassAvailable ? (
             <p className="text-xs text-red-600 font-medium">
-              有効な回数券がありません。顧客マスタから追加してください。
+              有効な回数券がありません。プラン管理から追加してください。
             </p>
           ) : (
             <select name="sessionPassId" required defaultValue={defaultValues?.sessionPassId ?? ""} className={inputClass}>
