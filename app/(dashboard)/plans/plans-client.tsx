@@ -84,11 +84,11 @@ function PlanForm({
       </div>
 
       <div className="flex gap-3">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <label className={labelClass}>適用開始日 <span className="text-red-500">*</span></label>
           <input name="startedAt" type="date" required defaultValue={defaultValues?.startedAt} className={inputClass} />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <label className={labelClass}>適用終了日</label>
           <input name="endedAt" type="date" defaultValue={defaultValues?.endedAt} className={inputClass} />
           <p className="text-xs text-gray-400 mt-1">空白 = 現在も継続中</p>
@@ -188,11 +188,11 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
     <form action={handleSubmit} className="bg-amber-50 rounded-xl p-3 border border-amber-200 space-y-2">
       <input type="hidden" name="customerId" value={customerId} />
       <div className="flex gap-2">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
           <input name="totalCount" type="number" min="1" required placeholder="10" className={inputClass} />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
           <input name="purchasedAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
         </div>
@@ -301,7 +301,7 @@ function CustomerGroup({ customer, plans, passes, customers, isAdmin }: {
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-4">
+        <div className="border-t border-gray-100 px-4 pb-4">
           {plans.length === 0 && !showAdd ? (
             <p className="py-3 text-xs text-gray-400">プラン履歴なし</p>
           ) : (
