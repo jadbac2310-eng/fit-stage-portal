@@ -56,7 +56,7 @@ function PlanForm({
     catch (e) { setError(e instanceof Error ? e.message : "エラーが発生しました"); setLoading(false); }
   }
 
-  const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const inputClass = "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 block";
 
   return (
@@ -182,7 +182,7 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
     catch { setLoading(false); }
   }
 
-  const inputClass = "w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
+  const inputClass = "w-full min-w-0 max-w-full box-border px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
 
   return (
     <form action={handleSubmit} className="bg-amber-50 rounded-xl p-3 border border-amber-200 space-y-2">
