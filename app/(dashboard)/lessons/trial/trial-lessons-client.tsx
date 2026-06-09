@@ -275,7 +275,7 @@ function LessonRow({ lesson, customers, members, isAdmin }: {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 justify-end">
-          {lesson.status !== "cancelled" && (
+          {isAdmin && lesson.status !== "cancelled" && (
             <button onClick={() => setMode("report")}
               className={cn(
                 "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
@@ -360,7 +360,7 @@ function LessonCard({ lesson, customers, members, isAdmin }: {
         {lesson.location && <p className="text-xs text-gray-600 flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" />{lesson.location}</p>}
       </div>
       <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-        {lesson.status !== "cancelled" && (
+        {isAdmin && lesson.status !== "cancelled" && (
           <button onClick={() => setMode("report")}
             className={cn(
               "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
@@ -415,12 +415,10 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin }: {
           <h1 className="text-xl font-bold text-gray-900">体験レッスン</h1>
           <p className="text-sm text-gray-500 mt-0.5">{lessons.length}件</p>
         </div>
-        {isAdmin && (
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
-            <Plus size={16} /> 体験レッスンを追加
-          </button>
-        )}
+        <button onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
+          <Plus size={16} /> 体験レッスンを追加
+        </button>
       </div>
 
       <div className="md:hidden mb-4">
@@ -459,12 +457,10 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin }: {
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🗓️</p>
           <p className="text-sm font-semibold text-gray-600">体験レッスンが登録されていません</p>
-          {isAdmin && (
-            <button onClick={() => setShowAdd(true)}
-              className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
-              <Plus size={15} /> 体験レッスンを追加
-            </button>
-          )}
+          <button onClick={() => setShowAdd(true)}
+            className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
+            <Plus size={15} /> 体験レッスンを追加
+          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
@@ -501,13 +497,11 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin }: {
         </>
       )}
 
-      {isAdmin && (
-        <button onClick={() => setShowAdd(true)}
-          className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-          aria-label="体験レッスンを追加">
-          <Plus size={26} />
-        </button>
-      )}
+      <button onClick={() => setShowAdd(true)}
+        className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
+        aria-label="体験レッスンを追加">
+        <Plus size={26} />
+      </button>
 
       {showAdd && (
         <BottomSheet title="体験レッスンを追加" onClose={() => setShowAdd(false)} scrollable>

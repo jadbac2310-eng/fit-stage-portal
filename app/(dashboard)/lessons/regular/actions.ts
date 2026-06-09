@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons";
 import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessionPass } from "@/lib/session-passes";
 import { courseToPaymentType } from "@/lib/lessons-types";
+import { requireAdmin } from "@/lib/members";
 import type { LessonStatus } from "@/lib/lessons-types";
 
 // ─── レッスン ─────────────────────────────────────────
@@ -30,6 +31,7 @@ export async function createLessonAction(formData: FormData) {
 }
 
 export async function updateLessonAction(id: string, formData: FormData) {
+  await requireAdmin();
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
   const location        = (formData.get("location")        as string)?.trim() || null;
@@ -55,6 +57,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
 }
 
 export async function deleteLessonAction(id: string) {
+  await requireAdmin();
   const existing = await getLesson(id);
   if (existing?.sessionPassId && existing.paymentType === "session_pass") {
     await incrementSessionPass(existing.sessionPassId);
@@ -65,6 +68,7 @@ export async function deleteLessonAction(id: string) {
 
 // ─── 回数券 ───────────────────────────────────────────
 export async function createSessionPassAction(formData: FormData) {
+  await requireAdmin();
   const customerId  = (formData.get("customerId")  as string)?.trim();
   const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
   const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
@@ -78,6 +82,7 @@ export async function createSessionPassAction(formData: FormData) {
 }
 
 export async function deleteSessionPassAction(id: string) {
+  await requireAdmin();
   await deleteSessionPass(id);
   revalidatePath("/lessons/regular");
 }

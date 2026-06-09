@@ -381,12 +381,14 @@ export function MembersClient({ members, isAdmin, currentMemberId }: { members: 
           <h1 className="text-xl font-bold text-gray-900">担当者マスタ</h1>
           <p className="text-sm text-gray-500 mt-0.5">{members.length}名登録済み</p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-        >
-          <Plus size={16} /> 担当者を追加
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+          >
+            <Plus size={16} /> 担当者を追加
+          </button>
+        )}
       </div>
 
       {showAdd && (
@@ -405,13 +407,17 @@ export function MembersClient({ members, isAdmin, currentMemberId }: { members: 
         <div className="text-center py-16">
           <p className="text-4xl mb-3">👤</p>
           <p className="text-sm font-semibold text-gray-600">担当者が登録されていません</p>
-          <p className="text-xs text-gray-400 mt-1">最初の担当者を追加しましょう</p>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
-          >
-            <Plus size={15} /> 担当者を追加
-          </button>
+          {isAdmin && (
+            <>
+              <p className="text-xs text-gray-400 mt-1">最初の担当者を追加しましょう</p>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
+              >
+                <Plus size={15} /> 担当者を追加
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -419,13 +425,15 @@ export function MembersClient({ members, isAdmin, currentMemberId }: { members: 
         </div>
       )}
 
-      <button
-        onClick={() => setShowAdd(true)}
-        className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-        aria-label="担当者を追加"
-      >
-        <Plus size={26} />
-      </button>
+      {isAdmin && (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
+          aria-label="担当者を追加"
+        >
+          <Plus size={26} />
+        </button>
+      )}
 
       {showAdd && (
         <BottomSheet title="新しい担当者" onClose={() => setShowAdd(false)} scrollable>

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { deleteWikiPage, createWikiFolder, deleteWikiFolder } from "@/lib/wiki";
-import { getCurrentIsAdmin } from "@/lib/members";
+import { getCurrentIsAdmin, requireAdmin } from "@/lib/members";
 
 export async function deleteWikiPageAction(slug: string, folder: string) {
   if (!(await getCurrentIsAdmin())) throw new Error("権限がありません");
@@ -11,6 +11,7 @@ export async function deleteWikiPageAction(slug: string, folder: string) {
 }
 
 export async function createFolderAction(name: string): Promise<void> {
+  await requireAdmin();
   await createWikiFolder(name);
 }
 

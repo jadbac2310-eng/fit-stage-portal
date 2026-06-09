@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addMember, updateMember, deleteMember, getMember, getCurrentIsAdmin, getCurrentMember } from "@/lib/members";
+import { addMember, updateMember, deleteMember, getMember, getCurrentIsAdmin, getCurrentMember, requireAdmin } from "@/lib/members";
 import { saveMemberAvatar, deleteMemberAvatar } from "@/lib/upload";
 import { createAdminClient } from "@/lib/supabase";
 
 export async function createMember(formData: FormData) {
+  await requireAdmin();
   const name = (formData.get("name") as string)?.trim();
   if (!name) return;
 

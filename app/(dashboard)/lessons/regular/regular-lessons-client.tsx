@@ -488,14 +488,12 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
                 action={createLessonAction} submitLabel="追加する" />
             </div>
           ) : (
-            isAdmin && (
-              <div className="py-2">
-                <button onClick={() => setShowAdd(true)}
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                  <Plus size={13} /> レッスンを追加
-                </button>
-              </div>
-            )
+            <div className="py-2">
+              <button onClick={() => setShowAdd(true)}
+                className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                <Plus size={13} /> レッスンを追加
+              </button>
+            </div>
           )}
 
           {/* 回数券セクション（閲覧のみ） */}
@@ -550,12 +548,10 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
             )}
           </div>
         </div>
-        {isAdmin && (
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
-            <Plus size={16} /> レッスンを追加
-          </button>
-        )}
+        <button onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
+          <Plus size={16} /> レッスンを追加
+        </button>
       </div>
 
       <div className="md:hidden mb-4">
@@ -590,12 +586,10 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🏋️</p>
           <p className="text-sm font-semibold text-gray-600">レッスンが登録されていません</p>
-          {isAdmin && (
-            <button onClick={() => setShowAdd(true)}
-              className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
-              <Plus size={15} /> レッスンを追加
-            </button>
-          )}
+          <button onClick={() => setShowAdd(true)}
+            className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
+            <Plus size={15} /> レッスンを追加
+          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
@@ -611,13 +605,11 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
         </div>
       )}
 
-      {isAdmin && (
-        <button onClick={() => setShowAdd(true)}
-          className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-          aria-label="レッスンを追加">
-          <Plus size={26} />
-        </button>
-      )}
+      <button onClick={() => setShowAdd(true)}
+        className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
+        aria-label="レッスンを追加">
+        <Plus size={26} />
+      </button>
 
       {showAdd && (
         <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>

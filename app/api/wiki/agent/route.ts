@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import * as wiki from "@/lib/wiki";
 import { createAuthClient } from "@/lib/supabase";
+import { getCurrentIsAdmin } from "@/lib/members";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -167,6 +168,12 @@ function buildUserContent(text: string, files: ApiFile[]): Anthropic.ContentBloc
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await getCurrentIsAdmin())) {
+    return new Response(JSON.stringify({ error: "権限がありません（管理者のみ）" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const { messages, folder, files = [], editSlug } = await request.json();
   const { data: { user } } = await (await createAuthClient()).auth.getUser();
   const currentUserId = user?.id;

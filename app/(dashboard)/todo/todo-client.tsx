@@ -212,10 +212,12 @@ function EditForm({
 function TodoDetailModal({
   todo,
   members,
+  isAdmin,
   onClose,
 }: {
   todo: Todo;
   members: Member[];
+  isAdmin: boolean;
   onClose: () => void;
 }) {
   const [completing, setCompleting] = useState(false);
@@ -322,7 +324,8 @@ function TodoDetailModal({
                 )}
               </div>
 
-              {/* アクション */}
+              {/* アクション（管理者のみ） */}
+              {isAdmin && (
               <div className="space-y-2">
                 <button
                   onClick={handleComplete}
@@ -355,6 +358,7 @@ function TodoDetailModal({
                   </button>
                 </div>
               </div>
+              )}
             </>
           )}
         </div>
@@ -427,7 +431,7 @@ function TodoCard({ todo, onOpen }: { todo: Todo; onOpen: () => void }) {
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TodoClient({ todos, members, currentMemberId }: { todos: Todo[]; members: Member[]; currentMemberId?: string }) {
+export function TodoClient({ todos, members, currentMemberId, isAdmin }: { todos: Todo[]; members: Member[]; currentMemberId?: string; isAdmin: boolean }) {
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -485,12 +489,14 @@ export function TodoClient({ todos, members, currentMemberId }: { todos: Todo[];
           <h1 className="text-xl font-bold text-gray-900">タスク</h1>
           <p className="text-sm text-gray-500 mt-0.5">タスク管理</p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-        >
-          <Plus size={16} /> タスクを追加
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+          >
+            <Plus size={16} /> タスクを追加
+          </button>
+        )}
       </div>
 
       {/* 進捗バー */}
@@ -605,12 +611,14 @@ export function TodoClient({ todos, members, currentMemberId }: { todos: Todo[];
               <p className="text-4xl mb-3">📋</p>
               <p className="text-sm font-semibold text-gray-600">タスクがありません</p>
               <p className="text-xs text-gray-400 mt-1">最初のタスクを追加しましょう</p>
-              <button
-                onClick={() => setShowAdd(true)}
-                className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
-              >
-                <Plus size={15} /> タスクを追加
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition"
+                >
+                  <Plus size={15} /> タスクを追加
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -644,13 +652,15 @@ export function TodoClient({ todos, members, currentMemberId }: { todos: Todo[];
       )}
 
       {/* モバイル FAB */}
-      <button
-        onClick={() => setShowAdd(true)}
-        className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-        aria-label="タスクを追加"
-      >
-        <Plus size={26} />
-      </button>
+      {isAdmin && (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
+          aria-label="タスクを追加"
+        >
+          <Plus size={26} />
+        </button>
+      )}
 
       {/* モバイル 追加ボトムシート */}
       {showAdd && (
@@ -664,6 +674,7 @@ export function TodoClient({ todos, members, currentMemberId }: { todos: Todo[];
         <TodoDetailModal
           todo={selectedTodo}
           members={members}
+          isAdmin={isAdmin}
           onClose={() => setSelectedId(null)}
         />
       )}

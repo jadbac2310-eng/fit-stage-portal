@@ -34,12 +34,14 @@ export default async function WikiDetailPage({
         <h1 className="text-xl font-bold text-gray-900 leading-snug">{page.title}</h1>
 
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <Link
-            href={wikiAgent({ edit: page.slug, folder: decodedFolder })}
-            className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 border border-blue-300 hover:border-blue-400 px-3 py-1.5 rounded-lg transition"
-          >
-            <Bot size={13} /> エージェントで編集
-          </Link>
+          {isAdmin && (
+            <Link
+              href={wikiAgent({ edit: page.slug, folder: decodedFolder })}
+              className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 border border-blue-300 hover:border-blue-400 px-3 py-1.5 rounded-lg transition"
+            >
+              <Bot size={13} /> エージェントで編集
+            </Link>
+          )}
           {isAdmin && <DeleteButton slug={page.slug} folder={decodedFolder} title={page.title} />}
           <ShareButtons title={page.title} content={page.content} />
         </div>

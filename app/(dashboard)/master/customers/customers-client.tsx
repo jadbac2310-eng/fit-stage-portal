@@ -267,7 +267,7 @@ function CustomerForm({
 }
 
 // ─── 回数券パネル ─────────────────────────────────────
-function SessionPassPanel({ customerId, passes }: { customerId: string; passes: SessionPass[] }) {
+function SessionPassPanel({ customerId, passes, isAdmin }: { customerId: string; passes: SessionPass[]; isAdmin: boolean }) {
   const [showAdd, setShowAdd] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -286,10 +286,12 @@ function SessionPassPanel({ customerId, passes }: { customerId: string; passes: 
         <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5">
           <Ticket size={12} /> 回数券一覧
         </p>
-        <button onClick={() => setShowAdd(!showAdd)}
-          className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
-          <Plus size={11} /> 追加
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(!showAdd)}
+            className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+            <Plus size={11} /> 追加
+          </button>
+        )}
       </div>
 
       {showAdd && (
@@ -348,15 +350,17 @@ function SessionPassPanel({ customerId, passes }: { customerId: string; passes: 
                 {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">（使い切り）</span>}
               </div>
               <span className="text-gray-400">{pass.purchasedAt}{pass.expiredAt && `～${pass.expiredAt}`}</span>
-              <button onClick={async () => {
-                if (!confirm("この回数券を削除しますか？")) return;
-                setDeletingId(pass.id);
-                await deleteSessionPassAction(pass.id);
-                setDeletingId(null);
-              }} disabled={deletingId === pass.id}
-                className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
-                {deletingId === pass.id ? <Spinner size={11} /> : <Trash2 size={11} />}
-              </button>
+              {isAdmin && (
+                <button onClick={async () => {
+                  if (!confirm("この回数券を削除しますか？")) return;
+                  setDeletingId(pass.id);
+                  await deleteSessionPassAction(pass.id);
+                  setDeletingId(null);
+                }} disabled={deletingId === pass.id}
+                  className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
+                  {deletingId === pass.id ? <Spinner size={11} /> : <Trash2 size={11} />}
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -400,7 +404,7 @@ function CustomerRow({ customer, isAdmin, passes }: { customer: Customer; isAdmi
             <p className="text-sm font-bold text-gray-900">{customer.fullName} の回数券</p>
             <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <SessionPassPanel customerId={customer.id} passes={passes} />
+          <SessionPassPanel customerId={customer.id} passes={passes} isAdmin={isAdmin} />
         </div>
       </td>
     </tr>
@@ -518,7 +522,7 @@ function CustomerCard({ customer, isAdmin, passes }: { customer: Customer; isAdm
       {/* 回数券パネル */}
       {mode === "passes" && (
         <div className="mt-3 pt-3 border-t border-amber-200 bg-amber-50 rounded-xl p-3 -mx-1">
-          <SessionPassPanel customerId={customer.id} passes={passes} />
+          <SessionPassPanel customerId={customer.id} passes={passes} isAdmin={isAdmin} />
         </div>
       )}
 

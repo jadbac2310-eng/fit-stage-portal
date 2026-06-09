@@ -135,6 +135,11 @@ export async function getCurrentIsAdmin(): Promise<boolean> {
   return member?.isAdmin ?? false;
 }
 
+/** 管理者でなければ例外を投げる。変更系サーバーアクションのガードに使用 */
+export async function requireAdmin(): Promise<void> {
+  if (!(await getCurrentIsAdmin())) throw new Error("権限がありません（管理者のみ実行できます）");
+}
+
 export async function deleteMember(id: string): Promise<void> {
   const { error } = await createAdminClient()
     .from("members")

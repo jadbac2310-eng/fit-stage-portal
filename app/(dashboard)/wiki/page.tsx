@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { FolderOpen, ChevronRight } from "lucide-react";
 import { getWikiPages, getWikiFolders } from "@/lib/wiki";
+import { getCurrentIsAdmin } from "@/lib/members";
 import { NewFolderButton } from "./new-folder-button";
 import { wikiFolder } from "@/lib/paths";
 
 export const dynamic = "force-dynamic";
 
 export default async function WikiPage() {
-  const [pages, folders] = await Promise.all([getWikiPages(), getWikiFolders()]);
+  const [pages, folders, isAdmin] = await Promise.all([getWikiPages(), getWikiFolders(), getCurrentIsAdmin()]);
 
   const pagesByFolder = pages.reduce<Record<string, typeof pages>>((acc, p) => {
     if (!acc[p.folder]) acc[p.folder] = [];
@@ -24,7 +25,7 @@ export default async function WikiPage() {
             {folders.length}フォルダ · {pages.length}件のページ
           </p>
         </div>
-        <NewFolderButton />
+        {isAdmin && <NewFolderButton />}
       </div>
 
       {folders.length === 0 ? (
@@ -32,9 +33,11 @@ export default async function WikiPage() {
           <FolderOpen size={40} className="text-gray-300 mx-auto mb-3" />
           <p className="text-sm font-semibold text-gray-600">フォルダがありません</p>
           <p className="text-xs text-gray-400 mt-1">フォルダを作成してページを追加してください</p>
-          <div className="mt-5 flex justify-center">
-            <NewFolderButton />
-          </div>
+          {isAdmin && (
+            <div className="mt-5 flex justify-center">
+              <NewFolderButton />
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

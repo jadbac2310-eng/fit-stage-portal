@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
 import { updateCustomer } from "@/lib/customers";
+import { requireAdmin } from "@/lib/members";
 import type { CustomerPlan } from "@/lib/customers-types";
 
 export async function createTrialLessonAction(formData: FormData) {
@@ -19,6 +20,7 @@ export async function createTrialLessonAction(formData: FormData) {
 }
 
 export async function updateTrialLessonAction(id: string, formData: FormData) {
+  await requireAdmin();
   const customerId      = (formData.get("customerId")      as string)?.trim();
   const salesMemberId   = (formData.get("salesMemberId")   as string)?.trim();
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
@@ -32,6 +34,7 @@ export async function updateTrialLessonAction(id: string, formData: FormData) {
 }
 
 export async function saveReportAction(id: string, formData: FormData) {
+  await requireAdmin();
   const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;
   const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
   const contractedRaw      = (formData.get("contracted")         as string)?.trim();
@@ -67,6 +70,7 @@ export async function saveReportAction(id: string, formData: FormData) {
 }
 
 export async function deleteTrialLessonAction(id: string) {
+  await requireAdmin();
   await deleteTrialLesson(id);
   revalidatePath("/trial-lessons");
 }

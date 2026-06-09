@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
+import { requireAdmin } from "@/lib/members";
 import type { CustomerStatus, CustomerType } from "@/lib/customers-types";
 
 export async function createCustomerAction(formData: FormData) {
+  await requireAdmin();
   const fullName         = (formData.get("fullName")         as string)?.trim();
   const email            = (formData.get("email")            as string)?.trim();
   const dateOfBirth      = (formData.get("dateOfBirth")      as string)?.trim();
@@ -22,6 +24,7 @@ export async function createCustomerAction(formData: FormData) {
 }
 
 export async function updateCustomerAction(id: string, formData: FormData) {
+  await requireAdmin();
   const fullName         = (formData.get("fullName")         as string)?.trim();
   const email            = (formData.get("email")            as string)?.trim();
   const dateOfBirth      = (formData.get("dateOfBirth")      as string)?.trim();
@@ -38,16 +41,19 @@ export async function updateCustomerAction(id: string, formData: FormData) {
 }
 
 export async function updateCustomerStatusAction(id: string, status: CustomerStatus) {
+  await requireAdmin();
   await updateCustomer(id, { status });
   revalidatePath("/master/customers");
 }
 
 export async function deleteCustomerAction(id: string) {
+  await requireAdmin();
   await deleteCustomer(id);
   revalidatePath("/master/customers");
 }
 
 export async function createSessionPassAction(formData: FormData) {
+  await requireAdmin();
   const customerId  = (formData.get("customerId")  as string)?.trim();
   const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
   const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
@@ -62,6 +68,7 @@ export async function createSessionPassAction(formData: FormData) {
 }
 
 export async function deleteSessionPassAction(id: string) {
+  await requireAdmin();
   await deleteSessionPass(id);
   revalidatePath("/master/customers");
   revalidatePath("/lessons/regular");

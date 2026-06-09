@@ -6,6 +6,7 @@ import {
   getCustomerPlans,
 } from "@/lib/customer-plans";
 import { plansOverlap } from "@/lib/customer-plans-types";
+import { requireAdmin } from "@/lib/members";
 import type { ContractPlan } from "@/lib/customer-plans-types";
 
 async function checkOverlap(
@@ -27,6 +28,7 @@ async function checkOverlap(
 }
 
 export async function createPlanAction(formData: FormData) {
+  await requireAdmin();
   const customerId = (formData.get("customerId") as string)?.trim();
   const plan       = (formData.get("plan")       as string)?.trim() as ContractPlan;
   const startedAt  = (formData.get("startedAt")  as string)?.trim();
@@ -43,6 +45,7 @@ export async function createPlanAction(formData: FormData) {
 }
 
 export async function updatePlanAction(id: string, customerId: string, formData: FormData) {
+  await requireAdmin();
   const plan      = (formData.get("plan")      as string)?.trim() as ContractPlan;
   const startedAt = (formData.get("startedAt") as string)?.trim();
   const endedAt   = (formData.get("endedAt")   as string)?.trim() || null;
@@ -58,6 +61,7 @@ export async function updatePlanAction(id: string, customerId: string, formData:
 }
 
 export async function deletePlanAction(id: string) {
+  await requireAdmin();
   await deleteCustomerPlan(id);
   revalidatePath("/plans");
 }
