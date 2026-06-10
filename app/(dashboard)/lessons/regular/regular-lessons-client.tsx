@@ -166,8 +166,6 @@ function LessonForm({
   const noPassAvailable = isSessionPassCourse && selectedCustomerId !== "" && availablePasses.length === 0;
 
   // ─── 選択可能なコースの算出 ───────────────────────────
-  // 回数券コース → 所持している回数券の枚数(totalCount)に一致するものだけ
-  const PASS_COURSE_COUNT: Record<string, number> = { "回数券8回": 8, "回数券16回": 16, "回数券32回": 32 };
   const today = new Date().toISOString().slice(0, 10);
   const refDate = scheduledDate || today;
 
@@ -176,10 +174,9 @@ function LessonForm({
     if (paymentType === "single") return true;                 // 都度は常に選べる
     if (!customerId) return false;                             // 顧客未選択なら都度のみ
     if (paymentType === "session_pass") {
-      const cnt = PASS_COURSE_COUNT[value];
-      // 所持する残ありの回数券で、購入した枚数が一致するものだけ
+      // 残りのある回数券を1枚でも持っていれば選べる
       return sessionPasses.some((p) =>
-        p.customerId === customerId && p.totalCount === cnt &&
+        p.customerId === customerId &&
         (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId));
     }
     if (paymentType === "monthly") {

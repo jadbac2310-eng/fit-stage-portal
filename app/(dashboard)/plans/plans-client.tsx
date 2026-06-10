@@ -190,12 +190,7 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
       <div className="flex gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
-          <select name="totalCount" required defaultValue="" className={inputClass}>
-            <option value="" disabled>選択...</option>
-            <option value="8">8回券</option>
-            <option value="16">16回券</option>
-            <option value="32">32回券</option>
-          </select>
+          <input name="totalCount" type="number" min="1" required placeholder="回数" className={inputClass} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
