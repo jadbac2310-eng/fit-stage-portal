@@ -166,9 +166,8 @@ function LessonForm({
   const noPassAvailable = isSessionPassCourse && selectedCustomerId !== "" && availablePasses.length === 0;
 
   // ─── 選択可能なコースの算出 ───────────────────────────
-  // 回数券コース → 所持している回数券の枚数(totalCount)に対応するものだけ
+  // 回数券コース → 所持している回数券の枚数(totalCount)に一致するものだけ
   const PASS_COURSE_COUNT: Record<string, number> = { "回数券8回": 8, "回数券16回": 16, "回数券32回": 32 };
-  const STANDARD_PASS_COUNTS = [8, 16, 32];
   const today = new Date().toISOString().slice(0, 10);
   const refDate = scheduledDate || today;
 
@@ -178,12 +177,10 @@ function LessonForm({
     if (!customerId) return false;                             // 顧客未選択なら都度のみ
     if (paymentType === "session_pass") {
       const cnt = PASS_COURSE_COUNT[value];
-      // 所持する残ありの回数券で、枚数が一致するもの。
-      // 8/16/32 以外の非標準枚数は対応コースが無いため、全回数券コースを許可する。
+      // 所持する残ありの回数券で、購入した枚数が一致するものだけ
       return sessionPasses.some((p) =>
-        p.customerId === customerId &&
-        (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId) &&
-        (p.totalCount === cnt || !STANDARD_PASS_COUNTS.includes(p.totalCount)));
+        p.customerId === customerId && p.totalCount === cnt &&
+        (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId));
     }
     if (paymentType === "monthly") {
       return customerPlans.some((p) =>
