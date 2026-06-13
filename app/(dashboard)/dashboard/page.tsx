@@ -9,6 +9,7 @@ import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getLessonFee } from "@/lib/commissions-types";
+import { buildTrainerEntries, buildSalesEntries } from "@/lib/commissions";
 import {
   getPopularPages,
   getTrafficSources,
@@ -92,6 +93,15 @@ export default async function DashboardPage() {
   ).length;
   const activeCustomers = customers.filter((c) => c.status === "active").length;
 
+  // 全体売上は管理者のみ。担当者には自分の今月の歩合（見込み）を表示する
+  const isAdmin = currentMember?.isAdmin ?? false;
+  const contractedTrials = trialLessons.filter((tl) => tl.contracted === true);
+  const myTrainerCommission = buildTrainerEntries(completedThisMonth, mon)
+    .find((e) => e.memberId === currentMember?.id)?.total ?? 0;
+  const mySalesCommission = buildSalesEntries(completedThisMonth, contractedTrials, customers, mon)
+    .find((e) => e.memberId === currentMember?.id)?.total ?? 0;
+  const myCommissionThisMonth = myTrainerCommission + mySalesCommission;
+
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="mb-6 hidden md:block">
@@ -104,14 +114,25 @@ export default async function DashboardPage() {
         今月のサマリー
       </h2>
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4">
-          <div className="flex items-center gap-1.5 mb-1">
-            <TrendingUp size={13} className="text-blue-500" />
-            <p className="text-xs font-semibold text-blue-600">今月の売上</p>
+        {isAdmin ? (
+          <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4">
+            <div className="flex items-center gap-1.5 mb-1">
+              <TrendingUp size={13} className="text-blue-500" />
+              <p className="text-xs font-semibold text-blue-600">今月の全体売上</p>
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{yen(salesThisMonth)}</p>
+            <p className="text-xs text-blue-400 mt-0.5">完了レッスン {completedThisMonth.length}件</p>
           </div>
-          <p className="text-2xl font-bold text-blue-700">{yen(salesThisMonth)}</p>
-          <p className="text-xs text-blue-400 mt-0.5">完了レッスン {completedThisMonth.length}件</p>
-        </div>
+        ) : (
+          <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4">
+            <div className="flex items-center gap-1.5 mb-1">
+              <TrendingUp size={13} className="text-blue-500" />
+              <p className="text-xs font-semibold text-blue-600">今月の自分の歩合</p>
+            </div>
+            <p className="text-2xl font-bold text-blue-700">{yen(myCommissionThisMonth)}</p>
+            <p className="text-xs text-blue-400 mt-0.5">見込み・歩合管理で内訳を確認</p>
+          </div>
+        )}
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-1.5 mb-1">
             <Dumbbell size={13} className="text-gray-400" />

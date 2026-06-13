@@ -2,15 +2,15 @@
 
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, TrendingUp, Users, Award } from "lucide-react";
-import type { Customer, CustomerType } from "@/lib/customers-types";
+import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import {
-  getLessonFee,
-  TRAINER_RATE,
-  SALES_RATE,
-  CONTRACT_BONUS,
-} from "@/lib/commissions-types";
+  buildTrainerEntries,
+  buildSalesEntries,
+  type TrainerEntry,
+  type SalesEntry,
+} from "@/lib/commissions";
 import { cn } from "@/lib/cn";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
@@ -31,11 +31,6 @@ function currentMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function isoToMonth(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()}`;
@@ -43,51 +38,6 @@ function formatDate(iso: string): string {
 
 function yen(amount: number): string {
   return `¥${amount.toLocaleString("ja-JP")}`;
-}
-
-// ─── 型定義 ──────────────────────────────────────────────
-interface TrainerLessonRow {
-  lessonId:     string;
-  customerName: string;
-  course:       string;
-  scheduledAt:  string;
-  fee:          number;
-  commission:   number;
-}
-
-interface TrainerEntry {
-  memberId:   string;
-  memberName: string;
-  lessons:    TrainerLessonRow[];
-  total:      number;
-}
-
-interface SalesLessonRow {
-  lessonId:     string;
-  customerName: string;
-  customerType: CustomerType;
-  course:       string;
-  scheduledAt:  string;
-  fee:          number;
-  commission:   number;
-}
-
-interface BonusRow {
-  trialId:      string;
-  customerName: string;
-  customerType: CustomerType;
-  scheduledAt:  string;
-  amount:       number;
-}
-
-interface SalesEntry {
-  memberId:    string;
-  memberName:  string;
-  lessons:     SalesLessonRow[];
-  bonuses:     BonusRow[];
-  lessonTotal: number;
-  bonusTotal:  number;
-  total:       number;
 }
 
 // ─── アコーディオン行 ────────────────────────────────────
@@ -316,108 +266,30 @@ export function CommissionsClient({
   customers,
   lessons,
   trialLessons,
+  isAdmin,
+  currentMemberId,
 }: {
   customers:    Customer[];
   lessons:      Lesson[];
   trialLessons: TrialLesson[];
+  isAdmin:      boolean;
+  currentMemberId?: string;
 }) {
-  const monthOptions = useMemo(getMonthOptions, []);
+  const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month,    setMonth]    = useState(currentMonth);
   const [activeTab, setActiveTab] = useState<"trainer" | "sales">("trainer");
 
-  // 顧客ID → customerType のルックアップ
-  const customerTypeMap = useMemo(() => {
-    const m: Record<string, CustomerType> = {};
-    for (const c of customers) m[c.id] = c.customerType;
-    return m;
-  }, [customers]);
-
-  // 顧客ID → 営業担当のルックアップ（最初に成約した体験レッスンから）
-  const salesByCustomer = useMemo(() => {
-    const m: Record<string, { memberId: string; memberName: string }> = {};
-    for (const tl of trialLessons) {
-      if (!m[tl.customerId]) {
-        m[tl.customerId] = { memberId: tl.salesMemberId, memberName: tl.salesMemberName };
-      }
-    }
-    return m;
-  }, [trialLessons]);
-
-  // 選択月のトレーナー集計
+  // 選択月のトレーナー集計（管理者は全員、それ以外は自分の分のみ）
   const trainerEntries = useMemo((): TrainerEntry[] => {
-    const filtered = lessons.filter((l) => isoToMonth(l.scheduledAt) === month && l.trainerMemberId);
-    const map = new Map<string, TrainerEntry>();
+    const all = buildTrainerEntries(lessons, month);
+    return isAdmin ? all : all.filter((e) => e.memberId === currentMemberId);
+  }, [lessons, month, isAdmin, currentMemberId]);
 
-    for (const l of filtered) {
-      const tid  = l.trainerMemberId!;
-      const fee  = getLessonFee(l.course);
-      const comm = Math.round(fee * TRAINER_RATE);
-
-      if (!map.has(tid)) {
-        map.set(tid, { memberId: tid, memberName: l.trainerMemberName ?? tid, lessons: [], total: 0 });
-      }
-      const entry = map.get(tid)!;
-      entry.lessons.push({
-        lessonId: l.id, customerName: l.customerName,
-        course: l.course ?? "", scheduledAt: l.scheduledAt,
-        fee, commission: comm,
-      });
-      entry.total += comm;
-    }
-
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [lessons, month]);
-
-  // 選択月の営業集計
+  // 選択月の営業集計（管理者は全員、それ以外は自分の分のみ）
   const salesEntries = useMemo((): SalesEntry[] => {
-    const map = new Map<string, SalesEntry>();
-
-    const ensureEntry = (memberId: string, memberName: string) => {
-      if (!map.has(memberId)) {
-        map.set(memberId, {
-          memberId, memberName,
-          lessons: [], bonuses: [],
-          lessonTotal: 0, bonusTotal: 0, total: 0,
-        });
-      }
-      return map.get(memberId)!;
-    };
-
-    // レッスン歩合
-    for (const l of lessons.filter((l) => isoToMonth(l.scheduledAt) === month)) {
-      const sales = salesByCustomer[l.customerId];
-      if (!sales) continue;
-
-      const cType  = customerTypeMap[l.customerId] ?? "individual";
-      const fee    = getLessonFee(l.course);
-      const rate   = SALES_RATE[cType];
-      const comm   = Math.round(fee * rate);
-
-      const entry = ensureEntry(sales.memberId, sales.memberName);
-      entry.lessons.push({
-        lessonId: l.id, customerName: l.customerName, customerType: cType,
-        course: l.course ?? "", scheduledAt: l.scheduledAt, fee, commission: comm,
-      });
-      entry.lessonTotal += comm;
-      entry.total       += comm;
-    }
-
-    // 成約ボーナス（体験レッスン成約日が選択月に含まれるもの）
-    for (const tl of trialLessons.filter((tl) => isoToMonth(tl.scheduledAt) === month)) {
-      const cType  = customerTypeMap[tl.customerId] ?? "individual";
-      const bonus  = CONTRACT_BONUS[cType];
-
-      const entry = ensureEntry(tl.salesMemberId, tl.salesMemberName);
-      entry.bonuses.push({
-        trialId: tl.id, customerName: tl.customerName, customerType: cType,
-        scheduledAt: tl.scheduledAt, amount: bonus,
-      });
-      entry.bonusTotal += bonus;
-      entry.total      += bonus;
-    }
-
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [lessons, trialLessons, month, customerTypeMap, salesByCustomer]);
+    const all = buildSalesEntries(lessons, trialLessons, customers, month);
+    return isAdmin ? all : all.filter((e) => e.memberId === currentMemberId);
+  }, [lessons, trialLessons, customers, month, isAdmin, currentMemberId]);
 
   const trainerTotal = trainerEntries.reduce((s, e) => s + e.total, 0);
   const salesTotal   = salesEntries.reduce((s, e) => s + e.total, 0);
@@ -427,7 +299,9 @@ export function CommissionsClient({
       {/* ヘッダー */}
       <div className="mb-5 hidden md:block">
         <h1 className="text-xl font-bold text-gray-900">歩合管理</h1>
-        <p className="text-sm text-gray-500 mt-0.5">月別のトレーナー・営業歩合を確認できます</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {isAdmin ? "月別のトレーナー・営業歩合を確認できます" : "あなたの月別歩合を確認できます"}
+        </p>
       </div>
       <div className="md:hidden mb-4">
         <h1 className="text-lg font-bold text-gray-900">歩合管理</h1>
@@ -455,14 +329,14 @@ export function CommissionsClient({
             <Users size={12} /> トレーナー合計
           </p>
           <p className="text-xl font-bold text-blue-700">{yen(trainerTotal)}</p>
-          <p className="text-xs text-blue-400 mt-0.5">{trainerEntries.length}名</p>
+          <p className="text-xs text-blue-400 mt-0.5">{isAdmin ? `${trainerEntries.length}名` : "あなたの分"}</p>
         </div>
         <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
           <p className="text-xs font-semibold text-green-600 flex items-center gap-1.5 mb-1">
             <TrendingUp size={12} /> 営業合計
           </p>
           <p className="text-xl font-bold text-green-700">{yen(salesTotal)}</p>
-          <p className="text-xs text-green-400 mt-0.5">{salesEntries.length}名</p>
+          <p className="text-xs text-green-400 mt-0.5">{isAdmin ? `${salesEntries.length}名` : "あなたの分"}</p>
         </div>
       </div>
 

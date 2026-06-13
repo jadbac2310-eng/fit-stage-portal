@@ -1,19 +1,20 @@
 import { getCustomers } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
-import { getCurrentIsAdmin } from "@/lib/members";
+import { getCurrentMember } from "@/lib/members";
 import { CommissionsClient } from "./commissions-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function CommissionsPage() {
-  const isAdmin = await getCurrentIsAdmin();
+  const member = await getCurrentMember();
 
-  if (!isAdmin) {
+  if (!member) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <p className="text-4xl">🔒</p>
-        <p className="text-sm font-semibold text-gray-600">管理者のみ閲覧できます</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 px-6 text-center">
+        <p className="text-4xl">💰</p>
+        <p className="text-sm font-semibold text-gray-600">担当者アカウントに紐づいていません</p>
+        <p className="text-xs text-gray-400">管理者に担当者の割り当てを依頼してください</p>
       </div>
     );
   }
@@ -32,6 +33,8 @@ export default async function CommissionsPage() {
       customers={customers}
       lessons={completedLessons}
       trialLessons={contractedTrials}
+      isAdmin={member.isAdmin}
+      currentMemberId={member.id}
     />
   );
 }

@@ -7,6 +7,7 @@ import {
   CreditCard,
   CalendarDays,
   ShieldCheck,
+  PiggyBank,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "Todo",           href: "/todo",        icon: CheckSquare },
   { label: "Wiki",           href: "/wiki",        icon: BookOpen },
   { label: "レッスン",       href: "/lessons",     icon: Dumbbell },
+  { label: "歩合",           href: "/commissions", icon: PiggyBank },
   { label: "プラン管理",     href: "/plans",       icon: CreditCard },
   { label: "マスタ管理",     href: "/master",      icon: Database },
   { label: "管理者機能",     href: "/admin",       icon: ShieldCheck, adminOnly: true },
