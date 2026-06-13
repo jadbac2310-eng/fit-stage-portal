@@ -5,7 +5,7 @@ import { addMember, updateMember, deleteMember, getMember, getCurrentIsAdmin, ge
 import { saveMemberAvatar, deleteMemberAvatar } from "@/lib/upload";
 import { createAdminClient } from "@/lib/supabase";
 
-export async function createMember(formData: FormData) {
+export async function createMember(formData: FormData): Promise<{ error: string } | void> {
   await requireAdmin();
   const name = (formData.get("name") as string)?.trim();
   if (!name) return;
@@ -16,6 +16,10 @@ export async function createMember(formData: FormData) {
   const password = (formData.get("password") as string)?.trim() || undefined;
   const callerIsAdmin = await getCurrentIsAdmin();
   const isAdmin = callerIsAdmin && formData.get("isAdmin") === "on";
+
+  if (password && password.length < 6) {
+    return { error: "パスワードは6文字以上で入力してください" };
+  }
 
   const avatarFile = formData.get("avatar") as File | null;
   let avatarUrl: string | undefined;
@@ -38,6 +42,9 @@ export async function createMember(formData: FormData) {
       const { data: list } = await admin.auth.admin.listUsers();
       const existing = list?.users.find((u) => u.email === email);
       if (existing) authUserId = existing.id;
+    } else if (error) {
+      // 認証アカウントの作成に失敗したら担当者は作らず、エラーを返す
+      return { error: `ログイン用アカウントの作成に失敗しました: ${error.message}` };
     }
   }
 
@@ -45,7 +52,7 @@ export async function createMember(formData: FormData) {
   revalidatePath("/master/members");
 }
 
-export async function updateMemberAction(id: string, formData: FormData) {
+export async function updateMemberAction(id: string, formData: FormData): Promise<{ error: string } | void> {
   const name = (formData.get("name") as string)?.trim();
   if (!name) return;
 
@@ -56,6 +63,10 @@ export async function updateMemberAction(id: string, formData: FormData) {
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
   const isAdmin = callerIsAdmin ? formData.get("isAdmin") === "on" : existing?.isAdmin ?? false;
+
+  if (newPassword && newPassword.length < 6) {
+    return { error: "パスワードは6文字以上で入力してください" };
+  }
 
   const avatarFile = formData.get("avatar") as File | null;
   let avatarUrl: string | undefined;
@@ -68,17 +79,26 @@ export async function updateMemberAction(id: string, formData: FormData) {
   if (newPassword) {
     const admin = createAdminClient();
     if (authUserId) {
-      await admin.auth.admin.updateUserById(authUserId, {
+      const { error } = await admin.auth.admin.updateUserById(authUserId, {
         ...(newPassword && { password: newPassword }),
         ...(email && { email }),
       });
+      if (error) return { error: `ログイン用アカウントの更新に失敗しました: ${error.message}` };
     } else if (email) {
       const { data, error } = await admin.auth.admin.createUser({
         email,
         password: newPassword,
         email_confirm: true,
       });
-      if (!error && data.user) authUserId = data.user.id;
+      if (!error && data.user) {
+        authUserId = data.user.id;
+      } else if (error?.message?.includes("already been registered")) {
+        const { data: list } = await admin.auth.admin.listUsers();
+        const found = list?.users.find((u) => u.email === email);
+        if (found) authUserId = found.id;
+      } else if (error) {
+        return { error: `ログイン用アカウントの作成に失敗しました: ${error.message}` };
+      }
     }
   } else if (email && authUserId && email !== existing?.email) {
     const admin = createAdminClient();

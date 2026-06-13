@@ -159,7 +159,7 @@ function MemberForm({
   isEdit?: boolean;
   isAdmin?: boolean;
   onClose: () => void;
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => Promise<{ error?: string } | void>;
   submitLabel: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -178,9 +178,18 @@ function MemberForm({
       setError("パスワードが一致しません");
       return;
     }
+    if (pw && pw.length < 6) {
+      setError("パスワードは6文字以上で入力してください");
+      return;
+    }
     setError("");
     setLoading(true);
-    await action(fd);
+    const result = await action(fd);
+    if (result?.error) {
+      setError(result.error);
+      setLoading(false);
+      return;
+    }
     onClose();
   }
 
