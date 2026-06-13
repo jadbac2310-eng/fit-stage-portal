@@ -351,6 +351,7 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
               <Ticket size={12} className={pass.remainingCount === 0 ? "text-gray-300" : "text-amber-500"} />
               <div className="flex-1">
                 <span className="font-semibold">{pass.totalCount}回券</span>
+                <span className="ml-2 text-gray-500">{pass.totalCount - pass.remainingCount}/{pass.totalCount}回 消化</span>
                 <span className={cn(
                   "ml-2 font-bold",
                   pass.remainingCount === 0 ? "text-gray-400" :
@@ -386,6 +387,13 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 
   const linkedPass = lesson.sessionPassId ? sessionPasses.find((p) => p.id === lesson.sessionPassId) : undefined;
+  // この回数券レッスンが何回目か（同じ回数券に紐づく非キャンセルのレッスンを日付順に並べた順位）
+  const sessionNumber = linkedPass
+    ? allLessons
+        .filter((l) => l.sessionPassId === linkedPass.id && l.status !== "cancelled")
+        .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+        .findIndex((l) => l.id === lesson.id) + 1
+    : 0;
 
   if (editing) return (
     <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 my-2">
@@ -425,7 +433,9 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         </div>
         {linkedPass && (
           <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
-            <Ticket size={10} /> {linkedPass.totalCount}回券（残り{linkedPass.remainingCount}回）
+            <Ticket size={10} /> {linkedPass.totalCount}回券
+            {sessionNumber > 0 && <span className="font-semibold">・{sessionNumber}回目/全{linkedPass.totalCount}回</span>}
+            （残り{linkedPass.remainingCount}回）
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
