@@ -209,12 +209,14 @@ function ReportForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, isAdmin }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean;
+function LessonRow({ lesson, customers, members, isAdmin, currentMemberId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
+  // レポートは管理者、または担当トレーナー本人が入力できる
+  const canReport = isAdmin || (!!currentMemberId && lesson.trainerMemberId === currentMemberId);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
@@ -275,7 +277,7 @@ function LessonRow({ lesson, customers, members, isAdmin }: {
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 justify-end">
-          {isAdmin && lesson.status !== "cancelled" && (
+          {canReport && lesson.status !== "cancelled" && (
             <button onClick={() => setMode("report")}
               className={cn(
                 "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
@@ -310,12 +312,14 @@ function LessonRow({ lesson, customers, members, isAdmin }: {
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, isAdmin }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean;
+function LessonCard({ lesson, customers, members, isAdmin, currentMemberId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
+  // レポートは管理者、または担当トレーナー本人が入力できる
+  const canReport = isAdmin || (!!currentMemberId && lesson.trainerMemberId === currentMemberId);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", weekday: "short" });
@@ -360,7 +364,7 @@ function LessonCard({ lesson, customers, members, isAdmin }: {
         {lesson.location && <p className="text-xs text-gray-600 flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" />{lesson.location}</p>}
       </div>
       <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-        {isAdmin && lesson.status !== "cancelled" && (
+        {canReport && lesson.status !== "cancelled" && (
           <button onClick={() => setMode("report")}
             className={cn(
               "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
@@ -394,8 +398,8 @@ function LessonCard({ lesson, customers, members, isAdmin }: {
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, isAdmin }: {
-  lessons: TrialLesson[]; customers: Customer[]; members: Member[]; isAdmin: boolean;
+export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId }: {
+  lessons: TrialLesson[]; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -483,7 +487,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin }: {
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} />
                 ))}
               </tbody>
             </table>
@@ -491,7 +495,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin }: {
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} />
             ))}
           </div>
         </>

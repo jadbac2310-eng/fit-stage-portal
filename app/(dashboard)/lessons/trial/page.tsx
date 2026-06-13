@@ -1,23 +1,24 @@
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
-import { getMembers, getCurrentIsAdmin } from "@/lib/members";
+import { getMembers, getCurrentMember } from "@/lib/members";
 import { TrialLessonsClient } from "./trial-lessons-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrialLessonsPage() {
-  const [lessons, customers, members, isAdmin] = await Promise.all([
+  const [lessons, customers, members, currentMember] = await Promise.all([
     getTrialLessons(),
     getCustomers(),
     getMembers(),
-    getCurrentIsAdmin(),
+    getCurrentMember(),
   ]);
   return (
     <TrialLessonsClient
       lessons={lessons}
       customers={customers}
       members={members}
-      isAdmin={isAdmin}
+      isAdmin={currentMember?.isAdmin ?? false}
+      currentMemberId={currentMember?.id}
     />
   );
 }

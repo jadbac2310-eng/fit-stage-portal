@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
 import { updateCustomer } from "@/lib/customers";
-import { requireAdmin } from "@/lib/members";
+import { requireAdmin, getCurrentMember } from "@/lib/members";
 
 export async function createTrialLessonAction(formData: FormData) {
   const customerId      = (formData.get("customerId")      as string)?.trim();
@@ -33,7 +33,14 @@ export async function updateTrialLessonAction(id: string, formData: FormData) {
 }
 
 export async function saveReportAction(id: string, formData: FormData) {
-  await requireAdmin();
+  // レポート入力は「管理者」または「その体験レッスンの担当トレーナー」のみ
+  const [lesson, member] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
+  if (!member) throw new Error("ログインが必要です");
+  const isAssignedTrainer = !!lesson?.trainerMemberId && lesson.trainerMemberId === member.id;
+  if (!member.isAdmin && !isAssignedTrainer) {
+    throw new Error("レポートを入力できるのは担当トレーナーまたは管理者のみです");
+  }
+
   const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;
   const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
   const contractedRaw      = (formData.get("contracted")         as string)?.trim();
@@ -49,11 +56,8 @@ export async function saveReportAction(id: string, formData: FormData) {
   });
 
   // 契約成功 → 顧客ステータスを「審査中」へ自動変更
-  if (contracted === true) {
-    const lesson = await getTrialLesson(id);
-    if (lesson?.customerId) {
-      await updateCustomer(lesson.customerId, { status: "pending" });
-    }
+  if (contracted === true && lesson?.customerId) {
+    await updateCustomer(lesson.customerId, { status: "pending" });
   }
 
   revalidatePath("/lessons/trial");
