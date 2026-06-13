@@ -82,7 +82,7 @@ function SectionCard({
 }
 
 // ─── トレーナータブ ──────────────────────────────────────
-function TrainerTab({ entries }: { entries: TrainerEntry[] }) {
+function TrainerTab({ entries, isAdmin }: { entries: TrainerEntry[]; isAdmin: boolean }) {
   if (entries.length === 0) {
     return <p className="text-sm text-gray-400 text-center py-10">この月の完了レッスンはありません</p>;
   }
@@ -104,8 +104,8 @@ function TrainerTab({ entries }: { entries: TrainerEntry[] }) {
                   <th className="text-left py-1.5 pr-3 font-medium">顧客</th>
                   <th className="text-left py-1.5 pr-3 font-medium">コース</th>
                   <th className="text-left py-1.5 pr-3 font-medium">日付</th>
-                  <th className="text-right py-1.5 pr-3 font-medium">単価</th>
-                  <th className="text-right py-1.5 font-medium">歩合(50%)</th>
+                  {isAdmin && <th className="text-right py-1.5 pr-3 font-medium">単価</th>}
+                  <th className="text-right py-1.5 font-medium">{isAdmin ? "歩合(50%)" : "歩合"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -114,14 +114,14 @@ function TrainerTab({ entries }: { entries: TrainerEntry[] }) {
                     <td className="py-1.5 pr-3 text-gray-700">{l.customerName}</td>
                     <td className="py-1.5 pr-3 text-gray-600">{l.course || "—"}</td>
                     <td className="py-1.5 pr-3 text-gray-500">{formatDate(l.scheduledAt)}</td>
-                    <td className="py-1.5 pr-3 text-right text-gray-600">{yen(l.fee)}</td>
+                    {isAdmin && <td className="py-1.5 pr-3 text-right text-gray-600">{yen(l.fee)}</td>}
                     <td className="py-1.5 text-right font-semibold text-blue-600">{yen(l.commission)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={4} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
+                  <td colSpan={isAdmin ? 4 : 3} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
                   <td className="pt-2 text-right text-sm font-bold text-blue-600">{yen(entry.total)}</td>
                 </tr>
               </tfoot>
@@ -134,7 +134,7 @@ function TrainerTab({ entries }: { entries: TrainerEntry[] }) {
 }
 
 // ─── 営業タブ ─────────────────────────────────────────────
-function SalesTab({ entries }: { entries: SalesEntry[] }) {
+function SalesTab({ entries, isAdmin }: { entries: SalesEntry[]; isAdmin: boolean }) {
   if (entries.length === 0) {
     return <p className="text-sm text-gray-400 text-center py-10">この月の歩合・ボーナスはありません</p>;
   }
@@ -169,7 +169,7 @@ function SalesTab({ entries }: { entries: SalesEntry[] }) {
                       <th className="text-left py-1.5 pr-2 font-medium">区分</th>
                       <th className="text-left py-1.5 pr-3 font-medium">コース</th>
                       <th className="text-left py-1.5 pr-3 font-medium">日付</th>
-                      <th className="text-right py-1.5 pr-3 font-medium">単価</th>
+                      {isAdmin && <th className="text-right py-1.5 pr-3 font-medium">単価</th>}
                       <th className="text-right py-1.5 font-medium">歩合</th>
                     </tr>
                   </thead>
@@ -189,19 +189,21 @@ function SalesTab({ entries }: { entries: SalesEntry[] }) {
                         </td>
                         <td className="py-1.5 pr-3 text-gray-600">{l.course || "—"}</td>
                         <td className="py-1.5 pr-3 text-gray-500">{formatDate(l.scheduledAt)}</td>
-                        <td className="py-1.5 pr-3 text-right text-gray-600">{yen(l.fee)}</td>
+                        {isAdmin && <td className="py-1.5 pr-3 text-right text-gray-600">{yen(l.fee)}</td>}
                         <td className="py-1.5 text-right font-semibold text-blue-600">
                           {yen(l.commission)}
-                          <span className="text-gray-400 font-normal ml-1">
-                            ({l.customerType === "corporate" ? "12%" : "10%"})
-                          </span>
+                          {isAdmin && (
+                            <span className="text-gray-400 font-normal ml-1">
+                              ({l.customerType === "corporate" ? "12%" : "10%"})
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={5} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
+                      <td colSpan={isAdmin ? 5 : 4} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
                       <td className="pt-2 text-right text-sm font-bold text-blue-600">{yen(entry.lessonTotal)}</td>
                     </tr>
                   </tfoot>
@@ -360,8 +362,8 @@ export function CommissionsClient({
 
       {/* コンテンツ */}
       {activeTab === "trainer"
-        ? <TrainerTab entries={trainerEntries} />
-        : <SalesTab   entries={salesEntries} />}
+        ? <TrainerTab entries={trainerEntries} isAdmin={isAdmin} />
+        : <SalesTab   entries={salesEntries} isAdmin={isAdmin} />}
     </div>
   );
 }
