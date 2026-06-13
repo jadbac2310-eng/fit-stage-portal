@@ -3,7 +3,6 @@ import {
   Smartphone, Monitor, Tablet,
   Dumbbell, Users, TrendingUp, Award,
 } from "lucide-react";
-import { getTodos } from "@/lib/todos";
 import { getCurrentMember } from "@/lib/members";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
@@ -45,7 +44,6 @@ const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ s
 
 export default async function DashboardPage() {
   const [
-    todos,
     currentMember,
     lessons,
     trialLessons,
@@ -57,7 +55,6 @@ export default async function DashboardPage() {
     analyticsError,
   ] =
     await Promise.all([
-      getTodos(),
       getCurrentMember(),
       getLessons(),
       getTrialLessons(),
@@ -69,8 +66,6 @@ export default async function DashboardPage() {
       getAnalyticsDiagnostic(),
     ]);
 
-  const myPendingCount    = todos.filter((t) => !t.completed && t.assignedTo?.id === currentMember?.id).length;
-  const totalPendingCount = todos.filter((t) => !t.completed).length;
   const deviceTotal       = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);
 
   // ─── 今月サマリー ──────────────────────────────────────
@@ -158,21 +153,6 @@ export default async function DashboardPage() {
           </div>
           <p className="text-2xl font-bold text-green-700">{contractedThisMonth}</p>
           <p className="text-xs text-green-400 mt-0.5">件</p>
-        </div>
-      </div>
-
-      {/* タスク概要 */}
-      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-        タスク
-      </h2>
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">自分の未対応</p>
-          <p className="text-3xl font-bold text-gray-900">{myPendingCount}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">全体の未対応</p>
-          <p className="text-3xl font-bold text-amber-500">{totalPendingCount}</p>
         </div>
       </div>
 
