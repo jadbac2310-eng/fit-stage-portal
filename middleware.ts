@@ -31,7 +31,11 @@ export async function middleware(request: NextRequest) {
   if (!user && !PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    // getUser() で更新されたセッションクッキーをリダイレクトにも引き継ぐ。
+    // これを怠るとブラウザとサーバーのトークンがずれ、セッションが早期終了しうる（＝突然ログアウト）。
+    supabaseResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
   return supabaseResponse;
