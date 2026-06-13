@@ -5,11 +5,14 @@ import { ChevronDown, ChevronUp, TrendingUp, Users, Award } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
+import type { SessionPass } from "@/lib/session-passes-types";
+import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import {
   buildTrainerEntries,
   buildSalesEntries,
   type TrainerEntry,
   type SalesEntry,
+  type CommissionContext,
 } from "@/lib/commissions";
 import { cn } from "@/lib/cn";
 
@@ -268,12 +271,18 @@ export function CommissionsClient({
   customers,
   lessons,
   trialLessons,
+  sessionPasses,
+  customerPlans,
+  members,
   isAdmin,
   currentMemberId,
 }: {
   customers:    Customer[];
   lessons:      Lesson[];
   trialLessons: TrialLesson[];
+  sessionPasses: SessionPass[];
+  customerPlans: CustomerPlanRecord[];
+  members:      { id: string; name: string }[];
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {
@@ -281,17 +290,21 @@ export function CommissionsClient({
   const [month,    setMonth]    = useState(currentMonth);
   const [activeTab, setActiveTab] = useState<"trainer" | "sales">("trainer");
 
+  const ctx = useMemo((): CommissionContext => (
+    { customers, sessionPasses, customerPlans, members }
+  ), [customers, sessionPasses, customerPlans, members]);
+
   // 選択月のトレーナー集計（管理者は全員、それ以外は自分の分のみ）
   const trainerEntries = useMemo((): TrainerEntry[] => {
-    const all = buildTrainerEntries(lessons, month);
+    const all = buildTrainerEntries(lessons, month, ctx);
     return isAdmin ? all : all.filter((e) => e.memberId === currentMemberId);
-  }, [lessons, month, isAdmin, currentMemberId]);
+  }, [lessons, month, ctx, isAdmin, currentMemberId]);
 
   // 選択月の営業集計（管理者は全員、それ以外は自分の分のみ）
   const salesEntries = useMemo((): SalesEntry[] => {
-    const all = buildSalesEntries(lessons, trialLessons, customers, month);
+    const all = buildSalesEntries(lessons, trialLessons, month, ctx);
     return isAdmin ? all : all.filter((e) => e.memberId === currentMemberId);
-  }, [lessons, trialLessons, customers, month, isAdmin, currentMemberId]);
+  }, [lessons, trialLessons, month, ctx, isAdmin, currentMemberId]);
 
   const trainerTotal = trainerEntries.reduce((s, e) => s + e.total, 0);
   const salesTotal   = salesEntries.reduce((s, e) => s + e.total, 0);

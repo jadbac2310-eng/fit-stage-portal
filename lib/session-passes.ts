@@ -7,6 +7,7 @@ type DbRow = {
   customer_id: string;
   total_count: number;
   remaining_count: number;
+  price: number | null;
   purchased_at: string;
   expired_at: string | null;
   note: string | null;
@@ -20,6 +21,7 @@ function fromDb(row: DbRow): SessionPass {
     customerId:     row.customer_id,
     totalCount:     row.total_count,
     remainingCount: row.remaining_count,
+    price:          row.price ?? undefined,
     purchasedAt:    row.purchased_at,
     expiredAt:      row.expired_at ?? undefined,
     note:           row.note ?? undefined,
@@ -40,6 +42,7 @@ export async function getAllSessionPasses(): Promise<SessionPass[]> {
 export async function addSessionPass(input: {
   customerId: string;
   totalCount: number;
+  price?: number;
   purchasedAt: string;
   expiredAt?: string;
   note?: string;
@@ -50,6 +53,7 @@ export async function addSessionPass(input: {
       customer_id:     input.customerId,
       total_count:     input.totalCount,
       remaining_count: input.totalCount,
+      price:           input.price ?? null,
       purchased_at:    input.purchasedAt,
       expired_at:      input.expiredAt ?? null,
       note:            input.note ?? null,

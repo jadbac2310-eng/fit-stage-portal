@@ -7,6 +7,7 @@ type DbRow = {
   id: string;
   customer_id: string;
   plan: ContractPlan;
+  price: number | null;
   started_at: string;
   ended_at: string | null;
   note: string | null;
@@ -19,6 +20,7 @@ function fromDb(row: DbRow): CustomerPlanRecord {
     id:         row.id,
     customerId: row.customer_id,
     plan:       row.plan,
+    price:      row.price ?? undefined,
     startedAt:  row.started_at,
     endedAt:    row.ended_at ?? undefined,
     note:       row.note ?? undefined,
@@ -49,6 +51,7 @@ export async function getCustomerPlans(customerId: string): Promise<CustomerPlan
 export async function addCustomerPlan(input: {
   customerId: string;
   plan: ContractPlan;
+  price?: number;
   startedAt: string;
   endedAt?: string;
   note?: string;
@@ -58,6 +61,7 @@ export async function addCustomerPlan(input: {
     .insert({
       customer_id: input.customerId,
       plan:        input.plan,
+      price:       input.price ?? null,
       started_at:  input.startedAt,
       ended_at:    input.endedAt ?? null,
       note:        input.note ?? null,
@@ -72,6 +76,7 @@ export async function updateCustomerPlan(
   id: string,
   input: Partial<{
     plan: ContractPlan;
+    price: number | null;
     startedAt: string;
     endedAt: string | null;
     note: string | null;
@@ -79,6 +84,7 @@ export async function updateCustomerPlan(
 ): Promise<CustomerPlanRecord | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.plan      !== undefined) patch.plan       = input.plan;
+  if (input.price     !== undefined) patch.price      = input.price;
   if (input.startedAt !== undefined) patch.started_at = input.startedAt;
   if (input.endedAt   !== undefined) patch.ended_at   = input.endedAt;
   if (input.note      !== undefined) patch.note       = input.note;

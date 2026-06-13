@@ -3,12 +3,13 @@ import {
   Smartphone, Monitor, Tablet,
   Dumbbell, Users, TrendingUp, Award,
 } from "lucide-react";
-import { getCurrentMember } from "@/lib/members";
+import { getCurrentMember, getMembers } from "@/lib/members";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
-import { getLessonFee } from "@/lib/commissions-types";
-import { buildTrainerEntries, buildSalesEntries } from "@/lib/commissions";
+import { getAllSessionPasses } from "@/lib/session-passes";
+import { getAllCustomerPlans } from "@/lib/customer-plans";
+import { buildTrainerEntries, buildSalesEntries, resolveLessonFee, type CommissionContext } from "@/lib/commissions";
 import {
   getPopularPages,
   getTrafficSources,
@@ -66,6 +67,16 @@ export default async function DashboardPage() {
       getAnalyticsDiagnostic(),
     ]);
 
+  const [sessionPasses, customerPlans, members] = await Promise.all([
+    getAllSessionPasses(),
+    getAllCustomerPlans(),
+    getMembers(),
+  ]);
+  const ctx: CommissionContext = {
+    customers, sessionPasses, customerPlans,
+    members: members.map((m) => ({ id: m.id, name: m.name })),
+  };
+
   const deviceTotal       = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);
 
   // ─── 今月サマリー ──────────────────────────────────────
@@ -78,7 +89,7 @@ export default async function DashboardPage() {
     (l) => l.status === "scheduled" && isoToMonth(l.scheduledAt) === mon
   );
   const salesThisMonth = completedThisMonth.reduce(
-    (sum, l) => sum + getLessonFee(l.course), 0
+    (sum, l) => sum + resolveLessonFee(l, ctx), 0
   );
   const newCustomersThisMonth = customers.filter(
     (c) => isoToMonth(c.createdAt) === mon
@@ -91,9 +102,9 @@ export default async function DashboardPage() {
   // 全体売上は管理者のみ。担当者には自分の今月の歩合（見込み）を表示する
   const isAdmin = currentMember?.isAdmin ?? false;
   const contractedTrials = trialLessons.filter((tl) => tl.contracted === true);
-  const myTrainerCommission = buildTrainerEntries(completedThisMonth, mon)
+  const myTrainerCommission = buildTrainerEntries(completedThisMonth, mon, ctx)
     .find((e) => e.memberId === currentMember?.id)?.total ?? 0;
-  const mySalesCommission = buildSalesEntries(completedThisMonth, contractedTrials, customers, mon)
+  const mySalesCommission = buildSalesEntries(completedThisMonth, contractedTrials, mon, ctx)
     .find((e) => e.memberId === currentMember?.id)?.total ?? 0;
   const myCommissionThisMonth = myTrainerCommission + mySalesCommission;
 

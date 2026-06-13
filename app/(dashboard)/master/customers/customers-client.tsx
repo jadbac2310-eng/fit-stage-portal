@@ -14,6 +14,8 @@ import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
+type MemberOpt = { id: string; name: string; role?: string };
+
 // ─── バッジ ───────────────────────────────────────────
 function statusColor(status: CustomerStatus) {
   return status === "trial"   ? "bg-purple-100 text-purple-700" :
@@ -93,12 +95,14 @@ function StatusSelect({ customerId, status }: { customerId: string; status: Cust
 function CustomerForm({
   defaultValues,
   isEdit = false,
+  members,
   onClose,
   action,
   submitLabel,
 }: {
   defaultValues?: Partial<Customer>;
   isEdit?: boolean;
+  members: MemberOpt[];
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
@@ -207,6 +211,36 @@ function CustomerForm({
         />
       </div>
 
+      {/* 担当営業 */}
+      <div>
+        <label className={labelClass}>
+          <User size={12} /> 担当営業
+        </label>
+        <select name="salesMemberId" defaultValue={defaultValues?.salesMemberId ?? ""} className={inputClass}>
+          <option value="">未設定</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* 都度単価 */}
+      <div>
+        <label className={labelClass}>
+          <StickyNote size={12} /> 都度単価（税込）
+        </label>
+        <input
+          name="singleSessionPrice"
+          type="number"
+          min="0"
+          step="1"
+          defaultValue={defaultValues?.singleSessionPrice ?? ""}
+          placeholder="例: 9900"
+          className={inputClass}
+        />
+        <p className="text-xs text-gray-400 mt-1">この顧客の「都度」レッスン1回あたりの単価（売上計算に使用）</p>
+      </div>
+
       {/* 個人/法人 */}
       <div>
         <label className={labelClass}>
@@ -266,7 +300,7 @@ function CustomerForm({
 }
 
 // ─── 顧客行（テーブル） ───────────────────────────────
-function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boolean }) {
+function CustomerRow({ customer, isAdmin, members }: { customer: Customer; isAdmin: boolean; members: MemberOpt[] }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
@@ -285,7 +319,7 @@ function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boole
             <p className="text-sm font-bold text-gray-900">顧客を編集</p>
             <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <CustomerForm defaultValues={customer} isEdit onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+          <CustomerForm defaultValues={customer} isEdit members={members} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
         </div>
       </td>
     </tr>
@@ -337,7 +371,7 @@ function CustomerRow({ customer, isAdmin }: { customer: Customer; isAdmin: boole
 }
 
 // ─── 顧客カード（モバイル） ───────────────────────────
-function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: boolean }) {
+function CustomerCard({ customer, isAdmin, members }: { customer: Customer; isAdmin: boolean; members: MemberOpt[] }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
@@ -354,7 +388,7 @@ function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: bool
         <p className="text-sm font-bold text-gray-900">顧客を編集</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <CustomerForm defaultValues={customer} isEdit onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+      <CustomerForm defaultValues={customer} isEdit members={members} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
 
@@ -406,7 +440,7 @@ function CustomerCard({ customer, isAdmin }: { customer: Customer; isAdmin: bool
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function CustomersClient({ customers, isAdmin }: { customers: Customer[]; isAdmin: boolean }) {
+export function CustomersClient({ customers, isAdmin, members }: { customers: Customer[]; isAdmin: boolean; members: MemberOpt[] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<CustomerStatus | "">("");
@@ -476,6 +510,7 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
             </button>
           </div>
           <CustomerForm
+            members={members}
             onClose={() => setShowAdd(false)}
             action={createCustomerAction}
             submitLabel="追加する"
@@ -518,7 +553,7 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} />
+                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} members={members} />
                 ))}
               </tbody>
             </table>
@@ -527,7 +562,7 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
           {/* モバイル：カード */}
           <div className="md:hidden space-y-2">
             {filtered.map((c) => (
-              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} />
+              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} members={members} />
             ))}
           </div>
         </>
@@ -547,6 +582,7 @@ export function CustomersClient({ customers, isAdmin }: { customers: Customer[];
       {showAdd && (
         <BottomSheet title="新しい顧客" onClose={() => setShowAdd(false)} scrollable>
           <CustomerForm
+            members={members}
             onClose={() => setShowAdd(false)}
             action={createCustomerAction}
             submitLabel="追加する"

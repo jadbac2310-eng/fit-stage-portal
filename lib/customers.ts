@@ -11,6 +11,8 @@ type DbRow = {
   address: string | null;
   phone_number: string | null;
   desired_start_date: string | null;
+  single_session_price: number | null;
+  sales_member_id: string | null;
   agreed_to_terms: boolean;
   electronic_signature: string | null;
   status: CustomerStatus;
@@ -29,6 +31,8 @@ function fromDb(row: DbRow): Customer {
     address:          row.address          ?? undefined,
     phoneNumber:      row.phone_number      ?? undefined,
     desiredStartDate: row.desired_start_date ?? undefined,
+    singleSessionPrice: row.single_session_price ?? undefined,
+    salesMemberId:    row.sales_member_id ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
     customerType:     row.customer_type ?? "individual",
@@ -69,6 +73,8 @@ export async function addCustomer(
       address:            input.address            ?? null,
       phone_number:       input.phoneNumber         ?? null,
       desired_start_date: input.desiredStartDate    ?? null,
+      single_session_price: input.singleSessionPrice ?? null,
+      sales_member_id:    input.salesMemberId       ?? null,
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
       customer_type:      input.customerType        ?? "individual",
@@ -82,7 +88,20 @@ export async function addCustomer(
 
 export async function updateCustomer(
   id: string,
-  input: Partial<Omit<Customer, "id" | "createdAt" | "updatedAt">>
+  input: Partial<{
+    email: string;
+    fullName: string;
+    dateOfBirth: string;
+    address: string;
+    phoneNumber: string;
+    desiredStartDate: string;
+    singleSessionPrice: number | null;
+    salesMemberId: string | null;
+    agreedToTerms: boolean;
+    status: CustomerStatus;
+    customerType: CustomerType;
+    note: string | null;
+  }>
 ): Promise<Customer | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.email            !== undefined) patch.email              = input.email;
@@ -91,6 +110,8 @@ export async function updateCustomer(
   if (input.address          !== undefined) patch.address            = input.address;
   if (input.phoneNumber      !== undefined) patch.phone_number       = input.phoneNumber;
   if (input.desiredStartDate !== undefined) patch.desired_start_date = input.desiredStartDate;
+  if (input.singleSessionPrice !== undefined) patch.single_session_price = input.singleSessionPrice ?? null;
+  if (input.salesMemberId    !== undefined) patch.sales_member_id    = input.salesMemberId ?? null;
   if (input.agreedToTerms    !== undefined) patch.agreed_to_terms    = input.agreedToTerms;
   if (input.status           !== undefined) patch.status             = input.status;
   if (input.customerType     !== undefined) patch.customer_type      = input.customerType;

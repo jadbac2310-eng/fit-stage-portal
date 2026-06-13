@@ -15,10 +15,13 @@ export async function createCustomerAction(formData: FormData) {
   const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim();
   const customerType     = ((formData.get("customerType") as string)?.trim() || "individual") as CustomerType;
   const note             = (formData.get("note")             as string)?.trim() || undefined;
+  const sspRaw           = (formData.get("singleSessionPrice") as string)?.trim();
+  const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : undefined;
+  const salesMemberId    = (formData.get("salesMemberId")   as string)?.trim() || undefined;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, agreedToTerms: false, status: "trial", customerType, note });
+  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId, agreedToTerms: false, status: "trial", customerType, note });
   revalidatePath("/master/customers");
 }
 
@@ -32,10 +35,13 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim();
   const customerType     = ((formData.get("customerType") as string)?.trim() || "individual") as CustomerType;
   const note             = (formData.get("note")             as string)?.trim() || undefined;
+  const sspRaw           = (formData.get("singleSessionPrice") as string)?.trim();
+  const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : null;
+  const salesMemberId    = (formData.get("salesMemberId")   as string)?.trim() || null;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note });
+  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId });
   revalidatePath("/master/customers");
 }
 

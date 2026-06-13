@@ -10,11 +10,18 @@ export interface CustomerPlanRecord {
   id: string;
   customerId: string;
   plan: ContractPlan;
+  price?: number;          // 入金額（月額）。単価 = price / planSessions(plan)
   startedAt: string;
   endedAt?: string;
   note?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** プラン名から月あたりの回数を取り出す（例: 月4回 → 4）。不正値は 0 */
+export function planSessions(plan: string): number {
+  const n = parseInt(plan.replace(/[^0-9]/g, ""), 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 export function plansOverlap(

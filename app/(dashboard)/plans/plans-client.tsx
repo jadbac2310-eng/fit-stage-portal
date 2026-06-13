@@ -83,6 +83,12 @@ function PlanForm({
         </select>
       </div>
 
+      <div>
+        <label className={labelClass}>金額（月額・税込）</label>
+        <input name="price" type="number" min="0" step="1" defaultValue={defaultValues?.price ?? ""} placeholder="例: 36400" className={inputClass} />
+        <p className="text-xs text-gray-400 mt-1">単価は「金額 ÷ 月回数」で売上計算に使われます</p>
+      </div>
+
       <div className="flex gap-3">
         <div className="flex-1 min-w-0">
           <label className={labelClass}>適用開始日 <span className="text-red-500">*</span></label>
@@ -193,9 +199,14 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
           <input name="totalCount" type="number" min="1" required placeholder="回数" className={inputClass} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
-          <input name="purchasedAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
+          <p className="text-xs font-medium text-gray-600 mb-1">金額（税込）</p>
+          <input name="price" type="number" min="0" step="1" placeholder="例: 400000" className={inputClass} />
         </div>
+      </div>
+      <p className="text-[11px] text-gray-400 -mt-1">単価は「金額 ÷ 回数」で売上計算に使われます（例: 40万 ÷ 40回 = 1万円/回）</p>
+      <div>
+        <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
+        <input name="purchasedAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
       </div>
       <div>
         <p className="text-xs font-medium text-gray-600 mb-1">有効期限（任意）</p>

@@ -35,13 +35,15 @@ export async function createPlanAction(formData: FormData) {
   const startedAt  = (formData.get("startedAt")  as string)?.trim();
   const endedAt    = (formData.get("endedAt")    as string)?.trim() || null;
   const note       = (formData.get("note")       as string)?.trim() || undefined;
+  const priceRaw   = (formData.get("price")      as string)?.trim();
+  const price      = priceRaw ? parseInt(priceRaw, 10) : undefined;
 
   if (!customerId || !plan || !startedAt) return;
 
   const err = await checkOverlap(customerId, startedAt, endedAt);
   if (err) throw new Error(err);
 
-  await addCustomerPlan({ customerId, plan, startedAt, endedAt: endedAt ?? undefined, note });
+  await addCustomerPlan({ customerId, plan, price, startedAt, endedAt: endedAt ?? undefined, note });
   revalidatePath("/plans");
 }
 
@@ -51,13 +53,15 @@ export async function updatePlanAction(id: string, customerId: string, formData:
   const startedAt = (formData.get("startedAt") as string)?.trim();
   const endedAt   = (formData.get("endedAt")   as string)?.trim() || null;
   const note      = (formData.get("note")      as string)?.trim() || null;
+  const priceRaw  = (formData.get("price")     as string)?.trim();
+  const price     = priceRaw ? parseInt(priceRaw, 10) : null;
 
   if (!plan || !startedAt) return;
 
   const err = await checkOverlap(customerId, startedAt, endedAt, id);
   if (err) throw new Error(err);
 
-  await updateCustomerPlan(id, { plan, startedAt, endedAt, note });
+  await updateCustomerPlan(id, { plan, price, startedAt, endedAt, note });
   revalidatePath("/plans");
 }
 
@@ -75,10 +79,12 @@ export async function createSessionPassAction(formData: FormData) {
   const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
   const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || undefined;
   const note        = (formData.get("note")        as string)?.trim() || undefined;
+  const priceRaw    = (formData.get("price")       as string)?.trim();
+  const price       = priceRaw ? parseInt(priceRaw, 10) : undefined;
 
   if (!customerId || !totalCount || !purchasedAt) return;
 
-  await addSessionPass({ customerId, totalCount, purchasedAt, expiredAt, note });
+  await addSessionPass({ customerId, totalCount, price, purchasedAt, expiredAt, note });
   revalidatePath("/plans");
   revalidatePath("/lessons/regular");
 }

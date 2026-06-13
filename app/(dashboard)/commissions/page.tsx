@@ -1,7 +1,9 @@
 import { getCustomers } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
-import { getCurrentMember } from "@/lib/members";
+import { getCurrentMember, getMembers } from "@/lib/members";
+import { getAllSessionPasses } from "@/lib/session-passes";
+import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { CommissionsClient } from "./commissions-client";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +21,13 @@ export default async function CommissionsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
+    getAllSessionPasses(),
+    getAllCustomerPlans(),
+    getMembers(),
   ]);
 
   const completedLessons = lessons.filter((l) => l.status === "completed");
@@ -33,6 +38,9 @@ export default async function CommissionsPage() {
       customers={customers}
       lessons={completedLessons}
       trialLessons={contractedTrials}
+      sessionPasses={sessionPasses}
+      customerPlans={customerPlans}
+      members={members.map((m) => ({ id: m.id, name: m.name }))}
       isAdmin={member.isAdmin}
       currentMemberId={member.id}
     />

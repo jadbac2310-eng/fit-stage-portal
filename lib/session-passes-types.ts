@@ -3,6 +3,7 @@ export interface SessionPass {
   customerId: string;
   totalCount: number;
   remainingCount: number;
+  price?: number;          // 入金額（総額）。単価 = price / totalCount
   purchasedAt: string;
   expiredAt?: string;
   note?: string;

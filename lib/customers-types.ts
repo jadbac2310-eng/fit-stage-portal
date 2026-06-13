@@ -11,6 +11,8 @@ export interface Customer {
   address?: string;
   phoneNumber?: string;
   desiredStartDate?: string;
+  singleSessionPrice?: number;  // 都度プランの単価（顧客ごと・管理者入力）
+  salesMemberId?: string;       // 担当営業（members.id）
   agreedToTerms: boolean;
   status: CustomerStatus;
   customerType: CustomerType;
