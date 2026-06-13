@@ -14,7 +14,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { email, full_name, date_of_birth, note } = body;
+  const {
+    email, full_name, date_of_birth,
+    address, phone_number, desired_start_date,
+    note,
+  } = body;
   if (!email || !full_name) {
     return NextResponse.json({ error: "email and full_name are required" }, { status: 400 });
   }
@@ -24,6 +28,9 @@ export async function POST(req: NextRequest) {
       email: email as string,
       fullName: full_name as string,
       dateOfBirth: date_of_birth ?? undefined,
+      address: address ?? undefined,
+      phoneNumber: phone_number ?? undefined,
+      desiredStartDate: desired_start_date ?? undefined,
       status: "trial",
       customerType: "individual",
       agreedToTerms: false,
