@@ -96,7 +96,7 @@ function PlanForm({
           onChange={(e) => {
             const plan = e.target.value;
             setSelectedPlan(plan);
-            if (!price && plan in DEFAULT_PLAN_MONTHLY_PRICE) {
+            if (plan in DEFAULT_PLAN_MONTHLY_PRICE) {
               setPrice(String(DEFAULT_PLAN_MONTHLY_PRICE[plan]));
             }
           }}
