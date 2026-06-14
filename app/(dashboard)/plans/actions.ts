@@ -76,6 +76,7 @@ export async function createSessionPassAction(formData: FormData) {
   await requireAdmin();
   const customerId  = (formData.get("customerId")  as string)?.trim();
   const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
+  const personCount = parseInt((formData.get("personCount") as string)?.trim(), 10) || 1;
   const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
   const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || undefined;
   const note        = (formData.get("note")        as string)?.trim() || undefined;
@@ -84,7 +85,7 @@ export async function createSessionPassAction(formData: FormData) {
 
   if (!customerId || !totalCount || !purchasedAt) return;
 
-  await addSessionPass({ customerId, totalCount, price, purchasedAt, expiredAt, note });
+  await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
   revalidatePath("/plans");
   revalidatePath("/lessons/regular");
 }

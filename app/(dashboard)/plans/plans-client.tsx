@@ -1,6 +1,18 @@
 "use client";
 
 import { useState, useMemo } from "react";
+
+const DEFAULT_PLAN_MONTHLY_PRICE: Record<string, number> = {
+  "月2回": 18700,
+  "月4回": 36400,
+  "月8回": 74800,
+};
+
+// 人数 × 回数 → デフォルト金額（税込）
+const SESSION_PASS_PRICE: Record<number, Record<number, number>> = {
+  1: { 8: 76800, 16: 148800, 32: 288000 },
+  2: { 8: 102400, 16: 198400, 32: 384000 },
+};
 import {
   Plus, Pencil, Trash2, X, Search,
   ChevronDown, ChevronUp, CalendarRange, Ticket,
@@ -49,6 +61,8 @@ function PlanForm({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState(defaultValues?.plan ?? "");
+  const [price, setPrice] = useState(defaultValues?.price?.toString() ?? "");
 
   async function handleSubmit(fd: FormData) {
     setError(""); setLoading(true);
@@ -75,7 +89,19 @@ function PlanForm({
 
       <div>
         <label className={labelClass}>プラン <span className="text-red-500">*</span></label>
-        <select name="plan" required defaultValue={defaultValues?.plan ?? ""} className={inputClass}>
+        <select
+          name="plan"
+          required
+          value={selectedPlan}
+          onChange={(e) => {
+            const plan = e.target.value;
+            setSelectedPlan(plan);
+            if (!price && plan in DEFAULT_PLAN_MONTHLY_PRICE) {
+              setPrice(String(DEFAULT_PLAN_MONTHLY_PRICE[plan]));
+            }
+          }}
+          className={inputClass}
+        >
           <option value="">選択...</option>
           <option value="月2回">月2回</option>
           <option value="月4回">月4回</option>
@@ -85,7 +111,16 @@ function PlanForm({
 
       <div>
         <label className={labelClass}>金額（月額・税込）</label>
-        <input name="price" type="number" min="0" step="1" defaultValue={defaultValues?.price ?? ""} placeholder="例: 36400" className={inputClass} />
+        <input
+          name="price"
+          type="number"
+          min="0"
+          step="1"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="例: 36400"
+          className={inputClass}
+        />
         <p className="text-xs text-gray-400 mt-1">単価は「金額 ÷ 月回数」で売上計算に使われます</p>
       </div>
 
@@ -181,6 +216,15 @@ function PlanItem({ record, customer, customers, isAdmin }: {
 // ─── 回数券フォーム ───────────────────────────────────
 function SessionPassForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [personCount, setPersonCount] = useState(1);
+  const [totalCount, setTotalCount] = useState("");
+  const [price, setPrice] = useState("");
+
+  function autoFillPrice(persons: number, count: string) {
+    const n = parseInt(count, 10);
+    const defaultPrice = SESSION_PASS_PRICE[persons]?.[n];
+    if (defaultPrice && !price) setPrice(String(defaultPrice));
+  }
 
   async function handleSubmit(fd: FormData) {
     setLoading(true);
@@ -193,17 +237,65 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
   return (
     <form action={handleSubmit} className="bg-amber-50 rounded-xl p-3 border border-amber-200 space-y-2">
       <input type="hidden" name="customerId" value={customerId} />
+      <input type="hidden" name="personCount" value={personCount} />
+
+      <div>
+        <p className="text-xs font-medium text-gray-600 mb-1">人数</p>
+        <div className="flex gap-2">
+          {[1, 2].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => {
+                setPersonCount(n);
+                const cnt = parseInt(totalCount, 10);
+                const defaultPrice = SESSION_PASS_PRICE[n]?.[cnt];
+                if (defaultPrice) setPrice(String(defaultPrice));
+              }}
+              className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition ${
+                personCount === n
+                  ? "bg-amber-500 border-amber-500 text-white"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {n}名様
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
-          <input name="totalCount" type="number" min="1" required placeholder="回数" className={inputClass} />
+          <input
+            name="totalCount"
+            type="number"
+            min="1"
+            required
+            placeholder="回数"
+            value={totalCount}
+            onChange={(e) => {
+              setTotalCount(e.target.value);
+              autoFillPrice(personCount, e.target.value);
+            }}
+            className={inputClass}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-600 mb-1">金額（税込）</p>
-          <input name="price" type="number" min="0" step="1" placeholder="例: 400000" className={inputClass} />
+          <input
+            name="price"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="例: 76800"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className={inputClass}
+          />
         </div>
       </div>
-      <p className="text-[11px] text-gray-400 -mt-1">単価は「金額 ÷ 回数」で売上計算に使われます（例: 40万 ÷ 40回 = 1万円/回）</p>
+      <p className="text-[11px] text-gray-400 -mt-1">単価は「金額 ÷ 回数」で売上計算に使われます</p>
       <div>
         <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
         <input name="purchasedAt" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} />
