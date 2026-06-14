@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     email, full_name, date_of_birth,
     address, phone_number, desired_start_date,
     trial_scheduled_at,
-    note,
+    note, trial_note,
   } = body;
   if (!email || !full_name) {
     return NextResponse.json({ error: "email and full_name are required" }, { status: 400 });
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
           (trial_scheduled_at as string) ||
           (desired_start_date as string) ||
           new Date().toISOString(),
-        note: note ?? undefined,
+        note: (trial_note ?? note) ?? undefined,
       });
       trialCreated = true;
     } catch (te) {
