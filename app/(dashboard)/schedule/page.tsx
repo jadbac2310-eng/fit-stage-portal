@@ -1,4 +1,4 @@
-import { getCurrentMember } from "@/lib/members";
+import { getCurrentMember, getMembers } from "@/lib/members";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { ScheduleClient, type ScheduleItem } from "./schedule-client";
@@ -18,12 +18,18 @@ export default async function SchedulePage() {
     );
   }
 
-  const [lessons, trialLessons] = await Promise.all([getLessons(), getTrialLessons()]);
+  const isAdmin = member.isAdmin;
+  const [lessons, trialLessons, members] = await Promise.all([
+    getLessons(),
+    getTrialLessons(),
+    isAdmin ? getMembers() : Promise.resolve([]),
+  ]);
 
   const items: ScheduleItem[] = [];
 
+  // 通常レッスン（管理者は全件、それ以外は自分がトレーナーの分のみ）
   for (const l of lessons) {
-    if (l.trainerMemberId === member.id) {
+    if (isAdmin || l.trainerMemberId === member.id) {
       items.push({
         id: l.id,
         type: "regular",
@@ -32,15 +38,16 @@ export default async function SchedulePage() {
         location: l.location,
         course: l.course,
         status: l.status,
-        role: "trainer",
+        trainerId: l.trainerMemberId,
+        trainerName: l.trainerMemberName,
       });
     }
   }
 
+  // 体験レッスン（管理者は全件、それ以外は自分がトレーナー/営業の分のみ）
   for (const t of trialLessons) {
-    const isTrainer = t.trainerMemberId === member.id;
-    const isSales = t.salesMemberId === member.id;
-    if (isTrainer || isSales) {
+    const isMine = t.trainerMemberId === member.id || t.salesMemberId === member.id;
+    if (isAdmin || isMine) {
       items.push({
         id: t.id,
         type: "trial",
@@ -48,10 +55,21 @@ export default async function SchedulePage() {
         scheduledAt: t.scheduledAt,
         location: t.location,
         status: t.status,
-        role: isTrainer ? "trainer" : "sales",
+        trainerId: t.trainerMemberId,
+        trainerName: t.trainerMemberName,
+        salesId: t.salesMemberId,
+        salesName: t.salesMemberName,
       });
     }
   }
 
-  return <ScheduleClient items={items} memberName={member.name} />;
+  return (
+    <ScheduleClient
+      items={items}
+      memberName={member.name}
+      isAdmin={isAdmin}
+      currentMemberId={member.id}
+      members={members.map((m) => ({ id: m.id, name: m.name }))}
+    />
+  );
 }

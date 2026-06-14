@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   CalendarDays, MapPin, ChevronRight, Clock,
-  Dumbbell, FlaskConical, CheckCircle, XCircle,
+  Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -16,7 +16,10 @@ export type ScheduleItem = {
   location?: string;
   course?: string;
   status: "scheduled" | "completed" | "cancelled";
-  role: "trainer" | "sales";
+  trainerId?: string;
+  trainerName?: string;
+  salesId?: string;
+  salesName?: string;
 };
 
 // ─── 日付ユーティリティ（ローカル＝JST） ───────────────
@@ -58,9 +61,17 @@ function StatusPill({ status }: { status: ScheduleItem["status"] }) {
 }
 
 // ─── 1件のカード ──────────────────────────────────────
-function LessonCard({ item }: { item: ScheduleItem }) {
+function LessonCard({ item, showStaff }: { item: ScheduleItem; showStaff?: boolean }) {
   const isTrial = item.type === "trial";
   const cancelled = item.status === "cancelled";
+
+  // 担当者ラベル（管理者の全体表示用）
+  const staff = isTrial
+    ? [
+        item.trainerName && `${item.trainerName}(ﾄﾚｰﾅｰ)`,
+        item.salesName && `${item.salesName}(営業)`,
+      ].filter(Boolean).join(" / ")
+    : item.trainerName ?? "";
 
   return (
     <Link
@@ -94,11 +105,6 @@ function LessonCard({ item }: { item: ScheduleItem }) {
             {isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
             {isTrial ? "体験" : "通常"}
           </span>
-          {isTrial && (
-            <span className="text-[10px] font-medium text-gray-400">
-              {item.role === "trainer" ? "トレーナー" : "営業"}
-            </span>
-          )}
           <StatusPill status={item.status} />
         </div>
         <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
@@ -111,6 +117,12 @@ function LessonCard({ item }: { item: ScheduleItem }) {
             </span>
           )}
         </div>
+        {showStaff && staff && (
+          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 min-w-0">
+            <UserRound size={10} className="flex-shrink-0" />
+            <span className="truncate">{staff}</span>
+          </p>
+        )}
       </div>
 
       <div className="flex items-center pr-3 text-gray-300">
@@ -121,7 +133,7 @@ function LessonCard({ item }: { item: ScheduleItem }) {
 }
 
 // ─── 日付グループ ─────────────────────────────────────
-function DayGroup({ date, items }: { date: Date; items: ScheduleItem[] }) {
+function DayGroup({ date, items, showStaff }: { date: Date; items: ScheduleItem[]; showStaff?: boolean }) {
   const { main, sub, accent } = dayLabel(date);
   return (
     <div>
@@ -131,21 +143,37 @@ function DayGroup({ date, items }: { date: Date; items: ScheduleItem[] }) {
         <span className="text-xs text-gray-300 ml-auto">{items.length}件</span>
       </div>
       <div className="space-y-2">
-        {items.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} />)}
+        {items.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} showStaff={showStaff} />)}
       </div>
     </div>
   );
 }
 
 // ─── メイン ───────────────────────────────────────────
-export function ScheduleClient({ items, memberName }: { items: ScheduleItem[]; memberName: string }) {
+export function ScheduleClient({
+  items, memberName, isAdmin = false, currentMemberId, members = [],
+}: {
+  items: ScheduleItem[];
+  memberName: string;
+  isAdmin?: boolean;
+  currentMemberId?: string;
+  members?: { id: string; name: string }[];
+}) {
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  // 管理者のみ: 担当者で絞り込み（"all" = 全員）
+  const [filterMember, setFilterMember] = useState<string>("all");
+
+  // 絞り込み後のアイテム（管理者以外は items をそのまま使う）
+  const visibleItems = useMemo(() => {
+    if (!isAdmin || filterMember === "all") return items;
+    return items.filter((it) => it.trainerId === filterMember || it.salesId === filterMember);
+  }, [items, isAdmin, filterMember]);
 
   const { upcoming, past } = useMemo(() => {
     const today = startOfDay(new Date()).getTime();
     const up: ScheduleItem[] = [];
     const pa: ScheduleItem[] = [];
-    for (const it of items) {
+    for (const it of visibleItems) {
       const d = startOfDay(new Date(it.scheduledAt)).getTime();
       if (d >= today && it.status !== "cancelled") up.push(it);
       else pa.push(it);
@@ -153,7 +181,7 @@ export function ScheduleClient({ items, memberName }: { items: ScheduleItem[]; m
     up.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     pa.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
     return { upcoming: up, past: pa };
-  }, [items]);
+  }, [visibleItems]);
 
   const list = tab === "upcoming" ? upcoming : past;
 
@@ -179,8 +207,36 @@ export function ScheduleClient({ items, memberName }: { items: ScheduleItem[]; m
           <CalendarDays size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">スケジュール</h1>
         </div>
-        <p className="text-sm text-gray-500 mt-0.5">{memberName} さんの担当レッスン</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {!isAdmin
+            ? `${memberName} さんの担当レッスン`
+            : filterMember === "all"
+              ? "全員のスケジュール"
+              : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
+        </p>
       </div>
+
+      {/* 担当者フィルタ（管理者のみ） */}
+      {isAdmin && members.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound size={15} className="text-gray-400 flex-shrink-0" />
+          <select
+            value={filterMember}
+            onChange={(e) => setFilterMember(e.target.value)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">全員のスケジュール</option>
+            {currentMemberId && (
+              <option value={currentMemberId}>自分（{memberName}）</option>
+            )}
+            {members
+              .filter((m) => m.id !== currentMemberId)
+              .map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+          </select>
+        </div>
+      )}
 
       {/* 次の予定ハイライト */}
       {nextItem && tab === "upcoming" && (
@@ -235,7 +291,7 @@ export function ScheduleClient({ items, memberName }: { items: ScheduleItem[]; m
         </div>
       ) : (
         <div className="space-y-5">
-          {groups.map((g) => <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} />)}
+          {groups.map((g) => <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} showStaff={isAdmin} />)}
         </div>
       )}
     </div>
