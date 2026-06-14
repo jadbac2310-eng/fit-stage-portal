@@ -95,6 +95,11 @@ function computeSuggestion(
   };
 }
 
+// 予定日時を過ぎているか（現在時刻との比較）
+function isPastIso(iso: string): boolean {
+  return new Date(iso).getTime() <= Date.now();
+}
+
 // datetime-local の値（ローカル時刻）を UTC ISO 文字列に変換
 function localInputToISO(value: string): string {
   return new Date(value).toISOString();
@@ -430,8 +435,9 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const [reporting, setReporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
-  // レポートは管理者、または担当トレーナー本人が入力できる
-  const canReport = isAdmin || (!!currentMemberId && lesson.trainerMemberId === currentMemberId);
+  // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
+  const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
+  const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
   const hasReport = !!(lesson.trainingContent || lesson.customerImpression);
 
   const scheduledDate = new Date(lesson.scheduledAt);

@@ -1,7 +1,9 @@
+import Link from "next/link";
 import {
   MonitorSmartphone,
   Smartphone, Monitor, Tablet,
   Dumbbell, Users, TrendingUp, Award,
+  ClipboardList, ChevronRight,
 } from "lucide-react";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getLessons } from "@/lib/lessons";
@@ -36,6 +38,10 @@ function isoToMonth(iso: string): string {
 }
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
+}
+
+function isPastIso(iso: string): boolean {
+  return new Date(iso).getTime() <= Date.now();
 }
 
 const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ size: number; className: string }> }> = {
@@ -111,12 +117,51 @@ export default async function DashboardPage() {
     .find((e) => e.memberId === currentMember?.id)?.total ?? 0;
   const myCommissionThisMonth = myTrainerCommission + mySalesCommission;
 
+  // 自分が担当で、予定日時を過ぎているのに未記入のレポート（通常＋体験）
+  const myPendingReports = [
+    ...lessons
+      .filter((l) => l.trainerMemberId === currentMember?.id && l.status === "scheduled" && isPastIso(l.scheduledAt))
+      .map((l) => ({ id: l.id, type: "regular" as const, href: "/lessons/regular", customerName: l.customerName, scheduledAt: l.scheduledAt })),
+    ...trialLessons
+      .filter((t) => t.trainerMemberId === currentMember?.id && t.status === "scheduled" && isPastIso(t.scheduledAt))
+      .map((t) => ({ id: t.id, type: "trial" as const, href: "/lessons/trial", customerName: t.customerName, scheduledAt: t.scheduledAt })),
+  ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="mb-6 hidden md:block">
         <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
+
+      {/* 未記入レポートの催促 */}
+      {myPendingReports.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardList size={16} className="text-amber-600" />
+            <p className="text-sm font-bold text-amber-800">未記入のレポートが {myPendingReports.length} 件あります</p>
+          </div>
+          <p className="text-xs text-amber-600 mb-3">実施済みのレッスンのレポートを記入してください</p>
+          <div className="space-y-1.5">
+            {myPendingReports.slice(0, 5).map((r) => (
+              <Link key={`${r.type}-${r.id}`} href={r.href}
+                className="flex items-center gap-2 bg-white rounded-xl border border-amber-200 px-3 py-2 hover:border-amber-300 transition">
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${r.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
+                  {r.type === "trial" ? "体験" : "通常"}
+                </span>
+                <span className="text-sm font-medium text-gray-800 flex-1 min-w-0 truncate">{r.customerName}</span>
+                <span className="text-xs text-gray-400">
+                  {new Date(r.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
+                </span>
+                <ChevronRight size={14} className="text-amber-400 flex-shrink-0" />
+              </Link>
+            ))}
+            {myPendingReports.length > 5 && (
+              <p className="text-xs text-amber-600 text-center pt-1">ほか {myPendingReports.length - 5} 件</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 今月サマリー */}
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">

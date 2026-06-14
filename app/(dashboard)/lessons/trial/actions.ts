@@ -38,9 +38,13 @@ export async function saveReportAction(id: string, formData: FormData) {
   // レポート入力は「管理者」または「その体験レッスンの担当トレーナー」のみ
   const [lesson, member] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
   if (!member) throw new Error("ログインが必要です");
-  const isAssignedTrainer = !!lesson?.trainerMemberId && lesson.trainerMemberId === member.id;
-  if (!member.isAdmin && !isAssignedTrainer) {
-    throw new Error("レポートを入力できるのは担当トレーナーまたは管理者のみです");
+  if (!lesson) throw new Error("体験レッスンが見つかりません");
+  const isAssignedTrainer = !!lesson.trainerMemberId && lesson.trainerMemberId === member.id;
+  if (!isAssignedTrainer) {
+    throw new Error("レポートを入力できるのは担当トレーナーのみです");
+  }
+  if (new Date(lesson.scheduledAt).getTime() > Date.now()) {
+    throw new Error("予定日時を過ぎたレッスンのみレポートを入力できます");
   }
 
   const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;

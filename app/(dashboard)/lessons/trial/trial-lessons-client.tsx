@@ -18,6 +18,11 @@ import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
+// 予定日時を過ぎているか（現在時刻との比較）
+function isPastIso(iso: string): boolean {
+  return new Date(iso).getTime() <= Date.now();
+}
+
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
   return (
@@ -223,7 +228,9 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId }: {
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
   // レポートは管理者、または担当トレーナー本人が入力できる
-  const canReport = isAdmin || (!!currentMemberId && lesson.trainerMemberId === currentMemberId);
+  // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
+  const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
+  const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
@@ -332,7 +339,9 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId }: {
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
   // レポートは管理者、または担当トレーナー本人が入力できる
-  const canReport = isAdmin || (!!currentMemberId && lesson.trainerMemberId === currentMemberId);
+  // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
+  const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
+  const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", weekday: "short" });
