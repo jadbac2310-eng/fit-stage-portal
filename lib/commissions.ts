@@ -61,6 +61,8 @@ export interface CommissionContext {
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
   members:       { id: string; name: string }[];
+  /** プランマスタ由来のコース名→1回単価。未指定コースは固定単価表にフォールバック */
+  lessonFees?:   Record<string, number>;
 }
 
 export function isoToMonth(iso: string): string {
@@ -96,8 +98,8 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
     if (cust?.singleSessionPrice && cust.singleSessionPrice > 0) return cust.singleSessionPrice;
   }
 
-  // フォールバック（従来の固定単価表）
-  return getLessonFee(course);
+  // フォールバック: プランマスタの標準単価 → 従来の固定単価表（旧コース名の互換用）
+  return ctx.lessonFees?.[course] ?? getLessonFee(course);
 }
 
 /** 選択月のトレーナー歩合集計（lessons は完了レッスンを渡す） */

@@ -1,18 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-
-const DEFAULT_PLAN_MONTHLY_PRICE: Record<string, number> = {
-  "月2回": 18700,
-  "月4回": 36400,
-  "月8回": 74800,
-};
-
-// 人数 × 回数 → デフォルト金額（税込）
-const SESSION_PASS_PRICE: Record<number, Record<number, number>> = {
-  1: { 8: 76800, 16: 148800, 32: 288000 },
-  2: { 8: 102400, 16: 198400, 32: 384000 },
-};
 import {
   Plus, Pencil, Trash2, X, Search,
   ChevronDown, ChevronUp, CalendarRange, Ticket,
@@ -26,6 +14,11 @@ import {
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
+
+// プラン選択時の標準金額（プランマスタ由来）
+type PlanDefault = { name: string; amount: number };
+// 回数券の標準金額 { 人数: { 回数: 金額 } }（プランマスタ由来）
+type SessionPassPriceMap = Record<number, Record<number, number>>;
 
 // ─── バッジ ───────────────────────────────────────────
 function PlanBadge({ plan }: { plan: ContractPlan }) {
@@ -50,11 +43,12 @@ function StatusLabel({ startedAt, endedAt }: { startedAt: string; endedAt?: stri
 
 // ─── プランフォーム ───────────────────────────────────
 function PlanForm({
-  defaultValues, fixedCustomerId, customers, onClose, action, submitLabel,
+  defaultValues, fixedCustomerId, customers, planDefaults, onClose, action, submitLabel,
 }: {
   defaultValues?: Partial<CustomerPlanRecord>;
   fixedCustomerId?: string;
   customers: Customer[];
+  planDefaults: PlanDefault[];
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
@@ -96,16 +90,15 @@ function PlanForm({
           onChange={(e) => {
             const plan = e.target.value;
             setSelectedPlan(plan);
-            if (plan in DEFAULT_PLAN_MONTHLY_PRICE) {
-              setPrice(String(DEFAULT_PLAN_MONTHLY_PRICE[plan]));
-            }
+            const def = planDefaults.find((d) => d.name === plan);
+            if (def) setPrice(String(def.amount));
           }}
           className={inputClass}
         >
           <option value="">選択...</option>
-          <option value="月2回">月2回</option>
-          <option value="月4回">月4回</option>
-          <option value="月8回">月8回</option>
+          {planDefaults.map((d) => (
+            <option key={d.name} value={d.name}>{d.name}</option>
+          ))}
         </select>
       </div>
 
@@ -162,8 +155,9 @@ function PlanForm({
 }
 
 // ─── プラン1件 ────────────────────────────────────────
-function PlanItem({ record, customer, customers, isAdmin }: {
-  record: CustomerPlanRecord; customer: Customer; customers: Customer[]; isAdmin: boolean;
+function PlanItem({ record, customer, customers, planDefaults, isAdmin }: {
+  record: CustomerPlanRecord; customer: Customer; customers: Customer[];
+  planDefaults: PlanDefault[]; isAdmin: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -175,7 +169,7 @@ function PlanItem({ record, customer, customers, isAdmin }: {
         <p className="text-xs font-bold text-gray-700">プランを編集</p>
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
-      <PlanForm defaultValues={record} fixedCustomerId={customer.id} customers={customers}
+      <PlanForm defaultValues={record} fixedCustomerId={customer.id} customers={customers} planDefaults={planDefaults}
         onClose={() => setEditing(false)} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
@@ -214,7 +208,13 @@ function PlanItem({ record, customer, customers, isAdmin }: {
 }
 
 // ─── 回数券フォーム ───────────────────────────────────
-function SessionPassForm({ customerId, onClose }: { customerId: string; onClose: () => void }) {
+function SessionPassForm({
+  customerId, sessionPassPriceMap, onClose,
+}: {
+  customerId: string;
+  sessionPassPriceMap: SessionPassPriceMap;
+  onClose: () => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [personCount, setPersonCount] = useState(1);
   const [totalCount, setTotalCount] = useState("");
@@ -222,7 +222,7 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
 
   function autoFillPrice(persons: number, count: string) {
     const n = parseInt(count, 10);
-    const defaultPrice = SESSION_PASS_PRICE[persons]?.[n];
+    const defaultPrice = sessionPassPriceMap[persons]?.[n];
     if (defaultPrice && !price) setPrice(String(defaultPrice));
   }
 
@@ -249,7 +249,7 @@ function SessionPassForm({ customerId, onClose }: { customerId: string; onClose:
               onClick={() => {
                 setPersonCount(n);
                 const cnt = parseInt(totalCount, 10);
-                const defaultPrice = SESSION_PASS_PRICE[n]?.[cnt];
+                const defaultPrice = sessionPassPriceMap[n]?.[cnt];
                 if (defaultPrice) setPrice(String(defaultPrice));
               }}
               className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition ${
@@ -366,8 +366,9 @@ function SessionPassList({ passes, isAdmin }: { passes: SessionPass[]; isAdmin: 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, plans, passes, customers, isAdmin }: {
-  customer: Customer; plans: CustomerPlanRecord[]; passes: SessionPass[]; customers: Customer[]; isAdmin: boolean;
+function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessionPassPriceMap, isAdmin }: {
+  customer: Customer; plans: CustomerPlanRecord[]; passes: SessionPass[]; customers: Customer[];
+  planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -409,13 +410,14 @@ function CustomerGroup({ customer, plans, passes, customers, isAdmin }: {
             <p className="py-3 text-xs text-gray-400">プラン履歴なし</p>
           ) : (
             plans.map((p) => (
-              <PlanItem key={p.id} record={p} customer={customer} customers={customers} isAdmin={isAdmin} />
+              <PlanItem key={p.id} record={p} customer={customer} customers={customers}
+                planDefaults={planDefaults} isAdmin={isAdmin} />
             ))
           )}
 
           {showAdd ? (
             <div className="py-3">
-              <PlanForm fixedCustomerId={customer.id} customers={customers}
+              <PlanForm fixedCustomerId={customer.id} customers={customers} planDefaults={planDefaults}
                 onClose={() => setShowAdd(false)} action={createPlanAction} submitLabel="追加する" />
             </div>
           ) : (
@@ -437,7 +439,8 @@ function CustomerGroup({ customer, plans, passes, customers, isAdmin }: {
             <SessionPassList passes={passes} isAdmin={isAdmin} />
             {showAddPass ? (
               <div className="mt-2">
-                <SessionPassForm customerId={customer.id} onClose={() => setShowAddPass(false)} />
+                <SessionPassForm customerId={customer.id} sessionPassPriceMap={sessionPassPriceMap}
+                  onClose={() => setShowAddPass(false)} />
               </div>
             ) : (
               isAdmin && (
@@ -455,8 +458,9 @@ function CustomerGroup({ customer, plans, passes, customers, isAdmin }: {
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function PlansClient({ customers, plans, sessionPasses, isAdmin }: {
-  customers: Customer[]; plans: CustomerPlanRecord[]; sessionPasses: SessionPass[]; isAdmin: boolean;
+export function PlansClient({ customers, plans, sessionPasses, planDefaults, sessionPassPriceMap, isAdmin }: {
+  customers: Customer[]; plans: CustomerPlanRecord[]; sessionPasses: SessionPass[];
+  planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -516,7 +520,7 @@ export function PlansClient({ customers, plans, sessionPasses, isAdmin }: {
             <p className="text-sm font-bold text-gray-900">プランを追加</p>
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <PlanForm customers={customers} onClose={() => setShowAdd(false)}
+          <PlanForm customers={customers} planDefaults={planDefaults} onClose={() => setShowAdd(false)}
             action={createPlanAction} submitLabel="追加する" />
         </div>
       )}
@@ -524,7 +528,8 @@ export function PlansClient({ customers, plans, sessionPasses, isAdmin }: {
       <div className="space-y-2">
         {filtered.map(({ customer, plans: ps, passes }) => (
           <CustomerGroup key={customer.id} customer={customer} plans={ps} passes={passes}
-            customers={customers} isAdmin={isAdmin} />
+            customers={customers} planDefaults={planDefaults} sessionPassPriceMap={sessionPassPriceMap}
+            isAdmin={isAdmin} />
         ))}
       </div>
 

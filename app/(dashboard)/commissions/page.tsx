@@ -4,6 +4,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
+import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
 import { CommissionsClient } from "./commissions-client";
 
 export const dynamic = "force-dynamic";
@@ -21,13 +22,14 @@ export default async function CommissionsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
+    getAllPlans(),
   ]);
 
   const completedLessons = lessons.filter((l) => l.status === "completed");
@@ -40,6 +42,7 @@ export default async function CommissionsPage() {
       trialLessons={contractedTrials}
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
+      lessonFees={buildLessonFeeMap(plansMaster)}
       members={members.map((m) => ({ id: m.id, name: m.name }))}
       isAdmin={member.isAdmin}
       currentMemberId={member.id}

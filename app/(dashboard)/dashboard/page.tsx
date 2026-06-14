@@ -9,6 +9,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
+import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
 import { buildTrainerEntries, buildSalesEntries, resolveLessonFee, type CommissionContext } from "@/lib/commissions";
 import {
   getPopularPages,
@@ -67,14 +68,16 @@ export default async function DashboardPage() {
       getAnalyticsDiagnostic(),
     ]);
 
-  const [sessionPasses, customerPlans, members] = await Promise.all([
+  const [sessionPasses, customerPlans, members, plansMaster] = await Promise.all([
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
+    getAllPlans(),
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
     members: members.map((m) => ({ id: m.id, name: m.name })),
+    lessonFees: buildLessonFeeMap(plansMaster),
   };
 
   const deviceTotal       = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);

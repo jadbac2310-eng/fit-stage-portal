@@ -273,6 +273,7 @@ export function CommissionsClient({
   trialLessons,
   sessionPasses,
   customerPlans,
+  lessonFees,
   members,
   isAdmin,
   currentMemberId,
@@ -282,6 +283,7 @@ export function CommissionsClient({
   trialLessons: TrialLesson[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
+  lessonFees?:  Record<string, number>;
   members:      { id: string; name: string }[];
   isAdmin:      boolean;
   currentMemberId?: string;
@@ -291,8 +293,8 @@ export function CommissionsClient({
   const [activeTab, setActiveTab] = useState<"trainer" | "sales">("trainer");
 
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members }
-  ), [customers, sessionPasses, customerPlans, members]);
+    { customers, sessionPasses, customerPlans, members, lessonFees }
+  ), [customers, sessionPasses, customerPlans, members, lessonFees]);
 
   // 選択月のトレーナー集計（管理者は全員、それ以外は自分の分のみ）
   const trainerEntries = useMemo((): TrainerEntry[] => {
