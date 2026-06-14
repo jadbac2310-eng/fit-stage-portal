@@ -491,9 +491,25 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">
-            プラン履歴 {plans.length}件{passes.length > 0 && ` ・ 回数券 ${passes.length}件`}
-          </p>
+          <div className="flex items-center gap-3 flex-wrap mt-0.5">
+            {activePlan ? (
+              <>
+                {activePlan.price != null
+                  ? <span className="text-xs text-gray-600 font-medium">¥{activePlan.price.toLocaleString("ja-JP")}<span className="text-gray-400 font-normal">/月</span></span>
+                  : <span className="text-xs text-gray-400">金額未設定</span>
+                }
+                <span className="text-xs text-gray-400">{activePlan.startedAt}〜</span>
+              </>
+            ) : (
+              <span className="text-xs text-gray-400">プラン履歴 {plans.length}件</span>
+            )}
+            {passes.filter((p) => p.remainingCount > 0).map((p) => (
+              <span key={p.id} className="text-xs text-gray-500">
+                {p.totalCount}回券
+                {p.price != null && <span className="ml-0.5 text-gray-400">¥{p.price.toLocaleString("ja-JP")}</span>}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="flex-shrink-0 text-gray-400">
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
