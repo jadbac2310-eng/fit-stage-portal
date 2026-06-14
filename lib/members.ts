@@ -114,13 +114,15 @@ export async function updateMember(
 }
 
 export async function getMemberByAuthUserId(authUserId: string): Promise<Member | null> {
+  // auth_user_id が万一重複していても落ちないよう、最初の1件を返す（.single() は複数件で例外）
   const { data, error } = await createAdminClient()
     .from("members")
     .select("*")
     .eq("auth_user_id", authUserId)
-    .single();
-  if (error || !data) return null;
-  return fromDb(data as DbRow);
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (error || !data || data.length === 0) return null;
+  return fromDb(data[0] as DbRow);
 }
 
 export async function getCurrentMember(): Promise<Member | null> {
