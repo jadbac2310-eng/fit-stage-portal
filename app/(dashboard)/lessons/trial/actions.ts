@@ -11,10 +11,11 @@ export async function createTrialLessonAction(formData: FormData) {
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || undefined;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
   const location        = (formData.get("location")        as string)?.trim() || undefined;
+  const note            = (formData.get("note")            as string)?.trim() || undefined;
 
   if (!customerId || !salesMemberId || !scheduledAt) return;
 
-  await addTrialLesson({ customerId, salesMemberId, trainerMemberId, scheduledAt, location });
+  await addTrialLesson({ customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
   revalidatePath("/lessons/trial");
 }
 
@@ -25,10 +26,11 @@ export async function updateTrialLessonAction(id: string, formData: FormData) {
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
   const location        = (formData.get("location")        as string)?.trim() || null;
+  const note            = (formData.get("note")            as string)?.trim() || null;
 
   if (!customerId || !salesMemberId || !scheduledAt) return;
 
-  await updateTrialLesson(id, { customerId, salesMemberId, trainerMemberId, scheduledAt, location });
+  await updateTrialLesson(id, { customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
   revalidatePath("/lessons/trial");
 }
 

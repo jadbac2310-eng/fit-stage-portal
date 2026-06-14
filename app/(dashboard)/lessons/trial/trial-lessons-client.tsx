@@ -125,6 +125,13 @@ function LessonForm({
         <input name="location" defaultValue={defaultValues?.location} placeholder="FIT STAGE 渋谷店 など" className={inputClass} />
       </div>
 
+      <div>
+        <label className={labelClass}><StickyNote size={12} /> 備考</label>
+        <textarea name="note" defaultValue={defaultValues?.note} rows={3}
+          placeholder="第2希望日時、申し送りなど..."
+          className={cn(inputClass, "resize-none")} />
+      </div>
+
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
@@ -257,9 +264,15 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId }: {
       </td>
       <td className="px-4 py-3">
         <p className="text-sm font-semibold text-gray-900">{lesson.customerName}</p>
+        {lesson.note && (
+          <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap flex items-start gap-1">
+            <StickyNote size={10} className="flex-shrink-0 mt-0.5" />
+            <span>{lesson.note}</span>
+          </p>
+        )}
       </td>
       <td className="px-4 py-3">
-        <p className="text-xs text-gray-600">{lesson.salesMemberName}</p>
+        <p className="text-xs text-gray-600">{lesson.salesMemberName || <span className="text-gray-300">未割当</span>}</p>
       </td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{lesson.trainerMemberName ?? <span className="text-gray-300">—</span>}</p>
@@ -351,7 +364,7 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId }: {
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <p className="text-sm font-bold text-gray-900">{lesson.customerName}</p>
-          <p className="text-xs text-gray-500 mt-0.5">営業: {lesson.salesMemberName}</p>
+          <p className="text-xs text-gray-500 mt-0.5">営業: {lesson.salesMemberName || "未割当"}</p>
           {lesson.trainerMemberName && <p className="text-xs text-gray-500">TR: {lesson.trainerMemberName}</p>}
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -362,6 +375,12 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId }: {
       <div className="space-y-1">
         <p className="text-xs text-gray-600 flex items-center gap-1.5"><Calendar size={11} className="text-gray-400" />{dateStr} {timeStr}</p>
         {lesson.location && <p className="text-xs text-gray-600 flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" />{lesson.location}</p>}
+        {lesson.note && (
+          <p className="text-xs text-gray-500 flex items-start gap-1.5 whitespace-pre-wrap">
+            <StickyNote size={11} className="text-gray-400 flex-shrink-0 mt-0.5" />
+            <span>{lesson.note}</span>
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
         {canReport && lesson.status !== "cancelled" && (
