@@ -13,6 +13,8 @@ type DbRow = {
   payment_type: LessonPaymentType | null;
   status: LessonStatus;
   session_pass_id: string | null;
+  training_content: string | null;
+  customer_impression: string | null;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -33,6 +35,8 @@ function fromDb(row: DbRow): Lesson {
     paymentType:       row.payment_type ?? undefined,
     status:            row.status,
     sessionPassId:     row.session_pass_id ?? undefined,
+    trainingContent:   row.training_content ?? undefined,
+    customerImpression: row.customer_impression ?? undefined,
     note:              row.note ?? undefined,
     createdAt:         row.created_at,
     updatedAt:         row.updated_at,
@@ -99,19 +103,23 @@ export async function updateLesson(
     paymentType: LessonPaymentType | null;
     status: LessonStatus;
     sessionPassId: string | null;
+    trainingContent: string | null;
+    customerImpression: string | null;
     note: string | null;
   }>
 ): Promise<Lesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (input.customerId      !== undefined) patch.customer_id       = input.customerId;
-  if (input.trainerMemberId !== undefined) patch.trainer_member_id = input.trainerMemberId;
-  if (input.scheduledAt     !== undefined) patch.scheduled_at      = input.scheduledAt;
-  if (input.location        !== undefined) patch.location          = input.location;
-  if (input.course          !== undefined) patch.course            = input.course;
-  if (input.paymentType     !== undefined) patch.payment_type      = input.paymentType;
-  if (input.status          !== undefined) patch.status            = input.status;
-  if (input.sessionPassId   !== undefined) patch.session_pass_id   = input.sessionPassId;
-  if (input.note            !== undefined) patch.note              = input.note;
+  if (input.customerId         !== undefined) patch.customer_id          = input.customerId;
+  if (input.trainerMemberId    !== undefined) patch.trainer_member_id    = input.trainerMemberId;
+  if (input.scheduledAt        !== undefined) patch.scheduled_at         = input.scheduledAt;
+  if (input.location           !== undefined) patch.location             = input.location;
+  if (input.course             !== undefined) patch.course               = input.course;
+  if (input.paymentType        !== undefined) patch.payment_type         = input.paymentType;
+  if (input.status             !== undefined) patch.status               = input.status;
+  if (input.sessionPassId      !== undefined) patch.session_pass_id      = input.sessionPassId;
+  if (input.trainingContent    !== undefined) patch.training_content     = input.trainingContent;
+  if (input.customerImpression !== undefined) patch.customer_impression  = input.customerImpression;
+  if (input.note               !== undefined) patch.note                 = input.note;
 
   const { data, error } = await createAdminClient()
     .from("lessons")

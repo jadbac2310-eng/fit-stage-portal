@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons";
 import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessionPass } from "@/lib/session-passes";
 import { courseToPaymentType } from "@/lib/lessons-types";
-import { requireAdmin } from "@/lib/members";
+import { requireAdmin, getCurrentMember } from "@/lib/members";
 import type { LessonStatus } from "@/lib/lessons-types";
 
 // ─── レッスン ─────────────────────────────────────────
@@ -53,6 +53,23 @@ export async function updateLessonAction(id: string, formData: FormData) {
   }
 
   await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, note });
+  revalidatePath("/lessons/regular");
+}
+
+export async function saveLessonReportAction(id: string, formData: FormData) {
+  // レポート入力は「管理者」または「その通常レッスンの担当トレーナー」のみ
+  const [lesson, member] = await Promise.all([getLesson(id), getCurrentMember()]);
+  if (!member) throw new Error("ログインが必要です");
+  const isAssignedTrainer = !!lesson?.trainerMemberId && lesson.trainerMemberId === member.id;
+  if (!member.isAdmin && !isAssignedTrainer) {
+    throw new Error("レポートを入力できるのは担当トレーナーまたは管理者のみです");
+  }
+
+  const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;
+  const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
+  const note               = (formData.get("note")               as string)?.trim() || null;
+
+  await updateLesson(id, { trainingContent, customerImpression, note, status: "completed" });
   revalidatePath("/lessons/regular");
 }
 

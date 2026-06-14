@@ -4,14 +4,14 @@ import { useState, useMemo } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
-  CheckCircle, Clock, XCircle, Ticket,
+  CheckCircle, Clock, XCircle, Ticket, ClipboardList,
 } from "lucide-react";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
-import { createLessonAction, updateLessonAction, deleteLessonAction } from "./actions";
+import { createLessonAction, updateLessonAction, deleteLessonAction, saveLessonReportAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
@@ -373,14 +373,66 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
   );
 }
 
+// ─── レポートフォーム ─────────────────────────────────
+function ReportForm({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const boundSave = saveLessonReportAction.bind(null, lesson.id);
+
+  async function handleSubmit(fd: FormData) {
+    setError(""); setLoading(true);
+    try { await boundSave(fd); onClose(); }
+    catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
+  }
+
+  const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
+
+  return (
+    <form action={handleSubmit} className="space-y-4">
+      <div className="bg-green-50 rounded-xl p-3 text-xs text-green-700 font-medium">
+        保存するとステータスが「完了」になります
+      </div>
+      <div>
+        <label className={labelClass}><ClipboardList size={12} /> トレーニング内容</label>
+        <textarea name="trainingContent" defaultValue={lesson.trainingContent} rows={3}
+          placeholder="実施したトレーニングの内容..." className={cn(inputClass, "resize-none")} />
+      </div>
+      <div>
+        <label className={labelClass}><User size={12} /> お客さんの様子</label>
+        <textarea name="customerImpression" defaultValue={lesson.customerImpression} rows={3}
+          placeholder="レッスン中の様子、反応、感想など..." className={cn(inputClass, "resize-none")} />
+      </div>
+      <div>
+        <label className={labelClass}><StickyNote size={12} /> 備考</label>
+        <textarea name="note" defaultValue={lesson.note} rows={2}
+          placeholder="次回アクション、申し送りなど..." className={cn(inputClass, "resize-none")} />
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={onClose}
+          className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
+        <button type="submit" disabled={loading}
+          className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
+          {loading && <Spinner size={14} />}{loading ? "保存中..." : "レポートを保存"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin }: {
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin, currentMemberId }: {
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
-  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; isAdmin: boolean;
+  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
+  // レポートは管理者、または担当トレーナー本人が入力できる
+  const canReport = isAdmin || (!!currentMemberId && lesson.trainerMemberId === currentMemberId);
+  const hasReport = !!(lesson.trainingContent || lesson.customerImpression);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
@@ -405,6 +457,16 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         customerPlans={customerPlans} allLessons={allLessons}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
         action={boundUpdate} submitLabel="保存する" />
+    </div>
+  );
+
+  if (reporting) return (
+    <div className="bg-green-50 rounded-xl p-4 border border-green-200 my-2">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold text-gray-700">レポート記入 — {lesson.customerName}</p>
+        <button onClick={() => setReporting(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+      </div>
+      <ReportForm lesson={lesson} onClose={() => setReporting(false)} />
     </div>
   );
 
@@ -439,9 +501,32 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
+        {hasReport && (
+          <div className="mt-1.5 rounded-lg bg-green-50 border border-green-100 px-2 py-1.5 space-y-0.5">
+            {lesson.trainingContent && (
+              <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">内容: </span>{lesson.trainingContent}</p>
+            )}
+            {lesson.customerImpression && (
+              <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">様子: </span>{lesson.customerImpression}</p>
+            )}
+          </div>
+        )}
       </div>
-      {isAdmin && (
-        <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {canReport && lesson.status !== "cancelled" && (
+          <button onClick={() => setReporting(true)}
+            className={cn(
+              "flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg transition border",
+              lesson.status === "scheduled" && !hasReport
+                ? "text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 border-green-300"
+                : "text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300"
+            )}>
+            <ClipboardList size={11} />
+            {hasReport ? "レポート確認" : "レポート記入"}
+          </button>
+        )}
+        {isAdmin && (
+          <>
           <button onClick={() => setEditing(true)}
             className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
             <Pencil size={12} />
@@ -454,14 +539,15 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}
           </button>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin, currentMemberId }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -470,6 +556,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   customers: Customer[];
   members: Member[];
   isAdmin: boolean;
+  currentMemberId?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -518,7 +605,8 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           {/* レッスン一覧 */}
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
-              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} isAdmin={isAdmin} />
+              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons}
+              isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
 
           {showAdd ? (
@@ -546,9 +634,9 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin, currentMemberId }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
-  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; isAdmin: boolean;
+  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -641,7 +729,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
           {filtered.map(({ customer, lessons: ls }) => (
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
-              customers={customers} members={members} isAdmin={isAdmin} />
+              customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
         </div>
       )}
