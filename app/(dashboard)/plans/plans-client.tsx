@@ -10,7 +10,7 @@ import { Customer } from "@/lib/customers-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import {
   createPlanAction, updatePlanAction, deletePlanAction,
-  createSessionPassAction, deleteSessionPassAction,
+  createSessionPassAction, updateSessionPassAction, deleteSessionPassAction,
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
@@ -322,44 +322,140 @@ function SessionPassForm({
   );
 }
 
-// ─── 回数券一覧 ───────────────────────────────────────
-function SessionPassList({ passes, isAdmin }: { passes: SessionPass[]; isAdmin: boolean }) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+// ─── 回数券1件 ───────────────────────────────────────
+function SessionPassItem({ pass, sessionPassPriceMap, isAdmin }: {
+  pass: SessionPass; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [personCount, setPersonCount] = useState(pass.personCount ?? 1);
+  const [totalCount, setTotalCount] = useState(String(pass.totalCount));
+  const [price, setPrice] = useState(pass.price != null ? String(pass.price) : "");
 
+  const inputClass = "w-full min-w-0 max-w-full box-border px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
+
+  async function handleEdit(fd: FormData) {
+    setLoading(true);
+    try { await updateSessionPassAction(pass.id, fd); setEditing(false); }
+    catch { setLoading(false); }
+  }
+
+  if (editing) return (
+    <form action={handleEdit} className="bg-amber-50 rounded-xl p-3 border border-amber-200 space-y-2 my-1">
+      <input type="hidden" name="personCount" value={personCount} />
+      <div>
+        <p className="text-xs font-medium text-gray-600 mb-1">人数</p>
+        <div className="flex gap-2">
+          {[1, 2].map((n) => (
+            <button key={n} type="button"
+              onClick={() => {
+                setPersonCount(n);
+                const cnt = parseInt(totalCount, 10);
+                const def = sessionPassPriceMap[n]?.[cnt];
+                if (def) setPrice(String(def));
+              }}
+              className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition ${
+                personCount === n ? "bg-amber-500 border-amber-500 text-white" : "border-gray-300 text-gray-600 hover:bg-gray-50"
+              }`}
+            >{n}名様</button>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
+          <input name="totalCount" type="number" min="1" required value={totalCount}
+            onChange={(e) => {
+              setTotalCount(e.target.value);
+              const n = parseInt(e.target.value, 10);
+              const def = sessionPassPriceMap[personCount]?.[n];
+              if (def && !price) setPrice(String(def));
+            }}
+            className={inputClass} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-600 mb-1">金額（税込）</p>
+          <input name="price" type="number" min="0" step="1" value={price}
+            onChange={(e) => setPrice(e.target.value)} className={inputClass} />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-600 mb-1">購入日</p>
+          <input name="purchasedAt" type="date" required defaultValue={pass.purchasedAt} className={inputClass} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-600 mb-1">有効期限</p>
+          <input name="expiredAt" type="date" defaultValue={pass.expiredAt} className={inputClass} />
+        </div>
+      </div>
+      <div>
+        <p className="text-xs font-medium text-gray-600 mb-1">メモ</p>
+        <input name="note" defaultValue={pass.note} placeholder="備考など" className={inputClass} />
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={() => setEditing(false)}
+          className="flex-1 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">
+          キャンセル
+        </button>
+        <button type="submit" disabled={loading}
+          className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-semibold flex items-center justify-center gap-1">
+          {loading && <Spinner size={12} />}{loading ? "保存中..." : "保存する"}
+        </button>
+      </div>
+    </form>
+  );
+
+  return (
+    <div className={cn(
+      "flex items-center gap-2 px-3 py-2 rounded-xl text-xs border",
+      pass.remainingCount === 0 ? "bg-gray-50 border-gray-200 text-gray-400" :
+      pass.remainingCount <= 2  ? "bg-red-50 border-red-200" :
+                                  "bg-amber-50 border-amber-200"
+    )}>
+      <Ticket size={12} className={pass.remainingCount === 0 ? "text-gray-300" : "text-amber-500"} />
+      <div className="flex-1">
+        <span className="font-semibold">{pass.totalCount}回券</span>
+        {pass.personCount === 2 && <span className="ml-1 text-gray-500">2名様</span>}
+        <span className={cn("ml-2 font-bold",
+          pass.remainingCount === 0 ? "text-gray-400" :
+          pass.remainingCount <= 2  ? "text-red-600"  : "text-amber-700")}>
+          残り{pass.remainingCount}回
+        </span>
+        {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">（使い切り）</span>}
+      </div>
+      <span className="text-gray-400">{pass.purchasedAt}{pass.expiredAt && `～${pass.expiredAt}`}</span>
+      {isAdmin && (
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => setEditing(true)}
+            className="p-1 text-gray-300 hover:text-amber-500 transition">
+            <Pencil size={11} />
+          </button>
+          <button onClick={async () => {
+            if (!confirm("この回数券を削除しますか？")) return;
+            setDeleting(true);
+            await deleteSessionPassAction(pass.id);
+          }} disabled={deleting}
+            className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
+            {deleting ? <Spinner size={11} /> : <Trash2 size={11} />}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 回数券一覧 ───────────────────────────────────────
+function SessionPassList({ passes, sessionPassPriceMap, isAdmin }: {
+  passes: SessionPass[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
+}) {
   if (passes.length === 0) return <p className="text-xs text-gray-400 py-1">回数券なし</p>;
 
   return (
     <div className="space-y-1.5">
       {passes.map((pass) => (
-        <div key={pass.id} className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-xl text-xs border",
-          pass.remainingCount === 0 ? "bg-gray-50 border-gray-200 text-gray-400" :
-          pass.remainingCount <= 2  ? "bg-red-50 border-red-200" :
-                                      "bg-amber-50 border-amber-200"
-        )}>
-          <Ticket size={12} className={pass.remainingCount === 0 ? "text-gray-300" : "text-amber-500"} />
-          <div className="flex-1">
-            <span className="font-semibold">{pass.totalCount}回券</span>
-            <span className={cn("ml-2 font-bold",
-              pass.remainingCount === 0 ? "text-gray-400" :
-              pass.remainingCount <= 2  ? "text-red-600"  : "text-amber-700")}>
-              残り{pass.remainingCount}回
-            </span>
-            {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">（使い切り）</span>}
-          </div>
-          <span className="text-gray-400">{pass.purchasedAt}{pass.expiredAt && `～${pass.expiredAt}`}</span>
-          {isAdmin && (
-            <button onClick={async () => {
-              if (!confirm("この回数券を削除しますか？")) return;
-              setDeletingId(pass.id);
-              await deleteSessionPassAction(pass.id);
-              setDeletingId(null);
-            }} disabled={deletingId === pass.id}
-              className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
-              {deletingId === pass.id ? <Spinner size={11} /> : <Trash2 size={11} />}
-            </button>
-          )}
-        </div>
+        <SessionPassItem key={pass.id} pass={pass} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} />
       ))}
     </div>
   );
@@ -436,7 +532,7 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
             <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5 mb-2">
               <Ticket size={12} className="text-amber-500" /> 回数券
             </p>
-            <SessionPassList passes={passes} isAdmin={isAdmin} />
+            <SessionPassList passes={passes} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} />
             {showAddPass ? (
               <div className="mt-2">
                 <SessionPassForm customerId={customer.id} sessionPassPriceMap={sessionPassPriceMap}

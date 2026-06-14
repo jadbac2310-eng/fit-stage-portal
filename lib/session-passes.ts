@@ -68,6 +68,28 @@ export async function addSessionPass(input: {
   return fromDb(data as DbRow);
 }
 
+export async function updateSessionPass(id: string, input: {
+  totalCount?: number;
+  personCount?: number;
+  price?: number | null;
+  purchasedAt?: string;
+  expiredAt?: string | null;
+  note?: string | null;
+}): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (input.totalCount  !== undefined) patch.total_count   = input.totalCount;
+  if (input.personCount !== undefined) patch.person_count  = input.personCount;
+  if ("price"      in input)           patch.price         = input.price ?? null;
+  if (input.purchasedAt !== undefined) patch.purchased_at  = input.purchasedAt;
+  if ("expiredAt"  in input)           patch.expired_at    = input.expiredAt ?? null;
+  if ("note"       in input)           patch.note          = input.note ?? null;
+  const { error } = await createAdminClient()
+    .from("session_passes")
+    .update(patch)
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteSessionPass(id: string): Promise<void> {
   const { error } = await createAdminClient()
     .from("session_passes")

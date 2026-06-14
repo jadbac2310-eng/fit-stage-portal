@@ -7,7 +7,7 @@ import {
 } from "@/lib/customer-plans";
 import { plansOverlap } from "@/lib/customer-plans-types";
 import { requireAdmin } from "@/lib/members";
-import { addSessionPass, deleteSessionPass } from "@/lib/session-passes";
+import { addSessionPass, updateSessionPass, deleteSessionPass } from "@/lib/session-passes";
 import type { ContractPlan } from "@/lib/customer-plans-types";
 
 async function checkOverlap(
@@ -86,6 +86,23 @@ export async function createSessionPassAction(formData: FormData) {
   if (!customerId || !totalCount || !purchasedAt) return;
 
   await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
+  revalidatePath("/plans");
+  revalidatePath("/lessons/regular");
+}
+
+export async function updateSessionPassAction(id: string, formData: FormData) {
+  await requireAdmin();
+  const totalCount  = parseInt((formData.get("totalCount")  as string)?.trim(), 10);
+  const personCount = parseInt((formData.get("personCount") as string)?.trim(), 10) || 1;
+  const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
+  const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || null;
+  const note        = (formData.get("note")        as string)?.trim() || null;
+  const priceRaw    = (formData.get("price")       as string)?.trim();
+  const price       = priceRaw ? parseInt(priceRaw, 10) : null;
+
+  if (!totalCount || !purchasedAt) return;
+
+  await updateSessionPass(id, { totalCount, personCount, price, purchasedAt, expiredAt, note });
   revalidatePath("/plans");
   revalidatePath("/lessons/regular");
 }
