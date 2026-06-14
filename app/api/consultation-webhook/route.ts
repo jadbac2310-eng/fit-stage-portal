@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
           (trial_scheduled_at as string) ||
           (desired_start_date as string) ||
           new Date().toISOString(),
+        note: note ?? undefined,
       });
       trialCreated = true;
     } catch (te) {

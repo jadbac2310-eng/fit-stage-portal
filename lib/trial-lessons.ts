@@ -73,6 +73,7 @@ export async function addTrialLesson(input: {
   trainerMemberId?: string;
   scheduledAt: string;
   location?: string;
+  note?: string;
 }): Promise<TrialLesson> {
   const { data, error } = await createAdminClient()
     .from("trial_lessons")
@@ -84,6 +85,7 @@ export async function addTrialLesson(input: {
       location:          input.location ?? null,
       status:            "scheduled",
       contracted:        null,
+      note:              input.note ?? null,
     })
     .select(SELECT)
     .single();
