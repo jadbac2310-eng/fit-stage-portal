@@ -41,6 +41,7 @@ export default async function SchedulePage() {
         trainerId: l.trainerMemberId,
         trainerName: l.trainerMemberName,
         note: l.note,
+        exercises: l.exercises,
       });
     }
   }
@@ -61,7 +62,7 @@ export default async function SchedulePage() {
         salesId: t.salesMemberId,
         salesName: t.salesMemberName,
         note: t.note,
-        trainingContent: t.trainingContent,
+        exercises: t.exercises,
         customerImpression: t.customerImpression,
         contracted: t.contracted,
       });

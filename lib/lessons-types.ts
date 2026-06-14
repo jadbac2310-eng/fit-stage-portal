@@ -1,3 +1,5 @@
+import type { Exercise } from "./exercise-types";
+
 export type LessonPaymentType = "monthly" | "session_pass" | "single";
 export type LessonStatus = "scheduled" | "completed" | "cancelled";
 
@@ -14,7 +16,8 @@ export interface Lesson {
   status: LessonStatus;
   sessionPassId?: string;
   amount?: number;          // 都度払いの金額（円）。未設定はコース単価を使用
-  trainingContent?: string;    // レポート: 実施したトレーニング内容
+  trainingContent?: string;    // 旧レポート自由記述（互換用・現在は未使用）
+  exercises?: Exercise[];      // レポート: 種目ログ（種目名・重量・回数）
   customerImpression?: string; // レポート: お客さんの様子
   note?: string;
   createdAt: string;

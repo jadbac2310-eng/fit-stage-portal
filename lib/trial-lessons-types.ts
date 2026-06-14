@@ -1,4 +1,5 @@
 import type { CustomerPlan } from "./customers-types";
+import type { Exercise } from "./exercise-types";
 
 export type TrialLessonStatus = "scheduled" | "completed" | "cancelled";
 
@@ -15,7 +16,8 @@ export interface TrialLesson {
   status: TrialLessonStatus;
   contracted: boolean | null;
   contractPlan?: CustomerPlan;
-  trainingContent?: string;
+  trainingContent?: string;    // 旧レポート自由記述（互換用・現在は未使用）
+  exercises?: Exercise[];      // レポート: 種目ログ（種目名・重量・回数）
   customerImpression?: string;
   note?: string;
   createdAt: string;

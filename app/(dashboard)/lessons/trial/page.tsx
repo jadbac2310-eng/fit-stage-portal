@@ -1,6 +1,7 @@
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getMembers, getCurrentMember } from "@/lib/members";
+import { collectExerciseNames } from "@/lib/exercise-types";
 import { TrialLessonsClient } from "./trial-lessons-client";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function TrialLessonsPage({
       currentMemberId={currentMember?.id}
       initialSearch={q ?? ""}
       openReportId={report}
+      pastExerciseNames={collectExerciseNames(lessons.map((l) => l.exercises))}
     />
   );
 }

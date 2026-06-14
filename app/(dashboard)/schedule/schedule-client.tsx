@@ -8,6 +8,8 @@ import {
   Calendar, Ticket, StickyNote, ClipboardList, Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { Exercise } from "@/lib/exercise-types";
+import { ExerciseList } from "@/components/exercise-list";
 
 export type ScheduleItem = {
   id: string;
@@ -22,7 +24,7 @@ export type ScheduleItem = {
   salesId?: string;
   salesName?: string;
   note?: string;
-  trainingContent?: string;
+  exercises?: Exercise[];
   customerImpression?: string;
   contracted?: boolean | null;
 };
@@ -173,12 +175,12 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
           )}
           {item.course && <DetailRow icon={<Ticket size={13} />} label="コース">{item.course}</DetailRow>}
           {item.location && <DetailRow icon={<MapPin size={13} />} label="場所">{item.location}</DetailRow>}
-          {isTrial && item.trainingContent && (
-            <DetailRow icon={<ClipboardList size={13} />} label="トレーニング内容">
-              <span className="whitespace-pre-wrap">{item.trainingContent}</span>
+          {item.exercises && item.exercises.length > 0 && (
+            <DetailRow icon={<ClipboardList size={13} />} label="種目">
+              <ExerciseList exercises={item.exercises} compact />
             </DetailRow>
           )}
-          {isTrial && item.customerImpression && (
+          {item.customerImpression && (
             <DetailRow icon={<UserRound size={13} />} label="顧客の様子">
               <span className="whitespace-pre-wrap">{item.customerImpression}</span>
             </DetailRow>

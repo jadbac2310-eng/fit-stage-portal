@@ -5,6 +5,7 @@ import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons"
 import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessionPass } from "@/lib/session-passes";
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
+import { parseExercises, cleanExercises } from "@/lib/exercise-types";
 import type { LessonStatus } from "@/lib/lessons-types";
 
 // ─── レッスン ─────────────────────────────────────────
@@ -69,11 +70,12 @@ export async function saveLessonReportAction(id: string, formData: FormData) {
     throw new Error("予定日時を過ぎたレッスンのみレポートを入力できます");
   }
 
-  const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;
   const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
   const note               = (formData.get("note")               as string)?.trim() || null;
+  let exercises: ReturnType<typeof cleanExercises> = [];
+  try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
 
-  await updateLesson(id, { trainingContent, customerImpression, note, status: "completed" });
+  await updateLesson(id, { exercises, trainingContent: null, customerImpression, note, status: "completed" });
   revalidatePath("/lessons/regular");
 }
 

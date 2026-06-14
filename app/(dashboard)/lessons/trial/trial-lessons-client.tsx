@@ -3,8 +3,9 @@
 import { useState } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
-  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList,
+  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Dumbbell,
 } from "lucide-react";
+import { ExerciseEditor } from "@/components/exercise-editor";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL } from "@/lib/trial-lessons-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
@@ -150,9 +151,10 @@ function LessonForm({
 
 // ─── レポートフォーム ─────────────────────────────────
 function ReportForm({
-  lesson, onClose,
+  lesson, pastExerciseNames, onClose,
 }: {
   lesson: TrialLesson;
+  pastExerciseNames: string[];
   onClose: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -179,10 +181,8 @@ function ReportForm({
       </div>
 
       <div>
-        <label className={labelClass}><ClipboardList size={12} /> トレーニング内容</label>
-        <textarea name="trainingContent" defaultValue={lesson.trainingContent} rows={3}
-          placeholder="実施したトレーニングの内容..."
-          className={cn(inputClass, "resize-none")} />
+        <label className={labelClass}><Dumbbell size={12} /> 種目（最大5・セットごとに重量×回数）</label>
+        <ExerciseEditor name="exercises" defaultValue={lesson.exercises} pastNames={pastExerciseNames} />
       </div>
 
       <div>
@@ -221,8 +221,8 @@ function ReportForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string; pastExerciseNames: string[];
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [deleting, setDeleting] = useState(false);
@@ -258,7 +258,7 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
           </p>
           <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
-        <ReportForm lesson={lesson} onClose={() => setMode("view")} />
+        <ReportForm lesson={lesson} pastExerciseNames={pastExerciseNames} onClose={() => setMode("view")} />
       </div>
     </td></tr>
   );
@@ -332,8 +332,8 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string; pastExerciseNames: string[];
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [deleting, setDeleting] = useState(false);
@@ -363,7 +363,7 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
         <p className="text-sm font-bold text-gray-900">レポート記入 — {lesson.customerName}</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <ReportForm lesson={lesson} onClose={() => setMode("view")} />
+      <ReportForm lesson={lesson} pastExerciseNames={pastExerciseNames} onClose={() => setMode("view")} />
     </div>
   );
 
@@ -425,9 +425,9 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId, initialSearch = "", openReportId }: {
+export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId, initialSearch = "", openReportId, pastExerciseNames = [] }: {
   lessons: TrialLesson[]; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
-  initialSearch?: string; openReportId?: string;
+  initialSearch?: string; openReportId?: string; pastExerciseNames?: string[];
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
@@ -515,7 +515,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} pastExerciseNames={pastExerciseNames} />
                 ))}
               </tbody>
             </table>
@@ -523,7 +523,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} pastExerciseNames={pastExerciseNames} />
             ))}
           </div>
         </>

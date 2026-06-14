@@ -3,6 +3,7 @@ import type { CustomerPlan } from "./customers-types";
 export type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 export { STATUS_LABEL, CONTRACT_LABEL } from "./trial-lessons-types";
 import type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
+import { parseExercises, type Exercise } from "./exercise-types";
 
 type DbRow = {
   id: string;
@@ -16,6 +17,7 @@ type DbRow = {
   contract_plan: CustomerPlan | null;
   training_content: string | null;
   customer_impression: string | null;
+  exercises: unknown;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -40,6 +42,7 @@ function fromDb(row: DbRow): TrialLesson {
     contractPlan:        row.contract_plan ?? undefined,
     trainingContent:     row.training_content ?? undefined,
     customerImpression:  row.customer_impression ?? undefined,
+    exercises:           parseExercises(row.exercises),
     note:                row.note ?? undefined,
     createdAt:           row.created_at,
     updatedAt:           row.updated_at,
@@ -106,6 +109,7 @@ export async function updateTrialLesson(
     contractPlan: CustomerPlan | null;
     trainingContent: string | null;
     customerImpression: string | null;
+    exercises: Exercise[];
     note: string | null;
   }>
 ): Promise<TrialLesson | null> {
@@ -119,6 +123,7 @@ export async function updateTrialLesson(
   if (input.contracted          !== undefined) patch.contracted           = input.contracted;
   if (input.contractPlan        !== undefined) patch.contract_plan        = input.contractPlan;
   if (input.trainingContent     !== undefined) patch.training_content     = input.trainingContent;
+  if (input.exercises           !== undefined) patch.exercises            = input.exercises;
   if (input.customerImpression  !== undefined) patch.customer_impression  = input.customerImpression;
   if (input.note                !== undefined) patch.note                 = input.note;
 

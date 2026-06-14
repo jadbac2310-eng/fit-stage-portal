@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
+import { parseExercises, cleanExercises } from "@/lib/exercise-types";
 
 export async function createTrialLessonAction(formData: FormData) {
   const customerId      = (formData.get("customerId")      as string)?.trim();
@@ -47,17 +48,18 @@ export async function saveReportAction(id: string, formData: FormData) {
     throw new Error("予定日時を過ぎたレッスンのみレポートを入力できます");
   }
 
-  const trainingContent    = (formData.get("trainingContent")    as string)?.trim() || null;
   const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
   const contractedRaw      = (formData.get("contracted")         as string)?.trim();
   const note               = (formData.get("note")               as string)?.trim() || null;
+  let exercises: ReturnType<typeof cleanExercises> = [];
+  try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
 
   const contracted: boolean | null =
     contractedRaw === "true"  ? true  :
     contractedRaw === "false" ? false : null;
 
   await updateTrialLesson(id, {
-    trainingContent, customerImpression, contracted, contractPlan: null, note,
+    exercises, trainingContent: null, customerImpression, contracted, contractPlan: null, note,
     status: "completed",
   });
 

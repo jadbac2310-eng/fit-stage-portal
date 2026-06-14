@@ -4,8 +4,10 @@ import { useState, useMemo } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
-  CheckCircle, Clock, XCircle, Ticket, ClipboardList,
+  CheckCircle, Clock, XCircle, Ticket, ClipboardList, Dumbbell,
 } from "lucide-react";
+import { ExerciseEditor } from "@/components/exercise-editor";
+import { ExerciseList } from "@/components/exercise-list";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
@@ -379,7 +381,7 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
 }
 
 // ─── レポートフォーム ─────────────────────────────────
-function ReportForm({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
+function ReportForm({ lesson, pastExerciseNames, onClose }: { lesson: Lesson; pastExerciseNames: string[]; onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const boundSave = saveLessonReportAction.bind(null, lesson.id);
@@ -399,9 +401,8 @@ function ReportForm({ lesson, onClose }: { lesson: Lesson; onClose: () => void }
         保存するとステータスが「完了」になります
       </div>
       <div>
-        <label className={labelClass}><ClipboardList size={12} /> トレーニング内容</label>
-        <textarea name="trainingContent" defaultValue={lesson.trainingContent} rows={3}
-          placeholder="実施したトレーニングの内容..." className={cn(inputClass, "resize-none")} />
+        <label className={labelClass}><Dumbbell size={12} /> 種目（最大5・セットごとに重量×回数）</label>
+        <ExerciseEditor name="exercises" defaultValue={lesson.exercises} pastNames={pastExerciseNames} />
       </div>
       <div>
         <label className={labelClass}><User size={12} /> お客さんの様子</label>
@@ -427,9 +428,10 @@ function ReportForm({ lesson, onClose }: { lesson: Lesson; onClose: () => void }
 }
 
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin, currentMemberId, openReportId }: {
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+  pastExerciseNames: string[];
 }) {
   const [editing, setEditing] = useState(false);
   const [reporting, setReporting] = useState(lesson.id === openReportId);
@@ -438,7 +440,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
   const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
   const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
-  const hasReport = !!(lesson.trainingContent || lesson.customerImpression);
+  const hasReport = !!((lesson.exercises && lesson.exercises.length > 0) || lesson.customerImpression);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
@@ -472,7 +474,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         <p className="text-xs font-bold text-gray-700">レポート記入 — {lesson.customerName}</p>
         <button onClick={() => setReporting(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
-      <ReportForm lesson={lesson} onClose={() => setReporting(false)} />
+      <ReportForm lesson={lesson} pastExerciseNames={pastExerciseNames} onClose={() => setReporting(false)} />
     </div>
   );
 
@@ -508,10 +510,8 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
         {hasReport && (
-          <div className="mt-1.5 rounded-lg bg-green-50 border border-green-100 px-2 py-1.5 space-y-0.5">
-            {lesson.trainingContent && (
-              <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">内容: </span>{lesson.trainingContent}</p>
-            )}
+          <div className="mt-1.5 rounded-lg bg-green-50 border border-green-100 px-2 py-1.5 space-y-1">
+            {lesson.exercises && lesson.exercises.length > 0 && <ExerciseList exercises={lesson.exercises} compact />}
             {lesson.customerImpression && (
               <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">様子: </span>{lesson.customerImpression}</p>
             )}
@@ -553,7 +553,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin, currentMemberId, openReportId }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -564,6 +564,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   isAdmin: boolean;
   currentMemberId?: string;
   openReportId?: string;
+  pastExerciseNames: string[];
 }) {
   // 対象レポートのレッスンを含むグループは最初から展開する
   const [expanded, setExpanded] = useState(() => !!openReportId && lessons.some((l) => l.id === openReportId));
@@ -614,7 +615,8 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons}
-              isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+              isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId}
+              pastExerciseNames={pastExerciseNames} />
           ))}
 
           {showAdd ? (
@@ -642,10 +644,10 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin, currentMemberId, initialSearch = "", openReportId }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin, currentMemberId, initialSearch = "", openReportId, pastExerciseNames = [] }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
   sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; isAdmin: boolean; currentMemberId?: string;
-  initialSearch?: string; openReportId?: string;
+  initialSearch?: string; openReportId?: string; pastExerciseNames?: string[];
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
@@ -739,7 +741,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
               customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId}
-              openReportId={openReportId} />
+              openReportId={openReportId} pastExerciseNames={pastExerciseNames} />
           ))}
         </div>
       )}

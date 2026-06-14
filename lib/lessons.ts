@@ -2,6 +2,7 @@ import { createAdminClient } from "./supabase";
 export type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
 export { LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "./lessons-types";
 import type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
+import { parseExercises, type Exercise } from "./exercise-types";
 
 type DbRow = {
   id: string;
@@ -15,6 +16,7 @@ type DbRow = {
   session_pass_id: string | null;
   training_content: string | null;
   customer_impression: string | null;
+  exercises: unknown;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -37,6 +39,7 @@ function fromDb(row: DbRow): Lesson {
     sessionPassId:     row.session_pass_id ?? undefined,
     trainingContent:   row.training_content ?? undefined,
     customerImpression: row.customer_impression ?? undefined,
+    exercises:         parseExercises(row.exercises),
     note:              row.note ?? undefined,
     createdAt:         row.created_at,
     updatedAt:         row.updated_at,
@@ -105,6 +108,7 @@ export async function updateLesson(
     sessionPassId: string | null;
     trainingContent: string | null;
     customerImpression: string | null;
+    exercises: Exercise[];
     note: string | null;
   }>
 ): Promise<Lesson | null> {
@@ -119,6 +123,7 @@ export async function updateLesson(
   if (input.sessionPassId      !== undefined) patch.session_pass_id      = input.sessionPassId;
   if (input.trainingContent    !== undefined) patch.training_content     = input.trainingContent;
   if (input.customerImpression !== undefined) patch.customer_impression  = input.customerImpression;
+  if (input.exercises          !== undefined) patch.exercises            = input.exercises;
   if (input.note               !== undefined) patch.note                 = input.note;
 
   const { data, error } = await createAdminClient()

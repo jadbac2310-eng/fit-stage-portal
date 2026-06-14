@@ -9,6 +9,7 @@ import { getTrialLesson } from "@/lib/trial-lessons";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { LESSON_STATUS_LABEL } from "@/lib/lessons-types";
 import { STATUS_LABEL as TRIAL_STATUS_LABEL, CONTRACT_LABEL } from "@/lib/trial-lessons-types";
+import { ExerciseList } from "@/components/exercise-list";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
         <Row icon={<User size={15} />} label="営業担当">{trial.salesMemberName}</Row>
         <Row icon={<User size={15} />} label="トレーナー">{trial.trainerMemberName ?? "未設定"}</Row>
         {trial.location && <Row icon={<MapPin size={15} />} label="場所">{trial.location}</Row>}
-        {trial.trainingContent && <Row icon={<ClipboardList size={15} />} label="トレーニング内容"><span className="whitespace-pre-wrap">{trial.trainingContent}</span></Row>}
+        {trial.exercises && trial.exercises.length > 0 && <Row icon={<ClipboardList size={15} />} label="種目"><ExerciseList exercises={trial.exercises} /></Row>}
         {trial.customerImpression && <Row icon={<User size={15} />} label="顧客の様子"><span className="whitespace-pre-wrap">{trial.customerImpression}</span></Row>}
         {trial.note && <Row icon={<StickyNote size={15} />} label="備考"><span className="whitespace-pre-wrap">{trial.note}</span></Row>}
       </div>

@@ -3,6 +3,7 @@ import { getCustomers } from "@/lib/customers";
 import { getMembers, getCurrentMember } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
+import { collectExerciseNames } from "@/lib/exercise-types";
 import { RegularLessonsClient } from "./regular-lessons-client";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export default async function RegularLessonsPage({
       currentMemberId={member?.id}
       initialSearch={q ?? ""}
       openReportId={report}
+      pastExerciseNames={collectExerciseNames(lessons.map((l) => l.exercises))}
     />
   );
 }
