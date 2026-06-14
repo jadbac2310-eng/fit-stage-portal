@@ -63,6 +63,8 @@ export interface CommissionContext {
   members:       { id: string; name: string }[];
   /** プランマスタ由来のコース名→1回単価。未指定コースは固定単価表にフォールバック */
   lessonFees?:   Record<string, number>;
+  /** 回数券標準金額マスタ { 人数: { 回数: 総額 } }。回数券に price 未設定時のフォールバック */
+  sessionPassPriceMap?: Record<number, Record<number, number>>;
 }
 
 export function isoToMonth(iso: string): string {
@@ -75,7 +77,14 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
   // 回数券: 入金額 ÷ 回数
   if (lesson.sessionPassId) {
     const pass = ctx.sessionPasses.find((p) => p.id === lesson.sessionPassId);
-    if (pass?.price && pass.totalCount > 0) return Math.round(pass.price / pass.totalCount);
+    if (pass) {
+      if (pass.price && pass.totalCount > 0) return Math.round(pass.price / pass.totalCount);
+      // price 未設定の場合は人数×回数でマスタから標準単価を算出
+      const masterTotal = ctx.sessionPassPriceMap?.[pass.personCount]?.[pass.totalCount];
+      if (masterTotal && pass.totalCount > 0) return Math.round(masterTotal / pass.totalCount);
+      // それもなければ固定単価表
+      return getLessonFee("回数券");
+    }
   }
 
   const course = lesson.course ?? "";
