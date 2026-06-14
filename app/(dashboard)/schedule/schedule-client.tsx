@@ -3,8 +3,9 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  CalendarDays, MapPin, ChevronRight, Clock,
+  CalendarDays, MapPin, ChevronDown, Clock,
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound,
+  Calendar, Ticket, StickyNote, ClipboardList, Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -20,6 +21,10 @@ export type ScheduleItem = {
   trainerName?: string;
   salesId?: string;
   salesName?: string;
+  note?: string;
+  trainingContent?: string;
+  customerImpression?: string;
+  contracted?: boolean | null;
 };
 
 // ─── 日付ユーティリティ（ローカル＝JST） ───────────────
@@ -46,6 +51,23 @@ function timeStr(iso: string) {
   return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 }
 
+function fullDateStr(iso: string) {
+  return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+}
+
+// ─── 展開詳細の1行 ────────────────────────────────────
+function DetailRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 py-1.5">
+      <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] text-gray-400">{label}</p>
+        <div className="text-xs text-gray-700 mt-0.5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── ステータスバッジ ─────────────────────────────────
 function StatusPill({ status }: { status: ScheduleItem["status"] }) {
   if (status === "scheduled") return null;
@@ -60,8 +82,9 @@ function StatusPill({ status }: { status: ScheduleItem["status"] }) {
   );
 }
 
-// ─── 1件のカード ──────────────────────────────────────
-function LessonCard({ item, showStaff }: { item: ScheduleItem; showStaff?: boolean }) {
+// ─── 1件のカード（クリックでその場で展開） ───────────────
+function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }) {
+  const [open, setOpen] = useState(false);
   const isTrial = item.type === "trial";
   const cancelled = item.status === "cancelled";
 
@@ -73,67 +96,114 @@ function LessonCard({ item, showStaff }: { item: ScheduleItem; showStaff?: boole
       ].filter(Boolean).join(" / ")
     : item.trainerName ?? "";
 
+  const editHref = isTrial ? "/lessons/trial" : "/lessons/regular";
+
   return (
-    <Link
-      href={`/schedule/${item.id}`}
-      className={cn(
-        "flex items-stretch gap-3 bg-white rounded-2xl border border-gray-200 overflow-hidden",
-        "active:scale-[0.99] hover:border-gray-300 hover:shadow-sm transition",
-        cancelled && "opacity-60"
-      )}
-    >
-      {/* カラーアクセント */}
-      <div className={cn("w-1 flex-shrink-0", isTrial ? "bg-purple-400" : "bg-blue-500")} />
+    <div className={cn(
+      "bg-white rounded-2xl border border-gray-200 overflow-hidden transition",
+      open ? "border-gray-300 shadow-sm" : "hover:border-gray-300",
+      cancelled && "opacity-60"
+    )}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-stretch gap-3 w-full text-left active:scale-[0.99] transition"
+      >
+        {/* カラーアクセント */}
+        <div className={cn("w-1 flex-shrink-0", isTrial ? "bg-purple-400" : "bg-blue-500")} />
 
-      {/* 時刻 */}
-      <div className="flex flex-col items-center justify-center py-3 pl-1 pr-1 min-w-[56px]">
-        <span className={cn(
-          "text-base font-bold tabular-nums",
-          cancelled ? "text-gray-400 line-through" : "text-gray-900"
-        )}>
-          {timeStr(item.scheduledAt)}
-        </span>
-      </div>
-
-      {/* 本文 */}
-      <div className="flex-1 min-w-0 py-3 pr-2 border-l border-gray-100 pl-3">
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* 時刻 */}
+        <div className="flex flex-col items-center justify-center py-3 pl-1 pr-1 min-w-[56px]">
           <span className={cn(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
-            isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+            "text-base font-bold tabular-nums",
+            cancelled ? "text-gray-400 line-through" : "text-gray-900"
           )}>
-            {isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
-            {isTrial ? "体験" : "通常"}
+            {timeStr(item.scheduledAt)}
           </span>
-          <StatusPill status={item.status} />
         </div>
-        <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
-        <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap">
-          {item.course && <span className="text-xs text-gray-500">{item.course}</span>}
-          {item.location && (
-            <span className="text-xs text-gray-400 flex items-center gap-0.5 min-w-0">
-              <MapPin size={10} className="flex-shrink-0" />
-              <span className="truncate">{item.location}</span>
+
+        {/* 本文 */}
+        <div className="flex-1 min-w-0 py-3 pr-2 border-l border-gray-100 pl-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={cn(
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+              isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+            )}>
+              {isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
+              {isTrial ? "体験" : "通常"}
             </span>
+            <StatusPill status={item.status} />
+          </div>
+          <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
+          <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap">
+            {item.course && <span className="text-xs text-gray-500">{item.course}</span>}
+            {item.location && (
+              <span className="text-xs text-gray-400 flex items-center gap-0.5 min-w-0">
+                <MapPin size={10} className="flex-shrink-0" />
+                <span className="truncate">{item.location}</span>
+              </span>
+            )}
+          </div>
+          {isAdmin && staff && (
+            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 min-w-0">
+              <UserRound size={10} className="flex-shrink-0" />
+              <span className="truncate">{staff}</span>
+            </p>
           )}
         </div>
-        {showStaff && staff && (
-          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 min-w-0">
-            <UserRound size={10} className="flex-shrink-0" />
-            <span className="truncate">{staff}</span>
-          </p>
-        )}
-      </div>
 
-      <div className="flex items-center pr-3 text-gray-300">
-        <ChevronRight size={16} />
-      </div>
-    </Link>
+        <div className="flex items-center pr-3 text-gray-300">
+          <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
+        </div>
+      </button>
+
+      {/* 展開詳細 */}
+      {open && (
+        <div className="border-t border-gray-100 px-4 py-2">
+          <DetailRow icon={<Calendar size={13} />} label="日時">
+            {fullDateStr(item.scheduledAt)} {timeStr(item.scheduledAt)}
+          </DetailRow>
+          {isTrial ? (
+            <>
+              <DetailRow icon={<UserRound size={13} />} label="営業担当">{item.salesName ?? "未設定"}</DetailRow>
+              <DetailRow icon={<UserRound size={13} />} label="トレーナー">{item.trainerName ?? "未設定"}</DetailRow>
+            </>
+          ) : (
+            <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">{item.trainerName ?? "未設定"}</DetailRow>
+          )}
+          {item.course && <DetailRow icon={<Ticket size={13} />} label="コース">{item.course}</DetailRow>}
+          {item.location && <DetailRow icon={<MapPin size={13} />} label="場所">{item.location}</DetailRow>}
+          {isTrial && item.trainingContent && (
+            <DetailRow icon={<ClipboardList size={13} />} label="トレーニング内容">
+              <span className="whitespace-pre-wrap">{item.trainingContent}</span>
+            </DetailRow>
+          )}
+          {isTrial && item.customerImpression && (
+            <DetailRow icon={<UserRound size={13} />} label="顧客の様子">
+              <span className="whitespace-pre-wrap">{item.customerImpression}</span>
+            </DetailRow>
+          )}
+          {item.note && (
+            <DetailRow icon={<StickyNote size={13} />} label="備考">
+              <span className="whitespace-pre-wrap">{item.note}</span>
+            </DetailRow>
+          )}
+          {isAdmin && (
+            <Link
+              href={editHref}
+              className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
+            >
+              <Pencil size={13} /> {isTrial ? "体験レッスン管理で編集" : "通常レッスン管理で編集"}
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 // ─── 日付グループ ─────────────────────────────────────
-function DayGroup({ date, items, showStaff }: { date: Date; items: ScheduleItem[]; showStaff?: boolean }) {
+function DayGroup({ date, items, isAdmin }: { date: Date; items: ScheduleItem[]; isAdmin?: boolean }) {
   const { main, sub, accent } = dayLabel(date);
   return (
     <div>
@@ -143,7 +213,7 @@ function DayGroup({ date, items, showStaff }: { date: Date; items: ScheduleItem[
         <span className="text-xs text-gray-300 ml-auto">{items.length}件</span>
       </div>
       <div className="space-y-2">
-        {items.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} showStaff={showStaff} />)}
+        {items.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin} />)}
       </div>
     </div>
   );
@@ -291,7 +361,7 @@ export function ScheduleClient({
         </div>
       ) : (
         <div className="space-y-5">
-          {groups.map((g) => <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} showStaff={isAdmin} />)}
+          {groups.map((g) => <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin} />)}
         </div>
       )}
     </div>

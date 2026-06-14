@@ -40,6 +40,7 @@ export default async function SchedulePage() {
         status: l.status,
         trainerId: l.trainerMemberId,
         trainerName: l.trainerMemberName,
+        note: l.note,
       });
     }
   }
@@ -59,6 +60,10 @@ export default async function SchedulePage() {
         trainerName: t.trainerMemberName,
         salesId: t.salesMemberId,
         salesName: t.salesMemberName,
+        note: t.note,
+        trainingContent: t.trainingContent,
+        customerImpression: t.customerImpression,
+        contracted: t.contracted,
       });
     }
   }
