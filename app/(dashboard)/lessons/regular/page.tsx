@@ -7,8 +7,13 @@ import { RegularLessonsClient } from "./regular-lessons-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function RegularLessonsPage() {
-  const [lessons, customers, members, sessionPasses, customerPlans, member] = await Promise.all([
+export default async function RegularLessonsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; report?: string }>;
+}) {
+  const [{ q, report }, lessons, customers, members, sessionPasses, customerPlans, member] = await Promise.all([
+    searchParams,
     getLessons(),
     getCustomers(),
     getMembers(),
@@ -25,6 +30,8 @@ export default async function RegularLessonsPage() {
       customerPlans={customerPlans}
       isAdmin={member?.isAdmin ?? false}
       currentMemberId={member?.id}
+      initialSearch={q ?? ""}
+      openReportId={report}
     />
   );
 }

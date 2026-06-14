@@ -427,12 +427,12 @@ function ReportForm({ lesson, onClose }: { lesson: Lesson; onClose: () => void }
 }
 
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin, currentMemberId }: {
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, isAdmin, currentMemberId, openReportId }: {
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
-  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; isAdmin: boolean; currentMemberId?: string;
+  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const [reporting, setReporting] = useState(false);
+  const [reporting, setReporting] = useState(lesson.id === openReportId);
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
   // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
@@ -553,7 +553,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin, currentMemberId }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, isAdmin, currentMemberId, openReportId }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -563,8 +563,10 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   members: Member[];
   isAdmin: boolean;
   currentMemberId?: string;
+  openReportId?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  // 対象レポートのレッスンを含むグループは最初から展開する
+  const [expanded, setExpanded] = useState(() => !!openReportId && lessons.some((l) => l.id === openReportId));
   const [showAdd, setShowAdd] = useState(false);
 
   const hasUnassigned = lessons.some((l) => !l.trainerMemberId);
@@ -612,7 +614,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons}
-              isAdmin={isAdmin} currentMemberId={currentMemberId} />
+              isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
           ))}
 
           {showAdd ? (
@@ -640,12 +642,13 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin, currentMemberId }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, isAdmin, currentMemberId, initialSearch = "", openReportId }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
   sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; isAdmin: boolean; currentMemberId?: string;
+  initialSearch?: string; openReportId?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
 
   const grouped = useMemo(() => {
     const map = new Map<string, { customer: Customer; lessons: Lesson[] }>();
@@ -735,7 +738,8 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
           {filtered.map(({ customer, lessons: ls }) => (
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
-              customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} />
+              customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId}
+              openReportId={openReportId} />
           ))}
         </div>
       )}

@@ -121,10 +121,10 @@ export default async function DashboardPage() {
   const myPendingReports = [
     ...lessons
       .filter((l) => l.trainerMemberId === currentMember?.id && l.status === "scheduled" && isPastIso(l.scheduledAt))
-      .map((l) => ({ id: l.id, type: "regular" as const, href: "/lessons/regular", customerName: l.customerName, scheduledAt: l.scheduledAt })),
+      .map((l) => ({ id: l.id, type: "regular" as const, href: `/lessons/regular?q=${encodeURIComponent(l.customerName)}&report=${l.id}`, customerName: l.customerName, scheduledAt: l.scheduledAt })),
     ...trialLessons
       .filter((t) => t.trainerMemberId === currentMember?.id && t.status === "scheduled" && isPastIso(t.scheduledAt))
-      .map((t) => ({ id: t.id, type: "trial" as const, href: "/lessons/trial", customerName: t.customerName, scheduledAt: t.scheduledAt })),
+      .map((t) => ({ id: t.id, type: "trial" as const, href: `/lessons/trial?q=${encodeURIComponent(t.customerName)}&report=${t.id}`, customerName: t.customerName, scheduledAt: t.scheduledAt })),
   ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
   return (

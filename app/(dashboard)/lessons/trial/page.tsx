@@ -5,8 +5,13 @@ import { TrialLessonsClient } from "./trial-lessons-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrialLessonsPage() {
-  const [lessons, customers, members, currentMember] = await Promise.all([
+export default async function TrialLessonsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; report?: string }>;
+}) {
+  const [{ q, report }, lessons, customers, members, currentMember] = await Promise.all([
+    searchParams,
     getTrialLessons(),
     getCustomers(),
     getMembers(),
@@ -19,6 +24,8 @@ export default async function TrialLessonsPage() {
       members={members}
       isAdmin={currentMember?.isAdmin ?? false}
       currentMemberId={currentMember?.id}
+      initialSearch={q ?? ""}
+      openReportId={report}
     />
   );
 }

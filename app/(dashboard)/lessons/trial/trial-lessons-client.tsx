@@ -221,10 +221,10 @@ function ReportForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, isAdmin, currentMemberId }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
+function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
-  const [mode, setMode] = useState<"view" | "edit" | "report">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
   // レポートは管理者、または担当トレーナー本人が入力できる
@@ -332,13 +332,12 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId }: {
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, isAdmin, currentMemberId }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
+function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
-  const [mode, setMode] = useState<"view" | "edit" | "report">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
-  // レポートは管理者、または担当トレーナー本人が入力できる
   // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
   const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
   const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
@@ -426,11 +425,12 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId }: {
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId }: {
+export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId, initialSearch = "", openReportId }: {
   lessons: TrialLesson[]; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
+  initialSearch?: string; openReportId?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [filterStatus, setFilterStatus] = useState<TrialLessonStatus | "">("");
 
   const filtered = lessons.filter((l) => {
@@ -515,7 +515,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
                 ))}
               </tbody>
             </table>
@@ -523,7 +523,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
             ))}
           </div>
         </>
