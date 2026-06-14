@@ -161,9 +161,9 @@ export function buildSalesEntries(
       salesByCustomer[c.id] = { memberId: c.salesMemberId, memberName: memberName.get(c.salesMemberId) ?? c.salesMemberId };
     }
   }
-  // ② 未設定の顧客は最初の成約体験レッスンの営業担当でフォールバック
+  // ② 未設定の顧客は最初の成約体験レッスンの営業担当でフォールバック（営業未割当の体験は除く）
   for (const tl of trialLessons) {
-    if (!salesByCustomer[tl.customerId]) {
+    if (tl.salesMemberId && !salesByCustomer[tl.customerId]) {
       salesByCustomer[tl.customerId] = { memberId: tl.salesMemberId, memberName: tl.salesMemberName };
     }
   }
@@ -200,6 +200,7 @@ export function buildSalesEntries(
 
   // 成約ボーナス（成約日が選択月のもの）
   for (const tl of trialLessons.filter((tl) => isoToMonth(tl.scheduledAt) === month)) {
+    if (!tl.salesMemberId) continue; // 営業未割当の体験はボーナス対象外
     const cType = customerTypeMap[tl.customerId] ?? "individual";
     const bonus = CONTRACT_BONUS[cType];
 

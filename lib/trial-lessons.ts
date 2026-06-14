@@ -7,7 +7,7 @@ import type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 type DbRow = {
   id: string;
   customer_id: string;
-  sales_member_id: string;
+  sales_member_id: string | null;
   trainer_member_id: string | null;
   scheduled_at: string;
   location: string | null;
@@ -29,7 +29,7 @@ function fromDb(row: DbRow): TrialLesson {
     id:                  row.id,
     customerId:          row.customer_id,
     customerName:        row.customers?.full_name ?? "",
-    salesMemberId:       row.sales_member_id,
+    salesMemberId:       row.sales_member_id ?? undefined,
     salesMemberName:     row.sales_member?.name ?? "",
     trainerMemberId:     row.trainer_member_id ?? undefined,
     trainerMemberName:   row.trainer_member?.name ?? undefined,
@@ -69,7 +69,7 @@ export async function getTrialLesson(id: string): Promise<TrialLesson | null> {
 
 export async function addTrialLesson(input: {
   customerId: string;
-  salesMemberId: string;
+  salesMemberId?: string;
   trainerMemberId?: string;
   scheduledAt: string;
   location?: string;
@@ -78,7 +78,7 @@ export async function addTrialLesson(input: {
     .from("trial_lessons")
     .insert({
       customer_id:       input.customerId,
-      sales_member_id:   input.salesMemberId,
+      sales_member_id:   input.salesMemberId ?? null,
       trainer_member_id: input.trainerMemberId ?? null,
       scheduled_at:      input.scheduledAt,
       location:          input.location ?? null,

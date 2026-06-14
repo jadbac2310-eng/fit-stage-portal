@@ -6,8 +6,8 @@ export interface TrialLesson {
   id: string;
   customerId: string;
   customerName: string;
-  salesMemberId: string;
-  salesMemberName: string;
+  salesMemberId?: string;      // カウンセリング自動作成時は未割当（後で担当を入力）
+  salesMemberName: string;     // 未割当時は空文字
   trainerMemberId?: string;
   trainerMemberName?: string;
   scheduledAt: string;
