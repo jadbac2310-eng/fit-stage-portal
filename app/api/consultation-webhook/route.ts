@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
   const {
     email, full_name, date_of_birth,
     address, phone_number, desired_start_date,
+    trial_scheduled_at,
     note,
   } = body;
   if (!email || !full_name) {
@@ -44,7 +45,10 @@ export async function POST(req: NextRequest) {
     try {
       await addTrialLesson({
         customerId: customer.id,
-        scheduledAt: (desired_start_date as string) || new Date().toISOString(),
+        scheduledAt:
+          (trial_scheduled_at as string) ||
+          (desired_start_date as string) ||
+          new Date().toISOString(),
       });
       trialCreated = true;
     } catch (te) {
