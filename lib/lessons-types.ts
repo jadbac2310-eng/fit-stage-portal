@@ -13,6 +13,7 @@ export interface Lesson {
   paymentType?: LessonPaymentType;
   status: LessonStatus;
   sessionPassId?: string;
+  amount?: number;          // 都度払いの金額（円）。未設定はコース単価を使用
   note?: string;
   createdAt: string;
   updatedAt: string;
