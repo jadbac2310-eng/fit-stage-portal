@@ -1,6 +1,4 @@
-// レポートの種目ログ（最大5種目・各セットに重量/回数）
-export const MAX_EXERCISES = 5;
-
+// レポートの種目ログ（種目数は無制限・各セットに重量/回数）
 export interface ExerciseSet {
   weight: string; // 重量（例: 20kg / 自重）。自由入力
   reps: string;   // 回数
@@ -40,8 +38,7 @@ export function cleanExercises(list: Exercise[]): Exercise[] {
       sets: e.sets.filter((s) => s.weight.trim() !== "" || s.reps.trim() !== "")
         .map((s) => ({ weight: s.weight.trim(), reps: s.reps.trim() })),
     }))
-    .filter((e) => e.name !== "")
-    .slice(0, MAX_EXERCISES);
+    .filter((e) => e.name !== "");
 }
 
 /** 過去のレポートから種目名の候補（重複なし）を集める */

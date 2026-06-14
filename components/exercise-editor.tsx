@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, Dumbbell } from "lucide-react";
-import { MAX_EXERCISES, type Exercise } from "@/lib/exercise-types";
+import { type Exercise } from "@/lib/exercise-types";
 import { cn } from "@/lib/cn";
 
 const emptySet = () => ({ weight: "", reps: "" });
@@ -44,7 +44,6 @@ export function ExerciseEditor({
     ));
   }
   function addExercise() {
-    if (exercises.length >= MAX_EXERCISES) return;
     update([...exercises, emptyExercise()]);
   }
   function removeExercise(i: number) {
@@ -101,12 +100,10 @@ export function ExerciseEditor({
         </div>
       ))}
 
-      {exercises.length < MAX_EXERCISES && (
-        <button type="button" onClick={addExercise}
-          className="flex items-center gap-1.5 text-sm text-green-600 hover:text-green-700 font-medium">
-          <Plus size={14} /> 種目を追加（最大{MAX_EXERCISES}）
-        </button>
-      )}
+      <button type="button" onClick={addExercise}
+        className="flex items-center gap-1.5 text-sm text-green-600 hover:text-green-700 font-medium">
+        <Plus size={14} /> 種目を追加
+      </button>
     </div>
   );
 }

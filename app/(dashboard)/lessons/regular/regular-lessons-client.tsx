@@ -401,7 +401,7 @@ function ReportForm({ lesson, pastExerciseNames, onClose }: { lesson: Lesson; pa
         保存するとステータスが「完了」になります
       </div>
       <div>
-        <label className={labelClass}><Dumbbell size={12} /> 種目（最大5・セットごとに重量×回数）</label>
+        <label className={labelClass}><Dumbbell size={12} /> 種目（セットごとに重量×回数）</label>
         <ExerciseEditor name="exercises" defaultValue={lesson.exercises} pastNames={pastExerciseNames} />
       </div>
       <div>
