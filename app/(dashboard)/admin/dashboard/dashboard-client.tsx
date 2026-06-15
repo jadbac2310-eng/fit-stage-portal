@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
+import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
+import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
@@ -60,6 +62,77 @@ function computeMonth(
   return { month, revenue, trainerPayout, salesPayout, profit: revenue - trainerPayout - salesPayout };
 }
 
+interface AnalyticsData {
+  popularPages:    PageViewRow[];
+  trafficSources:  TrafficSourceRow[];
+  deviceBreakdown: DeviceRow[];
+  dailyPageViews:  DailyPageViewRow[];
+  analyticsError:  string | null;
+}
+
+const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ size: number; className: string }> }> = {
+  mobile:  { label: "スマートフォン", Icon: Smartphone },
+  desktop: { label: "デスクトップ",   Icon: Monitor },
+  tablet:  { label: "タブレット",     Icon: Tablet },
+};
+
+function SiteAnalytics({ data }: { data: AnalyticsData }) {
+  const { popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError } = data;
+  const deviceTotal = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);
+  const hasData = dailyPageViews.length > 0 || trafficSources.length > 0 || popularPages.length > 0;
+
+  if (!analyticsError && !hasData) return null;
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+        サイト分析 <span className="normal-case font-normal text-gray-300">（過去28日間）</span>
+      </h2>
+
+      {analyticsError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+          <p className="text-xs font-bold text-red-600 mb-2">GA4 エラー</p>
+          <pre className="text-xs text-red-500 whitespace-pre-wrap break-all">{analyticsError}</pre>
+        </div>
+      )}
+
+      {dailyPageViews.length > 0 && <DailyTrendChart data={dailyPageViews} />}
+      {trafficSources.length > 0 && <TrafficPieChart data={trafficSources} />}
+      {popularPages.length > 0 && <PopularPagesChart data={popularPages} />}
+
+      {deviceBreakdown.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <MonitorSmartphone size={14} className="text-gray-400" />
+            <p className="text-xs font-bold text-gray-500">デバイス別</p>
+          </div>
+          <div className="space-y-2.5">
+            {deviceBreakdown.map((d) => {
+              const meta = DEVICE_META[d.device];
+              const pct  = deviceTotal > 0 ? Math.round((d.sessions / deviceTotal) * 100) : 0;
+              const Icon = meta?.Icon;
+              return (
+                <div key={d.device}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="flex items-center gap-1 text-xs text-gray-600">
+                      {Icon && <Icon size={11} className="text-gray-400 flex-shrink-0" />}
+                      {meta?.label ?? d.device}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-500">{pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KpiCard({
   icon, label, value, accent, sub,
 }: {
@@ -77,7 +150,7 @@ function KpiCard({
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members,
+  customers, lessons, trialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -87,6 +160,7 @@ export function RevenueDashboardClient({
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
   members:       { id: string; name: string }[];
+  analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
@@ -108,6 +182,14 @@ export function RevenueDashboardClient({
   const cur = useMemo(() => computeMonth(month, lessons, trialLessons, ctx), [month, lessons, trialLessons, ctx]);
 
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
+
+  // 今月の実績（全体）
+  const biz = useMemo(() => {
+    const newCustomers = customers.filter((c) => isoToMonth(c.createdAt) === month).length;
+    const activeCustomers = customers.filter((c) => c.status === "active").length;
+    const contracted = trialLessons.filter((t) => isoToMonth(t.scheduledAt) === month).length;
+    return { newCustomers, activeCustomers, contracted };
+  }, [customers, trialLessons, month]);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto pb-10">
@@ -149,9 +231,27 @@ export function RevenueDashboardClient({
       </div>
 
       {/* 内訳メモ */}
-      <p className="text-[11px] text-gray-400 mb-6 px-1">
+      <p className="text-[11px] text-gray-400 mb-4 px-1">
         利益 = 売上 − トレーナー支払 − 営業支払
       </p>
+
+      {/* 今月の実績（全体） */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5 mb-1">
+            <UserPlus size={12} className="text-gray-400" /> 新規顧客
+          </p>
+          <p className="text-xl font-bold text-gray-900">{biz.newCustomers}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">在籍中 {biz.activeCustomers}名</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 p-4">
+          <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5 mb-1">
+            <Award size={12} className="text-green-500" /> 成約
+          </p>
+          <p className="text-xl font-bold text-gray-900">{biz.contracted}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">体験からの成約数</p>
+        </div>
+      </div>
 
       {/* 12か月トレンド: 売上/支払の積み上げ＋利益ライン */}
       <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
@@ -210,6 +310,9 @@ export function RevenueDashboardClient({
           </tbody>
         </table>
       </div>
+
+      {/* サイト分析（GA4） */}
+      {analytics && <SiteAnalytics data={analytics} />}
     </div>
   );
 }

@@ -5,6 +5,9 @@ import { getCurrentIsAdmin, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
+import {
+  getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
+} from "@/lib/analytics";
 import { RevenueDashboardClient } from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +24,10 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices] = await Promise.all([
+  const [
+    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices,
+    popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError,
+  ] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -30,6 +36,11 @@ export default async function AdminDashboardPage() {
     getMembers(),
     getAllPlans(),
     getAllSessionPassPrices(),
+    getPopularPages(28, 5),
+    getTrafficSources(28, 6),
+    getDeviceBreakdown(28),
+    getDailyPageViews(28),
+    getAnalyticsDiagnostic(),
   ]);
 
   const completedLessons = lessons.filter((l) => l.status === "completed");
@@ -45,6 +56,7 @@ export default async function AdminDashboardPage() {
       lessonFees={buildLessonFeeMap(plansMaster)}
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
       members={members.map((m) => ({ id: m.id, name: m.name }))}
+      analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}
     />
   );
 }
