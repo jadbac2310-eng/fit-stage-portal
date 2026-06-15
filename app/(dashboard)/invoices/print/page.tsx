@@ -132,8 +132,6 @@ export default async function InvoicePrintPage({
           </div>
           <p className="text-xs text-gray-500 mt-3">お支払期限: {dueDateLabel(month)}（振込手数料はご負担ください）</p>
         </div>
-
-        <p className="text-[10px] text-gray-400 mt-6 text-center">※ 振込先情報は仮です。確定後に差し替えてください。</p>
       </div>
     </div>
   );
