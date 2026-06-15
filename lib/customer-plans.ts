@@ -8,6 +8,7 @@ type DbRow = {
   customer_id: string;
   plan: ContractPlan;
   price: number | null;
+  purchased_at: string | null;
   started_at: string;
   ended_at: string | null;
   note: string | null;
@@ -21,6 +22,7 @@ function fromDb(row: DbRow): CustomerPlanRecord {
     customerId: row.customer_id,
     plan:       row.plan,
     price:      row.price ?? undefined,
+    purchasedAt: row.purchased_at ?? row.started_at,
     startedAt:  row.started_at,
     endedAt:    row.ended_at ?? undefined,
     note:       row.note ?? undefined,
@@ -52,6 +54,7 @@ export async function addCustomerPlan(input: {
   customerId: string;
   plan: ContractPlan;
   price?: number;
+  purchasedAt?: string;
   startedAt: string;
   endedAt?: string;
   note?: string;
@@ -59,12 +62,13 @@ export async function addCustomerPlan(input: {
   const { data, error } = await createAdminClient()
     .from("customer_plans")
     .insert({
-      customer_id: input.customerId,
-      plan:        input.plan,
-      price:       input.price ?? null,
-      started_at:  input.startedAt,
-      ended_at:    input.endedAt ?? null,
-      note:        input.note ?? null,
+      customer_id:  input.customerId,
+      plan:         input.plan,
+      price:        input.price ?? null,
+      purchased_at: input.purchasedAt ?? input.startedAt,
+      started_at:   input.startedAt,
+      ended_at:     input.endedAt ?? null,
+      note:         input.note ?? null,
     })
     .select()
     .single();
@@ -77,17 +81,19 @@ export async function updateCustomerPlan(
   input: Partial<{
     plan: ContractPlan;
     price: number | null;
+    purchasedAt: string | null;
     startedAt: string;
     endedAt: string | null;
     note: string | null;
   }>
 ): Promise<CustomerPlanRecord | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (input.plan      !== undefined) patch.plan       = input.plan;
-  if (input.price     !== undefined) patch.price      = input.price;
-  if (input.startedAt !== undefined) patch.started_at = input.startedAt;
-  if (input.endedAt   !== undefined) patch.ended_at   = input.endedAt;
-  if (input.note      !== undefined) patch.note       = input.note;
+  if (input.plan        !== undefined) patch.plan         = input.plan;
+  if (input.price       !== undefined) patch.price        = input.price;
+  if (input.purchasedAt !== undefined) patch.purchased_at = input.purchasedAt;
+  if (input.startedAt   !== undefined) patch.started_at   = input.startedAt;
+  if (input.endedAt     !== undefined) patch.ended_at     = input.endedAt;
+  if (input.note        !== undefined) patch.note         = input.note;
 
   const { data, error } = await createAdminClient()
     .from("customer_plans")

@@ -11,6 +11,7 @@ export interface CustomerPlanRecord {
   customerId: string;
   plan: ContractPlan;
   price?: number;          // 入金額（月額）。単価 = price / planSessions(plan)
+  purchasedAt?: string;    // 購入日（請求の計上月に使用）。未設定時は startedAt を使う
   startedAt: string;
   endedAt?: string;
   note?: string;

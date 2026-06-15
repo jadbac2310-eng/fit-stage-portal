@@ -32,36 +32,38 @@ export async function createPlanAction(formData: FormData) {
   await requireAdmin();
   const customerId = (formData.get("customerId") as string)?.trim();
   const plan       = (formData.get("plan")       as string)?.trim() as ContractPlan;
-  const startedAt  = (formData.get("startedAt")  as string)?.trim();
-  const endedAt    = (formData.get("endedAt")    as string)?.trim() || null;
-  const note       = (formData.get("note")       as string)?.trim() || undefined;
-  const priceRaw   = (formData.get("price")      as string)?.trim();
-  const price      = priceRaw ? parseInt(priceRaw, 10) : undefined;
+  const startedAt   = (formData.get("startedAt")   as string)?.trim();
+  const endedAt     = (formData.get("endedAt")     as string)?.trim() || null;
+  const purchasedAt = (formData.get("purchasedAt") as string)?.trim() || undefined;
+  const note        = (formData.get("note")        as string)?.trim() || undefined;
+  const priceRaw    = (formData.get("price")       as string)?.trim();
+  const price       = priceRaw ? parseInt(priceRaw, 10) : undefined;
 
   if (!customerId || !plan || !startedAt) return;
 
   const err = await checkOverlap(customerId, startedAt, endedAt);
   if (err) throw new Error(err);
 
-  await addCustomerPlan({ customerId, plan, price, startedAt, endedAt: endedAt ?? undefined, note });
+  await addCustomerPlan({ customerId, plan, price, purchasedAt, startedAt, endedAt: endedAt ?? undefined, note });
   revalidatePath("/plans");
 }
 
 export async function updatePlanAction(id: string, customerId: string, formData: FormData) {
   await requireAdmin();
   const plan      = (formData.get("plan")      as string)?.trim() as ContractPlan;
-  const startedAt = (formData.get("startedAt") as string)?.trim();
-  const endedAt   = (formData.get("endedAt")   as string)?.trim() || null;
-  const note      = (formData.get("note")      as string)?.trim() || null;
-  const priceRaw  = (formData.get("price")     as string)?.trim();
-  const price     = priceRaw ? parseInt(priceRaw, 10) : null;
+  const startedAt   = (formData.get("startedAt")   as string)?.trim();
+  const endedAt     = (formData.get("endedAt")     as string)?.trim() || null;
+  const purchasedAt = (formData.get("purchasedAt") as string)?.trim() || null;
+  const note        = (formData.get("note")        as string)?.trim() || null;
+  const priceRaw    = (formData.get("price")       as string)?.trim();
+  const price       = priceRaw ? parseInt(priceRaw, 10) : null;
 
   if (!plan || !startedAt) return;
 
   const err = await checkOverlap(customerId, startedAt, endedAt, id);
   if (err) throw new Error(err);
 
-  await updateCustomerPlan(id, { plan, price, startedAt, endedAt, note });
+  await updateCustomerPlan(id, { plan, price, purchasedAt: purchasedAt ?? startedAt, startedAt, endedAt, note });
   revalidatePath("/plans");
 }
 

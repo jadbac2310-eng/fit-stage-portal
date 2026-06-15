@@ -117,6 +117,12 @@ function PlanForm({
         <p className="text-xs text-gray-400 mt-1">単価は「金額 ÷ 月回数」で売上計算に使われます</p>
       </div>
 
+      <div>
+        <label className={labelClass}>購入日</label>
+        <input name="purchasedAt" type="date" defaultValue={defaultValues?.purchasedAt ?? defaultValues?.startedAt} className={inputClass} />
+        <p className="text-xs text-gray-400 mt-1">この月の請求書に計上されます（空欄なら適用開始日）</p>
+      </div>
+
       <div className="flex gap-3">
         <div className="flex-1 min-w-0">
           <label className={labelClass}>適用開始日 <span className="text-red-500">*</span></label>

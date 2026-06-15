@@ -30,7 +30,7 @@ export function Header({
   }
 
   return (
-    <header className="md:hidden sticky top-0 z-30 bg-white border-b border-gray-200">
+    <header className="md:hidden sticky top-0 z-30 bg-white border-b border-gray-200 print:hidden">
       <div className="px-4 py-3 flex items-center gap-2">
         <button
           onClick={onMenuOpen}

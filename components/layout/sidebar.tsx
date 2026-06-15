@@ -32,7 +32,7 @@ export function Sidebar({
 
   return (
     <aside className={cn(
-      "flex-col w-60 border-r border-gray-200 bg-white h-screen",
+      "flex-col w-60 border-r border-gray-200 bg-white h-screen print:hidden",
       mobile ? "flex" : "hidden md:flex sticky top-0",
     )}>
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
