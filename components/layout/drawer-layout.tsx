@@ -26,7 +26,7 @@ export function DrawerLayout({
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 print:bg-white print:min-h-0">
       {/* 画面遷移の進捗バー */}
       <Suspense fallback={null}>
         <TopProgress />

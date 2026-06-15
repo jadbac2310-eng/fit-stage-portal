@@ -23,6 +23,11 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* 印刷/PDF: 背景のグレーを消して白にする */
+@media print {
+  html, body { background: #ffffff !important; }
+}
+
 /* iOS Safari のネイティブ日付/時刻入力は width:100% を無視し最小幅を保持するため、
    コンテナを突き破る。appearance:none で通常の入力同様に幅を制御できるようにする。 */
 input[type="date"],
