@@ -6,6 +6,7 @@ import {
   CalendarDays, MapPin, ChevronDown, Clock,
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound,
   Calendar, Ticket, StickyNote, ClipboardList, Pencil,
+  ChevronLeft, ChevronRight, List, LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Exercise } from "@/lib/exercise-types";
@@ -146,7 +147,7 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
               </span>
             )}
           </div>
-          {isAdmin && staff && (
+          {staff && (
             <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 min-w-0">
               <UserRound size={10} className="flex-shrink-0" />
               <span className="truncate">{staff}</span>
@@ -221,6 +222,158 @@ function DayGroup({ date, items, isAdmin }: { date: Date; items: ScheduleItem[];
   );
 }
 
+// ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
+function CalendarView({ items, isAdmin }: { items: ScheduleItem[]; isAdmin?: boolean }) {
+  const [cursor, setCursor] = useState(() => {
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), 1);
+  });
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => dayKey(startOfDay(new Date())));
+
+  // 日付キー → アイテム配列
+  const byDay = useMemo(() => {
+    const map = new Map<string, ScheduleItem[]>();
+    for (const it of items) {
+      const k = dayKey(new Date(it.scheduledAt));
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(it);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    return map;
+  }, [items]);
+
+  // グリッド（前後の埋めセル含む）
+  const weeks = useMemo(() => {
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(first.getDate() - first.getDay()); // 週初め(日)へ
+    const cells: Date[] = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      cells.push(d);
+    }
+    // 最終週が当月を含まなければ削る（5週で収まる場合）
+    const trimmed = cells.slice(0, 35).some((d) => d.getMonth() === cursor.getMonth() && d.getDate() > 28)
+      ? cells
+      : cells.slice(0, 35);
+    const w: Date[][] = [];
+    for (let i = 0; i < trimmed.length; i += 7) w.push(trimmed.slice(i, i + 7));
+    return w;
+  }, [cursor]);
+
+  const todayKey = dayKey(startOfDay(new Date()));
+  const selectedItems = selectedKey ? byDay.get(selectedKey) ?? [] : [];
+  const selectedDate = selectedItems[0]
+    ? new Date(selectedItems[0].scheduledAt)
+    : null;
+
+  const monthLabel = `${cursor.getFullYear()}年${cursor.getMonth() + 1}月`;
+
+  return (
+    <div>
+      {/* 月ナビ */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1))}
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition"
+          aria-label="前の月"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-bold text-gray-900">{monthLabel}</h2>
+          <button
+            onClick={() => { const t = new Date(); setCursor(new Date(t.getFullYear(), t.getMonth(), 1)); setSelectedKey(todayKey); }}
+            className="text-xs font-medium text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition"
+          >
+            今月
+          </button>
+        </div>
+        <button
+          onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition"
+          aria-label="次の月"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      {/* 曜日ヘッダー */}
+      <div className="grid grid-cols-7 mb-1">
+        {WD.map((w, i) => (
+          <div key={w} className={cn(
+            "text-center text-[11px] font-semibold py-1",
+            i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"
+          )}>{w}</div>
+        ))}
+      </div>
+
+      {/* グリッド */}
+      <div className="grid grid-cols-7 gap-1">
+        {weeks.flat().map((d) => {
+          const k = dayKey(d);
+          const dayItems = byDay.get(k) ?? [];
+          const inMonth = d.getMonth() === cursor.getMonth();
+          const isToday = k === todayKey;
+          const isSelected = k === selectedKey;
+          return (
+            <button
+              key={k}
+              onClick={() => setSelectedKey(k)}
+              className={cn(
+                "min-h-[64px] md:min-h-[84px] rounded-lg border p-1 text-left flex flex-col gap-0.5 transition",
+                isSelected ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50/40" : "border-gray-100 hover:border-gray-300",
+                !inMonth && "opacity-40"
+              )}
+            >
+              <span className={cn(
+                "text-[11px] font-semibold w-5 h-5 flex items-center justify-center rounded-full",
+                isToday ? "bg-blue-600 text-white" :
+                d.getDay() === 0 ? "text-red-400" : d.getDay() === 6 ? "text-blue-400" : "text-gray-600"
+              )}>{d.getDate()}</span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {dayItems.slice(0, 3).map((it) => (
+                  <span
+                    key={`${it.type}-${it.id}`}
+                    className={cn(
+                      "text-[9px] leading-tight px-1 py-0.5 rounded truncate",
+                      it.status === "cancelled" ? "bg-gray-100 text-gray-400 line-through" :
+                      it.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                    )}
+                  >
+                    {timeStr(it.scheduledAt)} {it.customerName}
+                  </span>
+                ))}
+                {dayItems.length > 3 && (
+                  <span className="text-[9px] text-gray-400 px-1">+{dayItems.length - 3}件</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 選択日の詳細 */}
+      <div className="mt-5">
+        <div className="flex items-baseline gap-2 px-1 mb-2">
+          <span className="text-sm font-bold text-gray-700">
+            {selectedDate ? fullDateStr(selectedDate.toISOString()) : selectedKey ? "予定なし" : "日付を選択"}
+          </span>
+          {selectedItems.length > 0 && <span className="text-xs text-gray-300 ml-auto">{selectedItems.length}件</span>}
+        </div>
+        {selectedItems.length === 0 ? (
+          <div className="text-center py-10 text-sm text-gray-400">この日の予定はありません</div>
+        ) : (
+          <div className="space-y-2">
+            {selectedItems.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
@@ -231,15 +384,16 @@ export function ScheduleClient({
   currentMemberId?: string;
   members?: { id: string; name: string }[];
 }) {
+  const [view, setView] = useState<"list" | "calendar">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
-  // 管理者のみ: 担当者で絞り込み（"all" = 全員）
+  // 担当者で絞り込み（"all" = 全員）。全員が全員分を閲覧可。
   const [filterMember, setFilterMember] = useState<string>("all");
 
-  // 絞り込み後のアイテム（管理者以外は items をそのまま使う）
+  // 絞り込み後のアイテム（"all" は全件）
   const visibleItems = useMemo(() => {
-    if (!isAdmin || filterMember === "all") return items;
+    if (filterMember === "all") return items;
     return items.filter((it) => it.trainerId === filterMember || it.salesId === filterMember);
-  }, [items, isAdmin, filterMember]);
+  }, [items, filterMember]);
 
   const { upcoming, past } = useMemo(() => {
     const today = startOfDay(new Date()).getTime();
@@ -280,16 +434,30 @@ export function ScheduleClient({
           <h1 className="text-xl font-bold text-gray-900">スケジュール</h1>
         </div>
         <p className="text-sm text-gray-500 mt-0.5">
-          {!isAdmin
-            ? `${memberName} さんの担当レッスン`
-            : filterMember === "all"
-              ? "全員のスケジュール"
-              : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
+          {filterMember === "all"
+            ? "全員のスケジュール"
+            : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
         </p>
       </div>
 
-      {/* 担当者フィルタ（管理者のみ） */}
-      {isAdmin && members.length > 0 && (
+      {/* 表示切替（リスト / カレンダー） */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+        {([["list", "リスト", List], ["calendar", "カレンダー", LayoutGrid]] as const).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition",
+              view === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <Icon size={15} /> {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 担当者フィルタ（全員が利用可） */}
+      {members.length > 0 && (
         <div className="flex items-center gap-2 mb-4">
           <UserRound size={15} className="text-gray-400 flex-shrink-0" />
           <select
@@ -310,6 +478,10 @@ export function ScheduleClient({
         </div>
       )}
 
+      {view === "calendar" ? (
+        <CalendarView items={visibleItems} isAdmin={isAdmin} />
+      ) : (
+        <>
       {/* 次の予定ハイライト */}
       {nextItem && tab === "upcoming" && (
         <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl p-4 mb-5 text-white shadow-sm shadow-blue-200">
@@ -365,6 +537,8 @@ export function ScheduleClient({
         <div className="space-y-5">
           {groups.map((g) => <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin} />)}
         </div>
+      )}
+        </>
       )}
     </div>
   );

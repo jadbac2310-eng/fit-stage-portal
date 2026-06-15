@@ -19,54 +19,50 @@ export default async function SchedulePage() {
   }
 
   const isAdmin = member.isAdmin;
+  // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
   const [lessons, trialLessons, members] = await Promise.all([
     getLessons(),
     getTrialLessons(),
-    isAdmin ? getMembers() : Promise.resolve([]),
+    getMembers(),
   ]);
 
   const items: ScheduleItem[] = [];
 
-  // 通常レッスン（管理者は全件、それ以外は自分がトレーナーの分のみ）
+  // 通常レッスン（全件）
   for (const l of lessons) {
-    if (isAdmin || l.trainerMemberId === member.id) {
-      items.push({
-        id: l.id,
-        type: "regular",
-        customerName: l.customerName,
-        scheduledAt: l.scheduledAt,
-        location: l.location,
-        course: l.course,
-        status: l.status,
-        trainerId: l.trainerMemberId,
-        trainerName: l.trainerMemberName,
-        note: l.note,
-        exercises: l.exercises,
-      });
-    }
+    items.push({
+      id: l.id,
+      type: "regular",
+      customerName: l.customerName,
+      scheduledAt: l.scheduledAt,
+      location: l.location,
+      course: l.course,
+      status: l.status,
+      trainerId: l.trainerMemberId,
+      trainerName: l.trainerMemberName,
+      note: l.note,
+      exercises: l.exercises,
+    });
   }
 
-  // 体験レッスン（管理者は全件、それ以外は自分がトレーナー/営業の分のみ）
+  // 体験レッスン（全件）
   for (const t of trialLessons) {
-    const isMine = t.trainerMemberId === member.id || t.salesMemberId === member.id;
-    if (isAdmin || isMine) {
-      items.push({
-        id: t.id,
-        type: "trial",
-        customerName: t.customerName,
-        scheduledAt: t.scheduledAt,
-        location: t.location,
-        status: t.status,
-        trainerId: t.trainerMemberId,
-        trainerName: t.trainerMemberName,
-        salesId: t.salesMemberId,
-        salesName: t.salesMemberName,
-        note: t.note,
-        exercises: t.exercises,
-        customerImpression: t.customerImpression,
-        contracted: t.contracted,
-      });
-    }
+    items.push({
+      id: t.id,
+      type: "trial",
+      customerName: t.customerName,
+      scheduledAt: t.scheduledAt,
+      location: t.location,
+      status: t.status,
+      trainerId: t.trainerMemberId,
+      trainerName: t.trainerMemberName,
+      salesId: t.salesMemberId,
+      salesName: t.salesMemberName,
+      note: t.note,
+      exercises: t.exercises,
+      customerImpression: t.customerImpression,
+      contracted: t.contracted,
+    });
   }
 
   return (
