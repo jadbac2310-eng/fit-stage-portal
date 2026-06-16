@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, Download } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCustomers } from "@/lib/customers";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
@@ -12,6 +12,7 @@ import {
   monthLabel, dueDateLabel, invoiceNumber,
 } from "@/lib/invoices";
 import { EditableBillingName } from "./editable-name";
+import { InvoiceActions } from "./invoice-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function InvoicePrintPage({
   const invoice = buildGroupInvoice(customer, group.members, month, { plans, passes, lessons }, singleFee);
   const invoiceNo = invoiceNumber(month, customer.id);
   const pdfHref = `/invoices/print/pdf?customer=${customer.id}&month=${month}`;
+  const pdfFilename = `請求書_${invoice.customerName}_${month}.pdf`;
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
@@ -58,14 +60,9 @@ export default async function InvoicePrintPage({
         <Link href={`/invoices?month=${month}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition">
           <ChevronLeft size={15} /> 請求書一覧
         </Link>
-        <a
-          href={pdfHref}
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-        >
-          <Download size={16} /> PDFをダウンロード
-        </a>
+        <InvoiceActions pdfHref={pdfHref} filename={pdfFilename} />
       </div>
-      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「PDFをダウンロード」で確定フォーマットの帳票を出力します。</p>
+      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「共有」でLINE等へ送るか「PDF」で保存できます。</p>
 
       {/* 請求書本体 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 print:border-0 print:p-0 print:rounded-none">
