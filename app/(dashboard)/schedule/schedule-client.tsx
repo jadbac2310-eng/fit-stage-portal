@@ -1,22 +1,29 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CalendarDays, MapPin, ChevronDown, Clock,
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound,
   Calendar, Ticket, StickyNote, ClipboardList, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
+  Plus, Trash2, X, CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Exercise } from "@/lib/exercise-types";
 import { ExerciseList } from "@/components/exercise-list";
+import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
+import { createPersonalEventAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
 
 export type ScheduleItem = {
   id: string;
-  type: "regular" | "trial";
+  type: "regular" | "trial" | "personal";
   customerName: string;
   scheduledAt: string;
+  endAt?: string;
+  allDay?: boolean;
+  color?: EventColor;
   location?: string;
   course?: string;
   status: "scheduled" | "completed" | "cancelled";
@@ -24,10 +31,26 @@ export type ScheduleItem = {
   trainerName?: string;
   salesId?: string;
   salesName?: string;
+  ownerId?: string;
+  ownerName?: string;
   note?: string;
   exercises?: Exercise[];
   customerImpression?: string;
   contracted?: boolean | null;
+};
+
+// ─── 個人予定の色 ─────────────────────────────────────
+const COLOR_MAP: Record<EventColor, { dot: string; chip: string; accent: string; swatch: string }> = {
+  blue:   { dot: "bg-blue-500",   chip: "bg-blue-100 text-blue-700",     accent: "bg-blue-500",   swatch: "bg-blue-500" },
+  green:  { dot: "bg-green-500",  chip: "bg-green-100 text-green-700",   accent: "bg-green-500",  swatch: "bg-green-500" },
+  red:    { dot: "bg-red-500",    chip: "bg-red-100 text-red-700",       accent: "bg-red-500",    swatch: "bg-red-500" },
+  purple: { dot: "bg-purple-500", chip: "bg-purple-100 text-purple-700", accent: "bg-purple-500", swatch: "bg-purple-500" },
+  amber:  { dot: "bg-amber-500",  chip: "bg-amber-100 text-amber-800",   accent: "bg-amber-500",  swatch: "bg-amber-500" },
+  pink:   { dot: "bg-pink-500",   chip: "bg-pink-100 text-pink-700",     accent: "bg-pink-500",   swatch: "bg-pink-500" },
+  gray:   { dot: "bg-gray-500",   chip: "bg-gray-200 text-gray-700",     accent: "bg-gray-400",   swatch: "bg-gray-500" },
+};
+const COLOR_LABEL: Record<EventColor, string> = {
+  blue: "青", green: "緑", red: "赤", purple: "紫", amber: "橙", pink: "桃", gray: "灰",
 };
 
 // ─── 日付ユーティリティ（ローカル＝JST） ───────────────
@@ -58,6 +81,20 @@ function fullDateStr(iso: string) {
   return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+function datePart(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function timePart(iso: string) {
+  const d = new Date(iso);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function todayDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 // ─── 展開詳細の1行 ────────────────────────────────────
 function DetailRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
@@ -85,14 +122,36 @@ function StatusPill({ status }: { status: ScheduleItem["status"] }) {
   );
 }
 
-// ─── 1件のカード（クリックでその場で展開） ───────────────
-function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const isTrial = item.type === "trial";
-  const cancelled = item.status === "cancelled";
+// 個人予定の時刻表示（終日 / 時間範囲）
+function personalTimeLabel(item: ScheduleItem): string {
+  if (item.allDay) return "終日";
+  const start = timeStr(item.scheduledAt);
+  if (item.endAt) return `${start}〜${timeStr(item.endAt)}`;
+  return start;
+}
 
-  // 担当者ラベル（管理者の全体表示用）
-  const staff = isTrial
+// ─── 1件のカード（クリックでその場で展開） ───────────────
+function LessonCard({
+  item, isAdmin, currentMemberId, onEditPersonal,
+}: {
+  item: ScheduleItem;
+  isAdmin?: boolean;
+  currentMemberId?: string;
+  onEditPersonal?: (item: ScheduleItem) => void;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const isTrial = item.type === "trial";
+  const isPersonal = item.type === "personal";
+  const cancelled = item.status === "cancelled";
+  const color = item.color ?? "blue";
+  const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
+
+  // 担当者ラベル
+  const staff = isPersonal
+    ? (item.ownerName ?? "")
+    : isTrial
     ? [
         item.trainerName && `${item.trainerName}(ﾄﾚｰﾅｰ)`,
         item.salesName && `${item.salesName}(営業)`,
@@ -100,6 +159,18 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
     : item.trainerName ?? "";
 
   const editHref = isTrial ? "/lessons/trial" : "/lessons/regular";
+
+  async function handleDelete() {
+    if (!confirm("この予定を削除しますか？")) return;
+    setDeleting(true);
+    try {
+      await deletePersonalEventAction(item.id);
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "削除に失敗しました");
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className={cn(
@@ -113,15 +184,18 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
         className="flex items-stretch gap-3 w-full text-left active:scale-[0.99] transition"
       >
         {/* カラーアクセント */}
-        <div className={cn("w-1 flex-shrink-0", isTrial ? "bg-purple-400" : "bg-blue-500")} />
+        <div className={cn("w-1 flex-shrink-0",
+          isPersonal ? COLOR_MAP[color].accent : isTrial ? "bg-purple-400" : "bg-blue-500"
+        )} />
 
         {/* 時刻 */}
         <div className="flex flex-col items-center justify-center py-3 pl-1 pr-1 min-w-[56px]">
           <span className={cn(
-            "text-base font-bold tabular-nums",
+            "font-bold tabular-nums",
+            isPersonal && item.allDay ? "text-[11px]" : "text-base",
             cancelled ? "text-gray-400 line-through" : "text-gray-900"
           )}>
-            {timeStr(item.scheduledAt)}
+            {isPersonal && item.allDay ? "終日" : timeStr(item.scheduledAt)}
           </span>
         </div>
 
@@ -130,10 +204,10 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className={cn(
               "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
-              isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+              isPersonal ? COLOR_MAP[color].chip : isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
             )}>
-              {isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
-              {isTrial ? "体験" : "通常"}
+              {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
+              {isPersonal ? "個人" : isTrial ? "体験" : "通常"}
             </span>
             <StatusPill status={item.status} />
           </div>
@@ -164,9 +238,11 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
       {open && (
         <div className="border-t border-gray-100 px-4 py-2">
           <DetailRow icon={<Calendar size={13} />} label="日時">
-            {fullDateStr(item.scheduledAt)} {timeStr(item.scheduledAt)}
+            {fullDateStr(item.scheduledAt)} {isPersonal ? personalTimeLabel(item) : timeStr(item.scheduledAt)}
           </DetailRow>
-          {isTrial ? (
+          {isPersonal ? (
+            <DetailRow icon={<UserRound size={13} />} label="作成者">{item.ownerName ?? "—"}</DetailRow>
+          ) : isTrial ? (
             <>
               <DetailRow icon={<UserRound size={13} />} label="営業担当">{item.salesName ?? "未設定"}</DetailRow>
               <DetailRow icon={<UserRound size={13} />} label="トレーナー">{item.trainerName ?? "未設定"}</DetailRow>
@@ -187,11 +263,30 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
             </DetailRow>
           )}
           {item.note && (
-            <DetailRow icon={<StickyNote size={13} />} label="備考">
+            <DetailRow icon={<StickyNote size={13} />} label={isPersonal ? "メモ" : "備考"}>
               <span className="whitespace-pre-wrap">{item.note}</span>
             </DetailRow>
           )}
-          {isAdmin && (
+          {canManage && (
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => onEditPersonal?.(item)}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
+              >
+                <Pencil size={13} /> 編集
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2 px-4 transition disabled:opacity-50"
+              >
+                <Trash2 size={13} /> {deleting ? "削除中…" : "削除"}
+              </button>
+            </div>
+          )}
+          {!isPersonal && isAdmin && (
             <Link
               href={editHref}
               className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
@@ -206,7 +301,15 @@ function LessonCard({ item, isAdmin }: { item: ScheduleItem; isAdmin?: boolean }
 }
 
 // ─── 日付グループ ─────────────────────────────────────
-function DayGroup({ date, items, isAdmin }: { date: Date; items: ScheduleItem[]; isAdmin?: boolean }) {
+function DayGroup({
+  date, items, isAdmin, currentMemberId, onEditPersonal,
+}: {
+  date: Date;
+  items: ScheduleItem[];
+  isAdmin?: boolean;
+  currentMemberId?: string;
+  onEditPersonal?: (item: ScheduleItem) => void;
+}) {
   const { main, sub, accent } = dayLabel(date);
   return (
     <div>
@@ -216,14 +319,30 @@ function DayGroup({ date, items, isAdmin }: { date: Date; items: ScheduleItem[];
         <span className="text-xs text-gray-300 ml-auto">{items.length}件</span>
       </div>
       <div className="space-y-2">
-        {items.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin} />)}
+        {items.map((it) => (
+          <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
+            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} />
+        ))}
       </div>
     </div>
   );
 }
 
+function keyToYmd(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return `${y}-${pad2(m + 1)}-${pad2(d)}`; // dayKey の月は0始まり
+}
+
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
-function CalendarView({ items, isAdmin }: { items: ScheduleItem[]; isAdmin?: boolean }) {
+function CalendarView({
+  items, isAdmin, currentMemberId, onEditPersonal, onAddOnDate,
+}: {
+  items: ScheduleItem[];
+  isAdmin?: boolean;
+  currentMemberId?: string;
+  onEditPersonal?: (item: ScheduleItem) => void;
+  onAddOnDate?: (ymd: string) => void;
+}) {
   const [cursor, setCursor] = useState(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
@@ -264,9 +383,6 @@ function CalendarView({ items, isAdmin }: { items: ScheduleItem[]; isAdmin?: boo
 
   const todayKey = dayKey(startOfDay(new Date()));
   const selectedItems = selectedKey ? byDay.get(selectedKey) ?? [] : [];
-  const selectedDate = selectedItems[0]
-    ? new Date(selectedItems[0].scheduledAt)
-    : null;
 
   const monthLabel = `${cursor.getFullYear()}年${cursor.getMonth() + 1}月`;
 
@@ -339,10 +455,11 @@ function CalendarView({ items, isAdmin }: { items: ScheduleItem[]; isAdmin?: boo
                     className={cn(
                       "text-[9px] leading-tight px-1 py-0.5 rounded truncate",
                       it.status === "cancelled" ? "bg-gray-100 text-gray-400 line-through" :
+                      it.type === "personal" ? COLOR_MAP[it.color ?? "blue"].chip :
                       it.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                     )}
                   >
-                    {timeStr(it.scheduledAt)} {it.customerName}
+                    {it.type === "personal" && it.allDay ? "終日" : timeStr(it.scheduledAt)} {it.customerName}
                   </span>
                 ))}
                 {dayItems.length > 3 && (
@@ -356,19 +473,167 @@ function CalendarView({ items, isAdmin }: { items: ScheduleItem[]; isAdmin?: boo
 
       {/* 選択日の詳細 */}
       <div className="mt-5">
-        <div className="flex items-baseline gap-2 px-1 mb-2">
+        <div className="flex items-center gap-2 px-1 mb-2">
           <span className="text-sm font-bold text-gray-700">
-            {selectedDate ? fullDateStr(selectedDate.toISOString()) : selectedKey ? "予定なし" : "日付を選択"}
+            {selectedKey ? fullDateStr(keyToYmd(selectedKey) + "T00:00:00+09:00") : "日付を選択"}
           </span>
-          {selectedItems.length > 0 && <span className="text-xs text-gray-300 ml-auto">{selectedItems.length}件</span>}
+          {selectedItems.length > 0 && <span className="text-xs text-gray-300">{selectedItems.length}件</span>}
+          {selectedKey && onAddOnDate && (
+            <button
+              type="button"
+              onClick={() => onAddOnDate(keyToYmd(selectedKey))}
+              className="ml-auto flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-2.5 py-1.5 transition"
+            >
+              <Plus size={13} /> 予定を追加
+            </button>
+          )}
         </div>
         {selectedItems.length === 0 ? (
           <div className="text-center py-10 text-sm text-gray-400">この日の予定はありません</div>
         ) : (
           <div className="space-y-2">
-            {selectedItems.map((it) => <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin} />)}
+            {selectedItems.map((it) => (
+              <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
+                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} />
+            ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── 個人予定の追加/編集モーダル ─────────────────────────
+function PersonalEventModal({
+  mode, initial, defaultDate, onClose,
+}: {
+  mode: "create" | "edit";
+  initial?: ScheduleItem;
+  defaultDate?: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const startDateInit = initial ? datePart(initial.scheduledAt) : (defaultDate ?? todayDate());
+  const [allDay, setAllDay] = useState(initial?.allDay ?? false);
+  const [color, setColor] = useState<EventColor>(initial?.color ?? "blue");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    try {
+      if (mode === "edit" && initial) await updatePersonalEventAction(initial.id, fd);
+      else await createPersonalEventAction(fd);
+      router.refresh();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <p className="text-base font-bold text-gray-900">{mode === "edit" ? "予定を編集" : "予定を追加"}</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+        </div>
+
+        <form onSubmit={onSubmit} className="p-5 space-y-4">
+          {/* タイトル */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">タイトル <span className="text-red-400">*</span></label>
+            <input name="title" defaultValue={initial?.customerName ?? ""} required
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例: 面談、外出、私用" />
+          </div>
+
+          {/* 終日 */}
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" name="allDay" checked={allDay} onChange={(e) => setAllDay(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300" />
+            終日
+          </label>
+
+          {/* 開始 */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">開始</label>
+            <div className="flex gap-2">
+              <input type="date" name="startDate" defaultValue={startDateInit} required
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {!allDay && (
+                <input type="time" name="startTime"
+                  defaultValue={initial && !initial.allDay ? timePart(initial.scheduledAt) : "10:00"}
+                  className="w-28 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              )}
+            </div>
+          </div>
+
+          {/* 終了 */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">終了 <span className="text-gray-300 font-normal">（任意）</span></label>
+            <div className="flex gap-2">
+              <input type="date" name="endDate"
+                defaultValue={initial?.endAt ? datePart(initial.endAt) : startDateInit}
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {!allDay && (
+                <input type="time" name="endTime"
+                  defaultValue={initial?.endAt && !initial.allDay ? timePart(initial.endAt) : ""}
+                  className="w-28 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              )}
+            </div>
+          </div>
+
+          {/* 場所 */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">場所</label>
+            <input name="location" defaultValue={initial?.location ?? ""}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          {/* メモ */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">メモ</label>
+            <textarea name="memo" defaultValue={initial?.note ?? ""} rows={3}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          </div>
+
+          {/* 色 */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">色</label>
+            <input type="hidden" name="color" value={color} />
+            <div className="flex gap-2 flex-wrap">
+              {EVENT_COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => setColor(c)} aria-label={COLOR_LABEL[c]}
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center transition",
+                    COLOR_MAP[c].swatch,
+                    color === c ? "ring-2 ring-offset-2 ring-gray-400" : "opacity-70 hover:opacity-100"
+                  )}>
+                  {color === c && <CheckCircle size={14} className="text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+              キャンセル
+            </button>
+            <button type="submit" disabled={pending}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+              {pending ? "保存中…" : "保存"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -388,12 +653,19 @@ export function ScheduleClient({
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   // 担当者で絞り込み（"all" = 全員）。全員が全員分を閲覧可。
   const [filterMember, setFilterMember] = useState<string>("all");
+  // 個人予定の追加/編集モーダル
+  const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
 
-  // 絞り込み後のアイテム（"all" は全件）
+  // 絞り込み後のアイテム（"all" は全件）。個人予定は作成者で絞り込む。
   const visibleItems = useMemo(() => {
     if (filterMember === "all") return items;
-    return items.filter((it) => it.trainerId === filterMember || it.salesId === filterMember);
+    return items.filter((it) =>
+      it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember
+    );
   }, [items, filterMember]);
+
+  const openCreate = (defaultDate?: string) => setModal({ mode: "create", defaultDate });
+  const openEdit = (item: ScheduleItem) => setModal({ mode: "edit", initial: item });
 
   const { upcoming, past } = useMemo(() => {
     const today = startOfDay(new Date()).getTime();
@@ -428,16 +700,25 @@ export function ScheduleClient({
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       {/* ヘッダー */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">スケジュール</h1>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarDays size={20} className="text-blue-600" />
+            <h1 className="text-xl font-bold text-gray-900">スケジュール</h1>
+          </div>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {filterMember === "all"
+              ? "全員のスケジュール"
+              : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
+          </p>
         </div>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {filterMember === "all"
-            ? "全員のスケジュール"
-            : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
-        </p>
+        <button
+          type="button"
+          onClick={() => openCreate()}
+          className="flex-shrink-0 flex items-center gap-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl px-3.5 py-2 hover:bg-blue-700 transition shadow-sm"
+        >
+          <Plus size={16} /> 予定を追加
+        </button>
       </div>
 
       {/* 表示切替（リスト / カレンダー） */}
@@ -479,7 +760,8 @@ export function ScheduleClient({
       )}
 
       {view === "calendar" ? (
-        <CalendarView items={visibleItems} isAdmin={isAdmin} />
+        <CalendarView items={visibleItems} isAdmin={isAdmin}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onAddOnDate={openCreate} />
       ) : (
         <>
       {/* 次の予定ハイライト */}
@@ -535,10 +817,22 @@ export function ScheduleClient({
         </div>
       ) : (
         <div className="space-y-5">
-          {groups.map((g) => <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin} />)}
+          {groups.map((g) => (
+            <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin}
+              currentMemberId={currentMemberId} onEditPersonal={openEdit} />
+          ))}
         </div>
       )}
         </>
+      )}
+
+      {modal && (
+        <PersonalEventModal
+          mode={modal.mode}
+          initial={modal.initial}
+          defaultDate={modal.defaultDate}
+          onClose={() => setModal(null)}
+        />
       )}
     </div>
   );

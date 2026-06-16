@@ -1,6 +1,7 @@
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getPersonalEvents } from "@/lib/personal-events";
 import { ScheduleClient, type ScheduleItem } from "./schedule-client";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +21,11 @@ export default async function SchedulePage() {
 
   const isAdmin = member.isAdmin;
   // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
-  const [lessons, trialLessons, members] = await Promise.all([
+  const [lessons, trialLessons, members, personalEvents] = await Promise.all([
     getLessons(),
     getTrialLessons(),
     getMembers(),
+    getPersonalEvents(),
   ]);
 
   const items: ScheduleItem[] = [];
@@ -62,6 +64,24 @@ export default async function SchedulePage() {
       exercises: t.exercises,
       customerImpression: t.customerImpression,
       contracted: t.contracted,
+    });
+  }
+
+  // 個人予定（全件・全員に共有）
+  for (const e of personalEvents) {
+    items.push({
+      id: e.id,
+      type: "personal",
+      customerName: e.title,
+      scheduledAt: e.startAt,
+      endAt: e.endAt,
+      allDay: e.allDay,
+      color: e.color,
+      location: e.location,
+      note: e.memo,
+      status: "scheduled",
+      ownerId: e.memberId,
+      ownerName: e.memberName,
     });
   }
 
