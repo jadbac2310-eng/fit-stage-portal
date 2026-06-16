@@ -1,6 +1,9 @@
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getCustomers } from "@/lib/customers";
+import { getAllSessionPasses } from "@/lib/session-passes";
+import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getPersonalEvents } from "@/lib/personal-events";
 import { ScheduleClient, type ScheduleItem } from "./schedule-client";
 
@@ -21,11 +24,15 @@ export default async function SchedulePage() {
 
   const isAdmin = member.isAdmin;
   // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
-  const [lessons, trialLessons, members, personalEvents] = await Promise.all([
+  // customers / sessionPasses / customerPlans はスケジュールから通常レッスンを追加するフォーム用。
+  const [lessons, trialLessons, members, personalEvents, customers, sessionPasses, customerPlans] = await Promise.all([
     getLessons(),
     getTrialLessons(),
     getMembers(),
     getPersonalEvents(),
+    getCustomers(),
+    getAllSessionPasses(),
+    getAllCustomerPlans(),
   ]);
 
   const items: ScheduleItem[] = [];
@@ -42,6 +49,8 @@ export default async function SchedulePage() {
       status: l.status,
       trainerId: l.trainerMemberId,
       trainerName: l.trainerMemberName,
+      createdById: l.createdById,
+      createdByName: l.createdByName,
       note: l.note,
       exercises: l.exercises,
     });
@@ -91,7 +100,11 @@ export default async function SchedulePage() {
       memberName={member.name}
       isAdmin={isAdmin}
       currentMemberId={member.id}
-      members={members.map((m) => ({ id: m.id, name: m.name }))}
+      members={members}
+      customers={customers}
+      sessionPasses={sessionPasses}
+      customerPlans={customerPlans}
+      lessons={lessons}
     />
   );
 }

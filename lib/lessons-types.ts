@@ -20,6 +20,8 @@ export interface Lesson {
   exercises?: Exercise[];      // レポート: 種目ログ（種目名・重量・回数）
   customerImpression?: string; // レポート: お客さんの様子
   note?: string;
+  createdById?: string;        // レッスンを追加したメンバー
+  createdByName?: string;
   createdAt: string;
   updatedAt: string;
 }

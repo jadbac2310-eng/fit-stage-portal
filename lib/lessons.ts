@@ -18,10 +18,12 @@ type DbRow = {
   customer_impression: string | null;
   exercises: unknown;
   note: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
   customers: { full_name: string } | null;
   trainer_member: { name: string } | null;
+  created_by_member: { name: string } | null;
 };
 
 function fromDb(row: DbRow): Lesson {
@@ -41,28 +43,39 @@ function fromDb(row: DbRow): Lesson {
     customerImpression: row.customer_impression ?? undefined,
     exercises:         parseExercises(row.exercises),
     note:              row.note ?? undefined,
+    createdById:       row.created_by ?? undefined,
+    createdByName:     row.created_by_member?.name ?? undefined,
     createdAt:         row.created_at,
     updatedAt:         row.updated_at,
   };
 }
 
-const SELECT = "*, customers(full_name), trainer_member:members!trainer_member_id(name)";
+const SELECT = "*, customers(full_name), trainer_member:members!trainer_member_id(name), created_by_member:members!created_by(name)";
+// created_by 列が未追加（マイグレーション未適用）の環境でも動くフォールバック
+const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_member_id(name)";
+
+// created_by 列が無いことに起因するエラーかどうか
+function isMissingCreatedBy(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return /created_by/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703";
+}
 
 export async function getLessons(): Promise<Lesson[]> {
-  const { data, error } = await createAdminClient()
-    .from("lessons")
-    .select(SELECT)
-    .order("scheduled_at", { ascending: false });
+  const client = createAdminClient();
+  let { data, error } = await client.from("lessons").select(SELECT).order("scheduled_at", { ascending: false });
+  if (error && isMissingCreatedBy(error)) {
+    ({ data, error } = await client.from("lessons").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
+  }
   if (error) throw error;
   return (data as DbRow[]).map(fromDb);
 }
 
 export async function getLesson(id: string): Promise<Lesson | null> {
-  const { data, error } = await createAdminClient()
-    .from("lessons")
-    .select(SELECT)
-    .eq("id", id)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("lessons").select(SELECT).eq("id", id).single();
+  if (error && isMissingCreatedBy(error)) {
+    ({ data, error } = await client.from("lessons").select(SELECT_LEGACY).eq("id", id).single());
+  }
   if (error || !data) return null;
   return fromDb(data as DbRow);
 }
@@ -76,21 +89,27 @@ export async function addLesson(input: {
   paymentType?: LessonPaymentType;
   sessionPassId?: string;
   note?: string;
+  createdBy?: string;
 }): Promise<Lesson> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  const base = {
+    customer_id:       input.customerId,
+    trainer_member_id: input.trainerMemberId ?? null,
+    scheduled_at:      input.scheduledAt,
+    location:          input.location ?? null,
+    course:            input.course ?? null,
+    payment_type:      input.paymentType ?? null,
+    session_pass_id:   input.sessionPassId ?? null,
+    note:              input.note ?? null,
+  };
+  let { data, error } = await client
     .from("lessons")
-    .insert({
-      customer_id:       input.customerId,
-      trainer_member_id: input.trainerMemberId ?? null,
-      scheduled_at:      input.scheduledAt,
-      location:          input.location ?? null,
-      course:            input.course ?? null,
-      payment_type:      input.paymentType ?? null,
-      session_pass_id:   input.sessionPassId ?? null,
-      note:              input.note ?? null,
-    })
+    .insert({ ...base, created_by: input.createdBy ?? null })
     .select(SELECT)
     .single();
+  if (error && isMissingCreatedBy(error)) {
+    ({ data, error } = await client.from("lessons").insert(base).select(SELECT_LEGACY).single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

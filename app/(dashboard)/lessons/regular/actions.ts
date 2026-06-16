@@ -6,10 +6,24 @@ import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessi
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { parseExercises, cleanExercises } from "@/lib/exercise-types";
-import type { LessonStatus } from "@/lib/lessons-types";
+import type { Lesson, LessonStatus } from "@/lib/lessons-types";
+
+// レッスンの編集/削除は「管理者」または「追加した本人」のみ許可する。
+// 作成者が記録されていない（旧データ）場合は管理者のみ。
+async function assertCanEditLesson(id: string): Promise<{ lesson: Lesson; isAdmin: boolean }> {
+  const [member, lesson] = await Promise.all([getCurrentMember(), getLesson(id)]);
+  if (!member) throw new Error("ログインが必要です");
+  if (!lesson) throw new Error("レッスンが見つかりません");
+  const canEdit = member.isAdmin || (!!lesson.createdById && lesson.createdById === member.id);
+  if (!canEdit) throw new Error("このレッスンを編集できるのは追加した本人または管理者のみです");
+  return { lesson, isAdmin: member.isAdmin };
+}
 
 // ─── レッスン ─────────────────────────────────────────
 export async function createLessonAction(formData: FormData) {
+  const member = await getCurrentMember();
+  if (!member) throw new Error("ログインが必要です");
+
   const customerId      = (formData.get("customerId")      as string)?.trim();
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || undefined;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
@@ -22,17 +36,18 @@ export async function createLessonAction(formData: FormData) {
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
-  await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, note });
+  await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, note, createdBy: member.id });
 
   if (paymentType === "session_pass" && sessionPassId) {
     await decrementSessionPass(sessionPassId);
   }
 
   revalidatePath("/lessons/regular");
+  revalidatePath("/schedule");
 }
 
 export async function updateLessonAction(id: string, formData: FormData) {
-  await requireAdmin();
+  const { lesson: existing } = await assertCanEditLesson(id);
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
   const location        = (formData.get("location")        as string)?.trim() || null;
@@ -45,7 +60,6 @@ export async function updateLessonAction(id: string, formData: FormData) {
 
   const paymentType = courseToPaymentType(course ?? undefined) ?? null;
 
-  const existing = await getLesson(id);
   const oldPassId = existing?.sessionPassId ?? null;
 
   if (oldPassId !== sessionPassId) {
@@ -55,6 +69,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
 
   await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, note });
   revalidatePath("/lessons/regular");
+  revalidatePath("/schedule");
 }
 
 export async function saveLessonReportAction(id: string, formData: FormData) {
@@ -80,13 +95,13 @@ export async function saveLessonReportAction(id: string, formData: FormData) {
 }
 
 export async function deleteLessonAction(id: string) {
-  await requireAdmin();
-  const existing = await getLesson(id);
+  const { lesson: existing } = await assertCanEditLesson(id);
   if (existing?.sessionPassId && existing.paymentType === "session_pass") {
     await incrementSessionPass(existing.sessionPassId);
   }
   await deleteLesson(id);
   revalidatePath("/lessons/regular");
+  revalidatePath("/schedule");
 }
 
 // ─── 回数券 ───────────────────────────────────────────

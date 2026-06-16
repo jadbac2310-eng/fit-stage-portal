@@ -15,6 +15,13 @@ import type { Exercise } from "@/lib/exercise-types";
 import { ExerciseList } from "@/components/exercise-list";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { createPersonalEventAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
+import type { Member } from "@/lib/members";
+import type { Customer } from "@/lib/customers-types";
+import type { Lesson } from "@/lib/lessons-types";
+import type { SessionPass } from "@/lib/session-passes-types";
+import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
+import { LessonForm } from "../lessons/regular/regular-lessons-client";
+import { createLessonAction } from "../lessons/regular/actions";
 
 export type ScheduleItem = {
   id: string;
@@ -33,6 +40,8 @@ export type ScheduleItem = {
   salesName?: string;
   ownerId?: string;
   ownerName?: string;
+  createdById?: string;
+  createdByName?: string;
   note?: string;
   exercises?: Exercise[];
   customerImpression?: string;
@@ -147,6 +156,8 @@ function LessonCard({
   const cancelled = item.status === "cancelled";
   const color = item.color ?? "blue";
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
+  // 通常レッスンの編集可否（管理者 or 追加した本人）
+  const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
 
   // 担当者ラベル
   const staff = isPersonal
@@ -250,6 +261,9 @@ function LessonCard({
           ) : (
             <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">{item.trainerName ?? "未設定"}</DetailRow>
           )}
+          {item.type === "regular" && item.createdByName && (
+            <DetailRow icon={<CalendarPlus size={13} />} label="追加者">{item.createdByName}</DetailRow>
+          )}
           {item.course && <DetailRow icon={<Ticket size={13} />} label="コース">{item.course}</DetailRow>}
           {item.location && <DetailRow icon={<MapPin size={13} />} label="場所">{item.location}</DetailRow>}
           {item.exercises && item.exercises.length > 0 && (
@@ -286,7 +300,7 @@ function LessonCard({
               </button>
             </div>
           )}
-          {!isPersonal && isAdmin && (
+          {((isTrial && isAdmin) || canEditLesson) && (
             <Link
               href={editHref}
               className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
@@ -639,15 +653,62 @@ function PersonalEventModal({
   );
 }
 
+// ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
+function LessonModal({
+  customers, members, sessionPasses, customerPlans, lessons, defaultDate, onClose,
+}: {
+  customers: Customer[];
+  members: Member[];
+  sessionPasses: SessionPass[];
+  customerPlans: CustomerPlanRecord[];
+  lessons: Lesson[];
+  defaultDate?: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const close = () => { router.refresh(); onClose(); };
+  const defaultValues = defaultDate ? { scheduledAt: `${defaultDate}T10:00:00+09:00` } : undefined;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <p className="text-base font-bold text-gray-900">通常レッスンを追加</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+        </div>
+        <div className="p-5">
+          <LessonForm
+            customers={customers}
+            members={members}
+            sessionPasses={sessionPasses}
+            customerPlans={customerPlans}
+            allLessons={lessons}
+            defaultValues={defaultValues}
+            onClose={close}
+            action={createLessonAction}
+            submitLabel="追加する"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
+  customers = [], sessionPasses = [], customerPlans = [], lessons = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
   isAdmin?: boolean;
   currentMemberId?: string;
-  members?: { id: string; name: string }[];
+  members?: Member[];
+  customers?: Customer[];
+  sessionPasses?: SessionPass[];
+  customerPlans?: CustomerPlanRecord[];
+  lessons?: Lesson[];
 }) {
   const [view, setView] = useState<"list" | "calendar">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
@@ -655,6 +716,11 @@ export function ScheduleClient({
   const [filterMember, setFilterMember] = useState<string>("all");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
+  // 通常レッスンの追加モーダル
+  const [lessonModalOpen, setLessonModalOpen] = useState(false);
+  // 追加メニュー（レッスン / 個人予定）の開閉
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const canAddLesson = customers.length > 0;
 
   // 絞り込み後のアイテム（"all" は全件）。個人予定は作成者で絞り込む。
   const visibleItems = useMemo(() => {
@@ -712,13 +778,38 @@ export function ScheduleClient({
               : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => openCreate()}
-          className="flex-shrink-0 flex items-center gap-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl px-3.5 py-2 hover:bg-blue-700 transition shadow-sm"
-        >
-          <Plus size={16} /> 予定を追加
-        </button>
+        <div className="relative flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setAddMenuOpen((v) => !v)}
+            className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl px-3.5 py-2 hover:bg-blue-700 transition shadow-sm"
+          >
+            <Plus size={16} /> 追加
+          </button>
+          {addMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
+              <div className="absolute right-0 mt-1 z-20 w-44 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden py-1">
+                {canAddLesson && (
+                  <button
+                    type="button"
+                    onClick={() => { setAddMenuOpen(false); setLessonModalOpen(true); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setAddMenuOpen(false); openCreate(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                >
+                  <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 表示切替（リスト / カレンダー） */}
@@ -832,6 +923,17 @@ export function ScheduleClient({
           initial={modal.initial}
           defaultDate={modal.defaultDate}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {lessonModalOpen && (
+        <LessonModal
+          customers={customers}
+          members={members}
+          sessionPasses={sessionPasses}
+          customerPlans={customerPlans}
+          lessons={lessons}
+          onClose={() => setLessonModalOpen(false)}
         />
       )}
     </div>

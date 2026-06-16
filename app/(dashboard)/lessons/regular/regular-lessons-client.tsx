@@ -115,7 +115,7 @@ function isoToLocalInput(iso: string): string {
 }
 
 // ─── レッスンフォーム ─────────────────────────────────
-function LessonForm({
+export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
   fixedCustomerId, onClose, action, submitLabel,
 }: {
@@ -437,6 +437,8 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const [reporting, setReporting] = useState(lesson.id === openReportId);
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
+  // 編集/削除は管理者 or 追加した本人のみ
+  const canEdit = isAdmin || (!!lesson.createdById && lesson.createdById === currentMemberId);
   // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
   const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
   const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
@@ -509,6 +511,9 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
+        {lesson.createdByName && (
+          <p className="text-[11px] text-gray-400 mt-0.5">追加: {lesson.createdByName}</p>
+        )}
         {hasReport && (
           <div className="mt-1.5 rounded-lg bg-green-50 border border-green-100 px-2 py-1.5 space-y-1">
             {lesson.exercises && lesson.exercises.length > 0 && <ExerciseList exercises={lesson.exercises} compact />}
@@ -531,7 +536,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
             {hasReport ? "レポート確認" : "レポート記入"}
           </button>
         )}
-        {isAdmin && (
+        {canEdit && (
           <>
           <button onClick={() => setEditing(true)}
             className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
