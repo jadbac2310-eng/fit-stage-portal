@@ -3,6 +3,7 @@ import { getCustomers } from "@/lib/customers";
 import { getMembers, getCurrentMember } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
+import { getRentalGyms } from "@/lib/rental-gyms";
 import { collectExerciseNames } from "@/lib/exercise-types";
 import { RegularLessonsClient } from "./regular-lessons-client";
 
@@ -13,13 +14,14 @@ export default async function RegularLessonsPage({
 }: {
   searchParams: Promise<{ q?: string; report?: string }>;
 }) {
-  const [{ q, report }, lessons, customers, members, sessionPasses, customerPlans, member] = await Promise.all([
+  const [{ q, report }, lessons, customers, members, sessionPasses, customerPlans, rentalGyms, member] = await Promise.all([
     searchParams,
     getLessons(),
     getCustomers(),
     getMembers(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
+    getRentalGyms(),
     getCurrentMember(),
   ]);
   return (
@@ -29,6 +31,7 @@ export default async function RegularLessonsPage({
       members={members}
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
+      rentalGyms={rentalGyms}
       isAdmin={member?.isAdmin ?? false}
       currentMemberId={member?.id}
       initialSearch={q ?? ""}

@@ -18,6 +18,8 @@ type DbRow = {
   customer_impression: string | null;
   exercises: unknown;
   note: string | null;
+  rental_gym_id: string | null;
+  rental_gym_fee: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -43,6 +45,8 @@ function fromDb(row: DbRow): Lesson {
     customerImpression: row.customer_impression ?? undefined,
     exercises:         parseExercises(row.exercises),
     note:              row.note ?? undefined,
+    rentalGymId:       row.rental_gym_id ?? undefined,
+    rentalGymFee:      row.rental_gym_fee ?? undefined,
     createdById:       row.created_by ?? undefined,
     createdByName:     row.created_by_member?.name ?? undefined,
     createdAt:         row.created_at,
@@ -54,16 +58,16 @@ const SELECT = "*, customers(full_name), trainer_member:members!trainer_member_i
 // created_by 列が未追加（マイグレーション未適用）の環境でも動くフォールバック
 const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_member_id(name)";
 
-// created_by 列が無いことに起因するエラーかどうか
-function isMissingCreatedBy(err: { code?: string; message?: string } | null): boolean {
+// 後から追加した任意列（created_by / rental_gym_*）が未適用のときのエラーか
+function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /created_by/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703";
+  return /created_by|rental_gym/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
 export async function getLessons(): Promise<Lesson[]> {
   const client = createAdminClient();
   let { data, error } = await client.from("lessons").select(SELECT).order("scheduled_at", { ascending: false });
-  if (error && isMissingCreatedBy(error)) {
+  if (error && isMissingOptionalColumn(error)) {
     ({ data, error } = await client.from("lessons").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
   }
   if (error) throw error;
@@ -73,7 +77,7 @@ export async function getLessons(): Promise<Lesson[]> {
 export async function getLesson(id: string): Promise<Lesson | null> {
   const client = createAdminClient();
   let { data, error } = await client.from("lessons").select(SELECT).eq("id", id).single();
-  if (error && isMissingCreatedBy(error)) {
+  if (error && isMissingOptionalColumn(error)) {
     ({ data, error } = await client.from("lessons").select(SELECT_LEGACY).eq("id", id).single());
   }
   if (error || !data) return null;
@@ -90,6 +94,8 @@ export async function addLesson(input: {
   sessionPassId?: string;
   note?: string;
   createdBy?: string;
+  rentalGymId?: string | null;
+  rentalGymFee?: number | null;
 }): Promise<Lesson> {
   const client = createAdminClient();
   const base = {
@@ -102,12 +108,17 @@ export async function addLesson(input: {
     session_pass_id:   input.sessionPassId ?? null,
     note:              input.note ?? null,
   };
+  const optional = {
+    created_by:     input.createdBy ?? null,
+    rental_gym_id:  input.rentalGymId ?? null,
+    rental_gym_fee: input.rentalGymFee ?? null,
+  };
   let { data, error } = await client
     .from("lessons")
-    .insert({ ...base, created_by: input.createdBy ?? null })
+    .insert({ ...base, ...optional })
     .select(SELECT)
     .single();
-  if (error && isMissingCreatedBy(error)) {
+  if (error && isMissingOptionalColumn(error)) {
     ({ data, error } = await client.from("lessons").insert(base).select(SELECT_LEGACY).single());
   }
   if (error) throw error;
@@ -129,6 +140,8 @@ export async function updateLesson(
     customerImpression: string | null;
     exercises: Exercise[];
     note: string | null;
+    rentalGymId: string | null;
+    rentalGymFee: number | null;
   }>
 ): Promise<Lesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -144,13 +157,17 @@ export async function updateLesson(
   if (input.customerImpression !== undefined) patch.customer_impression  = input.customerImpression;
   if (input.exercises          !== undefined) patch.exercises            = input.exercises;
   if (input.note               !== undefined) patch.note                 = input.note;
+  if (input.rentalGymId        !== undefined) patch.rental_gym_id        = input.rentalGymId;
+  if (input.rentalGymFee       !== undefined) patch.rental_gym_fee       = input.rentalGymFee;
 
-  const { data, error } = await createAdminClient()
-    .from("lessons")
-    .update(patch)
-    .eq("id", id)
-    .select(SELECT)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("lessons").update(patch).eq("id", id).select(SELECT).single();
+  // rental_gym_* 列が未適用の環境では、それらを外して再試行
+  if (error && isMissingOptionalColumn(error)) {
+    const { rental_gym_id, rental_gym_fee, ...rest } = patch;
+    void rental_gym_id; void rental_gym_fee;
+    ({ data, error } = await client.from("lessons").update(rest).eq("id", id).select(SELECT_LEGACY).single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

@@ -31,12 +31,15 @@ export async function createLessonAction(formData: FormData) {
   const course          = (formData.get("course")          as string)?.trim() || undefined;
   const sessionPassId   = (formData.get("sessionPassId")   as string)?.trim() || undefined;
   const note            = (formData.get("note")            as string)?.trim() || undefined;
+  const rentalGymId     = (formData.get("rentalGymId")     as string)?.trim() || null;
+  const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
+  const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
 
   if (!customerId || !scheduledAt) return;
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
-  await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, note, createdBy: member.id });
+  await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, note, createdBy: member.id, rentalGymId, rentalGymFee });
 
   if (paymentType === "session_pass" && sessionPassId) {
     await decrementSessionPass(sessionPassId);
@@ -55,6 +58,9 @@ export async function updateLessonAction(id: string, formData: FormData) {
   const sessionPassId   = (formData.get("sessionPassId")   as string)?.trim() || null;
   const status          = (formData.get("status")          as string)?.trim() as LessonStatus;
   const note            = (formData.get("note")            as string)?.trim() || null;
+  const rentalGymId     = (formData.get("rentalGymId")     as string)?.trim() || null;
+  const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
+  const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
 
   if (!scheduledAt) return;
 
@@ -67,7 +73,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
     if (sessionPassId && paymentType === "session_pass") await decrementSessionPass(sessionPassId);
   }
 
-  await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, note });
+  await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, note, rentalGymId, rentalGymFee });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");
 }

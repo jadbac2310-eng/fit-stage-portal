@@ -4,6 +4,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
+import { getRentalGyms } from "@/lib/rental-gyms";
 import { getPersonalEvents } from "@/lib/personal-events";
 import { ScheduleClient, type ScheduleItem } from "./schedule-client";
 
@@ -25,7 +26,7 @@ export default async function SchedulePage() {
   const isAdmin = member.isAdmin;
   // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
   // customers / sessionPasses / customerPlans はスケジュールから通常レッスンを追加するフォーム用。
-  const [lessons, trialLessons, members, personalEvents, customers, sessionPasses, customerPlans] = await Promise.all([
+  const [lessons, trialLessons, members, personalEvents, customers, sessionPasses, customerPlans, rentalGyms] = await Promise.all([
     getLessons(),
     getTrialLessons(),
     getMembers(),
@@ -33,6 +34,7 @@ export default async function SchedulePage() {
     getCustomers(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
+    getRentalGyms(),
   ]);
 
   const items: ScheduleItem[] = [];
@@ -105,6 +107,7 @@ export default async function SchedulePage() {
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
       lessons={lessons}
+      rentalGyms={rentalGyms}
     />
   );
 }

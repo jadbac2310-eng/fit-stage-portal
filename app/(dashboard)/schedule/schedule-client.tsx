@@ -20,6 +20,7 @@ import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
+import type { RentalGym } from "@/lib/rental-gyms";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction } from "../lessons/regular/actions";
 
@@ -645,13 +646,14 @@ function PersonalEventModal({
 
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, defaultDate, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, defaultDate, onClose,
 }: {
   customers: Customer[];
   members: Member[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
   lessons: Lesson[];
+  rentalGyms: RentalGym[];
   defaultDate?: string;
   onClose: () => void;
 }) {
@@ -674,6 +676,7 @@ function LessonModal({
             sessionPasses={sessionPasses}
             customerPlans={customerPlans}
             allLessons={lessons}
+            rentalGyms={rentalGyms}
             defaultValues={defaultValues}
             onClose={close}
             action={createLessonAction}
@@ -688,7 +691,7 @@ function LessonModal({
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
-  customers = [], sessionPasses = [], customerPlans = [], lessons = [],
+  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
@@ -699,6 +702,7 @@ export function ScheduleClient({
   sessionPasses?: SessionPass[];
   customerPlans?: CustomerPlanRecord[];
   lessons?: Lesson[];
+  rentalGyms?: RentalGym[];
 }) {
   const [view, setView] = useState<"list" | "calendar">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
@@ -923,6 +927,7 @@ export function ScheduleClient({
           sessionPasses={sessionPasses}
           customerPlans={customerPlans}
           lessons={lessons}
+          rentalGyms={rentalGyms}
           onClose={() => setLessonModalOpen(false)}
         />
       )}

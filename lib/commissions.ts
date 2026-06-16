@@ -118,7 +118,8 @@ export function buildTrainerEntries(lessons: Lesson[], month: string, ctx: Commi
 
   for (const l of filtered) {
     const tid  = l.trainerMemberId!;
-    const fee  = resolveLessonFee(l, ctx);
+    // レンタルジム代を差し引いた額を歩合の対象とする
+    const fee  = Math.max(0, resolveLessonFee(l, ctx) - (l.rentalGymFee ?? 0));
     const comm = Math.round(fee * TRAINER_RATE);
 
     if (!map.has(tid)) {
@@ -186,7 +187,8 @@ export function buildSalesEntries(
     if (!sales) continue;
 
     const cType = customerTypeMap[l.customerId] ?? "individual";
-    const fee   = resolveLessonFee(l, ctx);
+    // レンタルジム代を差し引いた額を歩合の対象とする
+    const fee   = Math.max(0, resolveLessonFee(l, ctx) - (l.rentalGymFee ?? 0));
     const comm  = Math.round(fee * SALES_RATE[cType]);
 
     const entry = ensureEntry(sales.memberId, sales.memberName);

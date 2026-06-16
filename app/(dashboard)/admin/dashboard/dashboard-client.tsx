@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2 } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
 import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
@@ -45,6 +45,7 @@ interface MonthFigures {
   revenue:      number;
   trainerPayout: number;
   salesPayout:  number;
+  rentalCost:   number;
   profit:       number;
 }
 
@@ -54,12 +55,12 @@ function computeMonth(
   trialLessons: TrialLesson[],
   ctx: CommissionContext,
 ): MonthFigures {
-  const revenue = lessons
-    .filter((l) => isoToMonth(l.scheduledAt) === month)
-    .reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
+  const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
+  const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
+  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
-  return { month, revenue, trainerPayout, salesPayout, profit: revenue - trainerPayout - salesPayout };
+  return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
 }
 
 interface AnalyticsData {
@@ -219,20 +220,21 @@ export function RevenueDashboardClient({
       {/* KPI カード */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} accent="text-blue-600" sub="完了レッスン単価の合計" />
-        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%" />
+        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（ジム代控除後）" />
         <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" />
-        <div className="bg-gradient-to-br from-green-600 to-green-500 rounded-2xl p-4 text-white shadow-sm shadow-green-200">
-          <p className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-green-50">
-            <Wallet size={12} /> 利益
-          </p>
-          <p className="text-xl font-bold tabular-nums">{yen(cur.profit)}</p>
-          <p className="text-[11px] text-green-100 mt-0.5">利益率 {margin}%</p>
-        </div>
+        <KpiCard icon={<Building2 size={12} />} label="レンタルジム代" value={cur.rentalCost} accent="text-rose-600" sub="レッスンごとの利用料" />
+      </div>
+      <div className="bg-gradient-to-br from-green-600 to-green-500 rounded-2xl p-4 text-white shadow-sm shadow-green-200 mb-3">
+        <p className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-green-50">
+          <Wallet size={12} /> 利益
+        </p>
+        <p className="text-2xl font-bold tabular-nums">{yen(cur.profit)}</p>
+        <p className="text-[11px] text-green-100 mt-0.5">利益率 {margin}%</p>
       </div>
 
       {/* 内訳メモ */}
       <p className="text-[11px] text-gray-400 mb-4 px-1">
-        利益 = 売上 − トレーナー支払 − 営業支払
+        利益 = 売上 − トレーナー支払 − 営業支払 − レンタルジム代
       </p>
 
       {/* 今月の実績（全体） */}
@@ -271,13 +273,14 @@ export function RevenueDashboardClient({
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="trainerPayout" name="トレーナー支払" stackId="pay" fill="#818cf8" radius={[0, 0, 0, 0]} />
               <Bar dataKey="salesPayout" name="営業支払" stackId="pay" fill="#fbbf24" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="rentalCost" name="レンタルジム代" stackId="pay" fill="#fb7185" radius={[0, 0, 0, 0]} />
               <Bar dataKey="profit" name="利益" stackId="pay" fill="#34d399" radius={[3, 3, 0, 0]} />
               <Line type="monotone" dataKey="revenue" name="売上" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
         <p className="text-[11px] text-gray-400 mt-2 text-center">
-          積み上げ棒（支払＋利益）＝売上。折れ線は売上。
+          積み上げ棒（支払＋ジム代＋利益）＝売上。折れ線は売上。
         </p>
       </div>
 
@@ -291,6 +294,7 @@ export function RevenueDashboardClient({
               <th className="text-right py-1.5 pr-3 font-medium">売上</th>
               <th className="text-right py-1.5 pr-3 font-medium">ﾄﾚｰﾅｰ</th>
               <th className="text-right py-1.5 pr-3 font-medium">営業</th>
+              <th className="text-right py-1.5 pr-3 font-medium">ｼﾞﾑ代</th>
               <th className="text-right py-1.5 font-medium">利益</th>
             </tr>
           </thead>
@@ -304,6 +308,7 @@ export function RevenueDashboardClient({
                 <td className="py-1.5 pr-3 text-right text-gray-700 tabular-nums">{yen(m.revenue)}</td>
                 <td className="py-1.5 pr-3 text-right text-indigo-600 tabular-nums">{yen(m.trainerPayout)}</td>
                 <td className="py-1.5 pr-3 text-right text-amber-600 tabular-nums">{yen(m.salesPayout)}</td>
+                <td className="py-1.5 pr-3 text-right text-rose-600 tabular-nums">{yen(m.rentalCost)}</td>
                 <td className="py-1.5 text-right font-semibold text-green-600 tabular-nums">{yen(m.profit)}</td>
               </tr>
             ))}
