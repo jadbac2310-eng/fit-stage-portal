@@ -35,9 +35,9 @@ const s = StyleSheet.create({
 
   metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 9, color: C.sub, marginBottom: 14 },
 
-  totalBox: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.faint, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 18, marginBottom: 22 },
-  totalLabel: { fontSize: 11, fontWeight: "bold", color: "#374151" },
-  totalValue: { fontSize: 20, fontWeight: "bold" },
+  totalBox: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.faint, borderRadius: 6, paddingVertical: 14, paddingHorizontal: 18, marginBottom: 22 },
+  totalLabel: { fontSize: 11, fontWeight: "bold", color: "#374151", lineHeight: 1 },
+  totalValue: { fontSize: 20, fontWeight: "bold", lineHeight: 1 },
 
   th: { flexDirection: "row", borderBottomWidth: 1.5, borderBottomColor: "#9ca3af", paddingBottom: 5, marginBottom: 2 },
   thText: { fontSize: 9, color: C.sub, fontWeight: "bold" },
@@ -46,9 +46,9 @@ const s = StyleSheet.create({
   cLabel: { width: "56%" },
   cAmount: { width: "22%", textAlign: "right" },
 
-  tfoot: { flexDirection: "row", paddingTop: 8 },
-  tfootLabel: { width: "78%", textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151", paddingRight: 8 },
-  tfootValue: { width: "22%", textAlign: "right", fontSize: 12, fontWeight: "bold" },
+  tfoot: { flexDirection: "row", alignItems: "center", paddingTop: 8 },
+  tfootLabel: { width: "78%", textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151", paddingRight: 8, lineHeight: 1 },
+  tfootValue: { width: "22%", textAlign: "right", fontSize: 12, fontWeight: "bold", lineHeight: 1 },
 
   bank: { marginTop: 26, borderWidth: 1, borderColor: C.line, borderRadius: 6, padding: 14 },
   bankTitle: { fontSize: 10, fontWeight: "bold", marginBottom: 8 },
