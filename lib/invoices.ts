@@ -37,6 +37,21 @@ function inMonth(iso: string | undefined, month: string): boolean {
   return !!iso && iso.slice(0, 7) === month;
 }
 
+// ─── 表示・採番ヘルパー（請求書プレビューとPDFで共通利用） ───
+export function monthLabel(month: string): string {
+  const [y, m] = month.split("-");
+  return `${y}年${parseInt(m, 10)}月`;
+}
+// 支払期限 = 対象月の翌月10日（例: 6月分 → 7月10日）
+export function dueDateLabel(month: string): string {
+  const [y, m] = month.split("-").map((x) => parseInt(x, 10));
+  const due = new Date(y, m, 10); // m は1始まり → JS(0始まり)では m が翌月
+  return `${due.getFullYear()}年${due.getMonth() + 1}月${due.getDate()}日`;
+}
+export function invoiceNumber(month: string, customerId: string): string {
+  return `INV-${month.replace("-", "")}-${customerId.slice(0, 6).toUpperCase()}`;
+}
+
 /**
  * 顧客1名・対象月の請求を組み立てる。
  * - 月額プラン: 購入日(purchasedAt)がその月のもの → 月額を計上

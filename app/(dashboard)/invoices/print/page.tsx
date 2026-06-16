@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCustomers } from "@/lib/customers";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
@@ -7,24 +7,16 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
-import { billingGroups, buildGroupInvoice, ISSUER, BANK_INFO } from "@/lib/invoices";
-import { PrintButton } from "./print-button";
+import {
+  billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
+  monthLabel, dueDateLabel, invoiceNumber,
+} from "@/lib/invoices";
 import { EditableBillingName } from "./editable-name";
 
 export const dynamic = "force-dynamic";
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
-}
-function monthLabel(month: string) {
-  const [y, m] = month.split("-");
-  return `${y}年${parseInt(m, 10)}月`;
-}
-// 支払期限 = 対象月の翌月10日（例: 6月分 → 7月10日）
-function dueDateLabel(month: string) {
-  const [y, m] = month.split("-").map((s) => parseInt(s, 10));
-  const due = new Date(y, m, 10); // m は1始まり → JS(0始まり)では m が翌月。翌月10日
-  return `${due.getFullYear()}年${due.getMonth() + 1}月${due.getDate()}日`;
 }
 
 export default async function InvoicePrintPage({
@@ -56,17 +48,24 @@ export default async function InvoicePrintPage({
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
   const invoice = buildGroupInvoice(customer, group.members, month, { plans, passes, lessons }, singleFee);
-  const invoiceNo = `INV-${month.replace("-", "")}-${customer.id.slice(0, 6).toUpperCase()}`;
+  const invoiceNo = invoiceNumber(month, customer.id);
+  const pdfHref = `/invoices/print/pdf?customer=${customer.id}&month=${month}`;
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      {/* 操作バー（印刷時は非表示） */}
-      <div className="print:hidden flex items-center justify-between mb-4">
+      {/* 操作バー */}
+      <div className="flex items-center justify-between mb-4">
         <Link href={`/invoices?month=${month}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition">
           <ChevronLeft size={15} /> 請求書一覧
         </Link>
-        <PrintButton />
+        <a
+          href={pdfHref}
+          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+        >
+          <Download size={16} /> PDFをダウンロード
+        </a>
       </div>
+      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「PDFをダウンロード」で確定フォーマットの帳票を出力します。</p>
 
       {/* 請求書本体 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 print:border-0 print:p-0 print:rounded-none">
