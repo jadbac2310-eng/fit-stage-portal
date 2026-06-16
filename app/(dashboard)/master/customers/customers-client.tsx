@@ -96,6 +96,7 @@ function CustomerForm({
   defaultValues,
   isEdit = false,
   members,
+  allCustomers = [],
   onClose,
   action,
   submitLabel,
@@ -103,6 +104,7 @@ function CustomerForm({
   defaultValues?: Partial<Customer>;
   isEdit?: boolean;
   members: MemberOpt[];
+  allCustomers?: Customer[];
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
@@ -262,6 +264,30 @@ function CustomerForm({
         </div>
       </div>
 
+      {/* 請求設定 */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3 space-y-3">
+        <p className="text-xs font-bold text-gray-500">請求設定</p>
+        <div>
+          <label className={labelClass}>請求宛名（任意）</label>
+          <input
+            name="billingName"
+            defaultValue={defaultValues?.billingName ?? ""}
+            placeholder="未設定なら氏名を使用"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className={labelClass}>請求まとめ先（任意）</label>
+          <select name="billingToCustomerId" defaultValue={defaultValues?.billingToCustomerId ?? ""} className={inputClass}>
+            <option value="">まとめない（この顧客に請求）</option>
+            {allCustomers
+              .filter((c) => c.id !== defaultValues?.id)
+              .map((c) => <option key={c.id} value={c.id}>{c.fullName} にまとめる</option>)}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">この顧客の請求を別の顧客の請求書に合算します</p>
+        </div>
+      </div>
+
       {/* メモ */}
       <div>
         <label className={labelClass}>
@@ -300,7 +326,7 @@ function CustomerForm({
 }
 
 // ─── 顧客行（テーブル） ───────────────────────────────
-function CustomerRow({ customer, isAdmin, members }: { customer: Customer; isAdmin: boolean; members: MemberOpt[] }) {
+function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
@@ -319,7 +345,7 @@ function CustomerRow({ customer, isAdmin, members }: { customer: Customer; isAdm
             <p className="text-sm font-bold text-gray-900">顧客を編集</p>
             <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <CustomerForm defaultValues={customer} isEdit members={members} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+          <CustomerForm defaultValues={customer} isEdit members={members} allCustomers={allCustomers} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
         </div>
       </td>
     </tr>
@@ -371,7 +397,7 @@ function CustomerRow({ customer, isAdmin, members }: { customer: Customer; isAdm
 }
 
 // ─── 顧客カード（モバイル） ───────────────────────────
-function CustomerCard({ customer, isAdmin, members }: { customer: Customer; isAdmin: boolean; members: MemberOpt[] }) {
+function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
@@ -388,7 +414,7 @@ function CustomerCard({ customer, isAdmin, members }: { customer: Customer; isAd
         <p className="text-sm font-bold text-gray-900">顧客を編集</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <CustomerForm defaultValues={customer} isEdit members={members} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+      <CustomerForm defaultValues={customer} isEdit members={members} allCustomers={allCustomers} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
 
@@ -511,6 +537,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
           </div>
           <CustomerForm
             members={members}
+            allCustomers={customers}
             onClose={() => setShowAdd(false)}
             action={createCustomerAction}
             submitLabel="追加する"
@@ -553,7 +580,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} members={members} />
+                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} members={members} allCustomers={customers} />
                 ))}
               </tbody>
             </table>
@@ -562,7 +589,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
           {/* モバイル：カード */}
           <div className="md:hidden space-y-2">
             {filtered.map((c) => (
-              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} members={members} />
+              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} members={members} allCustomers={customers} />
             ))}
           </div>
         </>
@@ -583,6 +610,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
         <BottomSheet title="新しい顧客" onClose={() => setShowAdd(false)} scrollable>
           <CustomerForm
             members={members}
+            allCustomers={customers}
             onClose={() => setShowAdd(false)}
             action={createCustomerAction}
             submitLabel="追加する"

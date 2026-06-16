@@ -7,8 +7,9 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
-import { buildInvoice, ISSUER, BANK_INFO } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice, ISSUER, BANK_INFO } from "@/lib/invoices";
 import { PrintButton } from "./print-button";
+import { EditableBillingName } from "./editable-name";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,10 @@ function monthLabel(month: string) {
   const [y, m] = month.split("-");
   return `${y}年${parseInt(m, 10)}月`;
 }
-// 支払期限 = 対象月の翌々月末日（例: 6月分 → 8月末）。請求発行が翌月のため余裕を持たせる
+// 支払期限 = 対象月の翌月10日（例: 6月分 → 7月10日）
 function dueDateLabel(month: string) {
   const [y, m] = month.split("-").map((s) => parseInt(s, 10));
-  const due = new Date(y, m + 1, 0); // m は1始まり → m+1月の0日 = m+1月末… JSは0始まりなので (m) が翌月、(m+1,0)が翌月末
+  const due = new Date(y, m, 10); // m は1始まり → JS(0始まり)では m が翌月。翌月10日
   return `${due.getFullYear()}年${due.getMonth() + 1}月${due.getDate()}日`;
 }
 
@@ -45,12 +46,16 @@ export default async function InvoicePrintPage({
     getAllPlans(),
   ]);
 
-  const customer = customers.find((c) => c.id === customerId);
-  if (!customer) notFound();
+  // まとめ先(biller)のグループを解決（指定IDがまとめられる側でも、その請求先グループを表示）
+  const groups = billingGroups(customers);
+  const group = groups.find((g) => g.biller.id === customerId)
+    ?? groups.find((g) => g.members.some((m) => m.id === customerId));
+  if (!group) notFound();
+  const customer = group.biller;
 
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
-  const invoice = buildInvoice(customer, month, { plans, passes, lessons }, singleFee);
+  const invoice = buildGroupInvoice(customer, group.members, month, { plans, passes, lessons }, singleFee);
   const invoiceNo = `INV-${month.replace("-", "")}-${customer.id.slice(0, 6).toUpperCase()}`;
 
   return (
@@ -70,9 +75,7 @@ export default async function InvoicePrintPage({
         <div className="flex justify-between items-start gap-6 mb-8">
           {/* 宛先 */}
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-bold text-gray-900 border-b border-gray-400 pb-1 inline-block">
-              {customer.fullName} 様
-            </p>
+            <EditableBillingName customerId={customer.id} name={invoice.customerName} />
             {customer.address && <p className="text-xs text-gray-500 mt-2 whitespace-pre-wrap">{customer.address}</p>}
           </div>
           {/* 発行元 */}

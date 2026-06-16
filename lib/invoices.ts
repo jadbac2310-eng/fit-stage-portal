@@ -3,19 +3,19 @@ import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
 
-// ─── 発行元・振込先（仮。確定したら差し替え） ───────────────
+// ─── 発行元・振込先 ───────────────────────────────────────
 export const ISSUER = {
   name: "FIT STAGE",
-  address: "〒000-0000 ○○県○○市○○ 0-0-0",
-  tel: "TEL: 000-0000-0000",
-  email: "info@example.com",
+  address: "大阪府吹田市豊津町5-28\nドムス江坂II - A",
+  tel: "TEL: 070-2397-1822",
+  email: "fitstage.000@gmail.com",
 };
 
 export const BANK_INFO = {
-  bankName: "○○銀行 ○○支店",
+  bankName: "池田泉州銀行 桃山台支店",
   accountType: "普通",
-  accountNumber: "0000000",
-  accountHolder: "カ）フィットステージ",
+  accountNumber: "191119",
+  accountHolder: "フィットステージ　サカネナオキ",
 };
 
 // ─── 請求データ ──────────────────────────────────────────
@@ -83,4 +83,54 @@ export function buildInvoice(
   lines.sort((a, b) => a.date.localeCompare(b.date));
   const total = lines.reduce((s, l) => s + l.amount, 0);
   return { customerId: customer.id, customerName: customer.fullName, month, lines, total };
+}
+
+/**
+ * 請求のまとめ先を解決し、「請求書を発行する顧客(biller)」ごとに対象顧客をグループ化する。
+ * billingToCustomerId を辿って最終的な請求先を求める（循環・欠落は安全に打ち切り）。
+ */
+export function billingGroups(customers: Customer[]): { biller: Customer; members: Customer[] }[] {
+  const byId = new Map(customers.map((c) => [c.id, c]));
+  const groups = new Map<string, Customer[]>();
+
+  for (const c of customers) {
+    let biller = c;
+    const seen = new Set<string>([c.id]);
+    while (biller.billingToCustomerId && byId.has(biller.billingToCustomerId) && !seen.has(biller.billingToCustomerId)) {
+      seen.add(biller.billingToCustomerId);
+      biller = byId.get(biller.billingToCustomerId)!;
+    }
+    if (!groups.has(biller.id)) groups.set(biller.id, []);
+    groups.get(biller.id)!.push(c);
+  }
+
+  return Array.from(groups.entries()).map(([id, members]) => ({ biller: byId.get(id)!, members }));
+}
+
+/** 請求宛名（上書きがあればそれを使う） */
+export function billingName(c: Customer): string {
+  return c.billingName?.trim() || c.fullName;
+}
+
+/**
+ * まとめ先(biller)の請求書を、グループ内の全顧客の明細を合算して組み立てる。
+ * 別顧客の明細には「氏名: 品目」と前置して区別する。
+ */
+export function buildGroupInvoice(
+  biller: Customer,
+  members: Customer[],
+  month: string,
+  data: { plans: CustomerPlanRecord[]; passes: SessionPass[]; lessons: Lesson[] },
+  singleSessionFee = 0,
+): CustomerInvoice {
+  const lines: InvoiceLine[] = [];
+  for (const c of members) {
+    const inv = buildInvoice(c, month, data, singleSessionFee);
+    for (const l of inv.lines) {
+      lines.push({ ...l, label: c.id === biller.id ? l.label : `${c.fullName}：${l.label}` });
+    }
+  }
+  lines.sort((a, b) => a.date.localeCompare(b.date));
+  const total = lines.reduce((s, l) => s + l.amount, 0);
+  return { customerId: biller.id, customerName: billingName(biller), month, lines, total };
 }

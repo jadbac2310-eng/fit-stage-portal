@@ -4,7 +4,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
-import { buildInvoice } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice } from "@/lib/invoices";
 import { InvoicesClient } from "./invoices-client";
 
 export const dynamic = "force-dynamic";
@@ -44,8 +44,8 @@ export default async function InvoicesPage({
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
 
-  const invoices = customers
-    .map((c) => buildInvoice(c, month, { plans, passes, lessons }, singleFee))
+  const invoices = billingGroups(customers)
+    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons }, singleFee))
     .filter((inv) => inv.total > 0)
     .sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
 

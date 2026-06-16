@@ -13,6 +13,8 @@ type DbRow = {
   desired_start_date: string | null;
   single_session_price: number | null;
   sales_member_id: string | null;
+  billing_name: string | null;
+  billing_to_customer_id: string | null;
   agreed_to_terms: boolean;
   electronic_signature: string | null;
   status: CustomerStatus;
@@ -33,6 +35,8 @@ function fromDb(row: DbRow): Customer {
     desiredStartDate: row.desired_start_date ?? undefined,
     singleSessionPrice: row.single_session_price ?? undefined,
     salesMemberId:    row.sales_member_id ?? undefined,
+    billingName:      row.billing_name ?? undefined,
+    billingToCustomerId: row.billing_to_customer_id ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
     customerType:     row.customer_type ?? "individual",
@@ -97,6 +101,8 @@ export async function updateCustomer(
     desiredStartDate: string;
     singleSessionPrice: number | null;
     salesMemberId: string | null;
+    billingName: string | null;
+    billingToCustomerId: string | null;
     agreedToTerms: boolean;
     status: CustomerStatus;
     customerType: CustomerType;
@@ -112,17 +118,21 @@ export async function updateCustomer(
   if (input.desiredStartDate !== undefined) patch.desired_start_date = input.desiredStartDate;
   if (input.singleSessionPrice !== undefined) patch.single_session_price = input.singleSessionPrice ?? null;
   if (input.salesMemberId    !== undefined) patch.sales_member_id    = input.salesMemberId ?? null;
+  if (input.billingName      !== undefined) patch.billing_name       = input.billingName ?? null;
+  if (input.billingToCustomerId !== undefined) patch.billing_to_customer_id = input.billingToCustomerId ?? null;
   if (input.agreedToTerms    !== undefined) patch.agreed_to_terms    = input.agreedToTerms;
   if (input.status           !== undefined) patch.status             = input.status;
   if (input.customerType     !== undefined) patch.customer_type      = input.customerType;
   if (input.note             !== undefined) patch.note               = input.note ?? null;
 
-  const { data, error } = await createAdminClient()
-    .from("customers")
-    .update(patch)
-    .eq("id", id)
-    .select()
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("customers").update(patch).eq("id", id).select().single();
+  // 請求カラム（billing_*）が未適用の環境では、それらを外して再試行
+  if (error && /billing_(name|to_customer_id)/i.test(error.message ?? "")) {
+    const { billing_name, billing_to_customer_id, ...rest } = patch;
+    void billing_name; void billing_to_customer_id;
+    ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

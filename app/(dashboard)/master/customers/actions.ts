@@ -38,11 +38,14 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   const sspRaw           = (formData.get("singleSessionPrice") as string)?.trim();
   const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : null;
   const salesMemberId    = (formData.get("salesMemberId")   as string)?.trim() || null;
+  const billingName      = (formData.get("billingName")    as string)?.trim() || null;
+  const billingToCustomerId = (formData.get("billingToCustomerId") as string)?.trim() || null;
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId });
+  await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, billingName, billingToCustomerId });
   revalidatePath("/master/customers");
+  revalidatePath("/invoices");
 }
 
 export async function updateCustomerStatusAction(id: string, status: CustomerStatus) {

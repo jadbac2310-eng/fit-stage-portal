@@ -13,6 +13,8 @@ export interface Customer {
   desiredStartDate?: string;
   singleSessionPrice?: number;  // 都度プランの単価（顧客ごと・管理者入力）
   salesMemberId?: string;       // 担当営業（members.id）
+  billingName?: string;         // 請求書の宛名（上書き。未設定なら fullName）
+  billingToCustomerId?: string; // 請求のまとめ先（この顧客分を別顧客に請求する）
   agreedToTerms: boolean;
   status: CustomerStatus;
   customerType: CustomerType;
