@@ -349,13 +349,12 @@ function keyToYmd(key: string): string {
 
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
 function CalendarView({
-  items, isAdmin, currentMemberId, onEditPersonal, onAddOnDate,
+  items, isAdmin, currentMemberId, onEditPersonal,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
-  onAddOnDate?: (ymd: string) => void;
 }) {
   const [cursor, setCursor] = useState(() => {
     const t = new Date();
@@ -487,20 +486,11 @@ function CalendarView({
 
       {/* 選択日の詳細 */}
       <div className="mt-5">
-        <div className="flex items-center gap-2 px-1 mb-2">
+        <div className="flex items-baseline gap-2 px-1 mb-2">
           <span className="text-sm font-bold text-gray-700">
             {selectedKey ? fullDateStr(keyToYmd(selectedKey) + "T00:00:00+09:00") : "日付を選択"}
           </span>
-          {selectedItems.length > 0 && <span className="text-xs text-gray-300">{selectedItems.length}件</span>}
-          {selectedKey && onAddOnDate && (
-            <button
-              type="button"
-              onClick={() => onAddOnDate(keyToYmd(selectedKey))}
-              className="ml-auto flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg px-2.5 py-1.5 transition"
-            >
-              <Plus size={13} /> 予定を追加
-            </button>
-          )}
+          {selectedItems.length > 0 && <span className="text-xs text-gray-300 ml-auto">{selectedItems.length}件</span>}
         </div>
         {selectedItems.length === 0 ? (
           <div className="text-center py-10 text-sm text-gray-400">この日の予定はありません</div>
@@ -852,7 +842,7 @@ export function ScheduleClient({
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit} onAddOnDate={openCreate} />
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} />
       ) : (
         <>
       {/* 次の予定ハイライト */}
