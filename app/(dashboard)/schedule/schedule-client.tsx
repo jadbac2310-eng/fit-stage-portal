@@ -441,11 +441,11 @@ function CalendarView({
       </div>
 
       {/* 曜日ヘッダー */}
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 mb-1.5">
         {WD.map((w, i) => (
           <div key={w} className={cn(
-            "text-center text-[11px] font-semibold py-1",
-            i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-gray-400"
+            "text-center text-xs font-bold py-1.5",
+            i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-600"
           )}>{w}</div>
         ))}
       </div>
@@ -463,22 +463,24 @@ function CalendarView({
               key={k}
               onClick={() => setSelectedKey(k)}
               className={cn(
-                "min-h-[64px] md:min-h-[84px] rounded-lg border p-1 text-left flex flex-col gap-0.5 transition",
-                isSelected ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50/40" : "border-gray-100 hover:border-gray-300",
-                !inMonth && "opacity-40"
+                "min-h-[64px] md:min-h-[88px] rounded-lg border p-1 text-left flex flex-col gap-0.5 transition",
+                isSelected ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50"
+                  : inMonth ? "bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/40"
+                            : "bg-gray-50 border-gray-100"
               )}
             >
               <span className={cn(
-                "text-[11px] font-semibold w-5 h-5 flex items-center justify-center rounded-full",
+                "text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full",
                 isToday ? "bg-blue-600 text-white" :
-                d.getDay() === 0 ? "text-red-400" : d.getDay() === 6 ? "text-blue-400" : "text-gray-600"
+                !inMonth ? "text-gray-300" :
+                d.getDay() === 0 ? "text-red-500" : d.getDay() === 6 ? "text-blue-500" : "text-gray-700"
               )}>{d.getDate()}</span>
               <div className="flex flex-col gap-0.5 min-w-0">
                 {dayItems.slice(0, 3).map((it) => (
                   <span
                     key={`${it.type}-${it.id}`}
                     className={cn(
-                      "text-[9px] leading-tight px-1 py-0.5 rounded truncate",
+                      "text-[9px] font-medium leading-tight px-1 py-0.5 rounded truncate",
                       it.status === "cancelled" ? "bg-gray-100 text-gray-400 line-through" :
                       it.type === "personal" ? COLOR_MAP[it.color ?? "blue"].chip :
                       it.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
@@ -488,7 +490,7 @@ function CalendarView({
                   </span>
                 ))}
                 {dayItems.length > 3 && (
-                  <span className="text-[9px] text-gray-400 px-1">+{dayItems.length - 3}件</span>
+                  <span className="text-[9px] font-semibold text-gray-500 px-1">+{dayItems.length - 3}件</span>
                 )}
               </div>
             </button>
