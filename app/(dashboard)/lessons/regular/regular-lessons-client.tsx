@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
@@ -157,6 +157,22 @@ export function LessonForm({
     }
   }
 
+  // 場所の入力候補: 選択中の顧客が過去に使った場所（無ければ全体）＋レンタルジム名。手入力も可。
+  const locationListId = useId();
+  const locationHistory = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of allLessons) {
+      if (!l.location) continue;
+      if (selectedCustomerId && l.customerId !== selectedCustomerId) continue;
+      set.add(l.location);
+    }
+    if (set.size === 0) {
+      for (const l of allLessons) if (l.location) set.add(l.location);
+    }
+    for (const g of rentalGyms) set.add(g.name);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [allLessons, selectedCustomerId, rentalGyms]);
+
   const suggestion = useMemo(
     () => selectedCustomerId && scheduledDate
       ? computeSuggestion(selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id)
@@ -272,7 +288,10 @@ export function LessonForm({
 
       <div>
         <label className={labelClass}><MapPin size={12} /> 場所</label>
-        <input name="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="FIT STAGE 渋谷店" className={inputClass} />
+        <input name="location" list={locationListId} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="過去の場所から選択 or 入力" className={inputClass} />
+        <datalist id={locationListId}>
+          {locationHistory.map((loc) => <option key={loc} value={loc} />)}
+        </datalist>
       </div>
 
       {/* レンタルジム */}

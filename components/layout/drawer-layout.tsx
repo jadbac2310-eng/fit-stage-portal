@@ -66,7 +66,8 @@ export function DrawerLayout({
           avatarUrl={avatarUrl}
           onMenuOpen={() => setOpen(true)}
         />
-        <main className="flex-1">{children}</main>
+        {/* 下部の＋ボタン(FAB)に最下部コンテンツが隠れないよう余白を確保（モバイル） */}
+        <main className="flex-1 pb-24 md:pb-0">{children}</main>
       </div>
     </div>
   );
