@@ -195,8 +195,8 @@ function CustomerDetail({ name, lessons, canEditLesson, pastExerciseNames, onBac
       </div>
 
       <div className="space-y-3">
-        {sorted.map((l, i) => (
-          <LessonCard key={l.id} lesson={l} canEdit={canEditLesson(l)} pastExerciseNames={pastExerciseNames} defaultOpen={i === 0} />
+        {sorted.map((l) => (
+          <LessonCard key={l.id} lesson={l} canEdit={canEditLesson(l)} pastExerciseNames={pastExerciseNames} />
         ))}
       </div>
     </div>
