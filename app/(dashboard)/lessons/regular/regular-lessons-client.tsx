@@ -288,10 +288,32 @@ export function LessonForm({
 
       <div>
         <label className={labelClass}><MapPin size={12} /> 場所</label>
-        <input name="location" list={locationListId} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="過去の場所から選択 or 入力" className={inputClass} />
+        <input name="location" list={locationListId} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="場所を入力（または下から選択）" className={inputClass} />
         <datalist id={locationListId}>
           {locationHistory.map((loc) => <option key={loc} value={loc} />)}
         </datalist>
+        {locationHistory.length > 0 && (
+          <div className="mt-2">
+            <p className="text-[11px] text-gray-400 mb-1">よく使う場所（タップで入力）</p>
+            <div className="flex flex-wrap gap-1.5">
+              {locationHistory.slice(0, 12).map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  onClick={() => setLocation(loc)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs border transition",
+                    location === loc
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
+                  )}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* レンタルジム */}
