@@ -20,6 +20,7 @@ const TOOL_LABELS: Record<string, string> = {
   list_lessons: "レッスンを集計",
   get_commissions: "歩合を集計",
   list_members: "担当者を取得",
+  get_member_activity: "担当者の稼働を集計",
   get_activity_logs: "操作ログを確認",
 };
 const TOOL_ICONS: Record<string, React.ReactNode> = {
@@ -29,6 +30,7 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   list_lessons: <Dumbbell size={12} />,
   get_commissions: <PiggyBank size={12} />,
   list_members: <Users size={12} />,
+  get_member_activity: <History size={12} />,
   get_activity_logs: <History size={12} />,
 };
 

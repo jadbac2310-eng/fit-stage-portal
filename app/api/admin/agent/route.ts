@@ -27,15 +27,24 @@ function thisMonth(): string {
 }
 
 const SYSTEM = `あなたはFIT STAGE（パーソナルジム）の管理者向けデータアシスタントです。
-管理者の質問に対し、ツールで社内データ（顧客・レッスン・売上・歩合・操作ログなど）を読み取って、日本語で簡潔かつ正確に答えます。
+管理者の質問に対し、ツールで社内データを読み取って、日本語で簡潔かつ正確に答えます。
+
+## データの構造
+- 「担当者（スタッフ）」= トレーナー・営業などの社員。氏名で扱う（例: 坂根尚樹）。list_members / get_member_activity / get_commissions / get_activity_logs で調べる。
+- 「顧客（会員）」= サービスを受けるお客様。list_customers / get_customer で調べる。
+- 担当者と顧客は別物。人名が出たら、文脈から担当者か顧客かを判断し、該当するツールで調べること。
+
+## 最重要: 必ず自分で調べてから答える
+- どんな質問でも、まずツールでデータを取得してから答える。**推測や「登録されていないかも」で即答しない。**
+- 1つのツールで分からなければ、別の角度から複数のツールを使って調べる。例: 氏名が部分一致しないときは list_members で正式な氏名を確認してから再検索する。
+- 「○○はサボってる？」のような評価・稼働の質問は、get_member_activity でその担当者の今月のレッスン数・完了/予定/キャンセル・直近の活動・最終ログインなどを取得し、**客観的な数字を提示して判断材料を示す**（主観的に断定しない）。
+- データを調べても本当に該当が無い場合のみ、何を調べたかを述べた上でその旨を伝える。
 
 ## ルール
-- 数字や事実はツールで取得したデータのみに基づいて答え、推測で値を作らないこと。
+- 数字や事実はツールで取得したデータのみに基づき、値を捏造しない。
 - 月の指定がない場合は今月（${thisMonth()}）を対象にする。「先月」などは適切な YYYY-MM に変換する。
-- 金額は「¥1,234,567」の形式で表示する。
-- これは閲覧専用アシスタントです。データの作成・編集・削除はできません。依頼された場合はその旨を伝え、該当画面を案内する。
-- 必要なデータだけを取得し、回答は要点を先に述べる。表が役立つ場合は簡潔な表で示す。
-- 個人情報（顧客のメール・電話・生年月日など）は質問に必要な範囲でのみ扱う。
+- 金額は「¥1,234,567」の形式。回答は要点を先に、必要なら簡潔な表で。
+- これは閲覧専用です。作成・編集・削除はできません。依頼時はその旨を伝え、該当画面を案内する。
 
 今日の日付: ${new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}`;
 
@@ -97,6 +106,18 @@ const TOOLS: Anthropic.Tool[] = [
     name: "list_members",
     description: "担当者（スタッフ）の一覧を取得します。",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_member_activity",
+    description: "担当者（スタッフ）の稼働状況をまとめて取得します。指定月の担当レッスン数（完了/予定/キャンセル）・直近の担当レッスン・体験レッスン・歩合・最終ログイン・直近の操作履歴を返します。「○○はサボってる？」「○○の稼働は？」等に使う。",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "担当者の氏名（部分一致可）" },
+        month: { type: "string", description: "対象月 YYYY-MM（省略時は今月）" },
+      },
+      required: ["name"],
+    },
   },
   {
     name: "get_activity_logs",
@@ -234,6 +255,49 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
       case "list_members": {
         const members = await getMembers();
         return JSON.stringify(members.map((m) => ({ id: m.id, name: m.name, role: m.role, isAdmin: m.isAdmin })));
+      }
+      case "get_member_activity": {
+        const nm = (input.name as string)?.trim();
+        const month = (input.month as string) || thisMonth();
+        const [{ ctx, lessons, trialLessons }, members, logs] = await Promise.all([
+          buildCtx(), getMembers(), getActivityLogs({ limit: 500 }),
+        ]);
+        const member = members.find((m) => m.name.includes(nm)) ?? members.find((m) => nm.includes(m.name));
+        if (!member) {
+          return JSON.stringify({ error: "担当者が見つかりません", availableMembers: members.map((m) => m.name) });
+        }
+        const myLessons = lessons.filter((l) => l.trainerMemberId === member.id);
+        const monthLessons = myLessons.filter((l) => isoToMonth(l.scheduledAt) === month);
+        const completed = lessons.filter((l) => l.status === "completed");
+        const contractedTrials = trialLessons.filter((t) => t.contracted === true);
+        const trainerComm = buildTrainerEntries(completed, month, ctx).find((e) => e.memberId === member.id);
+        const salesComm = buildSalesEntries(completed, contractedTrials, month, ctx).find((e) => e.memberId === member.id);
+        const myTrials = trialLessons.filter(
+          (t) => (t.trainerMemberId === member.id || t.salesMemberId === member.id) && isoToMonth(t.scheduledAt) === month,
+        );
+        const myLogs = logs.filter((l) => l.memberId === member.id);
+        const lastLogin = myLogs.find((l) => l.action === "login")?.createdAt;
+        return JSON.stringify({
+          name: member.name,
+          role: member.role,
+          month,
+          monthLessons: {
+            total: monthLessons.length,
+            completed: monthLessons.filter((l) => l.status === "completed").length,
+            scheduled: monthLessons.filter((l) => l.status === "scheduled").length,
+            cancelled: monthLessons.filter((l) => l.status === "cancelled").length,
+          },
+          totalLessonsAllTime: myLessons.length,
+          recentLessons: myLessons
+            .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))
+            .slice(0, 5)
+            .map((l) => ({ date: l.scheduledAt.slice(0, 16).replace("T", " "), customer: l.customerName, status: l.status, course: l.course })),
+          trialLessonsThisMonth: myTrials.length,
+          commissionThisMonth: yen((trainerComm?.total ?? 0) + (salesComm?.total ?? 0)),
+          lastLoginAt: lastLogin ? lastLogin.slice(0, 16).replace("T", " ") : "記録なし",
+          recentActivity: myLogs.slice(0, 8).map((l) => ({ at: l.createdAt.slice(0, 16).replace("T", " "), action: l.action, summary: l.summary })),
+          note: "稼働の評価は上記の客観データに基づいて判断材料を提示すること。直近に予定中のレッスンや活動があるかも確認する。",
+        });
       }
       case "get_activity_logs": {
         const member = (input.member as string)?.trim();
