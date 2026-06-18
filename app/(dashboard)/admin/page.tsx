@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, PiggyBank, Receipt, LineChart, History } from "lucide-react";
+import { ArrowRight, PiggyBank, Receipt, LineChart, History, Bot } from "lucide-react";
 import { getCurrentIsAdmin } from "@/lib/members";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,20 @@ export default async function AdminPage() {
       </div>
 
       <div className="space-y-2">
+        <Link
+          href="/admin/assistant"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Bot size={20} className="text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">データアシスタント</p>
+            <p className="text-xs text-gray-500 mt-0.5">売上・顧客・歩合などをAIに質問（閲覧専用）</p>
+          </div>
+          <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+        </Link>
+
         <Link
           href="/admin/dashboard"
           className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
