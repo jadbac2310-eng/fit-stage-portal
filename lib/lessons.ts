@@ -3,6 +3,7 @@ export type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
 export { LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "./lessons-types";
 import type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
 import { parseExercises, type Exercise } from "./exercise-types";
+import { currentMemberId } from "./audit";
 
 type DbRow = {
   id: string;
@@ -21,6 +22,7 @@ type DbRow = {
   rental_gym_id: string | null;
   rental_gym_fee: number | null;
   created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
   customers: { full_name: string } | null;
@@ -49,6 +51,7 @@ function fromDb(row: DbRow): Lesson {
     rentalGymFee:      row.rental_gym_fee ?? undefined,
     createdById:       row.created_by ?? undefined,
     createdByName:     row.created_by_member?.name ?? undefined,
+    updatedById:       row.updated_by ?? undefined,
     createdAt:         row.created_at,
     updatedAt:         row.updated_at,
   };
@@ -58,10 +61,10 @@ const SELECT = "*, customers(full_name), trainer_member:members!trainer_member_i
 // created_by 列が未追加（マイグレーション未適用）の環境でも動くフォールバック
 const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_member_id(name)";
 
-// 後から追加した任意列（created_by / rental_gym_*）が未適用のときのエラーか
+// 後から追加した任意列（created_by / updated_by / rental_gym_*）が未適用のときのエラーか
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /created_by|rental_gym/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
+  return /created_by|updated_by|rental_gym/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
 export async function getLessons(): Promise<Lesson[]> {
@@ -159,13 +162,14 @@ export async function updateLesson(
   if (input.note               !== undefined) patch.note                 = input.note;
   if (input.rentalGymId        !== undefined) patch.rental_gym_id        = input.rentalGymId;
   if (input.rentalGymFee       !== undefined) patch.rental_gym_fee       = input.rentalGymFee;
+  patch.updated_by = (await currentMemberId()) ?? null;
 
   const client = createAdminClient();
   let { data, error } = await client.from("lessons").update(patch).eq("id", id).select(SELECT).single();
-  // rental_gym_* 列が未適用の環境では、それらを外して再試行
+  // 後付けの任意列が未適用の環境では、それらを外して再試行
   if (error && isMissingOptionalColumn(error)) {
-    const { rental_gym_id, rental_gym_fee, ...rest } = patch;
-    void rental_gym_id; void rental_gym_fee;
+    const { rental_gym_id, rental_gym_fee, updated_by, ...rest } = patch;
+    void rental_gym_id; void rental_gym_fee; void updated_by;
     ({ data, error } = await client.from("lessons").update(rest).eq("id", id).select(SELECT_LEGACY).single());
   }
   if (error) throw error;

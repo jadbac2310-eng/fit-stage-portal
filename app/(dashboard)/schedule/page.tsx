@@ -38,6 +38,7 @@ export default async function SchedulePage() {
   ]);
 
   const items: ScheduleItem[] = [];
+  const nameOf = (id?: string) => (id ? members.find((m) => m.id === id)?.name : undefined);
 
   // 通常レッスン（全件）
   for (const l of lessons) {
@@ -52,7 +53,10 @@ export default async function SchedulePage() {
       trainerId: l.trainerMemberId,
       trainerName: l.trainerMemberName,
       createdById: l.createdById,
-      createdByName: l.createdByName,
+      createdByName: l.createdByName ?? nameOf(l.createdById),
+      createdAt: l.createdAt,
+      updatedByName: nameOf(l.updatedById),
+      updatedAt: l.updatedAt,
       note: l.note,
       exercises: l.exercises,
     });
@@ -71,6 +75,10 @@ export default async function SchedulePage() {
       trainerName: t.trainerMemberName,
       salesId: t.salesMemberId,
       salesName: t.salesMemberName,
+      createdByName: nameOf(t.createdById),
+      createdAt: t.createdAt,
+      updatedByName: nameOf(t.updatedById),
+      updatedAt: t.updatedAt,
       note: t.note,
       exercises: t.exercises,
       customerImpression: t.customerImpression,
@@ -93,6 +101,10 @@ export default async function SchedulePage() {
       status: "scheduled",
       ownerId: e.memberId,
       ownerName: e.memberName,
+      createdByName: e.memberName,
+      createdAt: e.createdAt,
+      updatedByName: nameOf(e.updatedById),
+      updatedAt: e.updatedAt,
     });
   }
 

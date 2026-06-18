@@ -8,6 +8,8 @@ export interface SessionPass {
   purchasedAt: string;
   expiredAt?: string;
   note?: string;
+  createdById?: string;
+  updatedById?: string;
   createdAt: string;
   updatedAt: string;
 }

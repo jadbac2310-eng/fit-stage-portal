@@ -15,6 +15,8 @@ export interface CustomerPlanRecord {
   startedAt: string;
   endedAt?: string;
   note?: string;
+  createdById?: string;
+  updatedById?: string;
   createdAt: string;
   updatedAt: string;
 }

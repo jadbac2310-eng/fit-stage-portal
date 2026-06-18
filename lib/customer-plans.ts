@@ -2,6 +2,7 @@ import { createAdminClient } from "./supabase";
 export type { ContractPlan, CustomerPlanRecord } from "./customer-plans-types";
 export { CONTRACT_PLAN_LABEL, plansOverlap } from "./customer-plans-types";
 import type { ContractPlan, CustomerPlanRecord } from "./customer-plans-types";
+import { currentMemberId, isMissingAuthorColumn } from "./audit";
 
 type DbRow = {
   id: string;
@@ -12,6 +13,8 @@ type DbRow = {
   started_at: string;
   ended_at: string | null;
   note: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -26,6 +29,8 @@ function fromDb(row: DbRow): CustomerPlanRecord {
     startedAt:  row.started_at,
     endedAt:    row.ended_at ?? undefined,
     note:       row.note ?? undefined,
+    createdById: row.created_by ?? undefined,
+    updatedById: row.updated_by ?? undefined,
     createdAt:  row.created_at,
     updatedAt:  row.updated_at,
   };
@@ -59,19 +64,21 @@ export async function addCustomerPlan(input: {
   endedAt?: string;
   note?: string;
 }): Promise<CustomerPlanRecord> {
-  const { data, error } = await createAdminClient()
-    .from("customer_plans")
-    .insert({
-      customer_id:  input.customerId,
-      plan:         input.plan,
-      price:        input.price ?? null,
-      purchased_at: input.purchasedAt ?? input.startedAt,
-      started_at:   input.startedAt,
-      ended_at:     input.endedAt ?? null,
-      note:         input.note ?? null,
-    })
-    .select()
-    .single();
+  const client = createAdminClient();
+  const base = {
+    customer_id:  input.customerId,
+    plan:         input.plan,
+    price:        input.price ?? null,
+    purchased_at: input.purchasedAt ?? input.startedAt,
+    started_at:   input.startedAt,
+    ended_at:     input.endedAt ?? null,
+    note:         input.note ?? null,
+  };
+  const creator = (await currentMemberId()) ?? null;
+  let { data, error } = await client.from("customer_plans").insert({ ...base, created_by: creator, updated_by: creator }).select().single();
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("customer_plans").insert(base).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }
@@ -94,13 +101,15 @@ export async function updateCustomerPlan(
   if (input.startedAt   !== undefined) patch.started_at   = input.startedAt;
   if (input.endedAt     !== undefined) patch.ended_at     = input.endedAt;
   if (input.note        !== undefined) patch.note         = input.note;
+  patch.updated_by = (await currentMemberId()) ?? null;
 
-  const { data, error } = await createAdminClient()
-    .from("customer_plans")
-    .update(patch)
-    .eq("id", id)
-    .select()
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("customer_plans").update(patch).eq("id", id).select().single();
+  if (error && isMissingAuthorColumn(error)) {
+    const { updated_by, ...rest } = patch;
+    void updated_by;
+    ({ data, error } = await client.from("customer_plans").update(rest).eq("id", id).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

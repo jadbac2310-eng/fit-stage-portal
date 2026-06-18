@@ -2,6 +2,7 @@ import { createAdminClient } from "./supabase";
 import { normalizeColor, type EventColor, type PersonalEvent } from "./personal-events-types";
 export type { PersonalEvent, EventColor } from "./personal-events-types";
 export { EVENT_COLORS, normalizeColor } from "./personal-events-types";
+import { currentMemberId, isMissingAuthorColumn } from "./audit";
 
 type DbRow = {
   id:         string;
@@ -13,6 +14,7 @@ type DbRow = {
   location:   string | null;
   memo:       string | null;
   color:      string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
   member: { name: string } | null;
@@ -30,6 +32,7 @@ function fromDb(row: DbRow): PersonalEvent {
     location:   row.location ?? undefined,
     memo:       row.memo ?? undefined,
     color:      normalizeColor(row.color),
+    updatedById: row.updated_by ?? undefined,
     createdAt:  row.created_at,
     updatedAt:  row.updated_at,
   };
@@ -108,13 +111,15 @@ export async function updatePersonalEvent(
   if (input.location !== undefined) patch.location = input.location;
   if (input.memo     !== undefined) patch.memo     = input.memo;
   if (input.color    !== undefined) patch.color    = input.color;
+  patch.updated_by = (await currentMemberId()) ?? null;
 
-  const { data, error } = await createAdminClient()
-    .from("personal_events")
-    .update(patch)
-    .eq("id", id)
-    .select(SELECT)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("personal_events").update(patch).eq("id", id).select(SELECT).single();
+  if (error && isMissingAuthorColumn(error)) {
+    const { updated_by, ...rest } = patch;
+    void updated_by;
+    ({ data, error } = await client.from("personal_events").update(rest).eq("id", id).select(SELECT).single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

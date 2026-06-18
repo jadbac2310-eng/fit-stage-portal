@@ -4,6 +4,7 @@ export type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 export { STATUS_LABEL, CONTRACT_LABEL } from "./trial-lessons-types";
 import type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 import { parseExercises, type Exercise } from "./exercise-types";
+import { currentMemberId, isMissingAuthorColumn } from "./audit";
 
 type DbRow = {
   id: string;
@@ -19,6 +20,8 @@ type DbRow = {
   customer_impression: string | null;
   exercises: unknown;
   note: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
   customers: { full_name: string } | null;
@@ -44,6 +47,8 @@ function fromDb(row: DbRow): TrialLesson {
     customerImpression:  row.customer_impression ?? undefined,
     exercises:           parseExercises(row.exercises),
     note:                row.note ?? undefined,
+    createdById:         row.created_by ?? undefined,
+    updatedById:         row.updated_by ?? undefined,
     createdAt:           row.created_at,
     updatedAt:           row.updated_at,
   };
@@ -78,20 +83,22 @@ export async function addTrialLesson(input: {
   location?: string;
   note?: string;
 }): Promise<TrialLesson> {
-  const { data, error } = await createAdminClient()
-    .from("trial_lessons")
-    .insert({
-      customer_id:       input.customerId,
-      sales_member_id:   input.salesMemberId ?? null,
-      trainer_member_id: input.trainerMemberId ?? null,
-      scheduled_at:      input.scheduledAt,
-      location:          input.location ?? null,
-      status:            "scheduled",
-      contracted:        null,
-      note:              input.note ?? null,
-    })
-    .select(SELECT)
-    .single();
+  const client = createAdminClient();
+  const base = {
+    customer_id:       input.customerId,
+    sales_member_id:   input.salesMemberId ?? null,
+    trainer_member_id: input.trainerMemberId ?? null,
+    scheduled_at:      input.scheduledAt,
+    location:          input.location ?? null,
+    status:            "scheduled" as const,
+    contracted:        null,
+    note:              input.note ?? null,
+  };
+  const creator = (await currentMemberId()) ?? null;
+  let { data, error } = await client.from("trial_lessons").insert({ ...base, created_by: creator, updated_by: creator }).select(SELECT).single();
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("trial_lessons").insert(base).select(SELECT).single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }
@@ -126,13 +133,15 @@ export async function updateTrialLesson(
   if (input.exercises           !== undefined) patch.exercises            = input.exercises;
   if (input.customerImpression  !== undefined) patch.customer_impression  = input.customerImpression;
   if (input.note                !== undefined) patch.note                 = input.note;
+  patch.updated_by = (await currentMemberId()) ?? null;
 
-  const { data, error } = await createAdminClient()
-    .from("trial_lessons")
-    .update(patch)
-    .eq("id", id)
-    .select(SELECT)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("trial_lessons").update(patch).eq("id", id).select(SELECT).single();
+  if (error && isMissingAuthorColumn(error)) {
+    const { updated_by, ...rest } = patch;
+    void updated_by;
+    ({ data, error } = await client.from("trial_lessons").update(rest).eq("id", id).select(SELECT).single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

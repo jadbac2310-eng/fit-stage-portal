@@ -6,6 +6,7 @@ import {
   User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Dumbbell,
 } from "lucide-react";
 import { ExerciseEditor } from "@/components/exercise-editor";
+import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL } from "@/lib/trial-lessons-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
@@ -277,6 +278,13 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
             <span>{lesson.note}</span>
           </p>
         )}
+        <AuthorStamp
+          createdByName={members.find((m) => m.id === lesson.createdById)?.name}
+          createdAt={lesson.createdAt}
+          updatedByName={members.find((m) => m.id === lesson.updatedById)?.name}
+          updatedAt={lesson.updatedAt}
+          className="mt-1"
+        />
       </td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{lesson.salesMemberName || <span className="text-gray-300">未割当</span>}</p>
@@ -389,6 +397,12 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
             <span>{lesson.note}</span>
           </p>
         )}
+        <AuthorStamp
+          createdByName={members.find((m) => m.id === lesson.createdById)?.name}
+          createdAt={lesson.createdAt}
+          updatedByName={members.find((m) => m.id === lesson.updatedById)?.name}
+          updatedAt={lesson.updatedAt}
+        />
       </div>
       <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
         {canReport && lesson.status !== "cancelled" && (

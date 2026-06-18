@@ -18,6 +18,7 @@ import { createLessonAction, updateLessonAction, deleteLessonAction, saveLessonR
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { AuthorStamp } from "@/components/ui/author-stamp";
 
 // ─── バッジ ───────────────────────────────────────────
 function CourseBadge({ course }: { course?: string }) {
@@ -157,21 +158,16 @@ export function LessonForm({
     }
   }
 
-  // 場所の入力候補: 選択中の顧客が過去に使った場所（無ければ全体）＋レンタルジム名。手入力も可。
+  // 場所の入力候補: 選択中の顧客が過去に使った場所のみ。手入力も可。
   const locationListId = useId();
   const locationHistory = useMemo(() => {
+    if (!selectedCustomerId) return [];
     const set = new Set<string>();
     for (const l of allLessons) {
-      if (!l.location) continue;
-      if (selectedCustomerId && l.customerId !== selectedCustomerId) continue;
-      set.add(l.location);
+      if (l.customerId === selectedCustomerId && l.location) set.add(l.location);
     }
-    if (set.size === 0) {
-      for (const l of allLessons) if (l.location) set.add(l.location);
-    }
-    for (const g of rentalGyms) set.add(g.name);
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [allLessons, selectedCustomerId, rentalGyms]);
+  }, [allLessons, selectedCustomerId]);
 
   const suggestion = useMemo(
     () => selectedCustomerId && scheduledDate
@@ -608,6 +604,13 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
             )}
           </div>
         )}
+        <AuthorStamp
+          createdByName={lesson.createdByName}
+          createdAt={lesson.createdAt}
+          updatedByName={members.find((m) => m.id === lesson.updatedById)?.name}
+          updatedAt={lesson.updatedAt}
+          className="mt-1.5"
+        />
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         {canReport && lesson.status !== "cancelled" && (

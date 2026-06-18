@@ -24,6 +24,7 @@ export interface Lesson {
   rentalGymFee?: number;       // この回のレンタルジム代（マスタ値がデフォルト・変更可）
   createdById?: string;        // レッスンを追加したメンバー
   createdByName?: string;
+  updatedById?: string;        // 最後に編集したメンバー
   createdAt: string;
   updatedAt: string;
 }

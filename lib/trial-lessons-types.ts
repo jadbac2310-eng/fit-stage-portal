@@ -20,6 +20,8 @@ export interface TrialLesson {
   exercises?: Exercise[];      // レポート: 種目ログ（種目名・重量・回数）
   customerImpression?: string;
   note?: string;
+  createdById?: string;
+  updatedById?: string;
   createdAt: string;
   updatedAt: string;
 }

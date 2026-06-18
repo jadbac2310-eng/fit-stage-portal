@@ -1,6 +1,7 @@
 import { createAdminClient } from "./supabase";
 export type { SessionPass } from "./session-passes-types";
 import type { SessionPass } from "./session-passes-types";
+import { currentMemberId, isMissingAuthorColumn } from "./audit";
 
 type DbRow = {
   id: string;
@@ -12,6 +13,8 @@ type DbRow = {
   purchased_at: string;
   expired_at: string | null;
   note: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -27,6 +30,8 @@ function fromDb(row: DbRow): SessionPass {
     purchasedAt:    row.purchased_at,
     expiredAt:      row.expired_at ?? undefined,
     note:           row.note ?? undefined,
+    createdById:    row.created_by ?? undefined,
+    updatedById:    row.updated_by ?? undefined,
     createdAt:      row.created_at,
     updatedAt:      row.updated_at,
   };
@@ -50,20 +55,22 @@ export async function addSessionPass(input: {
   expiredAt?: string;
   note?: string;
 }): Promise<SessionPass> {
-  const { data, error } = await createAdminClient()
-    .from("session_passes")
-    .insert({
-      customer_id:     input.customerId,
-      total_count:     input.totalCount,
-      remaining_count: input.totalCount,
-      person_count:    input.personCount ?? 1,
-      price:           input.price ?? null,
-      purchased_at:    input.purchasedAt,
-      expired_at:      input.expiredAt ?? null,
-      note:            input.note ?? null,
-    })
-    .select()
-    .single();
+  const client = createAdminClient();
+  const base = {
+    customer_id:     input.customerId,
+    total_count:     input.totalCount,
+    remaining_count: input.totalCount,
+    person_count:    input.personCount ?? 1,
+    price:           input.price ?? null,
+    purchased_at:    input.purchasedAt,
+    expired_at:      input.expiredAt ?? null,
+    note:            input.note ?? null,
+  };
+  const creator = (await currentMemberId()) ?? null;
+  let { data, error } = await client.from("session_passes").insert({ ...base, created_by: creator, updated_by: creator }).select().single();
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("session_passes").insert(base).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }
@@ -83,10 +90,14 @@ export async function updateSessionPass(id: string, input: {
   if (input.purchasedAt !== undefined) patch.purchased_at  = input.purchasedAt;
   if ("expiredAt"  in input)           patch.expired_at    = input.expiredAt ?? null;
   if ("note"       in input)           patch.note          = input.note ?? null;
-  const { error } = await createAdminClient()
-    .from("session_passes")
-    .update(patch)
-    .eq("id", id);
+  patch.updated_by = (await currentMemberId()) ?? null;
+  const client = createAdminClient();
+  let { error } = await client.from("session_passes").update(patch).eq("id", id);
+  if (error && isMissingAuthorColumn(error)) {
+    const { updated_by, ...rest } = patch;
+    void updated_by;
+    ({ error } = await client.from("session_passes").update(rest).eq("id", id));
+  }
   if (error) throw error;
 }
 

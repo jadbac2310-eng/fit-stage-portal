@@ -14,7 +14,9 @@ import {
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
+import { AuthorStamp } from "@/components/ui/author-stamp";
 
+type MemberNames = Record<string, string>;
 // プラン選択時の標準金額（プランマスタ由来）
 type PlanDefault = { name: string; amount: number };
 // 回数券の標準金額 { 人数: { 回数: 金額 } }（プランマスタ由来）
@@ -161,9 +163,9 @@ function PlanForm({
 }
 
 // ─── プラン1件 ────────────────────────────────────────
-function PlanItem({ record, customer, customers, planDefaults, isAdmin }: {
+function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNames }: {
   record: CustomerPlanRecord; customer: Customer; customers: Customer[];
-  planDefaults: PlanDefault[]; isAdmin: boolean;
+  planDefaults: PlanDefault[]; isAdmin: boolean; memberNames: MemberNames;
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -192,6 +194,13 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin }: {
           {record.startedAt} ～ {record.endedAt ?? "現在"}
         </p>
         {record.note && <p className="text-xs text-gray-400 mt-0.5">{record.note}</p>}
+        <AuthorStamp
+          createdByName={record.createdById ? memberNames[record.createdById] : undefined}
+          createdAt={record.createdAt}
+          updatedByName={record.updatedById ? memberNames[record.updatedById] : undefined}
+          updatedAt={record.updatedAt}
+          className="mt-1"
+        />
       </div>
       {isAdmin && (
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -329,8 +338,8 @@ function SessionPassForm({
 }
 
 // ─── 回数券1件 ───────────────────────────────────────
-function SessionPassItem({ pass, sessionPassPriceMap, isAdmin }: {
-  pass: SessionPass; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
+function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
+  pass: SessionPass; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -430,8 +439,15 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin }: {
           残り{pass.remainingCount}回
         </span>
         {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">（使い切り）</span>}
+        <AuthorStamp
+          createdByName={pass.createdById ? memberNames[pass.createdById] : undefined}
+          createdAt={pass.createdAt}
+          updatedByName={pass.updatedById ? memberNames[pass.updatedById] : undefined}
+          updatedAt={pass.updatedAt}
+          className="mt-0.5"
+        />
       </div>
-      <span className="text-gray-400">{pass.purchasedAt}{pass.expiredAt && `～${pass.expiredAt}`}</span>
+      <span className="text-gray-400 self-start">{pass.purchasedAt}{pass.expiredAt && `～${pass.expiredAt}`}</span>
       {isAdmin && (
         <div className="flex items-center gap-0.5">
           <button onClick={() => setEditing(true)}
@@ -453,24 +469,24 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin }: {
 }
 
 // ─── 回数券一覧 ───────────────────────────────────────
-function SessionPassList({ passes, sessionPassPriceMap, isAdmin }: {
-  passes: SessionPass[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
+function SessionPassList({ passes, sessionPassPriceMap, isAdmin, memberNames }: {
+  passes: SessionPass[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
 }) {
   if (passes.length === 0) return <p className="text-xs text-gray-400 py-1">回数券なし</p>;
 
   return (
     <div className="space-y-1.5">
       {passes.map((pass) => (
-        <SessionPassItem key={pass.id} pass={pass} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} />
+        <SessionPassItem key={pass.id} pass={pass} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} memberNames={memberNames} />
       ))}
     </div>
   );
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessionPassPriceMap, isAdmin }: {
+function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessionPassPriceMap, isAdmin, memberNames }: {
   customer: Customer; plans: CustomerPlanRecord[]; passes: SessionPass[]; customers: Customer[];
-  planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
+  planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -529,7 +545,7 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
           ) : (
             plans.map((p) => (
               <PlanItem key={p.id} record={p} customer={customer} customers={customers}
-                planDefaults={planDefaults} isAdmin={isAdmin} />
+                planDefaults={planDefaults} isAdmin={isAdmin} memberNames={memberNames} />
             ))
           )}
 
@@ -554,7 +570,7 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
             <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5 mb-2">
               <Ticket size={12} className="text-amber-500" /> 回数券
             </p>
-            <SessionPassList passes={passes} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} />
+            <SessionPassList passes={passes} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} memberNames={memberNames} />
             {showAddPass ? (
               <div className="mt-2">
                 <SessionPassForm customerId={customer.id} sessionPassPriceMap={sessionPassPriceMap}
@@ -576,9 +592,9 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function PlansClient({ customers, plans, sessionPasses, planDefaults, sessionPassPriceMap, isAdmin }: {
+export function PlansClient({ customers, plans, sessionPasses, planDefaults, sessionPassPriceMap, isAdmin, memberNames = {} }: {
   customers: Customer[]; plans: CustomerPlanRecord[]; sessionPasses: SessionPass[];
-  planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean;
+  planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames?: MemberNames;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -647,7 +663,7 @@ export function PlansClient({ customers, plans, sessionPasses, planDefaults, ses
         {filtered.map(({ customer, plans: ps, passes }) => (
           <CustomerGroup key={customer.id} customer={customer} plans={ps} passes={passes}
             customers={customers} planDefaults={planDefaults} sessionPassPriceMap={sessionPassPriceMap}
-            isAdmin={isAdmin} />
+            isAdmin={isAdmin} memberNames={memberNames} />
         ))}
       </div>
 

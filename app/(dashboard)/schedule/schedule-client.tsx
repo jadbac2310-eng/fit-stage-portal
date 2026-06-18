@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/cn";
 import type { Exercise } from "@/lib/exercise-types";
 import { ExerciseList } from "@/components/exercise-list";
+import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { createPersonalEventAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
 import type { Member } from "@/lib/members";
@@ -43,6 +44,9 @@ export type ScheduleItem = {
   ownerName?: string;
   createdById?: string;
   createdByName?: string;
+  createdAt?: string;
+  updatedByName?: string;
+  updatedAt?: string;
   note?: string;
   exercises?: Exercise[];
   customerImpression?: string;
@@ -282,6 +286,13 @@ function LessonCard({
               <span className="whitespace-pre-wrap">{item.note}</span>
             </DetailRow>
           )}
+          <AuthorStamp
+            createdByName={item.createdByName}
+            createdAt={item.createdAt}
+            updatedByName={item.updatedByName}
+            updatedAt={item.updatedAt}
+            className="mt-2 pt-2 border-t border-gray-50"
+          />
           {canManage && (
             <div className="mt-2 flex gap-2">
               <button
