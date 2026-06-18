@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ClipboardList, Search, ChevronRight, ChevronDown, ArrowLeft, MapPin, User, StickyNote,
-  Dumbbell, Check, CloudOff, Clock, CheckCircle2,
+  Dumbbell, Check, CloudOff, Clock, CheckCircle2, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Lesson } from "@/lib/lessons-types";
@@ -293,9 +294,15 @@ export function ReportsClient({ lessons, currentMemberId, isAdmin, initialCustom
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <ClipboardList size={20} className="text-green-600" />
-          <h1 className="text-xl font-bold text-gray-900">レポート管理</h1>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={20} className="text-green-600" />
+            <h1 className="text-xl font-bold text-gray-900">レポート管理</h1>
+          </div>
+          <Link href="/reports/monthly"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gray-900 hover:bg-gray-800 px-3 py-2 rounded-xl transition flex-shrink-0">
+            <Sparkles size={14} /> 月次レポートを送る
+          </Link>
         </div>
         <p className="text-sm text-gray-500 mt-0.5">
           顧客ごとに過去のレポートを見ながら、当日のレポートを記入できます（自動保存）
