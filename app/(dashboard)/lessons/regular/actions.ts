@@ -6,7 +6,6 @@ import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessi
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
-import { parseExercises, cleanExercises } from "@/lib/exercise-types";
 import type { Lesson, LessonStatus } from "@/lib/lessons-types";
 
 // レッスンの編集/削除は「管理者」または「追加した本人」のみ許可する。
@@ -79,27 +78,6 @@ export async function updateLessonAction(id: string, formData: FormData) {
   await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `通常レッスンを編集: ${existing.customerName}` });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");
-}
-
-// レポート画面の自動保存。レッスン中・実施前でも記入でき、ステータスは変更しない。
-// 担当トレーナーまたは管理者のみ。保存結果を返す（UIで「保存しました」表示に使う）。
-export async function autosaveLessonReportAction(id: string, formData: FormData): Promise<{ ok: boolean; error?: string }> {
-  const [lesson, member] = await Promise.all([getLesson(id), getCurrentMember()]);
-  if (!member) return { ok: false, error: "ログインが必要です" };
-  if (!lesson) return { ok: false, error: "レッスンが見つかりません" };
-  const canEdit = member.isAdmin || (!!lesson.trainerMemberId && lesson.trainerMemberId === member.id);
-  if (!canEdit) return { ok: false, error: "記入できるのは担当トレーナーまたは管理者のみです" };
-
-  const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
-  const note               = (formData.get("note")               as string)?.trim() || null;
-  let exercises: ReturnType<typeof cleanExercises> = [];
-  try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
-
-  // ステータスは変更しない（実施前の予定レッスンに下書きしても「完了」にしない）
-  await updateLesson(id, { exercises, trainingContent: null, customerImpression, note });
-  revalidatePath("/lessons/regular");
-  revalidatePath("/reports");
-  return { ok: true };
 }
 
 export async function deleteLessonAction(id: string) {

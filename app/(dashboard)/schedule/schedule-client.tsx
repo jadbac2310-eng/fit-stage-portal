@@ -6,13 +6,11 @@ import Link from "next/link";
 import {
   CalendarDays, MapPin, ChevronDown, Clock,
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound,
-  Calendar, Ticket, StickyNote, ClipboardList, Pencil,
+  Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
   Plus, Trash2, X, CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { Exercise } from "@/lib/exercise-types";
-import { ExerciseList } from "@/components/exercise-list";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { createPersonalEventAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
@@ -48,8 +46,6 @@ export type ScheduleItem = {
   updatedByName?: string;
   updatedAt?: string;
   note?: string;
-  exercises?: Exercise[];
-  customerImpression?: string;
   contracted?: boolean | null;
 };
 
@@ -271,16 +267,6 @@ function LessonCard({
           )}
           {item.course && <DetailRow icon={<Ticket size={13} />} label="コース">{item.course}</DetailRow>}
           {item.location && <DetailRow icon={<MapPin size={13} />} label="場所">{item.location}</DetailRow>}
-          {item.exercises && item.exercises.length > 0 && (
-            <DetailRow icon={<ClipboardList size={13} />} label="種目">
-              <ExerciseList exercises={item.exercises} compact />
-            </DetailRow>
-          )}
-          {item.customerImpression && (
-            <DetailRow icon={<UserRound size={13} />} label="顧客の様子">
-              <span className="whitespace-pre-wrap">{item.customerImpression}</span>
-            </DetailRow>
-          )}
           {item.note && (
             <DetailRow icon={<StickyNote size={13} />} label={isPersonal ? "メモ" : "備考"}>
               <span className="whitespace-pre-wrap">{item.note}</span>

@@ -58,7 +58,6 @@ export default async function SchedulePage() {
       updatedByName: nameOf(l.updatedById),
       updatedAt: l.updatedAt,
       note: l.note,
-      exercises: l.exercises,
     });
   }
 
@@ -80,8 +79,6 @@ export default async function SchedulePage() {
       updatedByName: nameOf(t.updatedById),
       updatedAt: t.updatedAt,
       note: t.note,
-      exercises: t.exercises,
-      customerImpression: t.customerImpression,
       contracted: t.contracted,
     });
   }
