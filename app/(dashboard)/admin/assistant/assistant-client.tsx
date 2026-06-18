@@ -263,9 +263,6 @@ export function AssistantClient() {
               {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-1.5 px-1 text-center">
-            Enterで送信・Shift+Enterで改行　/　閲覧専用・回答は生成AIによるものです
-          </p>
         </div>
       </div>
     </div>
