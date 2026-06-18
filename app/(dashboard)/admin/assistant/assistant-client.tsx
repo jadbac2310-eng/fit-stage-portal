@@ -235,8 +235,8 @@ export function AssistantClient() {
         )}
       </div>
 
-      {/* 入力 */}
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-3 py-3 md:px-4">
+      {/* 入力（下端のセーフエリア＝ホームインジケータに被らないよう余白を確保） */}
+      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-3 pt-3 pb-[max(0.875rem,env(safe-area-inset-bottom))] md:px-4 md:pb-3">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
             <textarea
