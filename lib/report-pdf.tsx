@@ -1,71 +1,90 @@
-import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import { EXERCISE_TYPE_LABEL, formatSet } from "./exercise-types";
 import { monthLabel, type MonthlyReport } from "./monthly-reports";
+import { FS_WORDMARK_PNG, FS_MONOGRAM_PNG } from "./fitstage-logo";
 
-// 日本語フォント（実行時にCDNから登録）。氏名・種目に任意の漢字が入るため全字対応のNoto Sans JP。
+// FIT STAGE のブランドフォント（明朝＝高級感）。日本語は Noto Serif JP、英字見出しは Cormorant Garamond。
 Font.register({
-  family: "NotoSansJP",
+  family: "NotoSerifJP",
   fonts: [
-    { src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-jp/NotoSansJP_400Regular.ttf", fontWeight: "normal" },
-    { src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-jp/NotoSansJP_700Bold.ttf", fontWeight: "bold" },
+    { src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-serif-jp/NotoSerifJP_400Regular.ttf", fontWeight: "normal" },
+    { src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-serif-jp/NotoSerifJP_600SemiBold.ttf", fontWeight: "bold" },
+  ],
+});
+Font.register({
+  family: "Cormorant",
+  fonts: [
+    { src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/cormorant-garamond/CormorantGaramond_500Medium.ttf", fontWeight: "normal" },
+    { src: "https://cdn.jsdelivr.net/npm/@expo-google-fonts/cormorant-garamond/CormorantGaramond_700Bold.ttf", fontWeight: "bold" },
   ],
 });
 
+// 黒 × 金 のブランドカラー
 const C = {
-  ink:    "#0f172a", // slate-900（ヒーロー背景）
-  ink2:   "#1e293b",
-  text:   "#111827",
-  sub:    "#6b7280",
-  line:   "#e5e7eb",
-  faint:  "#f8fafc",
-  accent: "#22c55e", // green-500
-  accentD:"#16a34a",
+  black:  "#0a0a0a",
+  ink:    "#1a1a1a",
+  gold:   "#C9A84C",
+  goldD:  "#a8883a",
+  cream:  "#f1e7cf",
+  muted:  "#6b6256",
+  ivory:  "#fbf9f3",
+  card:   "#ffffff",
+  border: "#e7ddc6",
+  commentBg: "#faf5e8",
 };
 
 const s = StyleSheet.create({
-  page: { fontFamily: "NotoSansJP", fontSize: 9.5, color: C.text, paddingTop: 28, paddingBottom: 40, paddingHorizontal: 32, lineHeight: 1.4 },
+  page: { fontFamily: "NotoSerifJP", fontSize: 9.5, color: C.ink, backgroundColor: C.ivory, paddingTop: 32, paddingBottom: 40, paddingHorizontal: 36, lineHeight: 1.45 },
 
-  // ヒーロー
-  hero: { backgroundColor: C.ink, borderRadius: 14, paddingVertical: 22, paddingHorizontal: 24, marginBottom: 16 },
-  brandRow: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
-  brandDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent, marginRight: 6 },
-  brand: { color: "#e2e8f0", fontSize: 9, fontWeight: "bold", letterSpacing: 3 },
-  heroTitle: { color: "#ffffff", fontSize: 26, fontWeight: "bold", letterSpacing: 2, lineHeight: 1.1 },
-  heroTitleAccent: { color: C.accent },
-  heroSubRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 10 },
-  heroName: { color: "#ffffff", fontSize: 15, fontWeight: "bold" },
-  heroMonth: { color: "#94a3b8", fontSize: 10 },
+  // ヘッダー
+  header: { alignItems: "center", marginBottom: 8 },
+  wordmark: { width: 150 },
+  rule: { width: 46, height: 1.5, backgroundColor: C.gold, marginTop: 12, marginBottom: 10 },
+  enTitle: { fontFamily: "Cormorant", fontSize: 23, fontWeight: "bold", letterSpacing: 5, color: C.black, lineHeight: 1 },
+  jaTitle: { fontSize: 7.5, letterSpacing: 4, color: C.goldD, marginTop: 9 },
 
-  // 統計バンド（ヒーロー内）
-  stats: { flexDirection: "row", marginTop: 18, gap: 8 },
-  stat: { flex: 1, backgroundColor: C.ink2, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 6, alignItems: "center" },
-  statNum: { color: C.accent, fontSize: 19, fontWeight: "bold", lineHeight: 1 },
-  statUnit: { color: "#cbd5e1", fontSize: 7.5, fontWeight: "bold" },
-  statLabel: { color: "#94a3b8", fontSize: 7.5, marginTop: 5 },
+  // 宛名・対象月
+  metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 16, marginBottom: 14, borderBottomWidth: 0.8, borderBottomColor: C.border, paddingBottom: 8 },
+  toName: { fontSize: 15, fontWeight: "bold", color: C.ink },
+  month: { fontSize: 10, color: C.goldD },
 
-  sectionTitle: { fontSize: 11, fontWeight: "bold", color: C.text, marginBottom: 8, marginTop: 4 },
+  // 統計（黒バンド × 金）
+  stats: { flexDirection: "row", backgroundColor: C.black, borderRadius: 8, paddingVertical: 14, marginBottom: 18 },
+  stat: { flex: 1, alignItems: "center", borderLeftWidth: 0.6, borderLeftColor: "#2a2a2a" },
+  statNum: { fontFamily: "NotoSerifJP", color: C.gold, fontSize: 18, fontWeight: "bold", lineHeight: 1 },
+  statUnit: { fontFamily: "NotoSerifJP", fontSize: 8, color: C.cream },
+  statLabel: { fontSize: 7.5, color: "#b8ae97", marginTop: 5, letterSpacing: 1 },
+
+  sectionRow: { flexDirection: "row", alignItems: "center", marginBottom: 9 },
+  sectionTick: { width: 3, height: 13, backgroundColor: C.gold, marginRight: 7 },
+  sectionTitle: { fontSize: 11.5, fontWeight: "bold", color: C.ink, letterSpacing: 1 },
 
   // セッションカード
-  card: { borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 12, marginBottom: 9 },
+  card: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12, marginBottom: 9, backgroundColor: C.card },
   cardHead: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  dateChip: { backgroundColor: C.ink, color: "#ffffff", fontSize: 9, fontWeight: "bold", borderRadius: 6, paddingVertical: 3, paddingHorizontal: 7, marginRight: 8 },
-  cardMeta: { color: C.sub, fontSize: 8 },
+  dateChip: { backgroundColor: C.black, color: C.gold, fontSize: 9, fontWeight: "bold", borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8, marginRight: 8, letterSpacing: 0.5 },
+  cardMeta: { color: C.muted, fontSize: 8 },
 
-  exRow: { flexDirection: "row", marginBottom: 4 },
-  exName: { width: "32%", fontSize: 9, fontWeight: "bold", paddingRight: 6 },
-  exType: { fontSize: 7, color: C.accentD, fontWeight: "bold" },
-  exSets: { width: "68%", fontSize: 8.5, color: "#374151" },
+  exRow: { flexDirection: "row", marginBottom: 4, alignItems: "baseline" },
+  exName: { width: "34%", fontSize: 9, fontWeight: "bold", color: C.ink, paddingRight: 6 },
+  exType: { fontSize: 7, color: C.goldD },
+  exSets: { width: "66%", fontSize: 8.5, color: "#4b463c" },
 
-  comment: { marginTop: 7, backgroundColor: "#f0fdf4", borderLeftWidth: 3, borderLeftColor: C.accent, borderRadius: 4, paddingVertical: 6, paddingHorizontal: 9 },
-  commentLabel: { fontSize: 7.5, fontWeight: "bold", color: C.accentD, marginBottom: 2 },
-  commentText: { fontSize: 8.5, color: "#166534" },
+  comment: { marginTop: 7, backgroundColor: C.commentBg, borderLeftWidth: 3, borderLeftColor: C.gold, borderRadius: 3, paddingVertical: 6, paddingHorizontal: 9 },
+  commentLabel: { fontSize: 7.5, fontWeight: "bold", color: C.goldD, marginBottom: 2, letterSpacing: 1 },
+  commentText: { fontSize: 8.5, color: "#5a4f33" },
 
-  // フッター
-  cheer: { backgroundColor: C.faint, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, marginTop: 6, alignItems: "center" },
-  cheerText: { fontSize: 10, fontWeight: "bold", color: C.text },
-  cheerSub: { fontSize: 8, color: C.sub, marginTop: 3 },
-  foot: { flexDirection: "row", justifyContent: "space-between", marginTop: 14 },
-  footText: { fontSize: 7.5, color: C.sub },
+  // 応援・フッター
+  cheer: { borderWidth: 1, borderColor: C.gold, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16, marginTop: 6, alignItems: "center", backgroundColor: "#fcf8ee" },
+  cheerText: { fontSize: 11, fontWeight: "bold", color: C.black },
+  cheerSub: { fontSize: 8, color: C.muted, marginTop: 3 },
+
+  footRule: { height: 1, backgroundColor: C.gold, marginTop: 16, marginBottom: 8 },
+  foot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  footLeft: { flexDirection: "row", alignItems: "center" },
+  footMono: { width: 16, height: 16, marginRight: 6 },
+  footBrand: { fontSize: 8.5, fontWeight: "bold", color: C.ink, letterSpacing: 1 },
+  footText: { fontSize: 7.5, color: C.muted },
 });
 
 function fmtDate(iso: string): string {
@@ -81,42 +100,45 @@ export interface ReportPdfData {
 
 export function ReportDocument({ report, issuer }: ReportPdfData) {
   const { stats } = report;
+  const statItems = [
+    { n: String(stats.sessionCount), u: "回", l: "SESSIONS" },
+    { n: String(stats.exerciseCount), u: "種目", l: "EXERCISES" },
+    { n: String(stats.totalSets), u: "set", l: "TOTAL SETS" },
+    { n: stats.totalVolumeKg.toLocaleString("en-US"), u: "kg", l: "VOLUME" },
+  ];
+
   return (
     <Document title={`トレーニングレポート ${report.customerName} ${monthLabel(report.period)}`}>
       <Page size="A4" style={s.page}>
-        {/* ヒーロー */}
-        <View style={s.hero}>
-          <View style={s.brandRow}>
-            <View style={s.brandDot} />
-            <Text style={s.brand}>{issuer.name.toUpperCase()}</Text>
-          </View>
-          <Text style={s.heroTitle}>TRAINING <Text style={s.heroTitleAccent}>REPORT</Text></Text>
-          <View style={s.heroSubRow}>
-            <Text style={s.heroName}>{report.customerName} 様</Text>
-            <Text style={s.heroMonth}>{monthLabel(report.period)}のトレーニング記録</Text>
-          </View>
-
-          <View style={s.stats}>
-            <View style={s.stat}>
-              <Text style={s.statNum}>{stats.sessionCount}<Text style={s.statUnit}> 回</Text></Text>
-              <Text style={s.statLabel}>レッスン</Text>
-            </View>
-            <View style={s.stat}>
-              <Text style={s.statNum}>{stats.exerciseCount}<Text style={s.statUnit}> 種目</Text></Text>
-              <Text style={s.statLabel}>のべ種目数</Text>
-            </View>
-            <View style={s.stat}>
-              <Text style={s.statNum}>{stats.totalSets}<Text style={s.statUnit}> set</Text></Text>
-              <Text style={s.statLabel}>総セット数</Text>
-            </View>
-            <View style={s.stat}>
-              <Text style={s.statNum}>{stats.totalVolumeKg.toLocaleString("ja-JP")}<Text style={s.statUnit}> kg</Text></Text>
-              <Text style={s.statLabel}>総挙上量</Text>
-            </View>
-          </View>
+        {/* ヘッダー（ワードマーク） */}
+        <View style={s.header}>
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image src={FS_WORDMARK_PNG} style={s.wordmark} />
+          <View style={s.rule} />
+          <Text style={s.enTitle}>TRAINING REPORT</Text>
+          <Text style={s.jaTitle}>MONTHLY TRAINING RECORD</Text>
         </View>
 
-        <Text style={s.sectionTitle}>トレーニング内容</Text>
+        {/* 宛名・対象月 */}
+        <View style={s.metaRow}>
+          <Text style={s.toName}>{report.customerName} 様</Text>
+          <Text style={s.month}>{monthLabel(report.period)} の記録</Text>
+        </View>
+
+        {/* 統計（黒 × 金） */}
+        <View style={s.stats}>
+          {statItems.map((st, i) => (
+            <View key={i} style={[s.stat, i === 0 ? { borderLeftWidth: 0 } : {}]}>
+              <Text style={s.statNum}>{st.n}<Text style={s.statUnit}> {st.u}</Text></Text>
+              <Text style={s.statLabel}>{st.l}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={s.sectionRow}>
+          <View style={s.sectionTick} />
+          <Text style={s.sectionTitle}>トレーニング内容</Text>
+        </View>
 
         {report.sessions.map((sess, i) => (
           <View key={i} style={s.card} wrap={false}>
@@ -124,20 +146,20 @@ export function ReportDocument({ report, issuer }: ReportPdfData) {
               <Text style={s.dateChip}>{fmtDate(sess.date)}</Text>
               <Text style={s.cardMeta}>
                 {sess.trainerName ? `担当 ${sess.trainerName}` : ""}
-                {sess.location ? `${sess.trainerName ? "  /  " : ""}${sess.location}` : ""}
+                {sess.location ? `${sess.trainerName ? "   /   " : ""}${sess.location}` : ""}
               </Text>
             </View>
 
             {sess.exercises.map((ex, j) => (
               <View key={j} style={s.exRow}>
                 <Text style={s.exName}>{ex.name} <Text style={s.exType}>{EXERCISE_TYPE_LABEL[ex.type]}</Text></Text>
-                <Text style={s.exSets}>{ex.sets.map((set) => formatSet(set) || "-").join("  /  ")}</Text>
+                <Text style={s.exSets}>{ex.sets.map((set) => formatSet(set) || "-").join("   /   ")}</Text>
               </View>
             ))}
 
             {sess.impression ? (
               <View style={s.comment}>
-                <Text style={s.commentLabel}>トレーナーより</Text>
+                <Text style={s.commentLabel}>TRAINER&apos;S NOTE</Text>
                 <Text style={s.commentText}>{sess.impression}</Text>
               </View>
             ) : null}
@@ -146,12 +168,18 @@ export function ReportDocument({ report, issuer }: ReportPdfData) {
 
         {/* 応援メッセージ */}
         <View style={s.cheer} wrap={false}>
-          <Text style={s.cheerText}>今月もお疲れさまでした！</Text>
+          <Text style={s.cheerText}>今月もお疲れさまでした</Text>
           <Text style={s.cheerSub}>積み重ねた{report.stats.sessionCount}回が、確実に力になっています。来月も一緒に頑張りましょう。</Text>
         </View>
 
+        {/* フッター */}
+        <View style={s.footRule} />
         <View style={s.foot}>
-          <Text style={s.footText}>{issuer.name}</Text>
+          <View style={s.footLeft}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image src={FS_MONOGRAM_PNG} style={s.footMono} />
+            <Text style={s.footBrand}>{issuer.name}</Text>
+          </View>
           <Text style={s.footText}>{issuer.tel}　{issuer.email}</Text>
         </View>
       </Page>

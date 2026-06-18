@@ -77,7 +77,7 @@ export function ReportActions({ pdfHref, filename, customerId, period, customerN
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button onClick={handleShare} disabled={busy !== null}
-        className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
+        className="inline-flex items-center gap-2 bg-gray-900 hover:bg-black disabled:opacity-60 text-[#C9A84C] font-semibold px-4 py-2.5 rounded-xl text-sm transition">
         <Share2 size={16} /> {busy === "share" ? "準備中…" : "LINE等で共有"}
       </button>
       <button onClick={handleDownload} disabled={busy !== null}
