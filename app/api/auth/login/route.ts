@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthClient } from "@/lib/supabase";
+import { getMemberByEmail } from "@/lib/members";
+import { logActivity } from "@/lib/activity-logs";
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -52,5 +54,18 @@ export async function POST(request: NextRequest) {
   }
 
   attempts.delete(ip);
+
+  // ログイン履歴を記録（失敗してもログインは継続）
+  const member = await getMemberByEmail(email);
+  await logActivity({
+    action: "login",
+    entityType: "session",
+    summary: "ログイン",
+    memberId: member?.id,
+    memberName: member?.name ?? email,
+    ip,
+    userAgent: request.headers.get("user-agent") ?? undefined,
+  });
+
   return NextResponse.json({ ok: true });
 }

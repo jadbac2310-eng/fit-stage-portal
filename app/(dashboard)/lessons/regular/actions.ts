@@ -5,6 +5,7 @@ import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons"
 import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessionPass } from "@/lib/session-passes";
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
+import { logActivity } from "@/lib/activity-logs";
 import { parseExercises, cleanExercises } from "@/lib/exercise-types";
 import type { Lesson, LessonStatus } from "@/lib/lessons-types";
 
@@ -39,12 +40,13 @@ export async function createLessonAction(formData: FormData) {
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
-  await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, note, createdBy: member.id, rentalGymId, rentalGymFee });
+  const created = await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, note, createdBy: member.id, rentalGymId, rentalGymFee });
 
   if (paymentType === "session_pass" && sessionPassId) {
     await decrementSessionPass(sessionPassId);
   }
 
+  await logActivity({ action: "create", entityType: "lesson", entityId: created.id, summary: `通常レッスンを追加: ${created.customerName}`, memberId: member.id, memberName: member.name });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");
 }
@@ -74,6 +76,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
   }
 
   await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, note, rentalGymId, rentalGymFee });
+  await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `通常レッスンを編集: ${existing.customerName}` });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");
 }
@@ -97,6 +100,7 @@ export async function saveLessonReportAction(id: string, formData: FormData) {
   try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
 
   await updateLesson(id, { exercises, trainingContent: null, customerImpression, note, status: "completed" });
+  await logActivity({ action: "report", entityType: "lesson", entityId: id, summary: `レポート記入: ${lesson.customerName}`, memberId: member.id, memberName: member.name });
   revalidatePath("/lessons/regular");
 }
 
@@ -106,6 +110,7 @@ export async function deleteLessonAction(id: string) {
     await incrementSessionPass(existing.sessionPassId);
   }
   await deleteLesson(id);
+  await logActivity({ action: "delete", entityType: "lesson", entityId: id, summary: `通常レッスンを削除: ${existing.customerName}` });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");
 }
@@ -122,11 +127,13 @@ export async function createSessionPassAction(formData: FormData) {
   if (!customerId || !totalCount || !purchasedAt) return;
 
   await addSessionPass({ customerId, totalCount, purchasedAt, expiredAt, note });
+  await logActivity({ action: "create", entityType: "session_pass", summary: `回数券を追加（${totalCount}回）` });
   revalidatePath("/lessons/regular");
 }
 
 export async function deleteSessionPassAction(id: string) {
   await requireAdmin();
   await deleteSessionPass(id);
+  await logActivity({ action: "delete", entityType: "session_pass", entityId: id, summary: "回数券を削除" });
   revalidatePath("/lessons/regular");
 }

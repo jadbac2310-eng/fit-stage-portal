@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
+import { logActivity } from "@/lib/activity-logs";
 import { parseExercises, cleanExercises } from "@/lib/exercise-types";
 
 export async function createTrialLessonAction(formData: FormData) {
@@ -16,7 +17,8 @@ export async function createTrialLessonAction(formData: FormData) {
 
   if (!customerId || !salesMemberId || !scheduledAt) return;
 
-  await addTrialLesson({ customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
+  const created = await addTrialLesson({ customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
+  await logActivity({ action: "create", entityType: "trial_lesson", entityId: created.id, summary: `体験レッスンを追加: ${created.customerName}` });
   revalidatePath("/lessons/trial");
 }
 
@@ -32,6 +34,7 @@ export async function updateTrialLessonAction(id: string, formData: FormData) {
   if (!customerId || !salesMemberId || !scheduledAt) return;
 
   await updateTrialLesson(id, { customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
+  await logActivity({ action: "update", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを編集" });
   revalidatePath("/lessons/trial");
 }
 
@@ -68,6 +71,7 @@ export async function saveReportAction(id: string, formData: FormData) {
     await updateCustomer(lesson.customerId, { status: "pending" });
   }
 
+  await logActivity({ action: "report", entityType: "trial_lesson", entityId: id, summary: `体験レポート記入: ${lesson.customerName}${contracted === true ? "（成約）" : ""}`, memberId: member.id, memberName: member.name });
   revalidatePath("/lessons/trial");
   revalidatePath("/master/customers");
 }
@@ -75,5 +79,6 @@ export async function saveReportAction(id: string, formData: FormData) {
 export async function deleteTrialLessonAction(id: string) {
   await requireAdmin();
   await deleteTrialLesson(id);
+  await logActivity({ action: "delete", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを削除" });
   revalidatePath("/lessons/trial");
 }

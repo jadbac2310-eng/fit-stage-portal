@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addMember, updateMember, deleteMember, getMember, getCurrentIsAdmin, getCurrentMember, requireAdmin } from "@/lib/members";
 import { saveMemberAvatar, deleteMemberAvatar } from "@/lib/upload";
 import { createAdminClient } from "@/lib/supabase";
+import { logActivity } from "@/lib/activity-logs";
 
 export async function createMember(formData: FormData): Promise<{ error: string } | void> {
   await requireAdmin();
@@ -48,7 +49,8 @@ export async function createMember(formData: FormData): Promise<{ error: string 
     }
   }
 
-  await addMember({ name, email, role, note, avatarUrl, authUserId, isAdmin });
+  const created = await addMember({ name, email, role, note, avatarUrl, authUserId, isAdmin });
+  await logActivity({ action: "create", entityType: "member", entityId: created.id, summary: `担当者を追加: ${name}` });
   revalidatePath("/master/members");
 }
 
@@ -114,6 +116,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),
   });
+  await logActivity({ action: "update", entityType: "member", entityId: id, summary: `担当者を編集: ${name}` });
   revalidatePath("/master/members");
 }
 
@@ -125,5 +128,6 @@ export async function deleteMemberAction(id: string) {
     await createAdminClient().auth.admin.deleteUser(existing.authUserId);
   }
   await deleteMember(id);
+  await logActivity({ action: "delete", entityType: "member", entityId: id, summary: `担当者を削除: ${existing?.name ?? ""}` });
   revalidatePath("/master/members");
 }

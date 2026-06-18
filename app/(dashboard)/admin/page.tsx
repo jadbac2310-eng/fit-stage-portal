@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, PiggyBank, Receipt, LineChart } from "lucide-react";
+import { ArrowRight, PiggyBank, Receipt, LineChart, History } from "lucide-react";
 import { getCurrentIsAdmin } from "@/lib/members";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +34,20 @@ export default async function AdminPage() {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 text-sm">経営ダッシュボード</p>
             <p className="text-xs text-gray-500 mt-0.5">全体の売上・支払・利益を月別に確認</p>
+          </div>
+          <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+        </Link>
+
+        <Link
+          href="/admin/activity"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <History size={20} className="text-slate-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">操作・ログイン履歴</p>
+            <p className="text-xs text-gray-500 mt-0.5">ユーザーごとの操作とログインを確認</p>
           </div>
           <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
         </Link>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentMember } from "@/lib/members";
+import { logActivity } from "@/lib/activity-logs";
 import {
   addPersonalEvent, updatePersonalEvent, deletePersonalEvent, getPersonalEvent,
 } from "@/lib/personal-events";
@@ -41,7 +42,8 @@ export async function createPersonalEventAction(formData: FormData) {
   const memo     = (formData.get("memo")     as string)?.trim() || null;
   const color    = normalizeColor((formData.get("color") as string)?.trim());
 
-  await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color });
+  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color });
+  await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}`, memberId: member.id, memberName: member.name });
   revalidatePath("/schedule");
 }
 
@@ -62,6 +64,7 @@ export async function updatePersonalEventAction(id: string, formData: FormData) 
   const color    = normalizeColor((formData.get("color") as string)?.trim());
 
   await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color });
+  await logActivity({ action: "update", entityType: "personal_event", entityId: id, summary: `個人予定を編集: ${title}`, memberId: member.id, memberName: member.name });
   revalidatePath("/schedule");
 }
 
@@ -74,5 +77,6 @@ export async function deletePersonalEventAction(id: string) {
   }
 
   await deletePersonalEvent(id);
+  await logActivity({ action: "delete", entityType: "personal_event", entityId: id, summary: `個人予定を削除: ${event.title}`, memberId: member.id, memberName: member.name });
   revalidatePath("/schedule");
 }

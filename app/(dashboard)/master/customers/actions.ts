@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { requireAdmin } from "@/lib/members";
-import type { CustomerStatus, CustomerType } from "@/lib/customers-types";
+import { logActivity } from "@/lib/activity-logs";
+import { STATUS_LABEL, type CustomerStatus, type CustomerType } from "@/lib/customers-types";
 
 export async function createCustomerAction(formData: FormData) {
   await requireAdmin();
@@ -21,7 +22,8 @@ export async function createCustomerAction(formData: FormData) {
 
   if (!fullName || !email || !dateOfBirth) return;
 
-  await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId, agreedToTerms: false, status: "trial", customerType, note });
+  const created = await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId, agreedToTerms: false, status: "trial", customerType, note });
+  await logActivity({ action: "create", entityType: "customer", entityId: created.id, summary: `顧客を追加: ${fullName}` });
   revalidatePath("/master/customers");
 }
 
@@ -44,6 +46,7 @@ export async function updateCustomerAction(id: string, formData: FormData) {
   if (!fullName || !email || !dateOfBirth) return;
 
   await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, billingName, billingToCustomerId });
+  await logActivity({ action: "update", entityType: "customer", entityId: id, summary: `顧客を編集: ${fullName}` });
   revalidatePath("/master/customers");
   revalidatePath("/invoices");
 }
@@ -51,11 +54,13 @@ export async function updateCustomerAction(id: string, formData: FormData) {
 export async function updateCustomerStatusAction(id: string, status: CustomerStatus) {
   await requireAdmin();
   await updateCustomer(id, { status });
+  await logActivity({ action: "update", entityType: "customer", entityId: id, summary: `顧客ステータスを変更: ${STATUS_LABEL[status]}` });
   revalidatePath("/master/customers");
 }
 
 export async function deleteCustomerAction(id: string) {
   await requireAdmin();
   await deleteCustomer(id);
+  await logActivity({ action: "delete", entityType: "customer", entityId: id, summary: "顧客を削除" });
   revalidatePath("/master/customers");
 }
