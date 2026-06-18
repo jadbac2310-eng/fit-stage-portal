@@ -173,8 +173,9 @@ export function AssistantClient() {
   const empty = messages.length === 0;
 
   return (
-    // 画面いっぱい。共通レイアウトの下余白(pb-24)を打ち消して無駄な空白をなくす。
-    <div className="flex flex-col h-[calc(100dvh-3.25rem)] md:h-[100dvh] -mb-24 md:mb-0 bg-gray-50">
+    // ビューポートに固定。下端をbottom-0に固定するので、高さ計算のズレで入力欄が見切れない。
+    // モバイル: 共通ヘッダー(z-30, 約52px)の下から。デスクトップ: サイドバー(w-60)の右側。
+    <div className="fixed top-[3.25rem] md:top-0 inset-x-0 bottom-0 md:left-60 z-20 flex flex-col bg-gray-50">
       {/* ヘッダー */}
       <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-white border-b border-gray-200">
         <Link href="/admin" className="md:hidden p-1 -ml-1 text-gray-400 hover:text-gray-700" aria-label="戻る">
