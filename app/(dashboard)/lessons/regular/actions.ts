@@ -81,28 +81,6 @@ export async function updateLessonAction(id: string, formData: FormData) {
   revalidatePath("/schedule");
 }
 
-export async function saveLessonReportAction(id: string, formData: FormData) {
-  // レポート入力は「管理者」または「その通常レッスンの担当トレーナー」のみ
-  const [lesson, member] = await Promise.all([getLesson(id), getCurrentMember()]);
-  if (!member) throw new Error("ログインが必要です");
-  if (!lesson) throw new Error("レッスンが見つかりません");
-  const isAssignedTrainer = !!lesson.trainerMemberId && lesson.trainerMemberId === member.id;
-  if (!isAssignedTrainer) {
-    throw new Error("レポートを入力できるのは担当トレーナーのみです");
-  }
-  // レッスン中・実施前でも記入できる（完了日時の制限なし）
-
-  const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
-  const note               = (formData.get("note")               as string)?.trim() || null;
-  let exercises: ReturnType<typeof cleanExercises> = [];
-  try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
-
-  await updateLesson(id, { exercises, trainingContent: null, customerImpression, note, status: "completed" });
-  await logActivity({ action: "report", entityType: "lesson", entityId: id, summary: `レポート記入: ${lesson.customerName}`, memberId: member.id, memberName: member.name });
-  revalidatePath("/lessons/regular");
-  revalidatePath("/reports");
-}
-
 // レポート画面の自動保存。レッスン中・実施前でも記入でき、ステータスは変更しない。
 // 担当トレーナーまたは管理者のみ。保存結果を返す（UIで「保存しました」表示に使う）。
 export async function autosaveLessonReportAction(id: string, formData: FormData): Promise<{ ok: boolean; error?: string }> {

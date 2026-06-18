@@ -5,7 +5,6 @@ import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } 
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
-import { parseExercises, cleanExercises } from "@/lib/exercise-types";
 
 export async function createTrialLessonAction(formData: FormData) {
   const customerId      = (formData.get("customerId")      as string)?.trim();
@@ -38,40 +37,34 @@ export async function updateTrialLessonAction(id: string, formData: FormData) {
   revalidatePath("/lessons/trial");
 }
 
-export async function saveReportAction(id: string, formData: FormData) {
-  // レポート入力は「管理者」または「その体験レッスンの担当トレーナー」のみ
+// 体験レッスンの契約結果（成約/不成立）を記録する。
+// 記録できるのは管理者・担当トレーナー・担当営業。種目ログ等のレポートは扱わない。
+export async function saveContractResultAction(id: string, formData: FormData) {
   const [lesson, member] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
   if (!member) throw new Error("ログインが必要です");
   if (!lesson) throw new Error("体験レッスンが見つかりません");
-  const isAssignedTrainer = !!lesson.trainerMemberId && lesson.trainerMemberId === member.id;
-  if (!isAssignedTrainer) {
-    throw new Error("レポートを入力できるのは担当トレーナーのみです");
-  }
-  if (new Date(lesson.scheduledAt).getTime() > Date.now()) {
-    throw new Error("予定日時を過ぎたレッスンのみレポートを入力できます");
+  const allowed = member.isAdmin
+    || (!!lesson.trainerMemberId && lesson.trainerMemberId === member.id)
+    || (!!lesson.salesMemberId && lesson.salesMemberId === member.id);
+  if (!allowed) {
+    throw new Error("契約結果を記録できるのは担当トレーナー・担当営業または管理者のみです");
   }
 
-  const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
-  const contractedRaw      = (formData.get("contracted")         as string)?.trim();
-  const note               = (formData.get("note")               as string)?.trim() || null;
-  let exercises: ReturnType<typeof cleanExercises> = [];
-  try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
+  const contractedRaw = (formData.get("contracted") as string)?.trim();
+  const note          = (formData.get("note")       as string)?.trim() || null;
 
   const contracted: boolean | null =
     contractedRaw === "true"  ? true  :
     contractedRaw === "false" ? false : null;
 
-  await updateTrialLesson(id, {
-    exercises, trainingContent: null, customerImpression, contracted, contractPlan: null, note,
-    status: "completed",
-  });
+  await updateTrialLesson(id, { contracted, note, status: "completed" });
 
   // 契約成功 → 顧客ステータスを「審査中」へ自動変更
-  if (contracted === true && lesson?.customerId) {
+  if (contracted === true && lesson.customerId) {
     await updateCustomer(lesson.customerId, { status: "pending" });
   }
 
-  await logActivity({ action: "report", entityType: "trial_lesson", entityId: id, summary: `体験レポート記入: ${lesson.customerName}${contracted === true ? "（成約）" : ""}`, memberId: member.id, memberName: member.name });
+  await logActivity({ action: "report", entityType: "trial_lesson", entityId: id, summary: `体験の契約結果を記録: ${lesson.customerName}${contracted === true ? "（成約）" : ""}`, memberId: member.id, memberName: member.name });
   revalidatePath("/lessons/trial");
   revalidatePath("/master/customers");
 }

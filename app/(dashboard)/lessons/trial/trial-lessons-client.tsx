@@ -3,9 +3,8 @@
 import { useState } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
-  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Dumbbell,
+  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList,
 } from "lucide-react";
-import { ExerciseEditor } from "@/components/exercise-editor";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL } from "@/lib/trial-lessons-types";
 import { Customer } from "@/lib/customers-types";
@@ -13,17 +12,12 @@ import { Member } from "@/lib/members";
 import {
   createTrialLessonAction,
   updateTrialLessonAction,
-  saveReportAction,
+  saveContractResultAction,
   deleteTrialLessonAction,
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
-
-// 予定日時を過ぎているか（現在時刻との比較）
-function isPastIso(iso: string): boolean {
-  return new Date(iso).getTime() <= Date.now();
-}
 
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
@@ -150,12 +144,12 @@ function LessonForm({
   );
 }
 
-// ─── レポートフォーム ─────────────────────────────────
-function ReportForm({
-  lesson, pastExerciseNames, onClose,
+// ─── 契約結果フォーム ─────────────────────────────────
+// 体験レッスンの成約結果を記録する（種目ログ等のレポートはレポート管理画面で扱う）。
+function ContractResultForm({
+  lesson, onClose,
 }: {
   lesson: TrialLesson;
-  pastExerciseNames: string[];
   onClose: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -163,7 +157,7 @@ function ReportForm({
     lesson.contracted === true ? "true" : lesson.contracted === false ? "false" : "null"
   );
   const [error, setError] = useState("");
-  const boundSave = saveReportAction.bind(null, lesson.id);
+  const boundSave = saveContractResultAction.bind(null, lesson.id);
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -178,19 +172,7 @@ function ReportForm({
   return (
     <form action={handleSubmit} className="space-y-4">
       <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-700 font-medium">
-        保存するとステータスが「完了」になります
-      </div>
-
-      <div>
-        <label className={labelClass}><Dumbbell size={12} /> 種目（セットごとに重量×回数）</label>
-        <ExerciseEditor name="exercises" defaultValue={lesson.exercises} pastNames={pastExerciseNames} />
-      </div>
-
-      <div>
-        <label className={labelClass}><User size={12} /> お客さんの様子</label>
-        <textarea name="customerImpression" defaultValue={lesson.customerImpression} rows={3}
-          placeholder="体験中の様子、反応、感想など..."
-          className={cn(inputClass, "resize-none")} />
+        記録するとステータスが「完了」になります
       </div>
 
       <div>
@@ -201,7 +183,6 @@ function ReportForm({
           <option value="false">不成立</option>
         </select>
       </div>
-
 
       <div>
         <label className={labelClass}><StickyNote size={12} /> 備考</label>
@@ -214,7 +195,7 @@ function ReportForm({
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
         <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
-          {loading && <Spinner size={14} />}{loading ? "保存中..." : "レポートを保存"}
+          {loading && <Spinner size={14} />}{loading ? "記録中..." : "契約結果を記録"}
         </button>
       </div>
     </form>
@@ -222,16 +203,15 @@ function ReportForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string; pastExerciseNames: string[];
+function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
-  // レポートは管理者、または担当トレーナー本人が入力できる
-  // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
-  const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
-  const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
+  // 契約結果は管理者・担当トレーナー・担当営業が記録できる
+  const canRecordResult = isAdmin
+    || (!!currentMemberId && (lesson.trainerMemberId === currentMemberId || lesson.salesMemberId === currentMemberId));
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
@@ -255,11 +235,11 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
       <div className="bg-white rounded-2xl border-2 border-green-400 p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-bold text-gray-900">
-            レポート記入 — {lesson.customerName}
+            契約結果 — {lesson.customerName}
           </p>
           <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
-        <ReportForm lesson={lesson} pastExerciseNames={pastExerciseNames} onClose={() => setMode("view")} />
+        <ContractResultForm lesson={lesson} onClose={() => setMode("view")} />
       </div>
     </td></tr>
   );
@@ -305,16 +285,16 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 justify-end">
-          {canReport && lesson.status !== "cancelled" && (
+          {canRecordResult && lesson.status !== "cancelled" && (
             <button onClick={() => setMode("report")}
               className={cn(
                 "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
-                lesson.status === "scheduled"
+                lesson.contracted === null || lesson.contracted === undefined
                   ? "text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 border-green-300"
                   : "text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300"
               )}>
               <ClipboardList size={11} />
-              {lesson.status === "scheduled" ? "レポート記入" : "レポート確認"}
+              契約結果
             </button>
           )}
           {isAdmin && (
@@ -340,15 +320,15 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string; pastExerciseNames: string[];
+function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
-  // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
-  const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
-  const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
+  // 契約結果は管理者・担当トレーナー・担当営業が記録できる
+  const canRecordResult = isAdmin
+    || (!!currentMemberId && (lesson.trainerMemberId === currentMemberId || lesson.salesMemberId === currentMemberId));
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", weekday: "short" });
@@ -368,10 +348,10 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
   if (mode === "report") return (
     <div className="bg-white rounded-2xl border-2 border-green-400 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-bold text-gray-900">レポート記入 — {lesson.customerName}</p>
+        <p className="text-sm font-bold text-gray-900">契約結果 — {lesson.customerName}</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <ReportForm lesson={lesson} pastExerciseNames={pastExerciseNames} onClose={() => setMode("view")} />
+      <ContractResultForm lesson={lesson} onClose={() => setMode("view")} />
     </div>
   );
 
@@ -405,16 +385,16 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
         />
       </div>
       <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-        {canReport && lesson.status !== "cancelled" && (
+        {canRecordResult && lesson.status !== "cancelled" && (
           <button onClick={() => setMode("report")}
             className={cn(
               "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
-              lesson.status === "scheduled"
+              lesson.contracted === null || lesson.contracted === undefined
                 ? "text-green-600 bg-green-50 hover:bg-green-100 border-green-300"
                 : "text-gray-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300 hover:text-blue-600"
             )}>
             <ClipboardList size={11} />
-            {lesson.status === "scheduled" ? "レポート記入" : "レポート確認"}
+            契約結果
           </button>
         )}
         {isAdmin && (
@@ -439,9 +419,9 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId, initialSearch = "", openReportId, pastExerciseNames = [] }: {
+export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId, initialSearch = "", openReportId }: {
   lessons: TrialLesson[]; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
-  initialSearch?: string; openReportId?: string; pastExerciseNames?: string[];
+  initialSearch?: string; openReportId?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
@@ -529,7 +509,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} pastExerciseNames={pastExerciseNames} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
                 ))}
               </tbody>
             </table>
@@ -537,7 +517,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} pastExerciseNames={pastExerciseNames} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
             ))}
           </div>
         </>

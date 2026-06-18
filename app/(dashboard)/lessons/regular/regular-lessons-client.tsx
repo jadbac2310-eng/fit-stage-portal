@@ -4,17 +4,15 @@ import { useState, useMemo, useId } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
-  CheckCircle, Clock, XCircle, Ticket, ClipboardList, Dumbbell,
+  CheckCircle, Clock, XCircle, Ticket,
 } from "lucide-react";
-import { ExerciseEditor } from "@/components/exercise-editor";
-import { ExerciseList } from "@/components/exercise-list";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import { RentalGym } from "@/lib/rental-gyms";
-import { createLessonAction, updateLessonAction, deleteLessonAction, saveLessonReportAction } from "./actions";
+import { createLessonAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
@@ -97,11 +95,6 @@ function computeSuggestion(
     withinPlan: false,
     message: `${activePlan.plan} の上限（${planSessions}回/月）を超えています。都度 または 回数券 を選択してください。`,
   };
-}
-
-// 予定日時を過ぎているか（現在時刻との比較）
-function isPastIso(iso: string): boolean {
-  return new Date(iso).getTime() <= Date.now();
 }
 
 // datetime-local の値（ローカル時刻）を UTC ISO 文字列に変換
@@ -462,69 +455,16 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
   );
 }
 
-// ─── レポートフォーム ─────────────────────────────────
-export function ReportForm({ lesson, pastExerciseNames, onClose }: { lesson: Lesson; pastExerciseNames: string[]; onClose: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const boundSave = saveLessonReportAction.bind(null, lesson.id);
-
-  async function handleSubmit(fd: FormData) {
-    setError(""); setLoading(true);
-    try { await boundSave(fd); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
-  }
-
-  const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
-  const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
-
-  return (
-    <form action={handleSubmit} className="space-y-4">
-      <div className="bg-green-50 rounded-xl p-3 text-xs text-green-700 font-medium">
-        保存するとステータスが「完了」になります
-      </div>
-      <div>
-        <label className={labelClass}><Dumbbell size={12} /> 種目（セットごとに重量×回数）</label>
-        <ExerciseEditor name="exercises" defaultValue={lesson.exercises} pastNames={pastExerciseNames} />
-      </div>
-      <div>
-        <label className={labelClass}><User size={12} /> お客さんの様子</label>
-        <textarea name="customerImpression" defaultValue={lesson.customerImpression} rows={3}
-          placeholder="レッスン中の様子、反応、感想など..." className={cn(inputClass, "resize-none")} />
-      </div>
-      <div>
-        <label className={labelClass}><StickyNote size={12} /> 備考</label>
-        <textarea name="note" defaultValue={lesson.note} rows={2}
-          placeholder="次回アクション、申し送りなど..." className={cn(inputClass, "resize-none")} />
-      </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      <div className="flex gap-2 pt-1">
-        <button type="button" onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
-        <button type="submit" disabled={loading}
-          className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
-          {loading && <Spinner size={14} />}{loading ? "保存中..." : "レポートを保存"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, isAdmin, currentMemberId }: {
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
-  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
-  pastExerciseNames: string[];
+  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const [reporting, setReporting] = useState(lesson.id === openReportId);
   const [deleting, setDeleting] = useState(false);
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
   // 編集/削除は管理者 or 追加した本人のみ
   const canEdit = isAdmin || (!!lesson.createdById && lesson.createdById === currentMemberId);
-  // レポートは担当トレーナー本人のみ、かつ予定日時を過ぎたレッスンのみ記入可
-  const isAssignedTrainer = !!currentMemberId && lesson.trainerMemberId === currentMemberId;
-  const canReport = isAssignedTrainer && isPastIso(lesson.scheduledAt);
-  const hasReport = !!((lesson.exercises && lesson.exercises.length > 0) || lesson.customerImpression);
 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
@@ -549,16 +489,6 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
         action={boundUpdate} submitLabel="保存する" />
-    </div>
-  );
-
-  if (reporting) return (
-    <div className="bg-green-50 rounded-xl p-4 border border-green-200 my-2">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-bold text-gray-700">レポート記入 — {lesson.customerName}</p>
-        <button onClick={() => setReporting(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
-      </div>
-      <ReportForm lesson={lesson} pastExerciseNames={pastExerciseNames} onClose={() => setReporting(false)} />
     </div>
   );
 
@@ -596,14 +526,6 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         {lesson.createdByName && (
           <p className="text-[11px] text-gray-400 mt-0.5">追加: {lesson.createdByName}</p>
         )}
-        {hasReport && (
-          <div className="mt-1.5 rounded-lg bg-green-50 border border-green-100 px-2 py-1.5 space-y-1">
-            {lesson.exercises && lesson.exercises.length > 0 && <ExerciseList exercises={lesson.exercises} compact />}
-            {lesson.customerImpression && (
-              <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">様子: </span>{lesson.customerImpression}</p>
-            )}
-          </div>
-        )}
         <AuthorStamp
           createdByName={lesson.createdByName}
           createdAt={lesson.createdAt}
@@ -613,18 +535,6 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         />
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        {canReport && lesson.status !== "cancelled" && (
-          <button onClick={() => setReporting(true)}
-            className={cn(
-              "flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg transition border",
-              lesson.status === "scheduled" && !hasReport
-                ? "text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 border-green-300"
-                : "text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300"
-            )}>
-            <ClipboardList size={11} />
-            {hasReport ? "レポート確認" : "レポート記入"}
-          </button>
-        )}
         {canEdit && (
           <>
           <button onClick={() => setEditing(true)}
@@ -647,7 +557,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, isAdmin, currentMemberId, openReportId, pastExerciseNames }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, isAdmin, currentMemberId }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -658,11 +568,8 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   rentalGyms: RentalGym[];
   isAdmin: boolean;
   currentMemberId?: string;
-  openReportId?: string;
-  pastExerciseNames: string[];
 }) {
-  // 対象レポートのレッスンを含むグループは最初から展開する
-  const [expanded, setExpanded] = useState(() => !!openReportId && lessons.some((l) => l.id === openReportId));
+  const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   const hasUnassigned = lessons.some((l) => !l.trainerMemberId);
@@ -710,8 +617,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms}
-              isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId}
-              pastExerciseNames={pastExerciseNames} />
+              isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
 
           {showAdd ? (
@@ -739,10 +645,10 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], isAdmin, currentMemberId, initialSearch = "", openReportId, pastExerciseNames = [] }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], isAdmin, currentMemberId, initialSearch = "" }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
   sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; rentalGyms?: RentalGym[]; isAdmin: boolean; currentMemberId?: string;
-  initialSearch?: string; openReportId?: string; pastExerciseNames?: string[];
+  initialSearch?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
@@ -835,8 +741,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
           {filtered.map(({ customer, lessons: ls }) => (
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
-              customers={customers} members={members} rentalGyms={rentalGyms} isAdmin={isAdmin} currentMemberId={currentMemberId}
-              openReportId={openReportId} pastExerciseNames={pastExerciseNames} />
+              customers={customers} members={members} rentalGyms={rentalGyms} isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
         </div>
       )}

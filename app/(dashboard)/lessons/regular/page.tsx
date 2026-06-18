@@ -4,7 +4,6 @@ import { getMembers, getCurrentMember } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getRentalGyms } from "@/lib/rental-gyms";
-import { collectExerciseNames } from "@/lib/exercise-types";
 import { RegularLessonsClient } from "./regular-lessons-client";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function RegularLessonsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; report?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const [{ q, report }, lessons, customers, members, sessionPasses, customerPlans, rentalGyms, member] = await Promise.all([
+  const [{ q }, lessons, customers, members, sessionPasses, customerPlans, rentalGyms, member] = await Promise.all([
     searchParams,
     getLessons(),
     getCustomers(),
@@ -35,8 +34,6 @@ export default async function RegularLessonsPage({
       isAdmin={member?.isAdmin ?? false}
       currentMemberId={member?.id}
       initialSearch={q ?? ""}
-      openReportId={report}
-      pastExerciseNames={collectExerciseNames(lessons.map((l) => l.exercises))}
     />
   );
 }
