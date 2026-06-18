@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, PiggyBank, Receipt, LineChart, History, Bot } from "lucide-react";
+import { ArrowRight, PiggyBank, Receipt, LineChart, History, Bot, Wallet } from "lucide-react";
 import { getCurrentIsAdmin } from "@/lib/members";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +76,20 @@ export default async function AdminPage() {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 text-sm">歩合管理</p>
             <p className="text-xs text-gray-500 mt-0.5">月別トレーナー・営業歩合の確認</p>
+          </div>
+          <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+        </Link>
+
+        <Link
+          href="/admin/payments"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Wallet size={20} className="text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">入金管理</p>
+            <p className="text-xs text-gray-500 mt-0.5">回数券・プラン・都度払いの入金状況を管理</p>
           </div>
           <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
         </Link>
