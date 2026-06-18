@@ -51,10 +51,10 @@ export default async function ReportPrintPage({
   const filename = `トレーニングレポート_${customer.fullName}_${month}.pdf`;
   const { stats } = report;
   const statItems = [
-    { n: String(stats.sessionCount), u: "回", l: "SESSIONS" },
-    { n: String(stats.exerciseCount), u: "種目", l: "EXERCISES" },
-    { n: String(stats.totalSets), u: "set", l: "TOTAL SETS" },
-    { n: stats.totalVolumeKg.toLocaleString("en-US"), u: "kg", l: "VOLUME" },
+    { n: String(stats.sessionCount), u: "", l: "レッスン回数" },
+    { n: String(stats.exerciseCount), u: "", l: "のべ種目数" },
+    { n: String(stats.totalSets), u: "", l: "総セット数" },
+    { n: stats.totalVolumeKg.toLocaleString("en-US"), u: "kg", l: "総挙上量" },
   ];
 
   return (
@@ -87,60 +87,60 @@ export default async function ReportPrintPage({
             {/* ヘッダー */}
             <div className="flex flex-col items-center text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={FS_WORDMARK_PNG} alt="FIT STAGE" className="w-[150px]" />
+              <img src={FS_WORDMARK_PNG} alt="FIT STAGE" className="w-[170px]" />
               <span className="block w-12 h-[2px] bg-[#C9A84C] my-3" />
-              <h2 className="text-[#0a0a0a] font-bold tracking-[0.25em] text-2xl" style={{ fontFamily: "'Cormorant Garamond',serif" }}>
+              <h2 className="text-[#0a0a0a] font-bold tracking-[0.25em] text-3xl" style={{ fontFamily: "'Cormorant Garamond',serif" }}>
                 TRAINING REPORT
               </h2>
-              <p className="text-[10px] tracking-[0.3em] text-[#a8883a] mt-1.5">MONTHLY TRAINING RECORD</p>
+              <p className="text-[13px] tracking-[0.4em] text-[#a8883a] mt-2">月間トレーニング記録</p>
             </div>
 
             {/* 宛名・対象月 */}
-            <div className="flex items-end justify-between border-b border-[#e7ddc6] pb-2.5 mt-6 mb-4">
-              <p className="text-xl font-bold text-[#1a1a1a]">{customer.fullName} 様</p>
-              <p className="text-sm text-[#a8883a]">{monthLabel(month)} の記録</p>
+            <div className="flex items-end justify-between border-b border-[#e7ddc6] pb-3 mt-7 mb-5">
+              <p className="text-2xl font-bold text-[#1a1a1a]">{customer.fullName} 様</p>
+              <p className="text-base text-[#a8883a]">{monthLabel(month)} の記録</p>
             </div>
 
             {/* 統計（黒×金） */}
-            <div className="grid grid-cols-4 rounded-xl bg-[#0a0a0a] py-4">
+            <div className="grid grid-cols-4 rounded-xl bg-[#0a0a0a] py-5">
               {statItems.map((st, i) => (
                 <div key={i} className={`text-center ${i > 0 ? "border-l border-[#2a2a2a]" : ""}`}>
-                  <p className="text-[#C9A84C] font-bold text-lg md:text-xl leading-none">
-                    {st.n}<span className="text-[11px] text-[#f1e7cf] font-normal"> {st.u}</span>
+                  <p className="text-[#C9A84C] font-bold text-2xl md:text-3xl leading-none">
+                    {st.n}<span className="text-sm text-[#f1e7cf] font-normal"> {st.u}</span>
                   </p>
-                  <p className="text-[9px] tracking-[0.15em] text-[#b8ae97] mt-1.5">{st.l}</p>
+                  <p className="text-[11px] tracking-[0.12em] text-[#cdc4ad] mt-2">{st.l}</p>
                 </div>
               ))}
             </div>
 
             {/* 本文 */}
-            <div className="flex items-center gap-2 mt-6 mb-3">
-              <span className="w-[3px] h-3.5 bg-[#C9A84C]" />
-              <p className="text-base font-bold text-[#1a1a1a] tracking-wider">トレーニング内容</p>
+            <div className="flex items-center gap-2 mt-7 mb-4">
+              <span className="w-[3.5px] h-4 bg-[#C9A84C]" />
+              <p className="text-lg font-bold text-[#1a1a1a] tracking-wider">トレーニング内容</p>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {report.sessions.map((sess, i) => (
                 <div key={i} className="border border-[#e7ddc6] rounded-xl p-4 bg-white">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-[#0a0a0a] text-[#C9A84C] text-xs font-bold rounded px-2.5 py-1 tracking-wide">{fmtDate(sess.date)}</span>
-                    <span className="text-[11px] text-[#6b6256]">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="bg-[#0a0a0a] text-[#C9A84C] text-sm font-bold rounded px-3 py-1 tracking-wide">{fmtDate(sess.date)}</span>
+                    <span className="text-[13px] text-[#6b6256]">
                       {sess.trainerName ? `担当 ${sess.trainerName}` : ""}
                       {sess.location ? `${sess.trainerName ? "　/　" : ""}${sess.location}` : ""}
                     </span>
                   </div>
                   {sess.exercises.map((ex, j) => (
-                    <div key={j} className="flex gap-2 text-sm mb-1 items-baseline">
-                      <span className="w-1/3 font-bold text-[#1a1a1a] shrink-0">
-                        {ex.name} <span className="text-[10px] text-[#a8883a] font-normal">{EXERCISE_TYPE_LABEL[ex.type]}</span>
+                    <div key={j} className="flex gap-2 mb-1.5 items-baseline">
+                      <span className="w-[38%] font-bold text-[#1a1a1a] shrink-0 text-[15px]">
+                        {ex.name} <span className="text-[11px] text-[#a8883a] font-normal">{EXERCISE_TYPE_LABEL[ex.type]}</span>
                       </span>
-                      <span className="flex-1 text-[#4b463c] text-[13px]">{ex.sets.map((set) => formatSet(set) || "-").join("　/　")}</span>
+                      <span className="flex-1 text-[#4b463c] text-[15px]">{ex.sets.map((set) => formatSet(set) || "-").join("　/　")}</span>
                     </div>
                   ))}
                   {sess.impression && (
-                    <div className="mt-2.5 bg-[#faf5e8] border-l-[3px] border-[#C9A84C] rounded px-3.5 py-2.5">
-                      <p className="text-[10px] font-bold text-[#a8883a] tracking-[0.1em] mb-0.5">TRAINER&apos;S NOTE</p>
-                      <p className="text-[13px] text-[#5a4f33] whitespace-pre-wrap">{sess.impression}</p>
+                    <div className="mt-3 bg-[#faf5e8] border-l-[3px] border-[#C9A84C] rounded px-4 py-3">
+                      <p className="text-[12px] font-bold text-[#a8883a] tracking-[0.1em] mb-1">トレーナーより</p>
+                      <p className="text-[15px] text-[#5a4f33] whitespace-pre-wrap leading-relaxed">{sess.impression}</p>
                     </div>
                   )}
                 </div>
@@ -148,20 +148,20 @@ export default async function ReportPrintPage({
             </div>
 
             {/* 応援メッセージ */}
-            <div className="border border-[#C9A84C] bg-[#fcf8ee] rounded-xl py-4 px-5 mt-4 text-center">
-              <p className="text-base font-bold text-[#0a0a0a]">今月もお疲れさまでした</p>
-              <p className="text-xs text-[#6b6256] mt-1">積み重ねた{stats.sessionCount}回が、確実に力になっています。来月も一緒に頑張りましょう。</p>
+            <div className="border border-[#C9A84C] bg-[#fcf8ee] rounded-xl py-5 px-5 mt-5 text-center">
+              <p className="text-lg font-bold text-[#0a0a0a]">今月もお疲れさまでした</p>
+              <p className="text-sm text-[#6b6256] mt-1.5">積み重ねた{stats.sessionCount}回が、確実に力になっています。来月も一緒に頑張りましょう。</p>
             </div>
 
             {/* フッター */}
-            <div className="h-px bg-[#C9A84C] mt-6 mb-3" />
+            <div className="h-px bg-[#C9A84C] mt-7 mb-3" />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={FS_MONOGRAM_PNG} alt="" className="w-4 h-4" />
-                <span className="text-sm font-bold text-[#1a1a1a] tracking-wider">{ISSUER.name}</span>
+                <img src={FS_MONOGRAM_PNG} alt="" className="w-5 h-5" />
+                <span className="text-base font-bold text-[#1a1a1a] tracking-wider">{ISSUER.name}</span>
               </div>
-              <span className="text-[11px] text-[#6b6256]">{ISSUER.tel}　{ISSUER.email}</span>
+              <span className="text-[12px] text-[#6b6256]">{ISSUER.tel}　{ISSUER.email}</span>
             </div>
           </div>
         </>

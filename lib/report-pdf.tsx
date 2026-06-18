@@ -34,57 +34,57 @@ const C = {
 };
 
 const s = StyleSheet.create({
-  page: { fontFamily: "NotoSerifJP", fontSize: 9.5, color: C.ink, backgroundColor: C.ivory, paddingTop: 32, paddingBottom: 40, paddingHorizontal: 36, lineHeight: 1.45 },
+  page: { fontFamily: "NotoSerifJP", fontSize: 11.5, color: C.ink, backgroundColor: C.ivory, paddingTop: 32, paddingBottom: 40, paddingHorizontal: 34, lineHeight: 1.5 },
 
   // ヘッダー
   header: { alignItems: "center", marginBottom: 8 },
-  wordmark: { width: 150 },
-  rule: { width: 46, height: 1.5, backgroundColor: C.gold, marginTop: 12, marginBottom: 10 },
-  enTitle: { fontFamily: "Cormorant", fontSize: 23, fontWeight: "bold", letterSpacing: 5, color: C.black, lineHeight: 1 },
-  jaTitle: { fontSize: 7.5, letterSpacing: 4, color: C.goldD, marginTop: 9 },
+  wordmark: { width: 168 },
+  rule: { width: 50, height: 1.5, backgroundColor: C.gold, marginTop: 12, marginBottom: 10 },
+  enTitle: { fontFamily: "Cormorant", fontSize: 26, fontWeight: "bold", letterSpacing: 5, color: C.black, lineHeight: 1 },
+  jaTitle: { fontSize: 10, letterSpacing: 6, color: C.goldD, marginTop: 9 },
 
   // 宛名・対象月
-  metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 16, marginBottom: 14, borderBottomWidth: 0.8, borderBottomColor: C.border, paddingBottom: 8 },
-  toName: { fontSize: 15, fontWeight: "bold", color: C.ink },
-  month: { fontSize: 10, color: C.goldD },
+  metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18, marginBottom: 16, borderBottomWidth: 0.8, borderBottomColor: C.border, paddingBottom: 9 },
+  toName: { fontSize: 18, fontWeight: "bold", color: C.ink },
+  month: { fontSize: 12, color: C.goldD },
 
   // 統計（黒バンド × 金）
-  stats: { flexDirection: "row", backgroundColor: C.black, borderRadius: 8, paddingVertical: 14, marginBottom: 18 },
+  stats: { flexDirection: "row", backgroundColor: C.black, borderRadius: 8, paddingVertical: 16, marginBottom: 20 },
   stat: { flex: 1, alignItems: "center", borderLeftWidth: 0.6, borderLeftColor: "#2a2a2a" },
-  statNum: { fontFamily: "NotoSerifJP", color: C.gold, fontSize: 18, fontWeight: "bold", lineHeight: 1 },
-  statUnit: { fontFamily: "NotoSerifJP", fontSize: 8, color: C.cream },
-  statLabel: { fontSize: 7.5, color: "#b8ae97", marginTop: 5, letterSpacing: 1 },
+  statNum: { fontFamily: "NotoSerifJP", color: C.gold, fontSize: 23, fontWeight: "bold", lineHeight: 1 },
+  statUnit: { fontFamily: "NotoSerifJP", fontSize: 10, color: C.cream },
+  statLabel: { fontSize: 9.5, color: "#cdc4ad", marginTop: 6, letterSpacing: 1 },
 
-  sectionRow: { flexDirection: "row", alignItems: "center", marginBottom: 9 },
-  sectionTick: { width: 3, height: 13, backgroundColor: C.gold, marginRight: 7 },
-  sectionTitle: { fontSize: 11.5, fontWeight: "bold", color: C.ink, letterSpacing: 1 },
+  sectionRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  sectionTick: { width: 3.5, height: 15, backgroundColor: C.gold, marginRight: 7 },
+  sectionTitle: { fontSize: 14, fontWeight: "bold", color: C.ink, letterSpacing: 1 },
 
   // セッションカード
-  card: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12, marginBottom: 9, backgroundColor: C.card },
-  cardHead: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  dateChip: { backgroundColor: C.black, color: C.gold, fontSize: 9, fontWeight: "bold", borderRadius: 4, paddingVertical: 3, paddingHorizontal: 8, marginRight: 8, letterSpacing: 0.5 },
-  cardMeta: { color: C.muted, fontSize: 8 },
+  card: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 13, marginBottom: 10, backgroundColor: C.card },
+  cardHead: { flexDirection: "row", alignItems: "center", marginBottom: 9 },
+  dateChip: { backgroundColor: C.black, color: C.gold, fontSize: 11, fontWeight: "bold", borderRadius: 4, paddingVertical: 3, paddingHorizontal: 9, marginRight: 9, letterSpacing: 0.5 },
+  cardMeta: { color: C.muted, fontSize: 10 },
 
-  exRow: { flexDirection: "row", marginBottom: 4, alignItems: "baseline" },
-  exName: { width: "34%", fontSize: 9, fontWeight: "bold", color: C.ink, paddingRight: 6 },
-  exType: { fontSize: 7, color: C.goldD },
-  exSets: { width: "66%", fontSize: 8.5, color: "#4b463c" },
+  exRow: { flexDirection: "row", marginBottom: 5, alignItems: "baseline" },
+  exName: { width: "36%", fontSize: 11, fontWeight: "bold", color: C.ink, paddingRight: 6 },
+  exType: { fontSize: 8.5, color: C.goldD },
+  exSets: { width: "64%", fontSize: 10.5, color: "#4b463c" },
 
-  comment: { marginTop: 7, backgroundColor: C.commentBg, borderLeftWidth: 3, borderLeftColor: C.gold, borderRadius: 3, paddingVertical: 6, paddingHorizontal: 9 },
-  commentLabel: { fontSize: 7.5, fontWeight: "bold", color: C.goldD, marginBottom: 2, letterSpacing: 1 },
-  commentText: { fontSize: 8.5, color: "#5a4f33" },
+  comment: { marginTop: 8, backgroundColor: C.commentBg, borderLeftWidth: 3, borderLeftColor: C.gold, borderRadius: 3, paddingVertical: 7, paddingHorizontal: 10 },
+  commentLabel: { fontSize: 9.5, fontWeight: "bold", color: C.goldD, marginBottom: 2.5, letterSpacing: 1 },
+  commentText: { fontSize: 10.5, color: "#5a4f33" },
 
   // 応援・フッター
-  cheer: { borderWidth: 1, borderColor: C.gold, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16, marginTop: 6, alignItems: "center", backgroundColor: "#fcf8ee" },
-  cheerText: { fontSize: 11, fontWeight: "bold", color: C.black },
-  cheerSub: { fontSize: 8, color: C.muted, marginTop: 3 },
+  cheer: { borderWidth: 1, borderColor: C.gold, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 16, marginTop: 8, alignItems: "center", backgroundColor: "#fcf8ee" },
+  cheerText: { fontSize: 13.5, fontWeight: "bold", color: C.black },
+  cheerSub: { fontSize: 10, color: C.muted, marginTop: 4 },
 
-  footRule: { height: 1, backgroundColor: C.gold, marginTop: 16, marginBottom: 8 },
+  footRule: { height: 1, backgroundColor: C.gold, marginTop: 18, marginBottom: 9 },
   foot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   footLeft: { flexDirection: "row", alignItems: "center" },
-  footMono: { width: 16, height: 16, marginRight: 6 },
-  footBrand: { fontSize: 8.5, fontWeight: "bold", color: C.ink, letterSpacing: 1 },
-  footText: { fontSize: 7.5, color: C.muted },
+  footMono: { width: 18, height: 18, marginRight: 7 },
+  footBrand: { fontSize: 10.5, fontWeight: "bold", color: C.ink, letterSpacing: 1 },
+  footText: { fontSize: 9, color: C.muted },
 });
 
 function fmtDate(iso: string): string {
@@ -101,10 +101,10 @@ export interface ReportPdfData {
 export function ReportDocument({ report, issuer }: ReportPdfData) {
   const { stats } = report;
   const statItems = [
-    { n: String(stats.sessionCount), u: "回", l: "SESSIONS" },
-    { n: String(stats.exerciseCount), u: "種目", l: "EXERCISES" },
-    { n: String(stats.totalSets), u: "set", l: "TOTAL SETS" },
-    { n: stats.totalVolumeKg.toLocaleString("en-US"), u: "kg", l: "VOLUME" },
+    { n: String(stats.sessionCount), u: "", l: "レッスン回数" },
+    { n: String(stats.exerciseCount), u: "", l: "のべ種目数" },
+    { n: String(stats.totalSets), u: "", l: "総セット数" },
+    { n: stats.totalVolumeKg.toLocaleString("en-US"), u: "kg", l: "総挙上量" },
   ];
 
   return (
@@ -116,7 +116,7 @@ export function ReportDocument({ report, issuer }: ReportPdfData) {
           <Image src={FS_WORDMARK_PNG} style={s.wordmark} />
           <View style={s.rule} />
           <Text style={s.enTitle}>TRAINING REPORT</Text>
-          <Text style={s.jaTitle}>MONTHLY TRAINING RECORD</Text>
+          <Text style={s.jaTitle}>月間トレーニング記録</Text>
         </View>
 
         {/* 宛名・対象月 */}
@@ -159,7 +159,7 @@ export function ReportDocument({ report, issuer }: ReportPdfData) {
 
             {sess.impression ? (
               <View style={s.comment}>
-                <Text style={s.commentLabel}>TRAINER&apos;S NOTE</Text>
+                <Text style={s.commentLabel}>トレーナーより</Text>
                 <Text style={s.commentText}>{sess.impression}</Text>
               </View>
             ) : null}
