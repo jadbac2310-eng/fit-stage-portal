@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ClipboardList, Search, ChevronRight, ArrowLeft, MapPin, User, StickyNote,
+  ClipboardList, Search, ChevronRight, ChevronDown, ArrowLeft, MapPin, User, StickyNote,
   Dumbbell, Check, CloudOff, Clock, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -112,47 +112,59 @@ function ReportEditor({ lesson, pastExerciseNames }: { lesson: Lesson; pastExerc
   );
 }
 
-// ─── レッスン1件のカード ──────────────────────────────────
-function LessonCard({ lesson, canEdit, pastExerciseNames }: {
-  lesson: Lesson; canEdit: boolean; pastExerciseNames: string[];
+// ─── レッスン1件のカード（アコーディオン） ────────────────
+function LessonCard({ lesson, canEdit, pastExerciseNames, defaultOpen = false }: {
+  lesson: Lesson; canEdit: boolean; pastExerciseNames: string[]; defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   const done = hasReport(lesson);
   const past = isPast(lesson.scheduledAt);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-bold text-gray-800">{dateTime(lesson.scheduledAt)}</span>
-          {lesson.course && <span className="text-xs text-gray-500">{lesson.course}</span>}
-          {done
-            ? <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full"><CheckCircle2 size={10} />記入済み</span>
-            : <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full"><Clock size={10} />未記入</span>}
-          {!past && <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full">予定</span>}
-        </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
-          {lesson.trainerMemberName && <span className="flex items-center gap-0.5"><User size={10} />{lesson.trainerMemberName}</span>}
-          {lesson.location && <span className="flex items-center gap-0.5 min-w-0"><MapPin size={10} className="flex-shrink-0" /><span className="truncate">{lesson.location}</span></span>}
-        </div>
-      </div>
-
-      <div className="p-4">
-        {canEdit ? (
-          <ReportEditor lesson={lesson} pastExerciseNames={pastExerciseNames} />
-        ) : done ? (
-          <div className="space-y-2">
-            {lesson.exercises && lesson.exercises.length > 0 && <ExerciseList exercises={lesson.exercises} />}
-            {lesson.customerImpression && (
-              <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">様子: </span>{lesson.customerImpression}</p>
-            )}
-            {lesson.note && (
-              <p className="text-xs text-gray-500 whitespace-pre-wrap"><span className="font-semibold">備考: </span>{lesson.note}</p>
-            )}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50/80 transition text-left"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-gray-800">{dateTime(lesson.scheduledAt)}</span>
+            {lesson.course && <span className="text-xs text-gray-500">{lesson.course}</span>}
+            {done
+              ? <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full"><CheckCircle2 size={10} />記入済み</span>
+              : <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full"><Clock size={10} />未記入</span>}
+            {!past && <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full">予定</span>}
           </div>
-        ) : (
-          <p className="text-xs text-gray-400">まだレポートは記入されていません</p>
-        )}
-      </div>
+          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
+            {lesson.trainerMemberName && <span className="flex items-center gap-0.5"><User size={10} />{lesson.trainerMemberName}</span>}
+            {lesson.location && <span className="flex items-center gap-0.5 min-w-0"><MapPin size={10} className="flex-shrink-0" /><span className="truncate">{lesson.location}</span></span>}
+          </div>
+        </div>
+        <ChevronDown
+          size={18}
+          className={cn("text-gray-400 flex-shrink-0 mt-0.5 transition-transform", open && "rotate-180")}
+        />
+      </button>
+
+      {open && (
+        <div className="p-4 border-t border-gray-100">
+          {canEdit ? (
+            <ReportEditor lesson={lesson} pastExerciseNames={pastExerciseNames} />
+          ) : done ? (
+            <div className="space-y-2">
+              {lesson.exercises && lesson.exercises.length > 0 && <ExerciseList exercises={lesson.exercises} />}
+              {lesson.customerImpression && (
+                <p className="text-xs text-gray-600 whitespace-pre-wrap"><span className="text-green-700 font-semibold">様子: </span>{lesson.customerImpression}</p>
+              )}
+              {lesson.note && (
+                <p className="text-xs text-gray-500 whitespace-pre-wrap"><span className="font-semibold">備考: </span>{lesson.note}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">まだレポートは記入されていません</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -183,8 +195,8 @@ function CustomerDetail({ name, lessons, canEditLesson, pastExerciseNames, onBac
       </div>
 
       <div className="space-y-3">
-        {sorted.map((l) => (
-          <LessonCard key={l.id} lesson={l} canEdit={canEditLesson(l)} pastExerciseNames={pastExerciseNames} />
+        {sorted.map((l, i) => (
+          <LessonCard key={l.id} lesson={l} canEdit={canEditLesson(l)} pastExerciseNames={pastExerciseNames} defaultOpen={i === 0} />
         ))}
       </div>
     </div>
