@@ -463,7 +463,7 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
 }
 
 // ─── レポートフォーム ─────────────────────────────────
-function ReportForm({ lesson, pastExerciseNames, onClose }: { lesson: Lesson; pastExerciseNames: string[]; onClose: () => void }) {
+export function ReportForm({ lesson, pastExerciseNames, onClose }: { lesson: Lesson; pastExerciseNames: string[]; onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const boundSave = saveLessonReportAction.bind(null, lesson.id);

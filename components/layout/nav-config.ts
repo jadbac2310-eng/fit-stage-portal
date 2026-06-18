@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ShieldCheck,
   PiggyBank,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "スケジュール",   href: "/schedule",    icon: CalendarDays },
   { label: "Wiki",           href: "/wiki",        icon: BookOpen },
   { label: "レッスン",       href: "/lessons",     icon: Dumbbell },
+  { label: "レポート",       href: "/reports",     icon: ClipboardList },
   { label: "歩合",           href: "/commissions", icon: PiggyBank },
   { label: "プラン管理",     href: "/plans",       icon: CreditCard },
   { label: "マスタ管理",     href: "/master",      icon: Database },

@@ -90,9 +90,7 @@ export async function saveLessonReportAction(id: string, formData: FormData) {
   if (!isAssignedTrainer) {
     throw new Error("レポートを入力できるのは担当トレーナーのみです");
   }
-  if (new Date(lesson.scheduledAt).getTime() > Date.now()) {
-    throw new Error("予定日時を過ぎたレッスンのみレポートを入力できます");
-  }
+  // レッスン中・実施前でも記入できる（完了日時の制限なし）
 
   const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
   const note               = (formData.get("note")               as string)?.trim() || null;
@@ -102,6 +100,28 @@ export async function saveLessonReportAction(id: string, formData: FormData) {
   await updateLesson(id, { exercises, trainingContent: null, customerImpression, note, status: "completed" });
   await logActivity({ action: "report", entityType: "lesson", entityId: id, summary: `レポート記入: ${lesson.customerName}`, memberId: member.id, memberName: member.name });
   revalidatePath("/lessons/regular");
+  revalidatePath("/reports");
+}
+
+// レポート画面の自動保存。レッスン中・実施前でも記入でき、ステータスは変更しない。
+// 担当トレーナーまたは管理者のみ。保存結果を返す（UIで「保存しました」表示に使う）。
+export async function autosaveLessonReportAction(id: string, formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  const [lesson, member] = await Promise.all([getLesson(id), getCurrentMember()]);
+  if (!member) return { ok: false, error: "ログインが必要です" };
+  if (!lesson) return { ok: false, error: "レッスンが見つかりません" };
+  const canEdit = member.isAdmin || (!!lesson.trainerMemberId && lesson.trainerMemberId === member.id);
+  if (!canEdit) return { ok: false, error: "記入できるのは担当トレーナーまたは管理者のみです" };
+
+  const customerImpression = (formData.get("customerImpression") as string)?.trim() || null;
+  const note               = (formData.get("note")               as string)?.trim() || null;
+  let exercises: ReturnType<typeof cleanExercises> = [];
+  try { exercises = cleanExercises(parseExercises(JSON.parse((formData.get("exercises") as string) || "[]"))); } catch {}
+
+  // ステータスは変更しない（実施前の予定レッスンに下書きしても「完了」にしない）
+  await updateLesson(id, { exercises, trainingContent: null, customerImpression, note });
+  revalidatePath("/lessons/regular");
+  revalidatePath("/reports");
+  return { ok: true };
 }
 
 export async function deleteLessonAction(id: string) {

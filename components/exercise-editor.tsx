@@ -18,11 +18,12 @@ const emptyExercise = (): Exercise => ({ name: "", type: "weight", sets: [emptyS
  * 種目名は datalist で過去の種目から選択 or 直接入力できる。
  */
 export function ExerciseEditor({
-  name, defaultValue, pastNames,
+  name, defaultValue, pastNames, onChange,
 }: {
   name: string;
   defaultValue?: Exercise[];
   pastNames: string[];
+  onChange?: (exercises: Exercise[]) => void;
 }) {
   const [exercises, setExercises] = useState<Exercise[]>(
     defaultValue && defaultValue.length > 0 ? defaultValue : [emptyExercise()]
@@ -30,6 +31,7 @@ export function ExerciseEditor({
 
   function update(next: Exercise[]) {
     setExercises(next);
+    onChange?.(next);
   }
   function setName(i: number, value: string) {
     update(exercises.map((e, idx) => (idx === i ? { ...e, name: value } : e)));
