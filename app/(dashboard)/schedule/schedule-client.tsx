@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CalendarDays, MapPin, ChevronDown, Clock,
-  Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound,
+  Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
   Plus, Trash2, X, CalendarPlus,
@@ -47,6 +47,8 @@ export type ScheduleItem = {
   updatedAt?: string;
   note?: string;
   contracted?: boolean | null;
+  participantIds?: string[];
+  participantNames?: string[];
 };
 
 // ─── 個人予定の色 ─────────────────────────────────────
@@ -253,7 +255,14 @@ function LessonCard({
             {fullDateStr(item.scheduledAt)} {isPersonal ? personalTimeLabel(item) : timeStr(item.scheduledAt)}
           </DetailRow>
           {isPersonal ? (
-            <DetailRow icon={<UserRound size={13} />} label="作成者">{item.ownerName ?? "—"}</DetailRow>
+            <>
+              <DetailRow icon={<UserRound size={13} />} label="作成者">{item.ownerName ?? "—"}</DetailRow>
+              {item.participantNames && item.participantNames.length > 0 && (
+                <DetailRow icon={<Users size={13} />} label="参加者">
+                  {item.participantNames.join("、")}
+                </DetailRow>
+              )}
+            </>
           ) : isTrial ? (
             <>
               <DetailRow icon={<UserRound size={13} />} label="営業担当">{item.salesName ?? "未設定"}</DetailRow>
@@ -509,19 +518,32 @@ function CalendarView({
 
 // ─── 個人予定の追加/編集モーダル ─────────────────────────
 function PersonalEventModal({
-  mode, initial, defaultDate, onClose,
+  mode, initial, defaultDate, members, currentMemberId, onClose,
 }: {
   mode: "create" | "edit";
   initial?: ScheduleItem;
   defaultDate?: string;
+  members: Member[];
+  currentMemberId?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
   const startDateInit = initial ? datePart(initial.scheduledAt) : (defaultDate ?? todayDate());
   const [allDay, setAllDay] = useState(initial?.allDay ?? false);
   const [color, setColor] = useState<EventColor>(initial?.color ?? "blue");
+  const [participants, setParticipants] = useState<string[]>(initial?.participantIds ?? []);
+  const [memberQuery, setMemberQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 作成者本人は「参加者」候補から除外（主催者として自動的に含まれる扱い）
+  const ownerId = mode === "edit" ? initial?.ownerId : currentMemberId;
+  const selectableMembers = members.filter((m) => m.id !== ownerId);
+  const toggleParticipant = (id: string) =>
+    setParticipants((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  const filteredMembers = selectableMembers.filter(
+    (m) => !memberQuery.trim() || m.name.includes(memberQuery.trim()),
+  );
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -598,6 +620,55 @@ function PersonalEventModal({
             <label className="text-xs font-semibold text-gray-500 mb-1 block">場所</label>
             <input name="location" defaultValue={initial?.location ?? ""}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          {/* 参加者（担当者マスタから複数選択） */}
+          <div>
+            <input type="hidden" name="participantIds" value={JSON.stringify(participants)} />
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">
+              参加者 <span className="text-gray-300 font-normal">（任意）</span>
+            </label>
+            {participants.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {participants.map((id) => {
+                  const m = members.find((mm) => mm.id === id);
+                  return (
+                    <button key={id} type="button" onClick={() => toggleParticipant(id)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full pl-2.5 pr-1.5 py-1 hover:bg-blue-100 transition">
+                      {m?.name ?? "不明"}
+                      <X size={12} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <input
+              value={memberQuery}
+              onChange={(e) => setMemberQuery(e.target.value)}
+              placeholder="担当者を検索して追加..."
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1.5"
+            />
+            <div className="max-h-36 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
+              {filteredMembers.length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-2">該当する担当者がいません</p>
+              ) : (
+                filteredMembers.map((m) => {
+                  const selected = participants.includes(m.id);
+                  return (
+                    <button key={m.id} type="button" onClick={() => toggleParticipant(m.id)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition">
+                      <span className={cn(
+                        "w-4 h-4 rounded border flex items-center justify-center flex-shrink-0",
+                        selected ? "bg-blue-600 border-blue-600" : "border-gray-300",
+                      )}>
+                        {selected && <CheckCircle size={12} className="text-white" />}
+                      </span>
+                      <span className="text-sm text-gray-700">{m.name}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* メモ */}
@@ -915,6 +986,8 @@ export function ScheduleClient({
           mode={modal.mode}
           initial={modal.initial}
           defaultDate={modal.defaultDate}
+          members={members}
+          currentMemberId={currentMemberId}
           onClose={() => setModal(null)}
         />
       )}

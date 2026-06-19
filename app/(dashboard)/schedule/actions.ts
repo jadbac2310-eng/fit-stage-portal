@@ -13,6 +13,16 @@ function toIso(date: string, time: string): string {
   return `${date}T${time}:00+09:00`;
 }
 
+// 参加者(担当者id)の配列を hidden input(JSON) から取り出す
+function parseParticipantIds(formData: FormData): string[] {
+  try {
+    const raw = JSON.parse((formData.get("participantIds") as string) || "[]");
+    return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function buildTimes(formData: FormData): { allDay: boolean; startAt: string; endAt: string | null } {
   const allDay    = formData.get("allDay") === "on";
   const startDate = (formData.get("startDate") as string)?.trim();
@@ -41,8 +51,9 @@ export async function createPersonalEventAction(formData: FormData) {
   const location = (formData.get("location") as string)?.trim() || null;
   const memo     = (formData.get("memo")     as string)?.trim() || null;
   const color    = normalizeColor((formData.get("color") as string)?.trim());
+  const participantIds = parseParticipantIds(formData);
 
-  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color });
+  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds });
   await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}`, memberId: member.id, memberName: member.name });
   revalidatePath("/schedule");
 }
@@ -62,8 +73,9 @@ export async function updatePersonalEventAction(id: string, formData: FormData) 
   const location = (formData.get("location") as string)?.trim() || null;
   const memo     = (formData.get("memo")     as string)?.trim() || null;
   const color    = normalizeColor((formData.get("color") as string)?.trim());
+  const participantIds = parseParticipantIds(formData);
 
-  await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color });
+  await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds });
   await logActivity({ action: "update", entityType: "personal_event", entityId: id, summary: `個人予定を編集: ${title}`, memberId: member.id, memberName: member.name });
   revalidatePath("/schedule");
 }

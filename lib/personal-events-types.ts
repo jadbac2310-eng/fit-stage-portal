@@ -16,6 +16,7 @@ export interface PersonalEvent {
   location?:  string;
   memo?:      string;
   color:      EventColor;
+  participantIds: string[];
   updatedById?: string;
   createdAt:  string;
   updatedAt:  string;
