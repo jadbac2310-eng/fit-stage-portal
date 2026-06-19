@@ -220,7 +220,7 @@ export function RevenueDashboardClient({
       {/* KPI カード */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} accent="text-blue-600" sub="完了レッスン単価の合計" />
-        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（ジム代控除後）" />
+        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" />
         <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" />
         <KpiCard icon={<Building2 size={12} />} label="レンタルジム代" value={cur.rentalCost} accent="text-rose-600" sub="レッスンごとの利用料" />
       </div>

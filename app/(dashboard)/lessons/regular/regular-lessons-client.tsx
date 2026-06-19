@@ -326,7 +326,7 @@ export function LessonForm({
               onChange={(e) => setRentalGymFee(e.target.value)}
               className={inputClass}
             />
-            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益・歩合の計算でこの額を差し引きます。</p>
+            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
           </div>
         )}
       </div>
