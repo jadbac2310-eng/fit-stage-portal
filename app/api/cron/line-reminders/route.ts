@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
 
   let count = 0;
   for (const it of items) {
-    const body = `⏰ まもなく予定です（${REMINDER_MIN}分前）\n${it.title}\n${jstDateLabel(it.startAt)} ${jstTimeStr(it.startAt)}${it.location ? `\n＠${it.location}` : ""}`;
+    // 実際の残り時間を表示（固定文言だと直前登録などで実態とズレるため）
+    const mins = Math.max(1, Math.round((new Date(it.startAt).getTime() - now) / 60000));
+    const body = `⏰ まもなく予定です（あと約${mins}分）\n${it.title}\n${jstDateLabel(it.startAt)} ${jstTimeStr(it.startAt)}${it.location ? `\n＠${it.location}` : ""}`;
     for (const mid of new Set(it.recipientIds)) {
       const member = memberById.get(mid);
       if (!member?.lineUserId || sent.has(`${it.ref}__${mid}`)) continue;
