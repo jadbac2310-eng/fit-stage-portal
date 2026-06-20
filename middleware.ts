@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/consultation-webhook"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/consultation-webhook",
+  "/api/line/webhook",   // LINE Webhook（署名で検証）
+  "/api/cron/",          // Cron（CRON_SECRET で検証）
+];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
