@@ -4,6 +4,12 @@ import { createAdminClient } from "./supabase";
 
 const JST = 9 * 3600 * 1000;
 
+// ポータルのURL（環境変数 APP_URL で上書き可。末尾に path を付与）
+export function portalUrl(path = ""): string {
+  const base = (process.env.APP_URL || "https://fit-stage-portal.vercel.app").replace(/\/$/, "");
+  return base + path;
+}
+
 /** ISO(UTC)文字列を日本時間の 'YYYY-MM-DD' にする */
 export function jstDateStr(iso: string | number | Date = Date.now()): string {
   const t = typeof iso === "number" ? iso : new Date(iso).getTime();

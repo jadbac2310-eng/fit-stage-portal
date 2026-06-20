@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMembers } from "@/lib/members";
 import { collectNotifyItems } from "@/lib/schedule-items";
 import { pushLineMessage } from "@/lib/line";
-import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr } from "@/lib/line-notify";
+import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr, portalUrl } from "@/lib/line-notify";
+
+const SCHEDULE_LINK = `\n\n▶ スケジュールを見る\n${portalUrl("/schedule")}`;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
 
   let count = 0;
   for (const it of items) {
-    const text = `⏰ まもなく予定です（${REMINDER_MIN}分前）\n${it.title}\n${jstDateLabel(it.startAt)} ${jstTimeStr(it.startAt)}${it.location ? `\n＠${it.location}` : ""}`;
+    const text = `⏰ まもなく予定です（${REMINDER_MIN}分前）\n${it.title}\n${jstDateLabel(it.startAt)} ${jstTimeStr(it.startAt)}${it.location ? `\n＠${it.location}` : ""}${SCHEDULE_LINK}`;
     for (const mid of new Set(it.recipientIds)) {
       const lineId = lineOf.get(mid);
       if (!lineId || sent.has(`${it.ref}__${mid}`)) continue;
