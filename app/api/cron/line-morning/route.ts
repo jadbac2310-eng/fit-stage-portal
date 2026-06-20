@@ -22,25 +22,34 @@ export async function GET(req: NextRequest) {
   const members = (await getMembers()).filter((m) => m.lineUserId);
   const sent = await fetchSentKeys("morning", [today]);
 
+  const sentAll = await fetchSentKeys("morning_all", [today]);
+  const byTime = (a: { startAt: string }, b: { startAt: string }) =>
+    new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
+
   let count = 0;
+
+  // ① 個人の朝まとめ（全員）：自分が関係する予定だけ
   for (const m of members) {
     if (sent.has(`${today}__${m.id}`)) continue;
-    // 自分が関係する予定。管理者は加えて全員のレッスン（通常・体験）も受け取る。
-    const mine = items
-      .filter((it) => it.recipientIds.includes(m.id) || (m.isAdmin && it.isLesson))
-      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+    const mine = items.filter((it) => it.recipientIds.includes(m.id)).sort(byTime);
     if (mine.length === 0) continue;
-
-    const lines = mine.map((it) => "・" + fmtItemLine({
-      startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location,
-      assignee: m.isAdmin && it.isLesson ? it.assignee : undefined,
-    }));
-    const header = m.isAdmin
-      ? `${jstDateLabel(today)} の予定（${mine.length}件・全員のレッスンを含む）`
-      : `${jstDateLabel(today)} の予定（${mine.length}件）`;
-    const text = `☀️ おはようございます\n${header}\n\n${lines.join("\n")}`;
+    const lines = mine.map((it) => "・" + fmtItemLine({ startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location }));
+    const text = `☀️ おはようございます\n${jstDateLabel(today)} の予定（${mine.length}件）\n\n${lines.join("\n")}`;
     const r = await pushLineMessage(m.lineUserId!, text);
     if (r.ok) { await markSent("morning", today, m.id); count++; }
   }
+
+  // ② 全員のスケジュール（管理者のみ・別メッセージ）：全員の通常/体験レッスン
+  const allLessons = items.filter((it) => it.isLesson).sort(byTime);
+  if (allLessons.length > 0) {
+    for (const m of members.filter((m) => m.isAdmin)) {
+      if (sentAll.has(`${today}__${m.id}`)) continue;
+      const lines = allLessons.map((it) => "・" + fmtItemLine({ startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location, assignee: it.assignee }));
+      const text = `📋 本日の全レッスン（${jstDateLabel(today)}・${allLessons.length}件）\n\n${lines.join("\n")}`;
+      const r = await pushLineMessage(m.lineUserId!, text);
+      if (r.ok) { await markSent("morning_all", today, m.id); count++; }
+    }
+  }
+
   return NextResponse.json({ ok: true, sent: count });
 }
