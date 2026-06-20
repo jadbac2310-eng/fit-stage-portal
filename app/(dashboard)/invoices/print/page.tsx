@@ -8,8 +8,8 @@ import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
-  billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
-  monthLabel, dueDateLabel, invoiceNumber,
+  billingGroups, buildGroupInvoice, ISSUER,
+  monthLabel, invoiceNumber,
 } from "@/lib/invoices";
 import { EditableBillingName } from "./editable-name";
 import { InvoiceActions } from "./invoice-actions";
@@ -60,9 +60,9 @@ export default async function InvoicePrintPage({
         <Link href={`/invoices?month=${month}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition">
           <ChevronLeft size={15} /> 請求書一覧
         </Link>
-        <InvoiceActions pdfHref={pdfHref} filename={pdfFilename} />
+        <InvoiceActions pdfHref={pdfHref} filename={pdfFilename} billerId={customer.id} month={month} />
       </div>
-      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「共有」でLINE等へ送るか「PDF」で保存できます。</p>
+      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「LINEで送る」で内訳＋決済リンクの文面を作って送れます（PDFを送る場合は「PDF共有」）。</p>
 
       {/* 請求書本体 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 print:border-0 print:p-0 print:rounded-none">
@@ -119,18 +119,6 @@ export default async function InvoicePrintPage({
             </tr>
           </tfoot>
         </table>
-
-        {/* 振込先 */}
-        <div className="border border-gray-300 rounded-xl p-4 text-sm">
-          <p className="font-bold text-gray-800 mb-2">お振込先</p>
-          <div className="grid grid-cols-[5rem_1fr] gap-y-1 text-gray-700">
-            <span className="text-gray-500">銀行名</span><span>{BANK_INFO.bankName}</span>
-            <span className="text-gray-500">種別</span><span>{BANK_INFO.accountType}</span>
-            <span className="text-gray-500">口座番号</span><span>{BANK_INFO.accountNumber}</span>
-            <span className="text-gray-500">口座名義</span><span>{BANK_INFO.accountHolder}</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-3">お支払期限: {dueDateLabel(month)}（振込手数料はご負担ください）</p>
-        </div>
       </div>
     </div>
   );

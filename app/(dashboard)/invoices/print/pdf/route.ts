@@ -7,8 +7,8 @@ import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
-  billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
-  monthLabel, dueDateLabel, invoiceNumber,
+  billingGroups, buildGroupInvoice, ISSUER,
+  monthLabel, invoiceNumber,
 } from "@/lib/invoices";
 import { InvoiceDocument } from "@/lib/invoice-pdf";
 
@@ -47,10 +47,8 @@ export async function GET(req: NextRequest) {
       invoice,
       address: biller.address,
       issuer: ISSUER,
-      bank: BANK_INFO,
       invoiceNo: invoiceNumber(month, biller.id),
       monthLabel: monthLabel(month),
-      dueDateLabel: dueDateLabel(month),
     }),
   );
 
