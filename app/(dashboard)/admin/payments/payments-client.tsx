@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil } from "lucide-react";
+import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, Link2, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
 import type { Receivable } from "@/lib/payments-types";
 import { SOURCE_TYPE_LABEL, PAYMENT_METHODS, type PaymentSourceType } from "@/lib/payments-types";
-import { recordPaymentAction, unrecordPaymentAction } from "./actions";
+import type { StripeCheckout } from "@/lib/stripe-checkouts";
+import { recordPaymentAction, unrecordPaymentAction, createCheckoutLinkAction } from "./actions";
 
 function yen(n: number) { return `¥${Math.round(n).toLocaleString("ja-JP")}`; }
 function todayStr() {
@@ -148,10 +149,99 @@ function Row({ item }: { item: Receivable }) {
   );
 }
 
-export function PaymentsClient({ receivables, month }: { receivables: Receivable[]; month: string }) {
+function CheckoutCard({
+  customerId, customerName, total, count, month, existing,
+}: {
+  customerId: string; customerName: string; total: number; count: number; month: string;
+  existing?: StripeCheckout;
+}) {
+  const [url, setUrl] = useState<string | null>(existing?.status === "pending" ? existing.url ?? null : null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("コピーに失敗しました。リンクを長押しでコピーしてください。");
+    }
+  }
+
+  async function generate() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await createCheckoutLinkAction(customerId, month);
+      if (res.ok) {
+        setUrl(res.url);
+        await copy(res.url);
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError("リンク発行に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{customerName}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">未入金 {count}件 ・ {yen(total)}</p>
+        </div>
+        {!url ? (
+          <button onClick={generate} disabled={loading}
+            className="flex items-center gap-1.5 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 rounded-lg px-3 py-2 transition flex-shrink-0">
+            {loading ? <Spinner size={13} /> : <Link2 size={13} />} 決済リンク発行
+          </button>
+        ) : (
+          <button onClick={() => copy(url)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-white border border-violet-300 hover:bg-violet-50 rounded-lg px-3 py-2 transition flex-shrink-0">
+            {copied ? <Check size={13} className="text-green-600" /> : <Copy size={13} />} {copied ? "コピー済" : "リンクをコピー"}
+          </button>
+        )}
+      </div>
+      {url && (
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="mt-2 block text-[11px] text-violet-600 underline break-all hover:text-violet-800">
+          {url}
+        </a>
+      )}
+      {error && <p className="mt-2 text-[11px] text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+export function PaymentsClient({
+  receivables, month, checkouts = {}, stripeEnabled = false,
+}: {
+  receivables: Receivable[];
+  month: string;
+  checkouts?: Record<string, StripeCheckout>;
+  stripeEnabled?: boolean;
+}) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
   const [filter, setFilter] = useState<"all" | "unpaid" | "paid">("all");
+
+  // 顧客別の未入金まとめ（カード決済リンク用）
+  const unpaidByCustomer = useMemo(() => {
+    const map = new Map<string, { customerId: string; customerName: string; total: number; count: number }>();
+    for (const r of receivables) {
+      if (r.payment || r.amount <= 0 || !r.customerId) continue;
+      const cur = map.get(r.customerId) ?? { customerId: r.customerId, customerName: r.customerName, total: 0, count: 0 };
+      cur.total += r.amount;
+      cur.count += 1;
+      map.set(r.customerId, cur);
+    }
+    return Array.from(map.values()).sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
+  }, [receivables]);
 
   const total = receivables.reduce((s, r) => s + r.amount, 0);
   const paidItems = receivables.filter((r) => r.payment);
@@ -202,6 +292,30 @@ export function PaymentsClient({ receivables, month }: { receivables: Receivable
           <p className="text-[10px] text-amber-500">{unpaidItems.length}件</p>
         </div>
       </div>
+
+      {/* カード決済リンク（顧客別の未入金まとめ。リンクを発行→コピーして公式LINEで送る） */}
+      {stripeEnabled && unpaidByCustomer.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <CreditCard size={15} className="text-violet-600" />
+            <h2 className="text-sm font-bold text-gray-800">カード決済リンク</h2>
+            <span className="text-[11px] text-gray-400">発行→コピーしてLINEで送付</span>
+          </div>
+          <div className="space-y-2">
+            {unpaidByCustomer.map((c) => (
+              <CheckoutCard
+                key={c.customerId}
+                customerId={c.customerId}
+                customerName={c.customerName}
+                total={c.total}
+                count={c.count}
+                month={month}
+                existing={checkouts[c.customerId]}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* フィルタ */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
