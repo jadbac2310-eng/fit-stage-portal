@@ -776,8 +776,8 @@ export function ScheduleClient({
 }) {
   const [view, setView] = useState<"list" | "calendar">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
-  // 担当者で絞り込み（"all" = 全員）。全員が全員分を閲覧可。
-  const [filterMember, setFilterMember] = useState<string>("all");
+  // 担当者で絞り込み（"all" = 全員）。初期は自分の予定。全員が全員分を閲覧可。
+  const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
   // 通常レッスンの追加モーダル
@@ -790,7 +790,8 @@ export function ScheduleClient({
   const visibleItems = useMemo(() => {
     if (filterMember === "all") return items;
     return items.filter((it) =>
-      it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember
+      it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember ||
+      !!it.participantIds?.includes(filterMember)
     );
   }, [items, filterMember]);
 
