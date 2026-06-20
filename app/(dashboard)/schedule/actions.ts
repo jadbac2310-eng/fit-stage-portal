@@ -7,6 +7,12 @@ import {
   addPersonalEvent, updatePersonalEvent, deletePersonalEvent, getPersonalEvent,
 } from "@/lib/personal-events";
 import { normalizeColor } from "@/lib/personal-events-types";
+import { notifyMembersByLine, jstDateLabel, jstTimeStr } from "@/lib/line-notify";
+
+// 予定の日時ラベル（日本時間）
+function whenLabel(startAt: string, allDay: boolean): string {
+  return allDay ? `${jstDateLabel(startAt)} 終日` : `${jstDateLabel(startAt)} ${jstTimeStr(startAt)}`;
+}
 
 // 日付(YYYY-MM-DD)＋時刻(HH:MM)をJST固定のISO文字列にする
 function toIso(date: string, time: string): string {
@@ -55,6 +61,12 @@ export async function createPersonalEventAction(formData: FormData) {
 
   const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds });
   await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}`, memberId: member.id, memberName: member.name });
+
+  // 参加者へ LINE 通知（作成者本人は除く）
+  await notifyMembersByLine(
+    participantIds.filter((id) => id !== member.id),
+    `🗓 予定に追加されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n登録: ${member.name}`,
+  );
   revalidatePath("/schedule");
 }
 
@@ -77,6 +89,12 @@ export async function updatePersonalEventAction(id: string, formData: FormData) 
 
   await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds });
   await logActivity({ action: "update", entityType: "personal_event", entityId: id, summary: `個人予定を編集: ${title}`, memberId: member.id, memberName: member.name });
+
+  // 参加者（変更後）へ LINE 通知（編集者本人は除く）
+  await notifyMembersByLine(
+    participantIds.filter((pid) => pid !== member.id),
+    `✏️ 予定が変更されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n変更: ${member.name}`,
+  );
   revalidatePath("/schedule");
 }
 
@@ -90,5 +108,11 @@ export async function deletePersonalEventAction(id: string) {
 
   await deletePersonalEvent(id);
   await logActivity({ action: "delete", entityType: "personal_event", entityId: id, summary: `個人予定を削除: ${event.title}`, memberId: member.id, memberName: member.name });
+
+  // 参加者へ LINE 通知（削除した本人は除く）
+  await notifyMembersByLine(
+    event.participantIds.filter((pid) => pid !== member.id),
+    `❌ 予定が削除されました\n${event.title}\n${whenLabel(event.startAt, event.allDay)}\n削除: ${member.name}`,
+  );
   revalidatePath("/schedule");
 }

@@ -3,7 +3,9 @@ import {
   Dumbbell, TrendingUp,
   ChevronRight, MapPin,
 } from "lucide-react";
-import { getCurrentMember, getMembers } from "@/lib/members";
+import { getCurrentMember, getMembers, ensureMemberLinkCode } from "@/lib/members";
+import { isLineConfigured } from "@/lib/line";
+import { LineLinkCard } from "./line-link-card";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
@@ -88,12 +90,23 @@ export default async function DashboardPage() {
       .map((t) => ({ id: t.id, type: "trial" as const, customerName: t.customerName, scheduledAt: t.scheduledAt, location: t.location })),
   ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
+  // LINE通知の連携カード（トークン設定済みのときのみ表示）
+  const lineEnabled = isLineConfigured();
+  const lineLinked = !!currentMember?.lineUserId;
+  const lineCode = lineEnabled && currentMember && !lineLinked
+    ? await ensureMemberLinkCode(currentMember.id)
+    : null;
+
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="mb-6 hidden md:block">
         <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
+
+      {lineEnabled && (
+        <LineLinkCard linked={lineLinked} code={lineCode} oaUrl={process.env.LINE_OA_URL} />
+      )}
 
       {/* 今月の自分 */}
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">

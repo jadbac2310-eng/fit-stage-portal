@@ -9,6 +9,8 @@ export interface Member {
   avatarUrl?: string;
   authUserId?: string;
   isAdmin: boolean;
+  lineUserId?: string;
+  lineLinkCode?: string;
   createdAt: string;
 }
 
@@ -21,6 +23,8 @@ type DbRow = {
   avatar_url: string | null;
   auth_user_id: string | null;
   is_admin: boolean;
+  line_user_id?: string | null;
+  line_link_code?: string | null;
   created_at: string;
 };
 
@@ -34,8 +38,16 @@ function fromDb(row: DbRow): Member {
     avatarUrl:  row.avatar_url   ?? undefined,
     authUserId: row.auth_user_id ?? undefined,
     isAdmin:    row.is_admin,
+    lineUserId:   row.line_user_id   ?? undefined,
+    lineLinkCode: row.line_link_code ?? undefined,
     createdAt:  row.created_at,
   };
+}
+
+// line_user_id / line_link_code 列が未追加（マイグレーション未適用）でも落ちないための判定
+function isMissingLineColumn(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return /line_user_id|line_link_code/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
 export async function getMembers(): Promise<Member[]> {
@@ -140,6 +152,62 @@ export async function getCurrentIsAdmin(): Promise<boolean> {
 /** 管理者でなければ例外を投げる。変更系サーバーアクションのガードに使用 */
 export async function requireAdmin(): Promise<void> {
   if (!(await getCurrentIsAdmin())) throw new Error("権限がありません（管理者のみ実行できます）");
+}
+
+// ─── LINE通知連携 ─────────────────────────────────────
+const LINK_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 紛らわしい文字を除外
+function genLinkCode(): string {
+  let s = "";
+  for (let i = 0; i < 6; i++) s += LINK_CODE_CHARS[Math.floor(Math.random() * LINK_CODE_CHARS.length)];
+  return s;
+}
+
+/** 連携コードから担当者を引く */
+export async function getMemberByLinkCode(code: string): Promise<Member | null> {
+  const { data, error } = await createAdminClient()
+    .from("members").select("*").eq("line_link_code", code).limit(1);
+  if (error || !data || data.length === 0) return null;
+  return fromDb(data[0] as DbRow);
+}
+
+/** LINEユーザーIDから担当者を引く */
+export async function getMemberByLineUserId(lineUserId: string): Promise<Member | null> {
+  const { data, error } = await createAdminClient()
+    .from("members").select("*").eq("line_user_id", lineUserId).limit(1);
+  if (error || !data || data.length === 0) return null;
+  return fromDb(data[0] as DbRow);
+}
+
+/** 担当者の連携コードを取得（無ければ生成して保存）。マイグレーション未適用なら null。 */
+export async function ensureMemberLinkCode(id: string): Promise<string | null> {
+  const member = await getMember(id);
+  if (member?.lineLinkCode) return member.lineLinkCode;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = genLinkCode();
+    const { error } = await createAdminClient().from("members").update({ line_link_code: code }).eq("id", id);
+    if (!error) return code;
+    if (isMissingLineColumn(error)) return null;          // 列未追加
+    if (error.code !== "23505") throw error;               // 重複以外は致命的
+  }
+  return null;
+}
+
+/** 連携コードを再発行する */
+export async function resetMemberLinkCode(id: string): Promise<string | null> {
+  const { error } = await createAdminClient().from("members").update({ line_link_code: null }).eq("id", id);
+  if (error && isMissingLineColumn(error)) return null;
+  if (error) throw error;
+  return ensureMemberLinkCode(id);
+}
+
+/** LINEユーザーIDを担当者に紐付け（null で連携解除） */
+export async function setMemberLineUserId(id: string, lineUserId: string | null): Promise<boolean> {
+  const { error } = await createAdminClient().from("members").update({ line_user_id: lineUserId }).eq("id", id);
+  if (error) {
+    if (isMissingLineColumn(error)) return false;
+    throw error;
+  }
+  return true;
 }
 
 export async function deleteMember(id: string): Promise<void> {
