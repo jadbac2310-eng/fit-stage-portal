@@ -20,11 +20,12 @@ export function jstDateLabel(iso: string): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]})`;
 }
 
-/** 予定1件の表示行（時刻 タイトル ＠場所） */
-export function fmtItemLine(opts: { startAt: string; allDay?: boolean; title: string; location?: string }): string {
+/** 予定1件の表示行（時刻 タイトル（担当 X） ＠場所） */
+export function fmtItemLine(opts: { startAt: string; allDay?: boolean; title: string; location?: string; assignee?: string }): string {
   const time = opts.allDay ? "終日" : jstTimeStr(opts.startAt);
-  const loc = opts.location ? `＠${opts.location}` : "";
-  return `${time}　${opts.title}${loc ? " " + loc : ""}`;
+  const who = opts.assignee ? `（担当 ${opts.assignee}）` : "";
+  const loc = opts.location ? ` ＠${opts.location}` : "";
+  return `${time}　${opts.title}${who}${loc}`;
 }
 
 /** memberIds のうち LINE連携済みの人へテキストを送信（best-effort・例外を投げない） */

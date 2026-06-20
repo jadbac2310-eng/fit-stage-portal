@@ -25,13 +25,20 @@ export async function GET(req: NextRequest) {
   let count = 0;
   for (const m of members) {
     if (sent.has(`${today}__${m.id}`)) continue;
+    // 自分が関係する予定。管理者は加えて全員のレッスン（通常・体験）も受け取る。
     const mine = items
-      .filter((it) => it.recipientIds.includes(m.id))
+      .filter((it) => it.recipientIds.includes(m.id) || (m.isAdmin && it.isLesson))
       .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
     if (mine.length === 0) continue;
 
-    const lines = mine.map((it) => "・" + fmtItemLine({ startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location }));
-    const text = `☀️ おはようございます\n${jstDateLabel(today)} の予定（${mine.length}件）\n\n${lines.join("\n")}`;
+    const lines = mine.map((it) => "・" + fmtItemLine({
+      startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location,
+      assignee: m.isAdmin && it.isLesson ? it.assignee : undefined,
+    }));
+    const header = m.isAdmin
+      ? `${jstDateLabel(today)} の予定（${mine.length}件・全員のレッスンを含む）`
+      : `${jstDateLabel(today)} の予定（${mine.length}件）`;
+    const text = `☀️ おはようございます\n${header}\n\n${lines.join("\n")}`;
     const r = await pushLineMessage(m.lineUserId!, text);
     if (r.ok) { await markSent("morning", today, m.id); count++; }
   }
