@@ -277,11 +277,23 @@ export function LessonForm({
 
       <div>
         <label className={labelClass}><MapPin size={12} /> 場所</label>
-        <input name="location" list={locationListId} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="場所を入力（または下から選択）" className={inputClass} />
-        <datalist id={locationListId}>
-          {locationHistory.map((loc) => <option key={loc} value={loc} />)}
-        </datalist>
-        {locationHistory.length > 0 && (
+        <input
+          name="location"
+          list={rentalGymId ? undefined : locationListId}
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          readOnly={!!rentalGymId}
+          placeholder="場所を入力（または下から選択）"
+          className={cn(inputClass, rentalGymId && "bg-gray-100 text-gray-500 cursor-not-allowed")}
+        />
+        {rentalGymId ? (
+          <p className="text-[11px] text-gray-400 mt-1">レンタルジムに合わせて自動設定されます</p>
+        ) : (
+          <datalist id={locationListId}>
+            {locationHistory.map((loc) => <option key={loc} value={loc} />)}
+          </datalist>
+        )}
+        {!rentalGymId && locationHistory.length > 0 && (
           <div className="mt-2">
             <p className="text-[11px] text-gray-400 mb-1">よく使う場所（タップで入力）</p>
             <div className="flex flex-wrap gap-1.5">
