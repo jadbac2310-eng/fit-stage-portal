@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMembers } from "@/lib/members";
 import { collectNotifyItems } from "@/lib/schedule-items";
 import { pushLineMessage } from "@/lib/line";
-import { fetchSentKeys, markSent, jstDateStr, jstDateLabel, fmtItemLine, portalUrl } from "@/lib/line-notify";
-
-const SCHEDULE_LINK = `\n\n▶ スケジュールを見る\n${portalUrl("/schedule")}`;
+import { fetchSentKeys, markSent, jstDateStr, jstDateLabel, fmtItemLine } from "@/lib/line-notify";
+import { scheduleLink } from "@/lib/line-login";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +47,7 @@ export async function GET(req: NextRequest) {
     const mine = items.filter((it) => it.recipientIds.includes(m.id)).sort(byTime);
     if (mine.length === 0) continue;
     const lines = mine.map((it) => "・" + fmtItemLine({ startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location }));
-    const text = `☀️ おはようございます\n${jstDateLabel(today)} の予定（${mine.length}件）\n\n${lines.join("\n")}${SCHEDULE_LINK}`;
+    const text = `☀️ おはようございます\n${jstDateLabel(today)} の予定（${mine.length}件）\n\n${lines.join("\n")}${scheduleLink(m)}`;
     const r = await pushLineMessage(m.lineUserId!, text);
     if (r.ok) { await markSent("morning", today, m.id); count++; }
   }

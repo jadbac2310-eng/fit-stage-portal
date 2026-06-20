@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/consultation-webhook",
   "/api/line/webhook",   // LINE Webhook（署名で検証）
+  "/api/line/login",     // LINE通知からの自動ログイン（署名トークンで検証）
   "/api/cron/",          // Cron（CRON_SECRET で検証）
 ];
 

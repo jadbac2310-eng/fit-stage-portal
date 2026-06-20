@@ -34,14 +34,21 @@ export function fmtItemLine(opts: { startAt: string; allDay?: boolean; title: st
   return `${time}　${opts.title}${who}${loc}`;
 }
 
-/** memberIds のうち LINE連携済みの人へテキストを送信（best-effort・例外を投げない） */
-export async function notifyMembersByLine(memberIds: string[], text: string, membersCache?: Member[]): Promise<void> {
+/**
+ * memberIds のうち LINE連携済みの人へテキストを送信（best-effort・例外を投げない）。
+ * text に関数を渡すと担当者ごとに本文を生成できる（自動ログインリンクの埋め込み等に使う）。
+ */
+export async function notifyMembersByLine(
+  memberIds: string[],
+  text: string | ((m: Member) => string),
+  membersCache?: Member[],
+): Promise<void> {
   try {
     const ids = Array.from(new Set(memberIds.filter(Boolean)));
     if (ids.length === 0) return;
     const members = membersCache ?? (await getMembers());
     const targets = members.filter((m) => ids.includes(m.id) && m.lineUserId);
-    await Promise.all(targets.map((m) => pushLineMessage(m.lineUserId!, text)));
+    await Promise.all(targets.map((m) => pushLineMessage(m.lineUserId!, typeof text === "function" ? text(m) : text)));
   } catch (e) {
     console.error("[line] notifyMembersByLine 失敗", e);
   }
