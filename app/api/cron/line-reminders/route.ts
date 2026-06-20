@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
 
   const now = Date.now();
   const windowMs = REMINDER_MIN * 60 * 1000;
+  // 個人予定(personal:)はリマインド対象外。レッスン(regular:/trial:)のみ。
   const items = (await collectNotifyItems()).filter((it) => {
-    if (it.allDay) return false;
+    if (it.allDay || it.ref.startsWith("personal:")) return false;
     const delta = new Date(it.startAt).getTime() - now;
     return delta > 0 && delta <= windowMs;
   });
