@@ -104,10 +104,6 @@ export default async function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
 
-      {lineEnabled && (
-        <LineLinkCard linked={lineLinked} code={lineCode} oaUrl={process.env.LINE_OA_URL} />
-      )}
-
       {/* 今月の自分 */}
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
         今月の自分
@@ -176,6 +172,12 @@ export default async function DashboardPage() {
           {myUpcoming.length > 5 && (
             <p className="text-xs text-gray-400 text-center pt-1">ほか {myUpcoming.length - 5} 件</p>
           )}
+        </div>
+      )}
+
+      {lineEnabled && (
+        <div className="mt-6">
+          <LineLinkCard linked={lineLinked} code={lineCode} oaUrl={process.env.LINE_OA_URL} />
         </div>
       )}
     </div>
