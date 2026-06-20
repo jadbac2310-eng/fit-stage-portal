@@ -26,10 +26,10 @@ export function jstDateLabel(iso: string): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]})`;
 }
 
-/** 予定1件の表示行（時刻 タイトル（担当 X） ＠場所） */
-export function fmtItemLine(opts: { startAt: string; allDay?: boolean; title: string; location?: string; assignee?: string }): string {
+/** 予定1件の表示行（時刻 タイトル（X） ＠場所）。who を渡すと担当/本人名を括弧で表示 */
+export function fmtItemLine(opts: { startAt: string; allDay?: boolean; title: string; location?: string; who?: string }): string {
   const time = opts.allDay ? "終日" : jstTimeStr(opts.startAt);
-  const who = opts.assignee ? `（担当 ${opts.assignee}）` : "";
+  const who = opts.who ? `（${opts.who}）` : "";
   const loc = opts.location ? ` ＠${opts.location}` : "";
   return `${time}　${opts.title}${who}${loc}`;
 }

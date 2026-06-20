@@ -28,9 +28,21 @@ export async function GET(req: NextRequest) {
   const byTime = (a: { startAt: string }, b: { startAt: string }) =>
     new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
 
+  const all = [...items].sort(byTime);
   let count = 0;
 
-  // ① 個人の朝まとめ（全員）：自分が関係する予定だけ
+  // ① 管理者向け：全員のスケジュール（全員の予定すべて・本人名つき・リンク無し）。先に送る。
+  if (all.length > 0) {
+    for (const m of members.filter((m) => m.isAdmin)) {
+      if (sentAll.has(`${today}__${m.id}`)) continue;
+      const lines = all.map((it) => "・" + fmtItemLine({ startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location, who: it.who }));
+      const text = `📋【管理者向け】全員のスケジュール\n${jstDateLabel(today)}・${all.length}件\n\n${lines.join("\n")}`;
+      const r = await pushLineMessage(m.lineUserId!, text);
+      if (r.ok) { await markSent("morning_all", today, m.id); count++; }
+    }
+  }
+
+  // ② 個人の朝まとめ（全員）：自分が関係する予定だけ。あとに送る。
   for (const m of members) {
     if (sent.has(`${today}__${m.id}`)) continue;
     const mine = items.filter((it) => it.recipientIds.includes(m.id)).sort(byTime);
@@ -39,18 +51,6 @@ export async function GET(req: NextRequest) {
     const text = `☀️ おはようございます\n${jstDateLabel(today)} の予定（${mine.length}件）\n\n${lines.join("\n")}${SCHEDULE_LINK}`;
     const r = await pushLineMessage(m.lineUserId!, text);
     if (r.ok) { await markSent("morning", today, m.id); count++; }
-  }
-
-  // ② 全員のスケジュール（管理者のみ・別メッセージ）：全員の通常/体験レッスン
-  const allLessons = items.filter((it) => it.isLesson).sort(byTime);
-  if (allLessons.length > 0) {
-    for (const m of members.filter((m) => m.isAdmin)) {
-      if (sentAll.has(`${today}__${m.id}`)) continue;
-      const lines = allLessons.map((it) => "・" + fmtItemLine({ startAt: it.startAt, allDay: it.allDay, title: it.title, location: it.location, assignee: it.assignee }));
-      const text = `📋 本日の全レッスン（${jstDateLabel(today)}・${allLessons.length}件）\n\n${lines.join("\n")}${SCHEDULE_LINK}`;
-      const r = await pushLineMessage(m.lineUserId!, text);
-      if (r.ok) { await markSent("morning_all", today, m.id); count++; }
-    }
   }
 
   return NextResponse.json({ ok: true, sent: count });
