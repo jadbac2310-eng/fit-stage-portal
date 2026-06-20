@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type Stripe from "stripe";
 import { getStripe } from "./stripe";
 import { createAdminClient } from "./supabase";
@@ -5,6 +6,11 @@ import { currentMemberId } from "./audit";
 import { portalUrl, jstDateStr } from "./line-notify";
 import type { PaymentSourceType } from "./payments-types";
 import { SOURCE_TYPE_LABEL } from "./payments-types";
+
+// 短縮リンク用のコード（URLセーフ・約8文字）。決済URLが非常に長いので自社ドメインで包む。
+function makeShortCode(): string {
+  return crypto.randomBytes(6).toString("base64url");
+}
 
 // 決済リンク1件が支払い対象とする売上項目
 export interface CheckoutItem {
@@ -40,11 +46,14 @@ type DbRow = {
   covered: CheckoutItem[] | null;
   status: StripeCheckout["status"];
   url: string | null;
+  short_code: string | null;
   created_at: string;
   paid_at: string | null;
 };
 
 function fromDb(r: DbRow): StripeCheckout {
+  // 短縮コードがあれば自社ドメインの短いリンクを、無ければ生のStripe URLを返す
+  const url = r.short_code ? portalUrl(`/p/${r.short_code}`) : r.url ?? undefined;
   return {
     id: r.id,
     sessionId: r.session_id,
@@ -55,10 +64,21 @@ function fromDb(r: DbRow): StripeCheckout {
     amount: r.amount,
     covered: r.covered ?? [],
     status: r.status,
-    url: r.url ?? undefined,
+    url,
     createdAt: r.created_at,
     paidAt: r.paid_at ?? undefined,
   };
+}
+
+/** 短縮コードから実際の Stripe 決済URLを引く（/p/[code] のリダイレクト用）。 */
+export async function getCheckoutUrlByShortCode(code: string): Promise<string | null> {
+  const { data, error } = await createAdminClient()
+    .from("stripe_checkouts")
+    .select("url")
+    .eq("short_code", code)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data as { url: string | null }).url ?? null;
 }
 
 /** 対象月の発行済み決済リンクを顧客IDごとに取得（最新優先）。pending を優先して返す。 */
@@ -117,6 +137,7 @@ export async function createStripeCheckout(input: {
 
   if (!session.url) return null;
 
+  const shortCode = makeShortCode();
   const { error } = await createAdminClient().from("stripe_checkouts").insert({
     session_id: session.id,
     customer_id: input.customerId,
@@ -126,11 +147,13 @@ export async function createStripeCheckout(input: {
     covered: items,
     status: "pending",
     url: session.url,
+    short_code: shortCode,
     created_by: (await currentMemberId()) ?? null,
   });
   if (error) throw error;
 
-  return { url: session.url };
+  // 短縮リンク（自社ドメイン）を返す。/p/[code] が Stripe URL へリダイレクトする。
+  return { url: portalUrl(`/p/${shortCode}`) };
 }
 
 /**

@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/api/line/webhook",   // LINE Webhook（署名で検証）
   "/api/line/login",     // LINE通知からの自動ログイン（署名トークンで検証）
   "/api/stripe/webhook", // Stripe Webhook（署名で検証）
+  "/p/",                 // 短縮決済リンク（Stripe URLへリダイレクト）
   "/api/cron/",          // Cron（CRON_SECRET で検証）
 ];
 
