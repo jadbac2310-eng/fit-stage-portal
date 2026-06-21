@@ -15,6 +15,7 @@ type DbRow = {
   memo:       string | null;
   color:      string | null;
   participant_ids: string[] | null;
+  notify:     boolean | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
@@ -34,6 +35,7 @@ function fromDb(row: DbRow): PersonalEvent {
     memo:       row.memo ?? undefined,
     color:      normalizeColor(row.color),
     participantIds: row.participant_ids ?? [],
+    notify:     row.notify ?? true,
     updatedById: row.updated_by ?? undefined,
     createdAt:  row.created_at,
     updatedAt:  row.updated_at,
@@ -42,10 +44,10 @@ function fromDb(row: DbRow): PersonalEvent {
 
 const SELECT = "*, member:members!member_id(name)";
 
-// participant_ids 列が未追加（マイグレーション未適用）の環境でも動くようにする
-function isMissingParticipantsColumn(err: { code?: string; message?: string } | null): boolean {
+// participant_ids / notify 列が未追加（マイグレーション未適用）の環境でも動くようにする
+function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /participant_ids/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
+  return /participant_ids|notify/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
 export async function getPersonalEvents(): Promise<PersonalEvent[]> {
@@ -81,6 +83,7 @@ export async function addPersonalEvent(input: {
   memo?:     string | null;
   color:     EventColor;
   participantIds?: string[];
+  notify?:   boolean;
 }): Promise<PersonalEvent> {
   const client = createAdminClient();
   const base = {
@@ -95,10 +98,10 @@ export async function addPersonalEvent(input: {
   };
   let { data, error } = await client
     .from("personal_events")
-    .insert({ ...base, participant_ids: input.participantIds ?? [] })
+    .insert({ ...base, participant_ids: input.participantIds ?? [], notify: input.notify ?? true })
     .select(SELECT)
     .single();
-  if (error && isMissingParticipantsColumn(error)) {
+  if (error && isMissingOptionalColumn(error)) {
     ({ data, error } = await client.from("personal_events").insert(base).select(SELECT).single());
   }
   if (error) throw error;
@@ -116,6 +119,7 @@ export async function updatePersonalEvent(
     memo:     string | null;
     color:    EventColor;
     participantIds: string[];
+    notify:   boolean;
   }>
 ): Promise<PersonalEvent | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -127,14 +131,15 @@ export async function updatePersonalEvent(
   if (input.memo     !== undefined) patch.memo     = input.memo;
   if (input.color    !== undefined) patch.color    = input.color;
   if (input.participantIds !== undefined) patch.participant_ids = input.participantIds;
+  if (input.notify   !== undefined) patch.notify   = input.notify;
   patch.updated_by = (await currentMemberId()) ?? null;
 
   const client = createAdminClient();
   let { data, error } = await client.from("personal_events").update(patch).eq("id", id).select(SELECT).single();
-  // updated_by / participant_ids 列が未追加なら、その列を外して再試行する
-  if (error && (isMissingAuthorColumn(error) || isMissingParticipantsColumn(error))) {
-    const { updated_by, participant_ids, ...rest } = patch;
-    void updated_by; void participant_ids;
+  // updated_by / participant_ids / notify 列が未追加なら、その列を外して再試行する
+  if (error && (isMissingAuthorColumn(error) || isMissingOptionalColumn(error))) {
+    const { updated_by, participant_ids, notify, ...rest } = patch;
+    void updated_by; void participant_ids; void notify;
     ({ data, error } = await client.from("personal_events").update(rest).eq("id", id).select(SELECT).single());
   }
   if (error) throw error;

@@ -49,6 +49,7 @@ export type ScheduleItem = {
   contracted?: boolean | null;
   participantIds?: string[];
   participantNames?: string[];
+  notify?: boolean;
 };
 
 // ─── 個人予定の色 ─────────────────────────────────────
@@ -559,6 +560,7 @@ function PersonalEventModal({
   }
   const [color, setColor] = useState<EventColor>(initial?.color ?? "blue");
   const [participants, setParticipants] = useState<string[]>(initial?.participantIds ?? []);
+  const [notify, setNotify] = useState(initial?.notify ?? true);
   const [memberQuery, setMemberQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -693,6 +695,16 @@ function PersonalEventModal({
                 })
               )}
             </div>
+          </div>
+
+          {/* LINE通知の有無 */}
+          <div className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2.5">
+            <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" name="notify" checked={notify} onChange={(e) => setNotify(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300" />
+              <span className="font-medium">参加者にLINEで通知する</span>
+            </label>
+            <p className="text-[11px] text-gray-400 mt-1 ml-6">オフにすると、追加・変更・削除のLINE通知を送りません。</p>
           </div>
 
           {/* メモ */}

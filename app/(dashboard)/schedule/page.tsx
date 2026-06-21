@@ -104,6 +104,7 @@ export default async function SchedulePage() {
       updatedAt: e.updatedAt,
       participantIds: e.participantIds,
       participantNames: e.participantIds.map((id) => nameOf(id)).filter((n): n is string => !!n),
+      notify: e.notify,
     });
   }
 

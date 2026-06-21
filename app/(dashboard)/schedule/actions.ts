@@ -59,15 +59,18 @@ export async function createPersonalEventAction(formData: FormData) {
   const memo     = (formData.get("memo")     as string)?.trim() || null;
   const color    = normalizeColor((formData.get("color") as string)?.trim());
   const participantIds = parseParticipantIds(formData);
+  const notify   = formData.get("notify") === "on";
 
-  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds });
+  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds, notify });
   await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}`, memberId: member.id, memberName: member.name });
 
-  // 参加者へ LINE 通知（作成者本人は除く）
-  await notifyMembersByLine(
-    participantIds.filter((id) => id !== member.id),
-    (m) => `🗓 予定に追加されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n登録: ${member.name}${scheduleLink(m)}`,
-  );
+  // 参加者へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない
+  if (notify) {
+    await notifyMembersByLine(
+      participantIds.filter((id) => id !== member.id),
+      (m) => `🗓 予定に追加されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n登録: ${member.name}${scheduleLink(m)}`,
+    );
+  }
   revalidatePath("/schedule");
 }
 
@@ -87,15 +90,18 @@ export async function updatePersonalEventAction(id: string, formData: FormData) 
   const memo     = (formData.get("memo")     as string)?.trim() || null;
   const color    = normalizeColor((formData.get("color") as string)?.trim());
   const participantIds = parseParticipantIds(formData);
+  const notify   = formData.get("notify") === "on";
 
-  await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds });
+  await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds, notify });
   await logActivity({ action: "update", entityType: "personal_event", entityId: id, summary: `個人予定を編集: ${title}`, memberId: member.id, memberName: member.name });
 
-  // 参加者（変更後）へ LINE 通知（編集者本人は除く）
-  await notifyMembersByLine(
-    participantIds.filter((pid) => pid !== member.id),
-    (m) => `✏️ 予定が変更されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n変更: ${member.name}${scheduleLink(m)}`,
-  );
+  // 参加者（変更後）へ LINE 通知（編集者本人は除く）。通知OFFのときは送らない
+  if (notify) {
+    await notifyMembersByLine(
+      participantIds.filter((pid) => pid !== member.id),
+      (m) => `✏️ 予定が変更されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n変更: ${member.name}${scheduleLink(m)}`,
+    );
+  }
   revalidatePath("/schedule");
 }
 
@@ -110,10 +116,12 @@ export async function deletePersonalEventAction(id: string) {
   await deletePersonalEvent(id);
   await logActivity({ action: "delete", entityType: "personal_event", entityId: id, summary: `個人予定を削除: ${event.title}`, memberId: member.id, memberName: member.name });
 
-  // 参加者へ LINE 通知（削除した本人は除く）
-  await notifyMembersByLine(
-    event.participantIds.filter((pid) => pid !== member.id),
-    (m) => `❌ 予定が削除されました\n${event.title}\n${whenLabel(event.startAt, event.allDay)}\n削除: ${member.name}${scheduleLink(m)}`,
-  );
+  // 参加者へ LINE 通知（削除した本人は除く）。通知OFFの予定は送らない
+  if (event.notify) {
+    await notifyMembersByLine(
+      event.participantIds.filter((pid) => pid !== member.id),
+      (m) => `❌ 予定が削除されました\n${event.title}\n${whenLabel(event.startAt, event.allDay)}\n削除: ${member.name}${scheduleLink(m)}`,
+    );
+  }
   revalidatePath("/schedule");
 }

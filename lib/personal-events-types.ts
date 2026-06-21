@@ -17,6 +17,7 @@ export interface PersonalEvent {
   memo?:      string;
   color:      EventColor;
   participantIds: string[];
+  notify:     boolean;   // 参加者へLINE通知するか
   updatedById?: string;
   createdAt:  string;
   updatedAt:  string;
