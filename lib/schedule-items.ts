@@ -11,6 +11,7 @@ export interface NotifyItem {
   location?:    string;
   recipientIds: string[];      // 通知先の担当者id（重複可・呼び出し側で連携状態を判定）
   who?:         string;        // 担当/本人名（管理者向けの全体表示用。レッスン=担当、個人予定=作成者）
+  notify?:      boolean;       // 個人予定のLINE通知ON/OFF（未設定=常に通知。レッスン等は対象外）
 }
 
 /**
@@ -37,6 +38,7 @@ export async function collectNotifyItems(): Promise<NotifyItem[]> {
       location: e.location,
       recipientIds: [e.memberId, ...e.participantIds],
       who: e.memberName,
+      notify: e.notify,
     });
   }
 
