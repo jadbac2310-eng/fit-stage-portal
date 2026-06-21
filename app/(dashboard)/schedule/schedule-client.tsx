@@ -106,6 +106,13 @@ function todayDate() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
+// "HH:MM" を1時間後にする（同日内に収め、24時を超える場合は23:59で止める）
+function addOneHour(time: string): string {
+  const [h, m] = time.split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return time;
+  const total = Math.min(h * 60 + m + 60, 23 * 60 + 59);
+  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
+}
 
 // ─── 展開詳細の1行 ────────────────────────────────────
 function DetailRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
@@ -529,7 +536,27 @@ function PersonalEventModal({
 }) {
   const router = useRouter();
   const startDateInit = initial ? datePart(initial.scheduledAt) : (defaultDate ?? todayDate());
+  const startTimeInit = initial && !initial.allDay ? timePart(initial.scheduledAt) : "10:00";
   const [allDay, setAllDay] = useState(initial?.allDay ?? false);
+  // 開始/終了は連動させたいので制御コンポーネントにする
+  const [startDate, setStartDate] = useState(startDateInit);
+  const [startTime, setStartTime] = useState(startTimeInit);
+  const [endDate, setEndDate] = useState(initial?.endAt ? datePart(initial.endAt) : startDateInit);
+  const [endTime, setEndTime] = useState(
+    initial?.endAt && !initial.allDay ? timePart(initial.endAt) : addOneHour(startTimeInit),
+  );
+
+  // 開始日を変えたら終了日も同じ日に合わせる
+  function onStartDateChange(v: string) {
+    setStartDate(v);
+    setEndDate(v);
+  }
+  // 開始時刻を変えたら終了は同日・1時間後に合わせる
+  function onStartTimeChange(v: string) {
+    setStartTime(v);
+    setEndDate(startDate);
+    setEndTime(addOneHour(v));
+  }
   const [color, setColor] = useState<EventColor>(initial?.color ?? "blue");
   const [participants, setParticipants] = useState<string[]>(initial?.participantIds ?? []);
   const [memberQuery, setMemberQuery] = useState("");
@@ -590,11 +617,10 @@ function PersonalEventModal({
           <div>
             <label className="text-xs font-semibold text-gray-500 mb-1 block">開始</label>
             <div className="flex gap-2">
-              <input type="date" name="startDate" defaultValue={startDateInit} required
+              <input type="date" name="startDate" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} required
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               {!allDay && (
-                <input type="time" name="startTime"
-                  defaultValue={initial && !initial.allDay ? timePart(initial.scheduledAt) : "10:00"}
+                <input type="time" name="startTime" value={startTime} onChange={(e) => onStartTimeChange(e.target.value)}
                   className="w-28 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               )}
             </div>
@@ -604,12 +630,10 @@ function PersonalEventModal({
           <div>
             <label className="text-xs font-semibold text-gray-500 mb-1 block">終了 <span className="text-gray-300 font-normal">（任意）</span></label>
             <div className="flex gap-2">
-              <input type="date" name="endDate"
-                defaultValue={initial?.endAt ? datePart(initial.endAt) : startDateInit}
+              <input type="date" name="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               {!allDay && (
-                <input type="time" name="endTime"
-                  defaultValue={initial?.endAt && !initial.allDay ? timePart(initial.endAt) : ""}
+                <input type="time" name="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)}
                   className="w-28 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               )}
             </div>
