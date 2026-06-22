@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
   MapPin, Calendar, StickyNote, ChevronDown,
@@ -106,9 +107,10 @@ function CustomerForm({
   members: MemberOpt[];
   allCustomers?: Customer[];
   onClose: () => void;
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => Promise<{ ok: boolean; error?: string } | void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -116,7 +118,13 @@ function CustomerForm({
     setError("");
     setLoading(true);
     try {
-      await action(fd);
+      const res = await action(fd);
+      if (res && res.ok === false) {
+        setError(res.error || "エラーが発生しました");
+        setLoading(false);
+        return;
+      }
+      router.refresh();
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
