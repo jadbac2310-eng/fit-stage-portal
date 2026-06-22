@@ -862,7 +862,11 @@ export function ScheduleClient({
     return Array.from(map.values());
   }, [list]);
 
-  const nextItem = upcoming[0];
+  // 「次の予定」= まだ始まっていない最も近い予定（今日でも時刻が過ぎたものは除く）。
+  // 終日予定は時刻が無いため対象外。
+  const nextItem = upcoming.find(
+    (it) => !it.allDay && new Date(it.scheduledAt).getTime() >= Date.now(),
+  );
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
