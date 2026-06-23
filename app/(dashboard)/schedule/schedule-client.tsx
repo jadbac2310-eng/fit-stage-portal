@@ -364,18 +364,21 @@ function keyToYmd(key: string): string {
 
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
 function CalendarView({
-  items, isAdmin, currentMemberId, onEditPersonal,
+  items, isAdmin, currentMemberId, onEditPersonal, onAddPersonal, onAddLesson,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
+  onAddPersonal?: (ymd: string) => void;
+  onAddLesson?: (ymd: string) => void;
 }) {
   const [cursor, setCursor] = useState(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
   });
   const [selectedKey, setSelectedKey] = useState<string | null>(() => dayKey(startOfDay(new Date())));
+  const [addOpen, setAddOpen] = useState(false);
 
   // 日付キー → アイテム配列
   const byDay = useMemo(() => {
@@ -503,11 +506,47 @@ function CalendarView({
 
       {/* 選択日の詳細 */}
       <div className="mt-5">
-        <div className="flex items-baseline gap-2 px-1 mb-2">
+        <div className="flex items-center gap-2 px-1 mb-2">
           <span className="text-sm font-bold text-gray-700">
             {selectedKey ? fullDateStr(keyToYmd(selectedKey) + "T00:00:00+09:00") : "日付を選択"}
           </span>
-          {selectedItems.length > 0 && <span className="text-xs text-gray-300 ml-auto">{selectedItems.length}件</span>}
+          {selectedItems.length > 0 && <span className="text-xs text-gray-300">{selectedItems.length}件</span>}
+          {selectedKey && (onAddPersonal || onAddLesson) && (
+            <div className="relative ml-auto flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setAddOpen((v) => !v)}
+                className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 hover:bg-blue-700 transition"
+              >
+                <Plus size={13} /> この日に追加
+              </button>
+              {addOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
+                  <div className="absolute right-0 mt-1 z-20 w-40 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden py-1">
+                    {onAddLesson && (
+                      <button
+                        type="button"
+                        onClick={() => { setAddOpen(false); onAddLesson(keyToYmd(selectedKey)); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
+                      </button>
+                    )}
+                    {onAddPersonal && (
+                      <button
+                        type="button"
+                        onClick={() => { setAddOpen(false); onAddPersonal(keyToYmd(selectedKey)); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
         {selectedItems.length === 0 ? (
           <div className="text-center py-10 text-sm text-gray-400">この日の予定はありません</div>
@@ -816,8 +855,10 @@ export function ScheduleClient({
   const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
-  // 通常レッスンの追加モーダル
+  // 通常レッスンの追加モーダル（defaultDate を持つときはその日付で開く）
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
+  const [lessonDate, setLessonDate] = useState<string | undefined>(undefined);
+  const openLesson = (defaultDate?: string) => { setLessonDate(defaultDate); setLessonModalOpen(true); };
   // 追加メニュー（レッスン / 個人予定）の開閉
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const canAddLesson = customers.length > 0;
@@ -898,7 +939,7 @@ export function ScheduleClient({
                 {canAddLesson && (
                   <button
                     type="button"
-                    onClick={() => { setAddMenuOpen(false); setLessonModalOpen(true); }}
+                    onClick={() => { setAddMenuOpen(false); openLesson(); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
                     <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
@@ -957,7 +998,9 @@ export function ScheduleClient({
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit} />
+          currentMemberId={currentMemberId} onEditPersonal={openEdit}
+          onAddPersonal={(ymd) => openCreate(ymd)}
+          onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
       ) : (
         <>
       {/* 次の予定ハイライト */}
@@ -1041,6 +1084,7 @@ export function ScheduleClient({
           customerPlans={customerPlans}
           lessons={lessons}
           rentalGyms={rentalGyms}
+          defaultDate={lessonDate}
           onClose={() => setLessonModalOpen(false)}
         />
       )}
