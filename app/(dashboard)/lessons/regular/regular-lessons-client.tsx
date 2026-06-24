@@ -357,7 +357,7 @@ export function LessonForm({
               {monthlyCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </optgroup>
           )}
-          <optgroup label="都度">
+          <optgroup label="単発">
             {singleCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </optgroup>
         </select>

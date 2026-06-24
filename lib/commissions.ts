@@ -1,5 +1,6 @@
 import type { Customer, CustomerType } from "./customers-types";
 import type { Lesson } from "./lessons-types";
+import { courseToPaymentType } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
@@ -100,8 +101,8 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
     if (plan?.price && sessions > 0) return Math.round(plan.price / sessions);
   }
 
-  // 都度: レッスン個別金額 → 顧客の都度単価
-  if (course === "都度") {
+  // 単発(都度・オンライン等): レッスン個別金額 → 顧客の都度単価
+  if (courseToPaymentType(course) === "single") {
     if (typeof lesson.amount === "number" && lesson.amount > 0) return lesson.amount;
     const cust = ctx.customers.find((c) => c.id === lesson.customerId);
     if (cust?.singleSessionPrice && cust.singleSessionPrice > 0) return cust.singleSessionPrice;

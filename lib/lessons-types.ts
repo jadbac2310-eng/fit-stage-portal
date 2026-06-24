@@ -41,6 +41,7 @@ export const COURSE_OPTIONS: { value: string; label: string; paymentType: Lesson
   { value: "月4回",  label: "月4回",  paymentType: "monthly"      },
   { value: "月8回",  label: "月8回",  paymentType: "monthly"      },
   { value: "都度",   label: "都度",   paymentType: "single"       },
+  { value: "オンラインパーソナル", label: "オンラインパーソナル", paymentType: "single" },
 ];
 
 export function courseToPaymentType(course: string | undefined): LessonPaymentType | null {

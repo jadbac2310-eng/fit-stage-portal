@@ -4,6 +4,7 @@ import type { Customer } from "./customers-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { Lesson } from "./lessons-types";
+import { courseToPaymentType } from "./lessons-types";
 import { paymentKey, type Payment, type PaymentSourceType, type Receivable } from "./payments-types";
 export type { Payment, PaymentSourceType, Receivable } from "./payments-types";
 
@@ -133,9 +134,9 @@ export function buildReceivables(
     });
   }
 
-  // 都度払い（その月に完了した都度レッスン）
+  // 単発払い（都度・オンラインパーソナル等。その月に完了したもの）
   for (const l of data.lessons) {
-    if (l.course !== "都度" || l.status !== "completed") continue;
+    if (courseToPaymentType(l.course) !== "single" || l.status !== "completed") continue;
     if (!inMonth(l.scheduledAt, month)) continue;
     const cust = data.customers.find((c) => c.id === l.customerId);
     const amount = (typeof l.amount === "number" && l.amount > 0)
@@ -145,7 +146,7 @@ export function buildReceivables(
     items.push({
       sourceType: "single_lesson", sourceId: l.id, customerId: l.customerId,
       customerName: l.customerName,
-      label: "都度レッスン", date: l.scheduledAt.slice(0, 10), amount,
+      label: l.course && l.course !== "都度" ? l.course : "都度レッスン", date: l.scheduledAt.slice(0, 10), amount,
       payment: payMap.get(paymentKey("single_lesson", l.id)),
     });
   }
