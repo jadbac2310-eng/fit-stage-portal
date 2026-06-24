@@ -9,7 +9,7 @@ import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, ISSUER,
-  monthLabel, invoiceNumber,
+  monthLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { EditableBillingName } from "./editable-name";
 import { InvoiceActions } from "./invoice-actions";
@@ -50,6 +50,8 @@ export default async function InvoicePrintPage({
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
   const invoice = buildGroupInvoice(customer, group.members, month, { plans, passes, lessons }, singleFee);
   const invoiceNo = invoiceNumber(month, customer.id);
+  const suffix = addresseeSuffix(customer.customerType);
+  const tax = taxBreakdown(invoice.total);
   const pdfHref = `/invoices/print/pdf?customer=${customer.id}&month=${month}`;
   const pdfFilename = `請求書_${invoice.customerName}_${month}.pdf`;
 
@@ -71,12 +73,14 @@ export default async function InvoicePrintPage({
         <div className="flex justify-between items-start gap-6 mb-8">
           {/* 宛先 */}
           <div className="flex-1 min-w-0">
-            <EditableBillingName customerId={customer.id} name={invoice.customerName} />
+            <EditableBillingName customerId={customer.id} name={invoice.customerName} suffix={suffix} />
             {customer.address && <p className="text-xs text-gray-500 mt-2 whitespace-pre-wrap">{customer.address}</p>}
           </div>
           {/* 発行元 */}
           <div className="text-right text-xs text-gray-600 flex-shrink-0">
             <p className="text-sm font-bold text-gray-900">{ISSUER.name}</p>
+            {ISSUER.contact && <p>担当: {ISSUER.contact}</p>}
+            {ISSUER.registrationNumber && <p>登録番号: {ISSUER.registrationNumber}</p>}
             <p className="mt-0.5 whitespace-pre-wrap">{ISSUER.address}</p>
             <p>{ISSUER.tel}</p>
             <p>{ISSUER.email}</p>
@@ -119,6 +123,22 @@ export default async function InvoicePrintPage({
             </tr>
           </tfoot>
         </table>
+
+        {/* 消費税の内訳（インボイス制度対応） */}
+        <div className="ml-auto w-full sm:w-1/2 border border-gray-300 rounded-xl px-4 py-3 text-sm">
+          <div className="flex justify-between text-gray-600 py-0.5">
+            <span>{tax.rate}% 対象（税抜）</span>
+            <span className="tabular-nums">{yen(tax.net)}</span>
+          </div>
+          <div className="flex justify-between text-gray-600 py-0.5">
+            <span>消費税（{tax.rate}%）</span>
+            <span className="tabular-nums">{yen(tax.tax)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 mt-1.5 pt-1.5">
+            <span>合計（税込）</span>
+            <span className="tabular-nums">{yen(tax.gross)}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import type { Customer } from "./customers-types";
+import type { Customer, CustomerType } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
@@ -6,10 +6,29 @@ import type { Lesson } from "./lessons-types";
 // ─── 発行元・振込先 ───────────────────────────────────────
 export const ISSUER = {
   name: "FIT STAGE",
+  contact: "坂根尚樹",                       // 窓口担当者
+  registrationNumber: "T2810714106494",      // 適格請求書発行事業者 登録番号（インボイス）
   address: "大阪府吹田市豊津町5-28\nドムス江坂II - A",
   tel: "TEL: 070-2397-1822",
   email: "fitstage.000@gmail.com",
 };
+
+// 消費税率（パーソナル指導は標準税率10%）
+export const TAX_RATE = 10;
+
+// 請求書の品名（サービス名）。種別ごとに内容を併記する。
+export const PROGRAM_LABEL = "健康増進プログラム利用料";
+
+/** 宛名の敬称（法人=御中／個人=様） */
+export function addresseeSuffix(type: CustomerType): string {
+  return type === "corporate" ? "御中" : "様";
+}
+
+/** 税込合計から税率ごとの内訳（税抜・消費税額）を求める（端数は請求書単位で1回丸め） */
+export function taxBreakdown(totalIncluding: number): { rate: number; net: number; tax: number; gross: number } {
+  const net = Math.round(totalIncluding / (1 + TAX_RATE / 100));
+  return { rate: TAX_RATE, net, tax: totalIncluding - net, gross: totalIncluding };
+}
 
 export const BANK_INFO = {
   bankName: "池田泉州銀行 桃山台支店",
@@ -71,7 +90,7 @@ export function buildInvoice(
     if (p.customerId !== customer.id || !p.price) continue;
     const date = p.purchasedAt ?? p.startedAt;
     if (!inMonth(date, month)) continue;
-    lines.push({ date, label: `${p.plan}プラン`, amount: p.price });
+    lines.push({ date, label: `${PROGRAM_LABEL}（${p.plan}）`, amount: p.price });
   }
 
   // 回数券（購入月で計上）
@@ -79,7 +98,7 @@ export function buildInvoice(
     if (pass.customerId !== customer.id || !pass.price) continue;
     if (!inMonth(pass.purchasedAt, month)) continue;
     const persons = pass.personCount && pass.personCount > 1 ? `（${pass.personCount}名）` : "";
-    lines.push({ date: pass.purchasedAt, label: `回数券 ${pass.totalCount}回${persons}`, amount: pass.price });
+    lines.push({ date: pass.purchasedAt, label: `${PROGRAM_LABEL}（回数券 ${pass.totalCount}回${persons}）`, amount: pass.price });
   }
 
   // 都度レッスン（その月に完了したもの）
@@ -92,7 +111,7 @@ export function buildInvoice(
       : (customer.singleSessionPrice && customer.singleSessionPrice > 0)
         ? customer.singleSessionPrice
         : singleSessionFee;
-    lines.push({ date: l.scheduledAt.slice(0, 10), label: "都度レッスン", amount });
+    lines.push({ date: l.scheduledAt.slice(0, 10), label: PROGRAM_LABEL, amount });
   }
 
   lines.sort((a, b) => a.date.localeCompare(b.date));

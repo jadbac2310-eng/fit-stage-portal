@@ -8,7 +8,7 @@ import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, ISSUER,
-  monthLabel, invoiceNumber,
+  monthLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { InvoiceDocument } from "@/lib/invoice-pdf";
 
@@ -49,6 +49,8 @@ export async function GET(req: NextRequest) {
       issuer: ISSUER,
       invoiceNo: invoiceNumber(month, biller.id),
       monthLabel: monthLabel(month),
+      addresseeSuffix: addresseeSuffix(biller.customerType),
+      tax: taxBreakdown(invoice.total),
     }),
   );
 
