@@ -87,11 +87,12 @@ function dayLabel(d: Date): { main: string; sub: string; accent: boolean } {
 }
 
 function timeStr(iso: string) {
-  return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  // タイムゾーンをJST固定にする（サーバ=UTCとクライアント=JSTで表示がズレるのを防ぐ）
+  return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 }
 
 function fullDateStr(iso: string) {
-  return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+  return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -1013,7 +1014,7 @@ export function ScheduleClient({
             <div className="min-w-0">
               <p className="text-lg font-bold truncate">{nextItem.customerName}</p>
               <p className="text-xs text-blue-100 mt-0.5">
-                {new Date(nextItem.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })}
+                {new Date(nextItem.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })}
                 {" "}{timeStr(nextItem.scheduledAt)}
                 {nextItem.location && ` ・ ${nextItem.location}`}
               </p>
