@@ -112,7 +112,10 @@ export function buildInvoice(
       : (customer.singleSessionPrice && customer.singleSessionPrice > 0)
         ? customer.singleSessionPrice
         : singleSessionFee;
-    lines.push({ date: l.scheduledAt.slice(0, 10), label: PROGRAM_LABEL, amount });
+    const label = l.course === "オンラインパーソナル"
+      ? `${PROGRAM_LABEL}（オンライン）`
+      : `${PROGRAM_LABEL}（店舗）`;
+    lines.push({ date: l.scheduledAt.slice(0, 10), label, amount });
   }
 
   lines.sort((a, b) => a.date.localeCompare(b.date));

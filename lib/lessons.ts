@@ -15,6 +15,7 @@ type DbRow = {
   payment_type: LessonPaymentType | null;
   status: LessonStatus;
   session_pass_id: string | null;
+  amount: number | null;
   training_content: string | null;
   customer_impression: string | null;
   exercises: unknown;
@@ -43,6 +44,7 @@ function fromDb(row: DbRow): Lesson {
     paymentType:       row.payment_type ?? undefined,
     status:            row.status,
     sessionPassId:     row.session_pass_id ?? undefined,
+    amount:            row.amount ?? undefined,
     trainingContent:   row.training_content ?? undefined,
     customerImpression: row.customer_impression ?? undefined,
     exercises:         parseExercises(row.exercises),
@@ -64,7 +66,7 @@ const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_m
 // 後から追加した任意列（created_by / updated_by / rental_gym_*）が未適用のときのエラーか
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /created_by|updated_by|rental_gym/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
+  return /created_by|updated_by|rental_gym|amount/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
 export async function getLessons(): Promise<Lesson[]> {
@@ -95,6 +97,7 @@ export async function addLesson(input: {
   course?: string;
   paymentType?: LessonPaymentType;
   sessionPassId?: string;
+  amount?: number | null;
   note?: string;
   createdBy?: string;
   rentalGymId?: string | null;
@@ -112,6 +115,7 @@ export async function addLesson(input: {
     note:              input.note ?? null,
   };
   const optional = {
+    amount:         input.amount ?? null,
     created_by:     input.createdBy ?? null,
     rental_gym_id:  input.rentalGymId ?? null,
     rental_gym_fee: input.rentalGymFee ?? null,
@@ -139,6 +143,7 @@ export async function updateLesson(
     paymentType: LessonPaymentType | null;
     status: LessonStatus;
     sessionPassId: string | null;
+    amount: number | null;
     trainingContent: string | null;
     customerImpression: string | null;
     exercises: Exercise[];
@@ -156,6 +161,7 @@ export async function updateLesson(
   if (input.paymentType        !== undefined) patch.payment_type         = input.paymentType;
   if (input.status             !== undefined) patch.status               = input.status;
   if (input.sessionPassId      !== undefined) patch.session_pass_id      = input.sessionPassId;
+  if (input.amount             !== undefined) patch.amount               = input.amount;
   if (input.trainingContent    !== undefined) patch.training_content     = input.trainingContent;
   if (input.customerImpression !== undefined) patch.customer_impression  = input.customerImpression;
   if (input.exercises          !== undefined) patch.exercises            = input.exercises;
@@ -168,8 +174,8 @@ export async function updateLesson(
   let { data, error } = await client.from("lessons").update(patch).eq("id", id).select(SELECT).single();
   // 後付けの任意列が未適用の環境では、それらを外して再試行
   if (error && isMissingOptionalColumn(error)) {
-    const { rental_gym_id, rental_gym_fee, updated_by, ...rest } = patch;
-    void rental_gym_id; void rental_gym_fee; void updated_by;
+    const { rental_gym_id, rental_gym_fee, updated_by, amount, ...rest } = patch;
+    void rental_gym_id; void rental_gym_fee; void updated_by; void amount;
     ({ data, error } = await client.from("lessons").update(rest).eq("id", id).select(SELECT_LEGACY).single());
   }
   if (error) throw error;

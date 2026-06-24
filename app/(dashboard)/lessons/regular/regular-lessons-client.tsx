@@ -6,7 +6,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
@@ -367,6 +367,23 @@ export function LessonForm({
           </p>
         )}
       </div>
+
+      {/* 単発（都度・オンライン）の金額。店舗とオンラインで単価が違う場合に入力 */}
+      {courseToPaymentType(selectedCourse) === "single" && (
+        <div>
+          <label className={labelClass}>金額（単価）</label>
+          <input
+            name="amount"
+            type="number"
+            min="0"
+            inputMode="numeric"
+            defaultValue={defaultValues?.amount ?? customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice ?? ""}
+            placeholder="例: 8000"
+            className={inputClass}
+          />
+          <p className="text-xs text-gray-400 mt-1">この回の金額。空欄なら顧客の都度単価を使用します。</p>
+        </div>
+      )}
 
       {/* 回数券選択（回数券コースの場合のみ） */}
       {isSessionPassCourse && (
