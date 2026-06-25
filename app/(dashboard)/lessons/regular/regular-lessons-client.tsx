@@ -496,8 +496,8 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const canEdit = isAdmin || (!!lesson.createdById && lesson.createdById === currentMemberId);
 
   const scheduledDate = new Date(lesson.scheduledAt);
-  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
-  const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+  const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 
   const linkedPass = lesson.sessionPassId ? sessionPasses.find((p) => p.id === lesson.sessionPassId) : undefined;
   // この回数券レッスンが何回目か（同じ回数券に紐づく非キャンセルのレッスンを日付順に並べた順位）

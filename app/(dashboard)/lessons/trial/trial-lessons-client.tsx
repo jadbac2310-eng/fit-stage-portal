@@ -214,8 +214,8 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
     || (!!currentMemberId && (lesson.trainerMemberId === currentMemberId || lesson.salesMemberId === currentMemberId));
 
   const scheduledDate = new Date(lesson.scheduledAt);
-  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
-  const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+  const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 
   if (mode === "edit") return (
     <tr><td colSpan={7} className="px-4 py-3">
@@ -331,8 +331,8 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
     || (!!currentMemberId && (lesson.trainerMemberId === currentMemberId || lesson.salesMemberId === currentMemberId));
 
   const scheduledDate = new Date(lesson.scheduledAt);
-  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", weekday: "short" });
-  const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+  const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 
   if (mode === "edit") return (
     <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">

@@ -21,8 +21,8 @@ function actionMeta(action: string) {
 function fmtDateTime(iso: string): { date: string; time: string } {
   const d = new Date(iso);
   return {
-    date: d.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" }),
-    time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+    date: d.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" }),
+    time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" }),
   };
 }
 

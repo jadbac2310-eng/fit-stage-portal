@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("ja-JP", {
-    year: "numeric", month: "long", day: "numeric", weekday: "short",
+    year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo",
   });
 }
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 }
 
 function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {

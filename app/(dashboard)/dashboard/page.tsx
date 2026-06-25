@@ -146,10 +146,10 @@ export default async function DashboardPage() {
               className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 transition">
               <div className="flex flex-col items-center justify-center min-w-[44px]">
                 <span className="text-xs font-semibold text-gray-400">
-                  {new Date(it.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}
+                  {new Date(it.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" })}
                 </span>
                 <span className="text-sm font-bold text-gray-900 tabular-nums">
-                  {new Date(it.scheduledAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+                  {new Date(it.scheduledAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })}
                 </span>
               </div>
               <div className="flex-1 min-w-0 border-l border-gray-100 pl-3">
