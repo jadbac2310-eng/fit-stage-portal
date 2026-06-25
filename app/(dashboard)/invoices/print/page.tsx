@@ -8,8 +8,8 @@ import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
-  billingGroups, buildGroupInvoice, ISSUER,
-  monthLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
+  billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
+  monthLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { EditableBillingName } from "./editable-name";
 import { InvoiceActions } from "./invoice-actions";
@@ -138,6 +138,18 @@ export default async function InvoicePrintPage({
             <span>合計（税込）</span>
             <span className="tabular-nums">{yen(tax.gross)}</span>
           </div>
+        </div>
+
+        {/* 振込先 */}
+        <div className="border border-gray-300 rounded-xl p-4 text-sm mt-6">
+          <p className="font-bold text-gray-800 mb-2">お振込先</p>
+          <div className="grid grid-cols-[5rem_1fr] gap-y-1 text-gray-700">
+            <span className="text-gray-500">銀行名</span><span>{BANK_INFO.bankName}</span>
+            <span className="text-gray-500">種別</span><span>{BANK_INFO.accountType}</span>
+            <span className="text-gray-500">口座番号</span><span>{BANK_INFO.accountNumber}</span>
+            <span className="text-gray-500">口座名義</span><span>{BANK_INFO.accountHolder}</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-3">お支払期限: {dueDateLabel(month)}（振込手数料はご負担ください）</p>
         </div>
       </div>
     </div>

@@ -70,13 +70,15 @@ export interface InvoicePdfData {
   invoice: CustomerInvoice;
   address?: string;
   issuer: { name: string; contact?: string; registrationNumber?: string; address: string; tel: string; email: string };
+  bank: { bankName: string; accountType: string; accountNumber: string; accountHolder: string };
   invoiceNo: string;
   monthLabel: string;
+  dueDateLabel: string;
   addresseeSuffix: string;
   tax: { rate: number; net: number; tax: number; gross: number };
 }
 
-export function InvoiceDocument({ invoice, address, issuer, invoiceNo, monthLabel, addresseeSuffix, tax }: InvoicePdfData) {
+export function InvoiceDocument({ invoice, address, issuer, bank, invoiceNo, monthLabel, dueDateLabel, addresseeSuffix, tax }: InvoicePdfData) {
   return (
     <Document title={`請求書 ${invoice.customerName} ${monthLabel}`}>
       <Page size="A4" style={s.page}>
@@ -141,6 +143,16 @@ export function InvoiceDocument({ invoice, address, issuer, invoiceNo, monthLabe
             <Text style={s.taxKeyBold}>合計（税込）</Text>
             <Text style={s.taxValBold}>{yen(tax.gross)}</Text>
           </View>
+        </View>
+
+        {/* 振込先 */}
+        <View style={s.bank}>
+          <Text style={s.bankTitle}>お振込先</Text>
+          <View style={s.bankRow}><Text style={s.bankKey}>銀行名</Text><Text style={s.bankVal}>{bank.bankName}</Text></View>
+          <View style={s.bankRow}><Text style={s.bankKey}>種別</Text><Text style={s.bankVal}>{bank.accountType}</Text></View>
+          <View style={s.bankRow}><Text style={s.bankKey}>口座番号</Text><Text style={s.bankVal}>{bank.accountNumber}</Text></View>
+          <View style={s.bankRow}><Text style={s.bankKey}>口座名義</Text><Text style={s.bankVal}>{bank.accountHolder}</Text></View>
+          <Text style={s.due}>お支払期限: {dueDateLabel}（振込手数料はご負担ください）</Text>
         </View>
       </Page>
     </Document>

@@ -35,7 +35,7 @@ export const BANK_INFO = {
   bankName: "池田泉州銀行 桃山台支店",
   accountType: "普通",
   accountNumber: "191119",
-  accountHolder: "フィットステージ　サカネナオキ",
+  accountHolder: "フィットステージ　坂根尚樹",
 };
 
 // ─── 請求データ ──────────────────────────────────────────
