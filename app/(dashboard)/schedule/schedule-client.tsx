@@ -171,6 +171,8 @@ function LessonCard({
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
   // 通常レッスンの編集可否（管理者 or 追加した本人）
   const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
+  // 完了/予定に戻すは「担当トレーナー本人」のみ
+  const canCompleteLesson = item.type === "regular" && !!currentMemberId && item.trainerId === currentMemberId;
 
   // 担当者ラベル
   const staff = isPersonal
@@ -328,7 +330,7 @@ function LessonCard({
               </button>
             </div>
           )}
-          {canEditLesson && !cancelled && (
+          {canCompleteLesson && !cancelled && (
             item.status === "completed" ? (
               <button
                 type="button"

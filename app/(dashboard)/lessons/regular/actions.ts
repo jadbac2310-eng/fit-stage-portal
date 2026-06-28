@@ -84,9 +84,15 @@ export async function updateLessonAction(id: string, formData: FormData) {
   revalidatePath("/schedule");
 }
 
-// スケジュール画面などからレッスンの状態だけを変更する（完了/予定に戻す等）
+// スケジュール画面などからレッスンの状態だけを変更する（完了/予定に戻す等）。
+// 完了/予定戻しができるのは「担当トレーナー本人」のみ。
 export async function setLessonStatusAction(id: string, status: LessonStatus) {
-  const { lesson } = await assertCanEditLesson(id);
+  const [member, lesson] = await Promise.all([getCurrentMember(), getLesson(id)]);
+  if (!member) throw new Error("ログインが必要です");
+  if (!lesson) throw new Error("レッスンが見つかりません");
+  if (!lesson.trainerMemberId || lesson.trainerMemberId !== member.id) {
+    throw new Error("完了にできるのは担当者本人のみです");
+  }
   await updateLesson(id, { status });
   const label = status === "completed" ? "完了" : status === "cancelled" ? "キャンセル" : "予定";
   await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `レッスンを${label}に変更: ${lesson.customerName}` });
