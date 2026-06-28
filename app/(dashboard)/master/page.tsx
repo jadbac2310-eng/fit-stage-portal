@@ -1,22 +1,24 @@
 import Link from "next/link";
-import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2 } from "lucide-react";
+import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store } from "lucide-react";
 import { getMembers } from "@/lib/members";
 import { getMaterialsCount } from "@/lib/materials";
 import { getKeywordsCount } from "@/lib/keywords";
 import { getCustomersCount } from "@/lib/customers";
 import { getAllPlans } from "@/lib/plans-master";
 import { getRentalGymsCount } from "@/lib/rental-gyms";
+import { getStoresCount } from "@/lib/stores";
 
 export const dynamic = "force-dynamic";
 
 export default async function MasterPage() {
-  const [members, materialsCount, keywordsCount, customersCount, plans, rentalGymsCount] = await Promise.all([
+  const [members, materialsCount, keywordsCount, customersCount, plans, rentalGymsCount, storesCount] = await Promise.all([
     getMembers(),
     getMaterialsCount(),
     getKeywordsCount(),
     getCustomersCount(),
     getAllPlans(),
     getRentalGymsCount(),
+    getStoresCount(),
   ]);
 
   return (
@@ -108,6 +110,23 @@ export default async function MasterPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-gray-400">{rentalGymsCount}件</span>
             <ArrowRight size={16} className="text-gray-400 group-hover:text-rose-500 transition" />
+          </div>
+        </Link>
+
+        <Link
+          href="/master/stores"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Store size={20} className="text-teal-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">店舗マスタ</p>
+            <p className="text-xs text-gray-500 mt-0.5">店舗の名前・住所・利用料（一律2000円）</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400">{storesCount}件</span>
+            <ArrowRight size={16} className="text-gray-400 group-hover:text-teal-500 transition" />
           </div>
         </Link>
 

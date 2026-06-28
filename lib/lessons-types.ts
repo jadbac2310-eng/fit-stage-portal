@@ -22,6 +22,8 @@ export interface Lesson {
   note?: string;
   rentalGymId?: string;        // 利用レンタルジム（rental_gyms.id）
   rentalGymFee?: number;       // この回のレンタルジム代（マスタ値がデフォルト・変更可）
+  storeId?: string;            // 利用店舗（stores.id）。レンタルジムとは別概念
+  storeFee?: number;           // この回の店舗利用料（既定2000・変更可）
   createdById?: string;        // レッスンを追加したメンバー
   createdByName?: string;
   updatedById?: string;        // 最後に編集したメンバー

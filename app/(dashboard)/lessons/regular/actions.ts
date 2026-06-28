@@ -34,6 +34,9 @@ export async function createLessonAction(formData: FormData) {
   const rentalGymId     = (formData.get("rentalGymId")     as string)?.trim() || null;
   const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
   const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
+  const storeId         = (formData.get("storeId")         as string)?.trim() || null;
+  const sfRaw           = (formData.get("storeFee")        as string)?.trim();
+  const storeFee        = storeId && sfRaw ? parseInt(sfRaw, 10) : null;
   const amtRaw          = (formData.get("amount")          as string)?.trim();
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -41,7 +44,7 @@ export async function createLessonAction(formData: FormData) {
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
-  const created = await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee });
+  const created = await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee });
 
   if (paymentType === "session_pass" && sessionPassId) {
     await decrementSessionPass(sessionPassId);
@@ -64,6 +67,9 @@ export async function updateLessonAction(id: string, formData: FormData) {
   const rentalGymId     = (formData.get("rentalGymId")     as string)?.trim() || null;
   const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
   const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
+  const storeId         = (formData.get("storeId")         as string)?.trim() || null;
+  const sfRaw           = (formData.get("storeFee")        as string)?.trim();
+  const storeFee        = storeId && sfRaw ? parseInt(sfRaw, 10) : null;
   const amtRaw          = (formData.get("amount")          as string)?.trim();
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -78,7 +84,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
     if (sessionPassId && paymentType === "session_pass") await decrementSessionPass(sessionPassId);
   }
 
-  await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee });
+  await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, storeFee });
   await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `通常レッスンを編集: ${existing.customerName}` });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");

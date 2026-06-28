@@ -20,6 +20,7 @@ import type { Lesson } from "@/lib/lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
+import type { Store } from "@/lib/stores";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 
@@ -827,7 +828,7 @@ function PersonalEventModal({
 
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, defaultDate, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, defaultDate, onClose,
 }: {
   customers: Customer[];
   members: Member[];
@@ -835,6 +836,7 @@ function LessonModal({
   customerPlans: CustomerPlanRecord[];
   lessons: Lesson[];
   rentalGyms: RentalGym[];
+  stores: Store[];
   defaultDate?: string;
   onClose: () => void;
 }) {
@@ -858,6 +860,7 @@ function LessonModal({
             customerPlans={customerPlans}
             allLessons={lessons}
             rentalGyms={rentalGyms}
+            stores={stores}
             defaultValues={defaultValues}
             onClose={close}
             action={createLessonAction}
@@ -872,7 +875,7 @@ function LessonModal({
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
-  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [],
+  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
@@ -884,6 +887,7 @@ export function ScheduleClient({
   customerPlans?: CustomerPlanRecord[];
   lessons?: Lesson[];
   rentalGyms?: RentalGym[];
+  stores?: Store[];
 }) {
   const [view, setView] = useState<"list" | "calendar">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
@@ -1120,6 +1124,7 @@ export function ScheduleClient({
           customerPlans={customerPlans}
           lessons={lessons}
           rentalGyms={rentalGyms}
+          stores={stores}
           defaultDate={lessonDate}
           onClose={() => setLessonModalOpen(false)}
         />

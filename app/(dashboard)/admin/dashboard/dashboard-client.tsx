@@ -57,7 +57,7 @@ function computeMonth(
 ): MonthFigures {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
-  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0);
+  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.storeFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
@@ -222,7 +222,7 @@ export function RevenueDashboardClient({
         <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} accent="text-blue-600" sub="完了レッスン単価の合計" />
         <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" />
         <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" />
-        <KpiCard icon={<Building2 size={12} />} label="レンタルジム代" value={cur.rentalCost} accent="text-rose-600" sub="レッスンごとの利用料" />
+        <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} accent="text-rose-600" sub="レンタルジム・店舗の利用料" />
       </div>
       <div className="bg-gradient-to-br from-green-600 to-green-500 rounded-2xl p-4 text-white shadow-sm shadow-green-200 mb-3">
         <p className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-green-50">
@@ -234,7 +234,7 @@ export function RevenueDashboardClient({
 
       {/* 内訳メモ */}
       <p className="text-[11px] text-gray-400 mb-4 px-1">
-        利益 = 売上 − トレーナー支払 − 営業支払 − レンタルジム代
+        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料
       </p>
 
       {/* 今月の実績（全体） */}
@@ -273,7 +273,7 @@ export function RevenueDashboardClient({
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="trainerPayout" name="トレーナー支払" stackId="pay" fill="#818cf8" radius={[0, 0, 0, 0]} />
               <Bar dataKey="salesPayout" name="営業支払" stackId="pay" fill="#fbbf24" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="rentalCost" name="レンタルジム代" stackId="pay" fill="#fb7185" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="rentalCost" name="場所利用料" stackId="pay" fill="#fb7185" radius={[0, 0, 0, 0]} />
               <Bar dataKey="profit" name="利益" stackId="pay" fill="#34d399" radius={[3, 3, 0, 0]} />
               <Line type="monotone" dataKey="revenue" name="売上" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
             </ComposedChart>

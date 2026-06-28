@@ -4,7 +4,7 @@ import { useState, useMemo, useId } from "react";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
-  CheckCircle, Clock, XCircle, Ticket,
+  CheckCircle, Clock, XCircle, Ticket, Building2,
 } from "lucide-react";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "@/lib/lessons-types";
 import { SessionPass } from "@/lib/session-passes-types";
@@ -12,6 +12,7 @@ import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import { RentalGym } from "@/lib/rental-gyms";
+import { Store } from "@/lib/stores";
 import { createLessonAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -112,7 +113,7 @@ function isoToLocalInput(iso: string): string {
 // ─── レッスンフォーム ─────────────────────────────────
 export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
-  rentalGyms = [], fixedCustomerId, onClose, action, submitLabel,
+  rentalGyms = [], stores = [], fixedCustomerId, onClose, action, submitLabel,
 }: {
   defaultValues?: Partial<Lesson>;
   customers: Customer[];
@@ -121,6 +122,7 @@ export function LessonForm({
   customerPlans: CustomerPlanRecord[];
   allLessons: Lesson[];
   rentalGyms?: RentalGym[];
+  stores?: Store[];
   fixedCustomerId?: string;
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
@@ -139,15 +141,33 @@ export function LessonForm({
   const [rentalGymFee, setRentalGymFee] = useState(
     defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
   );
+  // 店舗（レンタルジムとは別概念。利用料は一律2000円が既定）。場所はレンタルジムと排他
+  const [storeId, setStoreId] = useState(defaultValues?.storeId ?? "");
+  const [storeFee, setStoreFee] = useState(
+    defaultValues?.storeFee != null ? String(defaultValues.storeFee) : ""
+  );
 
   function onRentalGymChange(id: string) {
     setRentalGymId(id);
     const gym = rentalGyms.find((g) => g.id === id);
     if (gym) {
+      setStoreId(""); setStoreFee("");            // 店舗とは排他
       setRentalGymFee(String(gym.fee));
       setLocation(gym.name); // 場所を自動入力（編集可）
     } else {
       setRentalGymFee("");
+    }
+  }
+
+  function onStoreChange(id: string) {
+    setStoreId(id);
+    const store = stores.find((s) => s.id === id);
+    if (store) {
+      setRentalGymId(""); setRentalGymFee("");    // レンタルジムとは排他
+      setStoreFee(String(store.fee));
+      setLocation(store.name); // 場所を自動入力（編集可）
+    } else {
+      setStoreFee("");
     }
   }
 
@@ -187,6 +207,7 @@ export function LessonForm({
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
+  const locationLocked = !!rentalGymId || !!storeId; // レンタルジム/店舗のときは場所を自動設定
   const defaultScheduledAt = defaultValues?.scheduledAt
     ? isoToLocalInput(defaultValues.scheduledAt) : "";
 
@@ -279,21 +300,21 @@ export function LessonForm({
         <label className={labelClass}><MapPin size={12} /> 場所</label>
         <input
           name="location"
-          list={rentalGymId ? undefined : locationListId}
+          list={locationLocked ? undefined : locationListId}
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          readOnly={!!rentalGymId}
+          readOnly={locationLocked}
           placeholder="場所を入力（または下から選択）"
-          className={cn(inputClass, rentalGymId && "bg-gray-100 text-gray-500 cursor-not-allowed")}
+          className={cn(inputClass, locationLocked && "bg-gray-100 text-gray-500 cursor-not-allowed")}
         />
-        {rentalGymId ? (
-          <p className="text-[11px] text-gray-400 mt-1">レンタルジムに合わせて自動設定されます</p>
+        {locationLocked ? (
+          <p className="text-[11px] text-gray-400 mt-1">{rentalGymId ? "レンタルジム" : "店舗"}に合わせて自動設定されます</p>
         ) : (
           <datalist id={locationListId}>
             {locationHistory.map((loc) => <option key={loc} value={loc} />)}
           </datalist>
         )}
-        {!rentalGymId && locationHistory.length > 0 && (
+        {!locationLocked && locationHistory.length > 0 && (
           <div className="mt-2">
             <p className="text-[11px] text-gray-400 mb-1">よく使う場所（タップで入力）</p>
             <div className="flex flex-wrap gap-1.5">
@@ -339,6 +360,32 @@ export function LessonForm({
               className={inputClass}
             />
             <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
+          </div>
+        )}
+      </div>
+
+      {/* 店舗（レンタルジムとは別概念・一律2000円） */}
+      <div>
+        <label className={labelClass}><Building2 size={12} /> 店舗</label>
+        <select name="storeId" value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={inputClass}>
+          <option value="">なし</option>
+          {stores.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}（¥{s.fee.toLocaleString("ja-JP")}）</option>
+          ))}
+        </select>
+        {storeId && (
+          <div className="mt-2">
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">店舗利用料（税込）</label>
+            <input
+              name="storeFee"
+              type="number"
+              min="0"
+              step="1"
+              value={storeFee}
+              onChange={(e) => setStoreFee(e.target.value)}
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-400 mt-1">既定は一律2000円です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
           </div>
         )}
       </div>
@@ -485,9 +532,9 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
 }
 
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, isAdmin, currentMemberId }: {
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, stores, isAdmin, currentMemberId }: {
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
-  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; isAdmin: boolean; currentMemberId?: string;
+  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; stores: Store[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -515,7 +562,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
       <LessonForm defaultValues={lesson} customers={customers} members={members} sessionPasses={sessionPasses}
-        customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms}
+        customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
         action={boundUpdate} submitLabel="保存する" />
     </div>
@@ -586,7 +633,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, isAdmin, currentMemberId }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, stores, isAdmin, currentMemberId }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -595,6 +642,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   customers: Customer[];
   members: Member[];
   rentalGyms: RentalGym[];
+  stores: Store[];
   isAdmin: boolean;
   currentMemberId?: string;
 }) {
@@ -645,14 +693,14 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           {/* レッスン一覧 */}
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
-              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms}
+              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
               isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
 
           {showAdd ? (
             <div className="py-3">
               <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
-                customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms}
+                customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
                 fixedCustomerId={customer.id} onClose={() => setShowAdd(false)}
                 action={createLessonAction} submitLabel="追加する" />
             </div>
@@ -674,9 +722,9 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], isAdmin, currentMemberId, initialSearch = "" }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], stores = [], isAdmin, currentMemberId, initialSearch = "" }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
-  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; rentalGyms?: RentalGym[]; isAdmin: boolean; currentMemberId?: string;
+  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; rentalGyms?: RentalGym[]; stores?: Store[]; isAdmin: boolean; currentMemberId?: string;
   initialSearch?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -747,7 +795,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
-            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms}
+            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores}
             onClose={() => setShowAdd(false)} action={createLessonAction} submitLabel="追加する" />
         </div>
       )}
@@ -770,7 +818,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
           {filtered.map(({ customer, lessons: ls }) => (
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
-              customers={customers} members={members} rentalGyms={rentalGyms} isAdmin={isAdmin} currentMemberId={currentMemberId} />
+              customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
         </div>
       )}
@@ -784,7 +832,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
       {showAdd && (
         <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
-            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms}
+            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores}
             onClose={() => setShowAdd(false)} action={createLessonAction} submitLabel="追加する" />
         </BottomSheet>
       )}
