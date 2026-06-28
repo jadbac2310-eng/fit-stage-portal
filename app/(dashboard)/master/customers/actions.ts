@@ -8,6 +8,18 @@ import { STATUS_LABEL, type CustomerStatus, type CustomerType } from "@/lib/cust
 
 export type CustomerActionResult = { ok: true } | { ok: false; error: string };
 
+// Supabase のエラーは Error インスタンスではなくプレーンオブジェクト（message/code/details/hint）。
+// 本当の原因が分かるように可能な限り中身を取り出す。
+function errMessage(e: unknown, fallback: string): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object") {
+    const o = e as { message?: string; code?: string; details?: string; hint?: string };
+    const parts = [o.message, o.details, o.hint].filter(Boolean);
+    if (parts.length) return `${parts.join(" / ")}${o.code ? `（${o.code}）` : ""}`;
+  }
+  return fallback;
+}
+
 export async function createCustomerAction(formData: FormData): Promise<CustomerActionResult> {
   try {
     await requireAdmin();
@@ -31,7 +43,7 @@ export async function createCustomerAction(formData: FormData): Promise<Customer
     await logActivity({ action: "create", entityType: "customer", entityId: created.id, summary: `顧客を追加: ${fullName}` });
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "顧客の追加に失敗しました" };
+    return { ok: false, error: errMessage(e, "顧客の追加に失敗しました") };
   }
 }
 
@@ -61,7 +73,7 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
     revalidatePath("/invoices");
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "顧客の更新に失敗しました" };
+    return { ok: false, error: errMessage(e, "顧客の更新に失敗しました") };
   }
 }
 
