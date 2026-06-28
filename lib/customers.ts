@@ -96,9 +96,9 @@ export async function updateCustomer(
     email: string;
     fullName: string;
     dateOfBirth: string;
-    address: string;
-    phoneNumber: string;
-    desiredStartDate: string;
+    address: string | null;
+    phoneNumber: string | null;
+    desiredStartDate: string | null;
     singleSessionPrice: number | null;
     salesMemberId: string | null;
     billingName: string | null;
