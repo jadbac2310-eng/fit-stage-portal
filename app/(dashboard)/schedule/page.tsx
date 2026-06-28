@@ -54,6 +54,7 @@ export default async function SchedulePage() {
       status: l.status,
       trainerId: l.trainerMemberId,
       trainerName: l.trainerMemberName,
+      storeId: l.storeId,
       createdById: l.createdById,
       createdByName: l.createdByName ?? nameOf(l.createdById),
       createdAt: l.createdAt,

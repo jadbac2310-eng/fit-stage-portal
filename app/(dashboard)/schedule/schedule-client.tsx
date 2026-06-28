@@ -8,7 +8,7 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { AuthorStamp } from "@/components/ui/author-stamp";
@@ -51,6 +51,7 @@ export type ScheduleItem = {
   participantIds?: string[];
   participantNames?: string[];
   notify?: boolean;
+  storeId?: string;
 };
 
 // ─── 個人予定の色 ─────────────────────────────────────
@@ -893,6 +894,8 @@ export function ScheduleClient({
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   // 担当者で絞り込み（"all" = 全員）。初期は自分の予定。全員が全員分を閲覧可。
   const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
+  // 店舗で絞り込み（"all" = すべて）。その店舗でのレッスン予定一覧。
+  const [filterStore, setFilterStore] = useState<string>("all");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
   // 通常レッスンの追加モーダル（defaultDate を持つときはその日付で開く）
@@ -905,12 +908,14 @@ export function ScheduleClient({
 
   // 絞り込み後のアイテム（"all" は全件）。個人予定は作成者で絞り込む。
   const visibleItems = useMemo(() => {
-    if (filterMember === "all") return items;
-    return items.filter((it) =>
-      it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember ||
-      !!it.participantIds?.includes(filterMember)
-    );
-  }, [items, filterMember]);
+    return items.filter((it) => {
+      const memberOk = filterMember === "all" ||
+        it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember ||
+        !!it.participantIds?.includes(filterMember);
+      const storeOk = filterStore === "all" || it.storeId === filterStore;
+      return memberOk && storeOk;
+    });
+  }, [items, filterMember, filterStore]);
 
   const openCreate = (defaultDate?: string) => setModal({ mode: "create", defaultDate });
   const openEdit = (item: ScheduleItem) => setModal({ mode: "edit", initial: item });
@@ -1032,6 +1037,23 @@ export function ScheduleClient({
               .map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
+          </select>
+        </div>
+      )}
+
+      {/* 店舗フィルタ（その店舗でのレッスン予定一覧） */}
+      {stores.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <Building2 size={15} className="text-gray-400 flex-shrink-0" />
+          <select
+            value={filterStore}
+            onChange={(e) => setFilterStore(e.target.value)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">すべての店舗</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
           </select>
         </div>
       )}
