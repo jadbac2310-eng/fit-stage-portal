@@ -84,6 +84,16 @@ export async function updateLessonAction(id: string, formData: FormData) {
   revalidatePath("/schedule");
 }
 
+// スケジュール画面などからレッスンの状態だけを変更する（完了/予定に戻す等）
+export async function setLessonStatusAction(id: string, status: LessonStatus) {
+  const { lesson } = await assertCanEditLesson(id);
+  await updateLesson(id, { status });
+  const label = status === "completed" ? "完了" : status === "cancelled" ? "キャンセル" : "予定";
+  await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `レッスンを${label}に変更: ${lesson.customerName}` });
+  revalidatePath("/lessons/regular");
+  revalidatePath("/schedule");
+}
+
 export async function deleteLessonAction(id: string) {
   const { lesson: existing } = await assertCanEditLesson(id);
   if (existing?.sessionPassId && existing.paymentType === "session_pass") {

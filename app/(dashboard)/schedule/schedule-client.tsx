@@ -8,7 +8,7 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus,
+  Plus, Trash2, X, CalendarPlus, RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { AuthorStamp } from "@/components/ui/author-stamp";
@@ -21,7 +21,7 @@ import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
-import { createLessonAction } from "../lessons/regular/actions";
+import { createLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 
 export type ScheduleItem = {
   id: string;
@@ -163,6 +163,7 @@ function LessonCard({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [settingStatus, setSettingStatus] = useState(false);
   const isTrial = item.type === "trial";
   const isPersonal = item.type === "personal";
   const cancelled = item.status === "cancelled";
@@ -192,6 +193,17 @@ function LessonCard({
     } catch (e) {
       alert(e instanceof Error ? e.message : "削除に失敗しました");
       setDeleting(false);
+    }
+  }
+
+  async function handleSetStatus(status: "completed" | "scheduled") {
+    setSettingStatus(true);
+    try {
+      await setLessonStatusAction(item.id, status);
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
+      setSettingStatus(false);
     }
   }
 
@@ -315,6 +327,27 @@ function LessonCard({
                 <Trash2 size={13} /> {deleting ? "削除中…" : "削除"}
               </button>
             </div>
+          )}
+          {canEditLesson && !cancelled && (
+            item.status === "completed" ? (
+              <button
+                type="button"
+                onClick={() => handleSetStatus("scheduled")}
+                disabled={settingStatus}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <RotateCcw size={13} /> {settingStatus ? "変更中…" : "予定に戻す"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSetStatus("completed")}
+                disabled={settingStatus}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <CheckCircle size={13} /> {settingStatus ? "変更中…" : "完了にする"}
+              </button>
+            )
           )}
           {((isTrial && isAdmin) || canEditLesson) && (
             <Link
