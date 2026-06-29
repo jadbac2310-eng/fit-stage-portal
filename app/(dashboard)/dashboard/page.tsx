@@ -54,7 +54,8 @@ export default async function DashboardPage() {
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name, commissionRate: m.commissionRate })),
+    // 歩合率は他人ぶんを渡さない（本人または管理者のみ）
+    members: members.map((m) => ({ id: m.id, name: m.name, commissionRate: (currentMember?.isAdmin || m.id === currentMember?.id) ? m.commissionRate : undefined })),
     lessonFees: buildLessonFeeMap(plansMaster),
   };
 

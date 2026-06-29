@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Percent,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -251,25 +251,6 @@ function MemberForm({
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
       </div>
-
-      {isAdmin && (
-        <div>
-          <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-            <Percent size={12} /> トレーナー歩合（％）
-          </label>
-          <input
-            type="number"
-            name="commissionRate"
-            min="0"
-            max="100"
-            step="1"
-            defaultValue={defaultValues?.commissionRate ?? ""}
-            placeholder="未設定なら既定の50%"
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-gray-400 mt-1.5">この担当者のレッスン歩合率。空欄なら既定50%。</p>
-        </div>
-      )}
 
       {isAdmin && (
         <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
