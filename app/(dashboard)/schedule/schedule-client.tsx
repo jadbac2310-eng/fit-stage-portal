@@ -52,6 +52,7 @@ export type ScheduleItem = {
   participantNames?: string[];
   notify?: boolean;
   storeId?: string;
+  customerId?: string;
 };
 
 // ─── 個人予定の色 ─────────────────────────────────────
@@ -1016,6 +1017,8 @@ export function ScheduleClient({
   const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
   // 店舗で絞り込み（"all" = すべて）。その店舗でのレッスン予定一覧。
   const [filterStore, setFilterStore] = useState<string>("all");
+  // 顧客で絞り込み（"all" = すべて）。その顧客のレッスン予定一覧。
+  const [filterCustomer, setFilterCustomer] = useState<string>("all");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
   // 通常レッスンの追加モーダル（defaultDate を持つときはその日付で開く）
@@ -1033,9 +1036,10 @@ export function ScheduleClient({
         it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember ||
         !!it.participantIds?.includes(filterMember);
       const storeOk = filterStore === "all" || it.storeId === filterStore;
-      return memberOk && storeOk;
+      const customerOk = filterCustomer === "all" || it.customerId === filterCustomer;
+      return memberOk && storeOk && customerOk;
     });
-  }, [items, filterMember, filterStore]);
+  }, [items, filterMember, filterStore, filterCustomer]);
 
   const openCreate = (defaultDate?: string) => setModal({ mode: "create", defaultDate });
   const openEdit = (item: ScheduleItem) => setModal({ mode: "edit", initial: item });
@@ -1173,6 +1177,23 @@ export function ScheduleClient({
             <option value="all">すべての店舗</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* 顧客フィルタ（その顧客のレッスン予定一覧） */}
+      {customers.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <UserRound size={15} className="text-gray-400 flex-shrink-0" />
+          <select
+            value={filterCustomer}
+            onChange={(e) => setFilterCustomer(e.target.value)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">すべての顧客</option>
+            {[...customers].sort((a, b) => a.fullName.localeCompare(b.fullName, "ja")).map((c) => (
+              <option key={c.id} value={c.id}>{c.fullName}</option>
             ))}
           </select>
         </div>
