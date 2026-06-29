@@ -94,6 +94,11 @@ function timeStr(iso: string) {
   // タイムゾーンをJST固定にする（サーバ=UTCとクライアント=JSTで表示がズレるのを防ぐ）
   return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 }
+// JSTでの 0:00 からの経過分（時間軸表示の位置計算用）
+function jstMinutes(iso: string): number {
+  const [h, m] = timeStr(iso).split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
 
 function fullDateStr(iso: string) {
   return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
@@ -1026,6 +1031,192 @@ function LessonModal({
   );
 }
 
+// ─── 時間軸（縦タイムライン・Outlook風） ─────────────────
+function TimelineView({
+  items, isAdmin, currentMemberId, onEditPersonal, onAddPersonal, onAddLesson,
+}: {
+  items: ScheduleItem[];
+  isAdmin?: boolean;
+  currentMemberId?: string;
+  onEditPersonal?: (item: ScheduleItem) => void;
+  onAddPersonal?: (ymd: string) => void;
+  onAddLesson?: (ymd: string) => void;
+}) {
+  const router = useRouter();
+  const [day, setDay] = useState(() => startOfDay(new Date()));
+  const [addOpen, setAddOpen] = useState(false);
+  const HOUR_PX = 56;
+
+  const key = dayKey(day);
+  const dayItems = useMemo(
+    () => items.filter((it) => dayKey(new Date(it.scheduledAt)) === key && it.status !== "cancelled"),
+    [items, key],
+  );
+  const allDayItems = dayItems.filter((it) => it.type === "personal" && it.allDay);
+  const timed = dayItems.filter((it) => !(it.type === "personal" && it.allDay));
+
+  // 各予定の開始/終了分を求める（終了が無いものは60分）
+  const blocks = useMemo(() => {
+    const arr = timed.map((it) => {
+      const start = jstMinutes(it.scheduledAt);
+      let end = it.endAt ? jstMinutes(it.endAt) : start + 60;
+      if (end <= start) end = start + 60;
+      end = Math.min(end, 24 * 60);
+      return { it, start, end, col: 0, cols: 1 };
+    }).sort((a, b) => a.start - b.start || a.end - b.end);
+
+    // 重なりをクラスタ化して横並びの列を割り当て
+    let i = 0;
+    while (i < arr.length) {
+      let j = i, clusterEnd = arr[i].end;
+      while (j + 1 < arr.length && arr[j + 1].start < clusterEnd) {
+        j++; clusterEnd = Math.max(clusterEnd, arr[j].end);
+      }
+      const cluster = arr.slice(i, j + 1);
+      const colEnds: number[] = [];
+      for (const b of cluster) {
+        let placed = false;
+        for (let c = 0; c < colEnds.length; c++) {
+          if (b.start >= colEnds[c]) { b.col = c; colEnds[c] = b.end; placed = true; break; }
+        }
+        if (!placed) { b.col = colEnds.length; colEnds.push(b.end); }
+      }
+      for (const b of cluster) b.cols = colEnds.length;
+      i = j + 1;
+    }
+    return arr;
+  }, [timed]);
+
+  // 表示する時間帯（既定7-21時、予定に合わせて拡張）
+  const { startHour, endHour } = useMemo(() => {
+    let sh = 7, eh = 21;
+    for (const b of blocks) {
+      sh = Math.min(sh, Math.floor(b.start / 60));
+      eh = Math.max(eh, Math.ceil(b.end / 60));
+    }
+    return { startHour: Math.max(0, sh), endHour: Math.min(24, Math.max(eh, sh + 1)) };
+  }, [blocks]);
+
+  const axisStart = startHour * 60;
+  const totalMin = (endHour - startHour) * 60;
+  const pxPerMin = HOUR_PX / 60;
+  const todayKey = dayKey(startOfDay(new Date()));
+
+  return (
+    <div>
+      {/* 日ナビ */}
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => setDay((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1))}
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition" aria-label="前の日">
+          <ChevronLeft size={18} />
+        </button>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-bold text-gray-900">{fullDateStr(day.toISOString())}</h2>
+          <button onClick={() => setDay(startOfDay(new Date()))}
+            className="text-xs font-medium text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition">今日</button>
+        </div>
+        <button onClick={() => setDay((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1))}
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition" aria-label="次の日">
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      {/* この日に追加 */}
+      {(onAddPersonal || onAddLesson) && (
+        <div className="relative mb-3 flex justify-end">
+          <button type="button" onClick={() => setAddOpen((v) => !v)}
+            className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 hover:bg-blue-700 transition">
+            <Plus size={13} /> この日に追加
+          </button>
+          {addOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-20 w-40 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden py-1">
+                {onAddLesson && (
+                  <button type="button" onClick={() => { setAddOpen(false); onAddLesson(keyToYmd(key)); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                    <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
+                  </button>
+                )}
+                {onAddPersonal && (
+                  <button type="button" onClick={() => { setAddOpen(false); onAddPersonal(keyToYmd(key)); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                    <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 終日 */}
+      {allDayItems.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {allDayItems.map((it) => (
+            <button key={`${it.type}-${it.id}`} onClick={() => onEditPersonal?.(it)}
+              className={cn("text-xs font-medium px-2 py-1 rounded-lg", COLOR_MAP[it.color ?? "blue"].chip)}>
+              終日・{it.customerName}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* タイムライン */}
+      <div className="relative border border-gray-200 rounded-xl overflow-hidden bg-white" style={{ height: totalMin * pxPerMin }}>
+        {/* 時刻グリッド */}
+        {Array.from({ length: endHour - startHour + 1 }, (_, idx) => startHour + idx).map((h) => (
+          <div key={h} className="absolute left-0 right-0 border-t border-gray-100 flex" style={{ top: (h * 60 - axisStart) * pxPerMin }}>
+            <span className="text-[10px] text-gray-400 w-11 flex-shrink-0 -mt-1.5 pl-1">{pad2(h)}:00</span>
+          </div>
+        ))}
+        {/* 現在時刻ライン */}
+        {key === todayKey && (() => {
+          const now = jstMinutes(new Date().toISOString());
+          if (now < axisStart || now > axisStart + totalMin) return null;
+          return <div className="absolute left-11 right-0 h-px bg-red-400 z-10" style={{ top: (now - axisStart) * pxPerMin }} />;
+        })()}
+
+        {/* 予定ブロック（時刻ラベルぶん左を空ける内側コンテナ） */}
+        <div className="absolute top-0 bottom-0" style={{ left: "2.75rem", right: "4px" }}>
+          {blocks.map((b) => {
+            const it = b.it;
+            const isPersonal = it.type === "personal";
+            const isTrial = it.type === "trial";
+            const widthPct = 100 / b.cols;
+            const cls = isPersonal ? COLOR_MAP[it.color ?? "blue"].chip
+              : isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700";
+            const onClick = () => {
+              if (isPersonal) onEditPersonal?.(it);
+              else router.push(`/schedule/${it.id}`);
+            };
+            return (
+              <button
+                key={`${it.type}-${it.id}`}
+                onClick={onClick}
+                className={cn("absolute rounded-lg px-2 py-1 text-left overflow-hidden border border-white/60 shadow-sm", cls)}
+                style={{
+                  top: (b.start - axisStart) * pxPerMin + 1,
+                  height: Math.max((b.end - b.start) * pxPerMin - 2, 20),
+                  left: `${b.col * widthPct}%`,
+                  width: `calc(${widthPct}% - 3px)`,
+                }}
+              >
+                <p className="text-[11px] font-bold leading-tight truncate">{timeStr(it.scheduledAt)}{it.endAt ? `–${timeStr(it.endAt)}` : ""}</p>
+                <p className="text-[11px] leading-tight truncate">{it.customerName}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {timed.length === 0 && allDayItems.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">この日の予定はありません</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
@@ -1043,7 +1234,7 @@ export function ScheduleClient({
   rentalGyms?: RentalGym[];
   stores?: Store[];
 }) {
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<"list" | "calendar" | "timeline">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   // 担当者で絞り込み（"all" = 全員）。初期は自分の予定。全員が全員分を閲覧可。
   const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
@@ -1161,7 +1352,7 @@ export function ScheduleClient({
 
       {/* 表示切替（リスト / カレンダー） */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
-        {([["list", "リスト", List], ["calendar", "カレンダー", LayoutGrid]] as const).map(([key, label, Icon]) => (
+        {([["list", "リスト", List], ["timeline", "時間軸", Clock], ["calendar", "カレンダー", LayoutGrid]] as const).map(([key, label, Icon]) => (
           <button
             key={key}
             onClick={() => setView(key)}
@@ -1233,6 +1424,11 @@ export function ScheduleClient({
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit}
+          onAddPersonal={(ymd) => openCreate(ymd)}
+          onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
+      ) : view === "timeline" ? (
+        <TimelineView items={visibleItems} isAdmin={isAdmin}
           currentMemberId={currentMemberId} onEditPersonal={openEdit}
           onAddPersonal={(ymd) => openCreate(ymd)}
           onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
