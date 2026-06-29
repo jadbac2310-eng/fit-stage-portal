@@ -655,11 +655,13 @@ function PersonalEventModal({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ─── 複数日時（作成時のみ） ───
-  // 追加の日時（同じ予定名で別の日時にも入れる）。各 {date, startTime, endTime}
+  // ─── 複数日時 / 繰り返し（作成時のみ・排他） ───
+  // 登録モード: 単発 / 複数日時 / 繰り返し
+  const [multiMode, setMultiMode] = useState<"single" | "multiple" | "recurring">("single");
+  // 複数日時: 追加の日時（同じ予定名で別の日時にも入れる）。各 {date, startTime, endTime}
   const [extraSlots, setExtraSlots] = useState<{ date: string; startTime: string; endTime: string }[]>([]);
   // 繰り返し設定
-  const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly" | "biweekly" | "monthly">("none");
+  const [recurrence, setRecurrence] = useState<"daily" | "weekly" | "biweekly" | "monthly">("weekly");
   const [recurUntil, setRecurUntil] = useState("");
 
   function addExtraSlot() {
@@ -672,12 +674,15 @@ function PersonalEventModal({
     setExtraSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }
 
-  // 送信する全日時（基準＋繰り返し＋追加）を組み立てる
+  // 送信する全日時を組み立てる（モードごとに排他）
   function buildSlots(): { startDate: string; startTime: string; endDate: string; endTime: string }[] {
     const base = { startDate, startTime, endDate, endTime };
     const slots = [base];
-    // 繰り返し（基準日から終了日まで）
-    if (recurrence !== "none" && recurUntil && recurUntil >= startDate) {
+    if (multiMode === "multiple") {
+      for (const ex of extraSlots) {
+        if (ex.date) slots.push({ startDate: ex.date, startTime: ex.startTime, endDate: ex.date, endTime: ex.endTime });
+      }
+    } else if (multiMode === "recurring" && recurUntil && recurUntil >= startDate) {
       const dayOffset = Math.max(0, Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86400000) || 0);
       let cur = startDate;
       for (let i = 0; i < 300; i++) {
@@ -688,10 +693,6 @@ function PersonalEventModal({
         if (cur > recurUntil) break;
         slots.push({ startDate: cur, startTime, endDate: addDaysStr(cur, dayOffset), endTime });
       }
-    }
-    // 手動で追加した日時（同日終了）
-    for (const ex of extraSlots) {
-      if (ex.date) slots.push({ startDate: ex.date, startTime: ex.startTime, endDate: ex.date, endTime: ex.endTime });
     }
     return slots;
   }
@@ -777,44 +778,29 @@ function PersonalEventModal({
             </div>
           </div>
 
-          {/* 繰り返し・複数日時（作成時のみ） */}
+          {/* 登録方法（作成時のみ・単発／複数日時／繰り返しは排他） */}
           {mode === "create" && (
-            <div className="rounded-xl border border-gray-200 p-3 space-y-3 bg-gray-50/60">
-              {/* 繰り返し */}
-              <div>
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">繰り返し</label>
-                <div className="flex gap-2">
-                  <select
-                    value={recurrence}
-                    onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
-                    className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="space-y-3">
+              <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+                {([["single", "単発"], ["multiple", "複数日時"], ["recurring", "繰り返し"]] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setMultiMode(key)}
+                    className={cn(
+                      "flex-1 py-1.5 rounded-lg text-xs font-semibold transition",
+                      multiMode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    )}
                   >
-                    <option value="none">なし</option>
-                    <option value="daily">毎日</option>
-                    <option value="weekly">毎週</option>
-                    <option value="biweekly">隔週</option>
-                    <option value="monthly">毎月</option>
-                  </select>
-                  {recurrence !== "none" && (
-                    <input
-                      type="date"
-                      value={recurUntil}
-                      min={startDate}
-                      onChange={(e) => setRecurUntil(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  )}
-                </div>
-                {recurrence !== "none" && (
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    {recurUntil ? "開始日から終了日まで、同じ時間で繰り返し作成します。" : "繰り返しの終了日を選んでください。"}
-                  </p>
-                )}
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              {/* 手動で別の日時を追加（繰り返しなしのとき） */}
-              {recurrence === "none" && (
-                <div>
+              {/* 複数日時 */}
+              {multiMode === "multiple" && (
+                <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
+                  <p className="text-[11px] text-gray-400 mb-2">同じ予定名で別の日時にも登録します。</p>
                   {extraSlots.map((s, i) => (
                     <div key={i} className="flex gap-2 mb-2 items-center">
                       <input type="date" value={s.date} onChange={(e) => updateExtraSlot(i, { date: e.target.value })}
@@ -834,6 +820,35 @@ function PersonalEventModal({
                     className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
                     <Plus size={14} /> 日時を追加
                   </button>
+                </div>
+              )}
+
+              {/* 繰り返し */}
+              {multiMode === "recurring" && (
+                <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
+                  <div className="flex gap-2">
+                    <select
+                      value={recurrence}
+                      onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
+                      className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="daily">毎日</option>
+                      <option value="weekly">毎週</option>
+                      <option value="biweekly">隔週</option>
+                      <option value="monthly">毎月</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={recurUntil}
+                      min={startDate}
+                      onChange={(e) => setRecurUntil(e.target.value)}
+                      placeholder="終了日"
+                      className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {recurUntil ? "開始日から終了日まで、同じ時間で繰り返し作成します。" : "繰り返しの終了日を選んでください。"}
+                  </p>
                 </div>
               )}
             </div>
