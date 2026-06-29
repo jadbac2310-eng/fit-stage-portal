@@ -54,7 +54,7 @@ export default async function DashboardPage() {
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name })),
+    members: members.map((m) => ({ id: m.id, name: m.name, commissionRate: m.commissionRate })),
     lessonFees: buildLessonFeeMap(plansMaster),
   };
 

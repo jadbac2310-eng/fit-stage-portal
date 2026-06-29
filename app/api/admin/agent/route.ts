@@ -146,7 +146,7 @@ async function buildCtx(): Promise<{
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses: passes, customerPlans: plans,
-    members: members.map((m) => ({ id: m.id, name: m.name })),
+    members: members.map((m) => ({ id: m.id, name: m.name, commissionRate: m.commissionRate })),
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sppPrices),
   };

@@ -286,7 +286,7 @@ export function CommissionsClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:  Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:      { id: string; name: string }[];
+  members:      { id: string; name: string; commissionRate?: number }[];
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {

@@ -9,6 +9,7 @@ export interface Member {
   avatarUrl?: string;
   authUserId?: string;
   isAdmin: boolean;
+  commissionRate?: number; // トレーナー歩合率（％）。未設定は既定50%
   lineUserId?: string;
   lineLinkCode?: string;
   createdAt: string;
@@ -23,6 +24,7 @@ type DbRow = {
   avatar_url: string | null;
   auth_user_id: string | null;
   is_admin: boolean;
+  commission_rate?: number | null;
   line_user_id?: string | null;
   line_link_code?: string | null;
   created_at: string;
@@ -38,6 +40,7 @@ function fromDb(row: DbRow): Member {
     avatarUrl:  row.avatar_url   ?? undefined,
     authUserId: row.auth_user_id ?? undefined,
     isAdmin:    row.is_admin,
+    commissionRate: row.commission_rate ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
     lineLinkCode: row.line_link_code ?? undefined,
     createdAt:  row.created_at,
@@ -95,6 +98,7 @@ export async function addMember(
       avatar_url:   data.avatarUrl  ?? null,
       auth_user_id: data.authUserId ?? null,
       is_admin:     data.isAdmin,
+      commission_rate: data.commissionRate ?? null,
     })
     .select()
     .single();
@@ -104,7 +108,7 @@ export async function addMember(
 
 export async function updateMember(
   id: string,
-  data: Partial<Omit<Member, "id" | "createdAt">>
+  data: Partial<Omit<Member, "id" | "createdAt" | "commissionRate">> & { commissionRate?: number | null }
 ): Promise<Member | null> {
   const patch: Record<string, unknown> = {};
   if (data.name       !== undefined) patch.name         = data.name;
@@ -114,6 +118,7 @@ export async function updateMember(
   if (data.avatarUrl  !== undefined) patch.avatar_url   = data.avatarUrl  ?? null;
   if (data.authUserId !== undefined) patch.auth_user_id = data.authUserId ?? null;
   if (data.isAdmin    !== undefined) patch.is_admin     = data.isAdmin;
+  if (data.commissionRate !== undefined) patch.commission_rate = data.commissionRate ?? null;
 
   const { data: row, error } = await createAdminClient()
     .from("members")

@@ -160,7 +160,7 @@ export function RevenueDashboardClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:       { id: string; name: string }[];
+  members:       { id: string; name: string; commissionRate?: number }[];
   analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);

@@ -17,6 +17,8 @@ export async function createMember(formData: FormData): Promise<{ error: string 
   const password = (formData.get("password") as string)?.trim() || undefined;
   const callerIsAdmin = await getCurrentIsAdmin();
   const isAdmin = callerIsAdmin && formData.get("isAdmin") === "on";
+  const crRaw = (formData.get("commissionRate") as string)?.trim();
+  const commissionRate = crRaw ? parseInt(crRaw, 10) : undefined;
 
   if (password && password.length < 6) {
     return { error: "パスワードは6文字以上で入力してください" };
@@ -49,7 +51,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
     }
   }
 
-  const created = await addMember({ name, email, role, note, avatarUrl, authUserId, isAdmin });
+  const created = await addMember({ name, email, role, note, avatarUrl, authUserId, isAdmin, commissionRate });
   await logActivity({ action: "create", entityType: "member", entityId: created.id, summary: `担当者を追加: ${name}` });
   revalidatePath("/master/members");
 }
@@ -65,6 +67,9 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
   const isAdmin = callerIsAdmin ? formData.get("isAdmin") === "on" : existing?.isAdmin ?? false;
+  // 歩合は管理者のみ変更可。空欄なら null（既定50%に戻す）。
+  const crRaw = (formData.get("commissionRate") as string)?.trim();
+  const commissionRate = crRaw ? parseInt(crRaw, 10) : null;
 
   if (newPassword && newPassword.length < 6) {
     return { error: "パスワードは6文字以上で入力してください" };
@@ -113,6 +118,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     role,
     note,
     isAdmin,
+    ...(callerIsAdmin && { commissionRate }),
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),
   });
