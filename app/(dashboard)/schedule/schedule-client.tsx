@@ -11,6 +11,7 @@ import {
   Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
@@ -37,10 +38,13 @@ export type ScheduleItem = {
   status: "scheduled" | "completed" | "cancelled";
   trainerId?: string;
   trainerName?: string;
+  trainerAvatarUrl?: string;
   salesId?: string;
   salesName?: string;
+  salesAvatarUrl?: string;
   ownerId?: string;
   ownerName?: string;
+  ownerAvatarUrl?: string;
   createdById?: string;
   createdByName?: string;
   createdAt?: string;
@@ -195,15 +199,7 @@ function LessonCard({
   // 完了/予定に戻すは「担当トレーナー本人」のみ
   const canCompleteLesson = item.type === "regular" && !!currentMemberId && item.trainerId === currentMemberId;
 
-  // 担当者ラベル
-  const staff = isPersonal
-    ? (item.ownerName ?? "")
-    : isTrial
-    ? [
-        item.trainerName && `${item.trainerName}(ﾄﾚｰﾅｰ)`,
-        item.salesName && `${item.salesName}(営業)`,
-      ].filter(Boolean).join(" / ")
-    : item.trainerName ?? "";
+  const hasStaff = isPersonal ? !!item.ownerName : (!!item.trainerName || (isTrial && !!item.salesName));
 
   const editHref = isTrial ? "/lessons/trial" : "/lessons/regular";
 
@@ -284,11 +280,12 @@ function LessonCard({
               </span>
             )}
           </div>
-          {staff && (
-            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 min-w-0">
-              <UserRound size={10} className="flex-shrink-0" />
-              <span className="truncate">{staff}</span>
-            </p>
+          {hasStaff && (
+            <div className="text-xs text-gray-500 mt-1 flex items-center gap-x-2 gap-y-1 flex-wrap min-w-0">
+              {isPersonal && <MemberLabel name={item.ownerName} avatarUrl={item.ownerAvatarUrl} />}
+              {!isPersonal && <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} suffix={isTrial ? "(ﾄﾚｰﾅｰ)" : undefined} />}
+              {isTrial && <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} suffix="(営業)" />}
+            </div>
           )}
         </div>
 
@@ -305,7 +302,9 @@ function LessonCard({
           </DetailRow>
           {isPersonal ? (
             <>
-              <DetailRow icon={<UserRound size={13} />} label="作成者">{item.ownerName ?? "—"}</DetailRow>
+              <DetailRow icon={<UserRound size={13} />} label="作成者">
+                {item.ownerName ? <MemberLabel name={item.ownerName} avatarUrl={item.ownerAvatarUrl} size="sm" /> : "—"}
+              </DetailRow>
               {item.participantNames && item.participantNames.length > 0 && (
                 <DetailRow icon={<Users size={13} />} label="参加者">
                   {item.participantNames.join("、")}
@@ -314,11 +313,17 @@ function LessonCard({
             </>
           ) : isTrial ? (
             <>
-              <DetailRow icon={<UserRound size={13} />} label="営業担当">{item.salesName ?? "未設定"}</DetailRow>
-              <DetailRow icon={<UserRound size={13} />} label="トレーナー">{item.trainerName ?? "未設定"}</DetailRow>
+              <DetailRow icon={<UserRound size={13} />} label="営業担当">
+                {item.salesName ? <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} size="sm" /> : "未設定"}
+              </DetailRow>
+              <DetailRow icon={<UserRound size={13} />} label="トレーナー">
+                {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+              </DetailRow>
             </>
           ) : (
-            <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">{item.trainerName ?? "未設定"}</DetailRow>
+            <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">
+              {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+            </DetailRow>
           )}
           {item.type === "regular" && item.createdByName && (
             <DetailRow icon={<CalendarPlus size={13} />} label="追加者">{item.createdByName}</DetailRow>

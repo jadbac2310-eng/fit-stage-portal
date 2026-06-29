@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, Check } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { MemberLabel } from "@/components/ui/member-label";
 import { setCommissionRateAction } from "./actions";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
@@ -49,12 +50,14 @@ function yen(amount: number): string {
 // ─── アコーディオン行 ────────────────────────────────────
 function SectionCard({
   name,
+  avatarUrl,
   total,
   lessonTotal,
   bonusTotal,
   children,
 }: {
   name:        string;
+  avatarUrl?:  string;
   total:       number;
   lessonTotal?: number;
   bonusTotal?:  number;
@@ -68,7 +71,7 @@ function SectionCard({
         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition text-left"
       >
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900">{name}</p>
+          <MemberLabel name={name} avatarUrl={avatarUrl} size="sm" textClassName="text-sm font-bold text-gray-900" />
           {lessonTotal !== undefined && bonusTotal !== undefined && (
             <p className="text-xs text-gray-400 mt-0.5">
               レッスン {yen(lessonTotal)} ＋ ボーナス {yen(bonusTotal)}
@@ -88,7 +91,7 @@ function SectionCard({
 }
 
 // ─── トレーナータブ ──────────────────────────────────────
-function TrainerTab({ entries, isAdmin }: { entries: TrainerEntry[]; isAdmin: boolean }) {
+function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; isAdmin: boolean; avatarOf?: (id: string) => string | undefined }) {
   if (entries.length === 0) {
     return <p className="text-sm text-gray-400 text-center py-10">この月の完了レッスンはありません</p>;
   }
@@ -102,7 +105,7 @@ function TrainerTab({ entries, isAdmin }: { entries: TrainerEntry[]; isAdmin: bo
         <p className="text-sm font-bold text-gray-700">合計 {yen(grandTotal)}</p>
       </div>
       {entries.map((entry) => (
-        <SectionCard key={entry.memberId} name={entry.memberName} total={entry.total}>
+        <SectionCard key={entry.memberId} name={entry.memberName} avatarUrl={avatarOf?.(entry.memberId)} total={entry.total}>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -140,7 +143,7 @@ function TrainerTab({ entries, isAdmin }: { entries: TrainerEntry[]; isAdmin: bo
 }
 
 // ─── 営業タブ ─────────────────────────────────────────────
-function SalesTab({ entries, isAdmin }: { entries: SalesEntry[]; isAdmin: boolean }) {
+function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdmin: boolean; avatarOf?: (id: string) => string | undefined }) {
   if (entries.length === 0) {
     return <p className="text-sm text-gray-400 text-center py-10">この月の歩合・ボーナスはありません</p>;
   }
@@ -157,6 +160,7 @@ function SalesTab({ entries, isAdmin }: { entries: SalesEntry[]; isAdmin: boolea
         <SectionCard
           key={entry.memberId}
           name={entry.memberName}
+          avatarUrl={avatarOf?.(entry.memberId)}
           total={entry.total}
           lessonTotal={entry.lessonTotal}
           bonusTotal={entry.bonusTotal}
@@ -343,7 +347,7 @@ export function CommissionsClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:  Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:      { id: string; name: string; commissionRate?: number }[];
+  members:      { id: string; name: string; avatarUrl?: string; commissionRate?: number }[];
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {
@@ -439,8 +443,8 @@ export function CommissionsClient({
 
       {/* コンテンツ */}
       {activeTab === "trainer"
-        ? <TrainerTab entries={trainerEntries} isAdmin={isAdmin} />
-        : <SalesTab   entries={salesEntries} isAdmin={isAdmin} />}
+        ? <TrainerTab entries={trainerEntries} isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />
+        : <SalesTab   entries={salesEntries} isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />}
     </div>
   );
 }
