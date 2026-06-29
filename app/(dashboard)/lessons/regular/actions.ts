@@ -27,6 +27,7 @@ export async function createLessonAction(formData: FormData) {
   const customerId      = (formData.get("customerId")      as string)?.trim();
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || undefined;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
+  const endAt           = (formData.get("endAt")           as string)?.trim() || null;
   const location        = (formData.get("location")        as string)?.trim() || undefined;
   const course          = (formData.get("course")          as string)?.trim() || undefined;
   const sessionPassId   = (formData.get("sessionPassId")   as string)?.trim() || undefined;
@@ -44,7 +45,7 @@ export async function createLessonAction(formData: FormData) {
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
-  const created = await addLesson({ customerId, trainerMemberId, scheduledAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee });
+  const created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee });
 
   if (paymentType === "session_pass" && sessionPassId) {
     await decrementSessionPass(sessionPassId);
@@ -59,6 +60,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
   const { lesson: existing } = await assertCanEditLesson(id);
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
+  const endAt           = (formData.get("endAt")           as string)?.trim() || null;
   const location        = (formData.get("location")        as string)?.trim() || null;
   const course          = (formData.get("course")          as string)?.trim() || null;
   const sessionPassId   = (formData.get("sessionPassId")   as string)?.trim() || null;
@@ -84,7 +86,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
     if (sessionPassId && paymentType === "session_pass") await decrementSessionPass(sessionPassId);
   }
 
-  await updateLesson(id, { trainerMemberId, scheduledAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, storeFee });
+  await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, storeFee });
   await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `通常レッスンを編集: ${existing.customerName}` });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");

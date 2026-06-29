@@ -10,6 +10,7 @@ export interface Lesson {
   trainerMemberId?: string;
   trainerMemberName?: string;
   scheduledAt: string;
+  endAt?: string;
   location?: string;
   course?: string;
   paymentType?: LessonPaymentType;

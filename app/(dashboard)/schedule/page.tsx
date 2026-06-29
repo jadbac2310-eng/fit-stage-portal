@@ -50,6 +50,7 @@ export default async function SchedulePage() {
       customerName: l.customerName,
       customerId: l.customerId,
       scheduledAt: l.scheduledAt,
+      endAt: l.endAt,
       location: l.location,
       course: l.course,
       status: l.status,

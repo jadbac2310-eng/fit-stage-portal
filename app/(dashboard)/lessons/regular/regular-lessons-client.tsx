@@ -110,6 +110,16 @@ function isoToLocalInput(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// datetime-local 文字列を1時間後にする（基本60分のため終了の初期値に使う）
+function localPlusHour(local: string): string {
+  if (!local) return "";
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setHours(d.getHours() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ─── レッスンフォーム ─────────────────────────────────
 export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
@@ -132,9 +142,20 @@ export function LessonForm({
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
   const [selectedCourse, setSelectedCourse] = useState(defaultValues?.course ?? "");
-  const [scheduledDate, setScheduledDate] = useState(
-    defaultValues?.scheduledAt ? defaultValues.scheduledAt.slice(0, 10) : ""
+  // 開始・終了で管理（基本60分。開始を入れたら終了は1時間後が初期値）
+  const startLocalInit = defaultValues?.scheduledAt ? isoToLocalInput(defaultValues.scheduledAt) : "";
+  const [startLocal, setStartLocal] = useState(startLocalInit);
+  const [endLocal, setEndLocal] = useState(
+    defaultValues?.endAt ? isoToLocalInput(defaultValues.endAt) : localPlusHour(startLocalInit)
   );
+  const scheduledDate = startLocal ? startLocal.slice(0, 10) : "";
+  function onStartChange(v: string) {
+    setStartLocal(v);
+    setEndLocal(localPlusHour(v));
+    const d = v.slice(0, 10);
+    revalidateCourse(selectedCustomerId, d || today);
+    applySuggestion(selectedCustomerId, d);
+  }
   // レンタルジム（選択で場所を自動入力。代金はマスタ値がデフォルト・変更可）
   const [location, setLocation] = useState(defaultValues?.location ?? "");
   const [rentalGymId, setRentalGymId] = useState(defaultValues?.rentalGymId ?? "");
@@ -197,10 +218,12 @@ export function LessonForm({
   }
 
   async function handleSubmit(fd: FormData) {
-    setError(""); setLoading(true);
-    // datetime-local はローカル時刻を返すので、UTC ISO に変換してから送信
-    const raw = fd.get("scheduledAt") as string;
-    if (raw) fd.set("scheduledAt", localInputToISO(raw));
+    setError("");
+    if (!startLocal) { setError("開始日時を入力してください"); return; }
+    setLoading(true);
+    // datetime-local はローカル時刻なので UTC ISO に変換して送信
+    fd.set("scheduledAt", localInputToISO(startLocal));
+    fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
     try { await action(fd); onClose(); }
     catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
   }
@@ -208,8 +231,6 @@ export function LessonForm({
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
   const locationLocked = !!rentalGymId || !!storeId; // レンタルジム/店舗のときは場所を自動設定
-  const defaultScheduledAt = defaultValues?.scheduledAt
-    ? isoToLocalInput(defaultValues.scheduledAt) : "";
 
   const isSessionPassCourse = selectedCourse.startsWith("回数券");
   const availablePasses = sessionPasses.filter(
@@ -275,10 +296,16 @@ export function LessonForm({
       </div>
 
       <div>
-        <label className={labelClass}><Calendar size={12} /> 日時 <span className="text-red-500">*</span></label>
-        <input name="scheduledAt" type="datetime-local" required defaultValue={defaultScheduledAt}
-          onChange={(e) => { const d = e.target.value.slice(0, 10); setScheduledDate(d); revalidateCourse(selectedCustomerId, d || today); applySuggestion(selectedCustomerId, d); }}
+        <label className={labelClass}><Calendar size={12} /> 開始 <span className="text-red-500">*</span></label>
+        <input type="datetime-local" required value={startLocal} onChange={(e) => onStartChange(e.target.value)}
           className={inputClass} />
+      </div>
+
+      <div>
+        <label className={labelClass}><Calendar size={12} /> 終了</label>
+        <input type="datetime-local" value={endLocal} onChange={(e) => setEndLocal(e.target.value)}
+          className={inputClass} />
+        <p className="text-xs text-gray-400 mt-1">基本60分。開始を入れると終了は1時間後が初期値になります（変更可）。</p>
       </div>
 
       {/* プラン照合バナー */}

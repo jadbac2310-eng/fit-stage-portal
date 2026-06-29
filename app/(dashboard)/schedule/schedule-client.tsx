@@ -296,7 +296,7 @@ function LessonCard({
       {open && (
         <div className="border-t border-gray-100 px-4 py-2">
           <DetailRow icon={<Calendar size={13} />} label="日時">
-            {fullDateStr(item.scheduledAt)} {isPersonal ? personalTimeLabel(item) : timeStr(item.scheduledAt)}
+            {fullDateStr(item.scheduledAt)} {isPersonal ? personalTimeLabel(item) : (item.endAt ? `${timeStr(item.scheduledAt)}〜${timeStr(item.endAt)}` : timeStr(item.scheduledAt))}
           </DetailRow>
           {isPersonal ? (
             <>

@@ -10,6 +10,7 @@ type DbRow = {
   customer_id: string;
   trainer_member_id: string | null;
   scheduled_at: string;
+  end_at: string | null;
   location: string | null;
   course: string | null;
   payment_type: LessonPaymentType | null;
@@ -41,6 +42,7 @@ function fromDb(row: DbRow): Lesson {
     trainerMemberId:   row.trainer_member_id ?? undefined,
     trainerMemberName: row.trainer_member?.name ?? undefined,
     scheduledAt:       row.scheduled_at,
+    endAt:             row.end_at ?? undefined,
     location:          row.location ?? undefined,
     course:            row.course ?? undefined,
     paymentType:       row.payment_type ?? undefined,
@@ -70,7 +72,7 @@ const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_m
 // 後から追加した任意列（created_by / updated_by / rental_gym_*）が未適用のときのエラーか
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /created_by|updated_by|rental_gym|store|amount/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
+  return /created_by|updated_by|rental_gym|store|amount|end_at/i.test(err.message ?? "") || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
 export async function getLessons(): Promise<Lesson[]> {
@@ -97,6 +99,7 @@ export async function addLesson(input: {
   customerId: string;
   trainerMemberId?: string;
   scheduledAt: string;
+  endAt?: string | null;
   location?: string;
   course?: string;
   paymentType?: LessonPaymentType;
@@ -121,6 +124,7 @@ export async function addLesson(input: {
     note:              input.note ?? null,
   };
   const optional = {
+    end_at:         input.endAt ?? null,
     amount:         input.amount ?? null,
     created_by:     input.createdBy ?? null,
     rental_gym_id:  input.rentalGymId ?? null,
@@ -146,6 +150,7 @@ export async function updateLesson(
     customerId: string;
     trainerMemberId: string | null;
     scheduledAt: string;
+    endAt: string | null;
     location: string | null;
     course: string | null;
     paymentType: LessonPaymentType | null;
@@ -166,6 +171,7 @@ export async function updateLesson(
   if (input.customerId         !== undefined) patch.customer_id          = input.customerId;
   if (input.trainerMemberId    !== undefined) patch.trainer_member_id    = input.trainerMemberId;
   if (input.scheduledAt        !== undefined) patch.scheduled_at         = input.scheduledAt;
+  if (input.endAt              !== undefined) patch.end_at               = input.endAt;
   if (input.location           !== undefined) patch.location             = input.location;
   if (input.course             !== undefined) patch.course               = input.course;
   if (input.paymentType        !== undefined) patch.payment_type         = input.paymentType;
@@ -186,8 +192,8 @@ export async function updateLesson(
   let { data, error } = await client.from("lessons").update(patch).eq("id", id).select(SELECT).single();
   // 後付けの任意列が未適用の環境では、それらを外して再試行
   if (error && isMissingOptionalColumn(error)) {
-    const { rental_gym_id, rental_gym_fee, store_id, store_fee, updated_by, amount, ...rest } = patch;
-    void rental_gym_id; void rental_gym_fee; void store_id; void store_fee; void updated_by; void amount;
+    const { rental_gym_id, rental_gym_fee, store_id, store_fee, updated_by, amount, end_at, ...rest } = patch;
+    void rental_gym_id; void rental_gym_fee; void store_id; void store_fee; void updated_by; void amount; void end_at;
     ({ data, error } = await client.from("lessons").update(rest).eq("id", id).select(SELECT_LEGACY).single());
   }
   if (error) throw error;
