@@ -88,8 +88,9 @@ export default async function SchedulePage() {
     });
   }
 
-  // 個人予定（全件・全員に共有）
+  // 個人予定。非公開のものは作成者と参加者以外には表示しない。
   for (const e of personalEvents) {
+    if (e.isPrivate && e.memberId !== member.id && !e.participantIds.includes(member.id)) continue;
     items.push({
       id: e.id,
       type: "personal",
@@ -110,6 +111,7 @@ export default async function SchedulePage() {
       participantIds: e.participantIds,
       participantNames: e.participantIds.map((id) => nameOf(id)).filter((n): n is string => !!n),
       notify: e.notify,
+      isPrivate: e.isPrivate,
     });
   }
 

@@ -8,7 +8,7 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { AuthorStamp } from "@/components/ui/author-stamp";
@@ -53,6 +53,7 @@ export type ScheduleItem = {
   notify?: boolean;
   storeId?: string;
   customerId?: string;
+  isPrivate?: boolean;
 };
 
 // ─── 個人予定の色 ─────────────────────────────────────
@@ -261,6 +262,11 @@ function LessonCard({
               {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
               {isPersonal ? "個人" : isTrial ? "体験" : "通常"}
             </span>
+            {item.isPrivate && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-200 text-gray-600">
+                <Lock size={9} /> 非公開
+              </span>
+            )}
             <StatusPill status={item.status} />
           </div>
           <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
@@ -651,6 +657,7 @@ function PersonalEventModal({
   const [color, setColor] = useState<EventColor>(initial?.color ?? "blue");
   const [participants, setParticipants] = useState<string[]>(initial?.participantIds ?? []);
   const [notify, setNotify] = useState(initial?.notify ?? true);
+  const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
   const [memberQuery, setMemberQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -918,6 +925,16 @@ function PersonalEventModal({
               <span className="font-medium">参加者にLINEで通知する</span>
             </label>
             <p className="text-[11px] text-gray-400 mt-1 ml-6">オフにすると、追加・変更・削除のLINE通知を送りません。</p>
+          </div>
+
+          {/* 非公開 */}
+          <div className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2.5">
+            <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+              <input type="checkbox" name="isPrivate" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300" />
+              <span className="font-medium">非公開にする</span>
+            </label>
+            <p className="text-[11px] text-gray-400 mt-1 ml-6">オンにすると、自分と参加者以外のスケジュールには表示されません。</p>
           </div>
 
           {/* メモ */}

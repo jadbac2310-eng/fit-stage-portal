@@ -18,6 +18,7 @@ export interface PersonalEvent {
   color:      EventColor;
   participantIds: string[];
   notify:     boolean;   // 参加者へLINE通知するか
+  isPrivate:  boolean;   // 非公開（作成者と参加者のみ表示）
   updatedById?: string;
   createdAt:  string;
   updatedAt:  string;

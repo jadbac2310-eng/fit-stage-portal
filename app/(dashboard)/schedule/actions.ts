@@ -76,8 +76,9 @@ export async function createPersonalEventAction(formData: FormData) {
   const color    = normalizeColor((formData.get("color") as string)?.trim());
   const participantIds = parseParticipantIds(formData);
   const notify   = formData.get("notify") === "on";
+  const isPrivate = formData.get("isPrivate") === "on";
 
-  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds, notify });
+  const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds, notify, isPrivate });
   await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}`, memberId: member.id, memberName: member.name });
 
   // 参加者へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない
@@ -107,6 +108,7 @@ export async function createPersonalEventsAction(formData: FormData) {
   const color    = normalizeColor((formData.get("color") as string)?.trim());
   const participantIds = parseParticipantIds(formData);
   const notify   = formData.get("notify") === "on";
+  const isPrivate = formData.get("isPrivate") === "on";
 
   let slots: Slot[] = [];
   try {
@@ -121,7 +123,7 @@ export async function createPersonalEventsAction(formData: FormData) {
   const starts: string[] = [];
   for (const s of slots) {
     const t = toTimes(allDay, s.startDate, s.startTime, s.endDate, s.endTime);
-    await addPersonalEvent({ memberId: member.id, title, allDay: t.allDay, startAt: t.startAt, endAt: t.endAt, location, memo, color, participantIds, notify });
+    await addPersonalEvent({ memberId: member.id, title, allDay: t.allDay, startAt: t.startAt, endAt: t.endAt, location, memo, color, participantIds, notify, isPrivate });
     starts.push(t.startAt);
   }
   await logActivity({ action: "create", entityType: "personal_event", entityId: member.id, summary: `個人予定を${starts.length}件追加: ${title}`, memberId: member.id, memberName: member.name });
@@ -155,8 +157,9 @@ export async function updatePersonalEventAction(id: string, formData: FormData) 
   const color    = normalizeColor((formData.get("color") as string)?.trim());
   const participantIds = parseParticipantIds(formData);
   const notify   = formData.get("notify") === "on";
+  const isPrivate = formData.get("isPrivate") === "on";
 
-  await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds, notify });
+  await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds, notify, isPrivate });
   await logActivity({ action: "update", entityType: "personal_event", entityId: id, summary: `個人予定を編集: ${title}`, memberId: member.id, memberName: member.name });
 
   // 参加者（変更後）へ LINE 通知（編集者本人は除く）。通知OFFのときは送らない

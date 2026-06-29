@@ -16,6 +16,7 @@ type DbRow = {
   color:      string | null;
   participant_ids: string[] | null;
   notify:     boolean | null;
+  is_private: boolean | null;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
@@ -36,6 +37,7 @@ function fromDb(row: DbRow): PersonalEvent {
     color:      normalizeColor(row.color),
     participantIds: row.participant_ids ?? [],
     notify:     row.notify ?? true,
+    isPrivate:  row.is_private ?? false,
     updatedById: row.updated_by ?? undefined,
     createdAt:  row.created_at,
     updatedAt:  row.updated_at,
@@ -47,7 +49,7 @@ const SELECT = "*, member:members!member_id(name)";
 // participant_ids / notify 列が未追加（マイグレーション未適用）の環境でも動くようにする
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /participant_ids|notify/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
+  return /participant_ids|notify|is_private/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
 export async function getPersonalEvents(): Promise<PersonalEvent[]> {
@@ -84,6 +86,7 @@ export async function addPersonalEvent(input: {
   color:     EventColor;
   participantIds?: string[];
   notify?:   boolean;
+  isPrivate?: boolean;
 }): Promise<PersonalEvent> {
   const client = createAdminClient();
   const base = {
@@ -98,7 +101,7 @@ export async function addPersonalEvent(input: {
   };
   let { data, error } = await client
     .from("personal_events")
-    .insert({ ...base, participant_ids: input.participantIds ?? [], notify: input.notify ?? true })
+    .insert({ ...base, participant_ids: input.participantIds ?? [], notify: input.notify ?? true, is_private: input.isPrivate ?? false })
     .select(SELECT)
     .single();
   if (error && isMissingOptionalColumn(error)) {
@@ -120,6 +123,7 @@ export async function updatePersonalEvent(
     color:    EventColor;
     participantIds: string[];
     notify:   boolean;
+    isPrivate: boolean;
   }>
 ): Promise<PersonalEvent | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -132,14 +136,15 @@ export async function updatePersonalEvent(
   if (input.color    !== undefined) patch.color    = input.color;
   if (input.participantIds !== undefined) patch.participant_ids = input.participantIds;
   if (input.notify   !== undefined) patch.notify   = input.notify;
+  if (input.isPrivate !== undefined) patch.is_private = input.isPrivate;
   patch.updated_by = (await currentMemberId()) ?? null;
 
   const client = createAdminClient();
   let { data, error } = await client.from("personal_events").update(patch).eq("id", id).select(SELECT).single();
   // updated_by / participant_ids / notify 列が未追加なら、その列を外して再試行する
   if (error && (isMissingAuthorColumn(error) || isMissingOptionalColumn(error))) {
-    const { updated_by, participant_ids, notify, ...rest } = patch;
-    void updated_by; void participant_ids; void notify;
+    const { updated_by, participant_ids, notify, is_private, ...rest } = patch;
+    void updated_by; void participant_ids; void notify; void is_private;
     ({ data, error } = await client.from("personal_events").update(rest).eq("id", id).select(SELECT).single());
   }
   if (error) throw error;
