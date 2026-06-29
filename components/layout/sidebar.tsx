@@ -32,8 +32,8 @@ export function Sidebar({
 
   return (
     <aside className={cn(
-      "flex-col w-60 border-r border-gray-200 bg-white h-screen print:hidden",
-      mobile ? "flex" : "hidden md:flex sticky top-0",
+      "flex-col border-r border-gray-200 bg-white h-screen print:hidden",
+      mobile ? "flex w-[82vw] max-w-xs" : "hidden md:flex sticky top-0 w-60",
     )}>
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center gap-2.5">
@@ -44,15 +44,15 @@ export function Sidebar({
             <p className="text-xs text-gray-400">ポータル</p>
           </div>
           {mobile && (
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
-              <X size={18} />
+            <button onClick={onClose} aria-label="閉じる" className="text-gray-400 hover:text-gray-600 transition p-2 -mr-1">
+              <X size={22} />
             </button>
           )}
         </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3">
-        <ul className="space-y-0.5">
+        <ul className={mobile ? "space-y-1.5" : "space-y-0.5"}>
           {NAV_TREE.filter((node) => !node.adminOnly || isAdmin).map((node) => {
             const Icon = node.icon;
             const isActive =
@@ -63,13 +63,14 @@ export function Sidebar({
                 <Link
                   href={node.href}
                   className={cn(
-                    "flex items-center gap-2.5 py-2 px-3 rounded-xl transition-colors text-sm font-medium",
+                    "flex items-center rounded-xl transition-colors font-medium",
+                    mobile ? "gap-3.5 py-3.5 px-4 text-[15px]" : "gap-2.5 py-2 px-3 text-sm",
                     isActive
                       ? "bg-blue-50 text-blue-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100",
                   )}
                 >
-                  {Icon && <Icon size={17} className="flex-shrink-0" />}
+                  {Icon && <Icon size={mobile ? 22 : 17} className="flex-shrink-0" />}
                   <span className="truncate">{node.label}</span>
                 </Link>
               </li>
