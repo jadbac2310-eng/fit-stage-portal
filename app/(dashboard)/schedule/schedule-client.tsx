@@ -23,7 +23,7 @@ import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
-import { createLessonAction, createLessonsAction, setLessonStatusAction } from "../lessons/regular/actions";
+import { createLessonAction, createLessonsAction, updateLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 
 export type ScheduleItem = {
   id: string;
@@ -178,12 +178,13 @@ function personalTimeLabel(item: ScheduleItem): string {
 
 // ─── 1件のカード（クリックでその場で展開） ───────────────
 function LessonCard({
-  item, isAdmin, currentMemberId, onEditPersonal,
+  item, isAdmin, currentMemberId, onEditPersonal, onEditLesson,
 }: {
   item: ScheduleItem;
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
+  onEditLesson?: (lessonId: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -382,12 +383,21 @@ function LessonCard({
               </button>
             )
           )}
-          {((isTrial && isAdmin) || canEditLesson) && (
+          {canEditLesson && (
+            <button
+              type="button"
+              onClick={() => onEditLesson?.(item.id)}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
+            >
+              <Pencil size={13} /> レッスンを編集
+            </button>
+          )}
+          {isTrial && isAdmin && (
             <Link
               href={editHref}
               className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
             >
-              <Pencil size={13} /> {isTrial ? "体験レッスン管理で編集" : "通常レッスン管理で編集"}
+              <Pencil size={13} /> 体験レッスン管理で編集
             </Link>
           )}
         </div>
@@ -398,13 +408,14 @@ function LessonCard({
 
 // ─── 日付グループ ─────────────────────────────────────
 function DayGroup({
-  date, items, isAdmin, currentMemberId, onEditPersonal,
+  date, items, isAdmin, currentMemberId, onEditPersonal, onEditLesson,
 }: {
   date: Date;
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
+  onEditLesson?: (lessonId: string) => void;
 }) {
   const { main, sub, accent } = dayLabel(date);
   return (
@@ -417,7 +428,7 @@ function DayGroup({
       <div className="space-y-2">
         {items.map((it) => (
           <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
-            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} />
+            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} />
         ))}
       </div>
     </div>
@@ -431,12 +442,13 @@ function keyToYmd(key: string): string {
 
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
 function CalendarView({
-  items, isAdmin, currentMemberId, onEditPersonal, onAddPersonal, onAddLesson,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onAddPersonal, onAddLesson,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
+  onEditLesson?: (lessonId: string) => void;
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
 }) {
@@ -621,7 +633,7 @@ function CalendarView({
           <div className="space-y-2">
             {selectedItems.map((it) => (
               <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
-                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} />
+                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} />
             ))}
           </div>
         )}
@@ -992,7 +1004,7 @@ function PersonalEventModal({
 
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, defaultDate, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, defaultDate, editLesson, onClose,
 }: {
   customers: Customer[];
   members: Member[];
@@ -1002,18 +1014,20 @@ function LessonModal({
   rentalGyms: RentalGym[];
   stores: Store[];
   defaultDate?: string;
+  editLesson?: Lesson;   // 指定時は編集モード
   onClose: () => void;
 }) {
   const router = useRouter();
   const close = () => { router.refresh(); onClose(); };
-  const defaultValues = defaultDate ? { scheduledAt: `${defaultDate}T10:00:00+09:00` } : undefined;
+  const isEdit = !!editLesson;
+  const defaultValues = editLesson ?? (defaultDate ? { scheduledAt: `${defaultDate}T10:00:00+09:00` } : undefined);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="text-base font-bold text-gray-900">通常レッスンを追加</p>
+          <p className="text-base font-bold text-gray-900">{isEdit ? "通常レッスンを編集" : "通常レッスンを追加"}</p>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
         <div className="p-5">
@@ -1027,9 +1041,9 @@ function LessonModal({
             stores={stores}
             defaultValues={defaultValues}
             onClose={close}
-            action={createLessonAction}
-            multiAction={createLessonsAction}
-            submitLabel="追加する"
+            action={isEdit ? updateLessonAction.bind(null, editLesson!.id) : createLessonAction}
+            multiAction={isEdit ? undefined : createLessonsAction}
+            submitLabel={isEdit ? "保存する" : "追加する"}
           />
         </div>
       </div>
@@ -1039,12 +1053,13 @@ function LessonModal({
 
 // ─── 時間軸（縦タイムライン・Outlook風） ─────────────────
 function TimelineView({
-  items, isAdmin, currentMemberId, onEditPersonal, onAddPersonal, onAddLesson,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onAddPersonal, onAddLesson,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
+  onEditLesson?: (lessonId: string) => void;
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
 }) {
@@ -1194,6 +1209,7 @@ function TimelineView({
               : isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700";
             const onClick = () => {
               if (isPersonal) onEditPersonal?.(it);
+              else if (it.type === "regular" && onEditLesson) onEditLesson(it.id);
               else router.push(`/schedule/${it.id}`);
             };
             return (
@@ -1253,7 +1269,13 @@ export function ScheduleClient({
   // 通常レッスンの追加モーダル（defaultDate を持つときはその日付で開く）
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [lessonDate, setLessonDate] = useState<string | undefined>(undefined);
-  const openLesson = (defaultDate?: string) => { setLessonDate(defaultDate); setLessonModalOpen(true); };
+  // 通常レッスンの編集モーダル（スケジュールからその場で編集）
+  const [editLesson, setEditLesson] = useState<Lesson | null>(null);
+  const openLesson = (defaultDate?: string) => { setEditLesson(null); setLessonDate(defaultDate); setLessonModalOpen(true); };
+  const openEditLesson = (lessonId: string) => {
+    const l = lessons.find((x) => x.id === lessonId);
+    if (l) { setEditLesson(l); setLessonDate(undefined); setLessonModalOpen(true); }
+  };
   // 追加メニュー（レッスン / 個人予定）の開閉
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const canAddLesson = customers.length > 0;
@@ -1430,12 +1452,12 @@ export function ScheduleClient({
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson}
           onAddPersonal={(ymd) => openCreate(ymd)}
           onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
       ) : view === "timeline" ? (
         <TimelineView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson}
           onAddPersonal={(ymd) => openCreate(ymd)}
           onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
       ) : (
@@ -1495,7 +1517,7 @@ export function ScheduleClient({
         <div className="space-y-5">
           {groups.map((g) => (
             <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin}
-              currentMemberId={currentMemberId} onEditPersonal={openEdit} />
+              currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} />
           ))}
         </div>
       )}
@@ -1523,7 +1545,8 @@ export function ScheduleClient({
           rentalGyms={rentalGyms}
           stores={stores}
           defaultDate={lessonDate}
-          onClose={() => setLessonModalOpen(false)}
+          editLesson={editLesson ?? undefined}
+          onClose={() => { setLessonModalOpen(false); setEditLesson(null); }}
         />
       )}
     </div>
