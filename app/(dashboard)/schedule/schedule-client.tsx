@@ -22,7 +22,7 @@ import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
-import { createLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
+import { createLessonAction, createLessonsAction, setLessonStatusAction } from "../lessons/regular/actions";
 
 export type ScheduleItem = {
   id: string;
@@ -1023,6 +1023,7 @@ function LessonModal({
             defaultValues={defaultValues}
             onClose={close}
             action={createLessonAction}
+            multiAction={createLessonsAction}
             submitLabel="追加する"
           />
         </div>

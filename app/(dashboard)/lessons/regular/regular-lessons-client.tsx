@@ -13,7 +13,7 @@ import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import { RentalGym } from "@/lib/rental-gyms";
 import { Store } from "@/lib/stores";
-import { createLessonAction, updateLessonAction, deleteLessonAction } from "./actions";
+import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
@@ -110,20 +110,32 @@ function isoToLocalInput(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function fmtLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 // datetime-local 文字列を1時間後にする（基本60分のため終了の初期値に使う）
 function localPlusHour(local: string): string {
   if (!local) return "";
   const d = new Date(local);
   if (Number.isNaN(d.getTime())) return "";
   d.setHours(d.getHours() + 1);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return fmtLocal(d);
+}
+function addMinutesLocal(local: string, n: number): string {
+  const d = new Date(local); d.setMinutes(d.getMinutes() + n); return fmtLocal(d);
+}
+function addDaysLocal(local: string, n: number): string {
+  const d = new Date(local); d.setDate(d.getDate() + n); return fmtLocal(d);
+}
+function addMonthsLocal(local: string, n: number): string {
+  const d = new Date(local); d.setMonth(d.getMonth() + n); return fmtLocal(d);
 }
 
 // ─── レッスンフォーム ─────────────────────────────────
 export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
-  rentalGyms = [], stores = [], fixedCustomerId, onClose, action, submitLabel,
+  rentalGyms = [], stores = [], fixedCustomerId, onClose, action, multiAction, submitLabel,
 }: {
   defaultValues?: Partial<Lesson>;
   customers: Customer[];
@@ -136,6 +148,7 @@ export function LessonForm({
   fixedCustomerId?: string;
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
+  multiAction?: (fd: FormData) => Promise<void>; // 作成時の複数日時・繰り返し用
   submitLabel: string;
 }) {
   const [loading, setLoading] = useState(false);
@@ -155,6 +168,35 @@ export function LessonForm({
     const d = v.slice(0, 10);
     revalidateCourse(selectedCustomerId, d || today);
     applySuggestion(selectedCustomerId, d);
+  }
+
+  // 作成時のみ：複数日時／繰り返し（個人予定と同様・排他）
+  const isCreate = !defaultValues?.id && !!multiAction;
+  const [multiMode, setMultiMode] = useState<"single" | "multiple" | "recurring">("single");
+  const [extraStarts, setExtraStarts] = useState<string[]>([]); // datetime-local の開始
+  const [recurrence, setRecurrence] = useState<"daily" | "weekly" | "biweekly" | "monthly">("weekly");
+  const [recurUntil, setRecurUntil] = useState("");
+
+  function buildLessonSlots(): { scheduledAt: string; endAt: string | null }[] {
+    const base = { scheduledAt: localInputToISO(startLocal), endAt: endLocal ? localInputToISO(endLocal) : null };
+    const slots = [base];
+    if (multiMode === "multiple") {
+      for (const ex of extraStarts) {
+        if (ex) slots.push({ scheduledAt: localInputToISO(ex), endAt: localInputToISO(localPlusHour(ex)) });
+      }
+    } else if (multiMode === "recurring" && recurUntil && startLocal) {
+      const durationMin = endLocal ? Math.max(15, Math.round((Date.parse(endLocal) - Date.parse(startLocal)) / 60000)) : 60;
+      let cur = startLocal;
+      for (let i = 0; i < 300; i++) {
+        cur = recurrence === "daily" ? addDaysLocal(cur, 1)
+          : recurrence === "weekly" ? addDaysLocal(cur, 7)
+          : recurrence === "biweekly" ? addDaysLocal(cur, 14)
+          : addMonthsLocal(cur, 1);
+        if (cur.slice(0, 10) > recurUntil) break;
+        slots.push({ scheduledAt: localInputToISO(cur), endAt: localInputToISO(addMinutesLocal(cur, durationMin)) });
+      }
+    }
+    return slots;
   }
   // レンタルジム（選択で場所を自動入力。代金はマスタ値がデフォルト・変更可）
   const [location, setLocation] = useState(defaultValues?.location ?? "");
@@ -221,11 +263,19 @@ export function LessonForm({
     setError("");
     if (!startLocal) { setError("開始日時を入力してください"); return; }
     setLoading(true);
-    // datetime-local はローカル時刻なので UTC ISO に変換して送信
-    fd.set("scheduledAt", localInputToISO(startLocal));
-    fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
-    try { await action(fd); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
+    try {
+      if (isCreate) {
+        // 作成は複数日時・繰り返しに対応（単発でも1件の配列）
+        fd.set("slots", JSON.stringify(buildLessonSlots()));
+        await multiAction!(fd);
+      } else {
+        // datetime-local はローカル時刻なので UTC ISO に変換して送信
+        fd.set("scheduledAt", localInputToISO(startLocal));
+        fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
+        await action(fd);
+      }
+      onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -307,6 +357,62 @@ export function LessonForm({
           className={inputClass} />
         <p className="text-xs text-gray-400 mt-1">基本60分。開始を入れると終了は1時間後が初期値になります（変更可）。</p>
       </div>
+
+      {/* 登録方法（作成時のみ・単発／複数日時／繰り返しは排他） */}
+      {isCreate && (
+        <div className="space-y-3">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            {([["single", "単発"], ["multiple", "複数日時"], ["recurring", "繰り返し"]] as const).map(([key, label]) => (
+              <button key={key} type="button" onClick={() => setMultiMode(key)}
+                className={cn(
+                  "flex-1 py-1.5 rounded-lg text-xs font-semibold transition",
+                  multiMode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                )}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {multiMode === "multiple" && (
+            <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
+              <p className="text-[11px] text-gray-400 mb-2">同じ内容のレッスンを別の日時にも登録します（各60分）。</p>
+              {extraStarts.map((s, i) => (
+                <div key={i} className="flex gap-2 mb-2 items-center">
+                  <input type="datetime-local" value={s}
+                    onChange={(e) => setExtraStarts((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
+                    className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <button type="button" onClick={() => setExtraStarts((prev) => prev.filter((_, j) => j !== i))}
+                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg flex-shrink-0"><X size={15} /></button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setExtraStarts((prev) => [...prev, startLocal])}
+                className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
+                <Plus size={14} /> 日時を追加
+              </button>
+            </div>
+          )}
+
+          {multiMode === "recurring" && (
+            <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
+              <div className="flex gap-2">
+                <select value={recurrence} onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
+                  className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="daily">毎日</option>
+                  <option value="weekly">毎週</option>
+                  <option value="biweekly">隔週</option>
+                  <option value="monthly">毎月</option>
+                </select>
+                <input type="date" value={recurUntil} min={startLocal.slice(0, 10)} onChange={(e) => setRecurUntil(e.target.value)}
+                  className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {recurUntil ? "開始日から終了日まで、同じ時間・長さで繰り返し作成します。" : "繰り返しの終了日を選んでください。"}
+                {selectedCourse.startsWith("回数券") ? " ※回数券は作成数だけ消費されます。" : ""}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* プラン照合バナー */}
       {suggestion && (
@@ -729,7 +835,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
               <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
                 customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
                 fixedCustomerId={customer.id} onClose={() => setShowAdd(false)}
-                action={createLessonAction} submitLabel="追加する" />
+                action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
             </div>
           ) : (
             <div className="py-2">
@@ -823,7 +929,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
           </div>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
             customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores}
-            onClose={() => setShowAdd(false)} action={createLessonAction} submitLabel="追加する" />
+            onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
         </div>
       )}
 
@@ -860,7 +966,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
         <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
             customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores}
-            onClose={() => setShowAdd(false)} action={createLessonAction} submitLabel="追加する" />
+            onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
         </BottomSheet>
       )}
     </div>

@@ -56,6 +56,49 @@ export async function createLessonAction(formData: FormData) {
   revalidatePath("/schedule");
 }
 
+// 同じ内容の通常レッスンを複数日時に一括作成する（複数日時・繰り返しの両方で使う）。
+// slots は [{scheduledAt, endAt}] の JSON（ISO文字列）。
+export async function createLessonsAction(formData: FormData) {
+  const member = await getCurrentMember();
+  if (!member) throw new Error("ログインが必要です");
+
+  const customerId      = (formData.get("customerId")      as string)?.trim();
+  const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || undefined;
+  const location        = (formData.get("location")        as string)?.trim() || undefined;
+  const course          = (formData.get("course")          as string)?.trim() || undefined;
+  const sessionPassId   = (formData.get("sessionPassId")   as string)?.trim() || undefined;
+  const note            = (formData.get("note")            as string)?.trim() || undefined;
+  const rentalGymId     = (formData.get("rentalGymId")     as string)?.trim() || null;
+  const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
+  const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
+  const storeId         = (formData.get("storeId")         as string)?.trim() || null;
+  const sfRaw           = (formData.get("storeFee")        as string)?.trim();
+  const storeFee        = storeId && sfRaw ? parseInt(sfRaw, 10) : null;
+  const amtRaw          = (formData.get("amount")          as string)?.trim();
+  const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
+
+  if (!customerId) return;
+
+  let slots: { scheduledAt?: string; endAt?: string | null }[] = [];
+  try {
+    const raw = JSON.parse((formData.get("slots") as string) || "[]");
+    if (Array.isArray(raw)) slots = raw.filter((s) => s && typeof s.scheduledAt === "string" && s.scheduledAt);
+  } catch { slots = []; }
+  if (slots.length === 0) return;
+  if (slots.length > 200) throw new Error("一度に作成できるレッスンは最大200件です。繰り返しの終了日を見直してください。");
+
+  const paymentType = courseToPaymentType(course) ?? undefined;
+  let count = 0;
+  for (const s of slots) {
+    await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee });
+    if (paymentType === "session_pass" && sessionPassId) await decrementSessionPass(sessionPassId);
+    count++;
+  }
+  await logActivity({ action: "create", entityType: "lesson", entityId: customerId, summary: `通常レッスンを${count}件追加`, memberId: member.id, memberName: member.name });
+  revalidatePath("/lessons/regular");
+  revalidatePath("/schedule");
+}
+
 export async function updateLessonAction(id: string, formData: FormData) {
   const { lesson: existing } = await assertCanEditLesson(id);
   const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
