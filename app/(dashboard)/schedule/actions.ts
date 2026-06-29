@@ -20,6 +20,22 @@ function toIso(date: string, time: string): string {
   return `${date}T${time}:00+09:00`;
 }
 
+// 明示的な日時値から開始/終了ISOを組み立てる（複数日時作成で使う）
+function toTimes(
+  allDay: boolean,
+  startDate: string,
+  startTime?: string,
+  endDate?: string,
+  endTime?: string,
+): { allDay: boolean; startAt: string; endAt: string | null } {
+  if (!startDate) throw new Error("開始日を入力してください");
+  const ed = endDate || startDate;
+  if (allDay) return { allDay: true, startAt: toIso(startDate, "00:00"), endAt: toIso(ed, "00:00") };
+  const startAt = toIso(startDate, startTime || "00:00");
+  const endAt = endTime ? toIso(ed, endTime) : null;
+  return { allDay: false, startAt, endAt };
+}
+
 // 参加者(担当者id)の配列を hidden input(JSON) から取り出す
 function parseParticipantIds(formData: FormData): string[] {
   try {
@@ -69,6 +85,54 @@ export async function createPersonalEventAction(formData: FormData) {
     await notifyMembersByLine(
       participantIds.filter((id) => id !== member.id),
       (m) => `🗓 予定に追加されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n登録: ${member.name}${scheduleLink(m)}`,
+    );
+  }
+  revalidatePath("/schedule");
+}
+
+type Slot = { startDate: string; startTime?: string; endDate?: string; endTime?: string };
+
+// 同じ内容の個人予定を複数日時に一括作成する（手動の複数日時・繰り返しの両方で使う）。
+// slots は [{startDate, startTime, endDate, endTime}, ...] の JSON。
+export async function createPersonalEventsAction(formData: FormData) {
+  const member = await getCurrentMember();
+  if (!member) throw new Error("ログインが必要です");
+
+  const title = (formData.get("title") as string)?.trim();
+  if (!title) throw new Error("タイトルを入力してください");
+
+  const allDay   = formData.get("allDay") === "on";
+  const location = (formData.get("location") as string)?.trim() || null;
+  const memo     = (formData.get("memo")     as string)?.trim() || null;
+  const color    = normalizeColor((formData.get("color") as string)?.trim());
+  const participantIds = parseParticipantIds(formData);
+  const notify   = formData.get("notify") === "on";
+
+  let slots: Slot[] = [];
+  try {
+    const raw = JSON.parse((formData.get("slots") as string) || "[]");
+    if (Array.isArray(raw)) slots = raw.filter((s) => s && typeof s.startDate === "string" && s.startDate);
+  } catch {
+    slots = [];
+  }
+  if (slots.length === 0) throw new Error("日時を入力してください");
+  if (slots.length > 200) throw new Error("作成できる日時は最大200件です。繰り返しの終了日を見直してください。");
+
+  const starts: string[] = [];
+  for (const s of slots) {
+    const t = toTimes(allDay, s.startDate, s.startTime, s.endDate, s.endTime);
+    await addPersonalEvent({ memberId: member.id, title, allDay: t.allDay, startAt: t.startAt, endAt: t.endAt, location, memo, color, participantIds, notify });
+    starts.push(t.startAt);
+  }
+  await logActivity({ action: "create", entityType: "personal_event", entityId: member.id, summary: `個人予定を${starts.length}件追加: ${title}`, memberId: member.id, memberName: member.name });
+
+  // 参加者へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない。複数日時はまとめて1通。
+  if (notify) {
+    const dates = starts.slice().sort().map((iso) => whenLabel(iso, allDay));
+    const body = `🗓 予定に追加されました\n${title}\n${dates.join("\n")}${location ? `\n＠${location}` : ""}\n登録: ${member.name}`;
+    await notifyMembersByLine(
+      participantIds.filter((id) => id !== member.id),
+      (m) => `${body}${scheduleLink(m)}`,
     );
   }
   revalidatePath("/schedule");

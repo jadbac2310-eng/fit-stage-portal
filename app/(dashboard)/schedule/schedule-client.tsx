@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/cn";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
-import { createPersonalEventAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
+import { createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
 import type { Member } from "@/lib/members";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
@@ -109,6 +109,18 @@ function timePart(iso: string) {
 function todayDate() {
   const d = new Date();
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+// "YYYY-MM-DD" に日数を足す
+function addDaysStr(ymd: string, n: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+// "YYYY-MM-DD" に月数を足す
+function addMonthsStr(ymd: string, n: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, m - 1 + n, d);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
 }
 // "HH:MM" を1時間後にする（同日内に収め、24時を超える場合は23:59で止める）
 function addOneHour(time: string): string {
@@ -642,6 +654,47 @@ function PersonalEventModal({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ─── 複数日時（作成時のみ） ───
+  // 追加の日時（同じ予定名で別の日時にも入れる）。各 {date, startTime, endTime}
+  const [extraSlots, setExtraSlots] = useState<{ date: string; startTime: string; endTime: string }[]>([]);
+  // 繰り返し設定
+  const [recurrence, setRecurrence] = useState<"none" | "daily" | "weekly" | "biweekly" | "monthly">("none");
+  const [recurUntil, setRecurUntil] = useState("");
+
+  function addExtraSlot() {
+    setExtraSlots((prev) => [...prev, { date: startDate, startTime, endTime }]);
+  }
+  function removeExtraSlot(idx: number) {
+    setExtraSlots((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function updateExtraSlot(idx: number, patch: Partial<{ date: string; startTime: string; endTime: string }>) {
+    setExtraSlots((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  }
+
+  // 送信する全日時（基準＋繰り返し＋追加）を組み立てる
+  function buildSlots(): { startDate: string; startTime: string; endDate: string; endTime: string }[] {
+    const base = { startDate, startTime, endDate, endTime };
+    const slots = [base];
+    // 繰り返し（基準日から終了日まで）
+    if (recurrence !== "none" && recurUntil && recurUntil >= startDate) {
+      const dayOffset = Math.max(0, Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86400000) || 0);
+      let cur = startDate;
+      for (let i = 0; i < 300; i++) {
+        cur = recurrence === "daily" ? addDaysStr(cur, 1)
+          : recurrence === "weekly" ? addDaysStr(cur, 7)
+          : recurrence === "biweekly" ? addDaysStr(cur, 14)
+          : addMonthsStr(cur, 1);
+        if (cur > recurUntil) break;
+        slots.push({ startDate: cur, startTime, endDate: addDaysStr(cur, dayOffset), endTime });
+      }
+    }
+    // 手動で追加した日時（同日終了）
+    for (const ex of extraSlots) {
+      if (ex.date) slots.push({ startDate: ex.date, startTime: ex.startTime, endDate: ex.date, endTime: ex.endTime });
+    }
+    return slots;
+  }
+
   // 作成者本人は「参加者」候補から除外（主催者として自動的に含まれる扱い）
   const ownerId = mode === "edit" ? initial?.ownerId : currentMemberId;
   const selectableMembers = members.filter((m) => m.id !== ownerId);
@@ -657,8 +710,13 @@ function PersonalEventModal({
     setError(null);
     const fd = new FormData(e.currentTarget);
     try {
-      if (mode === "edit" && initial) await updatePersonalEventAction(initial.id, fd);
-      else await createPersonalEventAction(fd);
+      if (mode === "edit" && initial) {
+        await updatePersonalEventAction(initial.id, fd);
+      } else {
+        // 作成時は複数日時（基準＋繰り返し＋追加）をまとめて作成
+        fd.set("slots", JSON.stringify(buildSlots()));
+        await createPersonalEventsAction(fd);
+      }
       router.refresh();
       onClose();
     } catch (err) {
@@ -717,6 +775,68 @@ function PersonalEventModal({
               )}
             </div>
           </div>
+
+          {/* 繰り返し・複数日時（作成時のみ） */}
+          {mode === "create" && (
+            <div className="rounded-xl border border-gray-200 p-3 space-y-3 bg-gray-50/60">
+              {/* 繰り返し */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">繰り返し</label>
+                <div className="flex gap-2">
+                  <select
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
+                    className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="none">なし</option>
+                    <option value="daily">毎日</option>
+                    <option value="weekly">毎週</option>
+                    <option value="biweekly">隔週</option>
+                    <option value="monthly">毎月</option>
+                  </select>
+                  {recurrence !== "none" && (
+                    <input
+                      type="date"
+                      value={recurUntil}
+                      min={startDate}
+                      onChange={(e) => setRecurUntil(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
+                </div>
+                {recurrence !== "none" && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {recurUntil ? "開始日から終了日まで、同じ時間で繰り返し作成します。" : "繰り返しの終了日を選んでください。"}
+                  </p>
+                )}
+              </div>
+
+              {/* 手動で別の日時を追加（繰り返しなしのとき） */}
+              {recurrence === "none" && (
+                <div>
+                  {extraSlots.map((s, i) => (
+                    <div key={i} className="flex gap-2 mb-2 items-center">
+                      <input type="date" value={s.date} onChange={(e) => updateExtraSlot(i, { date: e.target.value })}
+                        className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      {!allDay && (
+                        <>
+                          <input type="time" value={s.startTime} onChange={(e) => updateExtraSlot(i, { startTime: e.target.value, endTime: addOneHour(e.target.value) })}
+                            className="w-24 px-2 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <input type="time" value={s.endTime} onChange={(e) => updateExtraSlot(i, { endTime: e.target.value })}
+                            className="w-24 px-2 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </>
+                      )}
+                      <button type="button" onClick={() => removeExtraSlot(i)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg flex-shrink-0"><X size={15} /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addExtraSlot}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
+                    <Plus size={14} /> 日時を追加
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 場所 */}
           <div>
