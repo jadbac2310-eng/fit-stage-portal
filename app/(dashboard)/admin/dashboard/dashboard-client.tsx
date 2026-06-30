@@ -151,7 +151,7 @@ function KpiCard({
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, analytics,
+  customers, lessons, trialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -160,15 +160,16 @@ export function RevenueDashboardClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:       { id: string; name: string; commissionRate?: number }[];
+  members:       { id: string; name: string }[];
+  trainerRates?: { memberId: string; customerId: string; rate: number }[];
   analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
 
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members, lessonFees, sessionPassPriceMap }
-  ), [customers, sessionPasses, customerPlans, members, lessonFees, sessionPassPriceMap]);
+    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
+  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap]);
 
   // 直近12か月（古い→新しい）
   const series = useMemo(() => {

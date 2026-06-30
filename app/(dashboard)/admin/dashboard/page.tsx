@@ -5,6 +5,7 @@ import { getCurrentIsAdmin, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
+import { getMemberCustomerRates } from "@/lib/commission-rates";
 import {
   getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
 } from "@/lib/analytics";
@@ -25,7 +26,7 @@ export default async function AdminDashboardPage() {
   }
 
   const [
-    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices,
+    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates,
     popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError,
   ] = await Promise.all([
     getCustomers(),
@@ -36,6 +37,7 @@ export default async function AdminDashboardPage() {
     getMembers(),
     getAllPlans(),
     getAllSessionPassPrices(),
+    getMemberCustomerRates(),
     getPopularPages(28, 5),
     getTrafficSources(28, 6),
     getDeviceBreakdown(28),
@@ -55,7 +57,8 @@ export default async function AdminDashboardPage() {
       customerPlans={customerPlans}
       lessonFees={buildLessonFeeMap(plansMaster)}
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
-      members={members.map((m) => ({ id: m.id, name: m.name, commissionRate: m.commissionRate }))}
+      members={members.map((m) => ({ id: m.id, name: m.name }))}
+      trainerRates={allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }))}
       analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}
     />
   );

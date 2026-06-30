@@ -12,6 +12,7 @@ import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
+import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { buildTrainerEntries, buildSalesEntries, type CommissionContext } from "@/lib/commissions";
 
 export const dynamic = "force-dynamic";
@@ -46,16 +47,20 @@ export default async function DashboardPage() {
       getCustomers(),
     ]);
 
-  const [sessionPasses, customerPlans, members, plansMaster] = await Promise.all([
+  const [sessionPasses, customerPlans, members, plansMaster, allRates] = await Promise.all([
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
     getAllPlans(),
+    getMemberCustomerRates(),
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
+    members: members.map((m) => ({ id: m.id, name: m.name })),
     // 歩合率は他人ぶんを渡さない（本人または管理者のみ）
-    members: members.map((m) => ({ id: m.id, name: m.name, commissionRate: (currentMember?.isAdmin || m.id === currentMember?.id) ? m.commissionRate : undefined })),
+    trainerRates: allRates
+      .filter((r) => currentMember?.isAdmin || r.memberId === currentMember?.id)
+      .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate })),
     lessonFees: buildLessonFeeMap(plansMaster),
   };
 

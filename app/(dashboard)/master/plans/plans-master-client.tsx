@@ -5,6 +5,7 @@ import { Save, CalendarRange, Ticket, Coins, Users } from "lucide-react";
 import type { PlanMaster, PlanPaymentType, SessionPassPrice } from "@/lib/plans-master-types";
 import { updatePlanAmountAction, updateSessionPassPriceAmountAction } from "./actions";
 import { Spinner } from "@/components/ui/spinner";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 
 function yen(n: number): string {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -19,7 +20,7 @@ const TYPE_META: Record<PlanPaymentType, { icon: typeof CalendarRange; color: st
 // ─── プラン1行 ────────────────────────────────────────
 function PlanRow({ plan, isAdmin }: { plan: PlanMaster; isAdmin: boolean }) {
   const [amount, setAmount] = useState(String(plan.amount));
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [saved, setSaved] = useState(false);
 
   const meta = TYPE_META[plan.paymentType];
@@ -31,17 +32,14 @@ function PlanRow({ plan, isAdmin }: { plan: PlanMaster; isAdmin: boolean }) {
 
   async function handleSave() {
     if (!dirty) return;
-    setLoading(true);
-    setSaved(false);
-    const fd = new FormData();
-    fd.set("amount", amount);
-    try {
+    await run(async () => {
+      setSaved(false);
+      const fd = new FormData();
+      fd.set("amount", amount);
       await updatePlanAmountAction(plan.id, fd);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (
@@ -97,7 +95,7 @@ function PlanRow({ plan, isAdmin }: { plan: PlanMaster; isAdmin: boolean }) {
 // ─── 回数券マトリクス1行（人数×回数） ─────────────────
 function SessionPassPriceRow({ row, isAdmin }: { row: SessionPassPrice; isAdmin: boolean }) {
   const [amount, setAmount] = useState(String(row.amount));
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [saved, setSaved] = useState(false);
 
   const parsed = parseInt(amount, 10);
@@ -106,17 +104,14 @@ function SessionPassPriceRow({ row, isAdmin }: { row: SessionPassPrice; isAdmin:
 
   async function handleSave() {
     if (!dirty) return;
-    setLoading(true);
-    setSaved(false);
-    const fd = new FormData();
-    fd.set("amount", amount);
-    try {
+    await run(async () => {
+      setSaved(false);
+      const fd = new FormData();
+      fd.set("amount", amount);
       await updateSessionPassPriceAmountAction(row.id, fd);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (

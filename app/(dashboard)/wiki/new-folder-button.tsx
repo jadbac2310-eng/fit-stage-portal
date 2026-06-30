@@ -5,20 +5,22 @@ import { useRouter } from "next/navigation";
 import { FolderPlus, Plus, X } from "lucide-react";
 import { createFolderAction } from "./actions";
 import { wikiFolder } from "@/lib/paths";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 
 export function NewFolderButton({ mobile }: { mobile?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
-    setLoading(true);
-    await createFolderAction(trimmed);
-    router.push(wikiFolder(trimmed));
+    await run(async () => {
+      await createFolderAction(trimmed);
+      router.push(wikiFolder(trimmed));
+    });
   }
 
   return (

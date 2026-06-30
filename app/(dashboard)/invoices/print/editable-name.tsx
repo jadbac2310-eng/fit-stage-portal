@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Check, X } from "lucide-react";
 import { updateBillingNameAction } from "../actions";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 
 /**
  * 請求書の宛名。クリックで編集でき、保存すると billing_name を更新する。
@@ -13,17 +14,14 @@ export function EditableBillingName({ customerId, name, suffix = "様" }: { cust
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
-  const [saving, setSaving] = useState(false);
+  const { locked: saving, run } = useSubmitLock();
 
-  async function save() {
-    setSaving(true);
-    try {
+  function save() {
+    run(async () => {
       await updateBillingNameAction(customerId, value);
       setEditing(false);
       router.refresh();
-    } catch {
-      setSaving(false);
-    }
+    });
   }
 
   if (editing) {

@@ -7,6 +7,7 @@ import {
   Image as ImageIcon, FileText, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Material } from "@/lib/materials";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import { createMaterialAction, updateMaterialAction, deleteMaterialAction } from "./actions";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberBadge } from "@/components/ui/member-badge";
@@ -82,12 +83,13 @@ function MaterialForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
 
   async function handleSubmit(fd: FormData) {
-    setLoading(true);
-    await action(fd);
-    onClose();
+    await run(async () => {
+      await action(fd);
+      onClose();
+    });
   }
 
   return (
@@ -153,12 +155,12 @@ function MaterialCard({
   isAdmin: boolean;
   onEdit: (m: Material) => void;
 }) {
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
 
-  async function handleDelete() {
+  function handleDelete() {
+    if (deleting) return;
     if (!confirm(`「${material.name}」を削除しますか？`)) return;
-    setDeleting(true);
-    await deleteMaterialAction(material.id);
+    runDelete(() => deleteMaterialAction(material.id));
   }
 
   async function handleDownload() {

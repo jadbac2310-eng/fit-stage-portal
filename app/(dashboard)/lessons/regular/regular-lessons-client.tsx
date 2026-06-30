@@ -15,6 +15,7 @@ import { RentalGym } from "@/lib/rental-gyms";
 import { Store } from "@/lib/stores";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
@@ -135,7 +136,7 @@ function addMonthsLocal(local: string, n: number): string {
 // ─── レッスンフォーム ─────────────────────────────────
 export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
-  rentalGyms = [], stores = [], fixedCustomerId, onClose, action, multiAction, submitLabel,
+  rentalGyms = [], stores = [], fixedCustomerId, onClose, action, multiAction, onDelete, submitLabel,
 }: {
   defaultValues?: Partial<Lesson>;
   customers: Customer[];
@@ -149,9 +150,10 @@ export function LessonForm({
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
   multiAction?: (fd: FormData) => Promise<void>; // 作成時の複数日時・繰り返し用
+  onDelete?: () => Promise<void>;                 // 編集時の削除（管理者または登録者本人）
   submitLabel: string;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked, run } = useSubmitLock();
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
   const [selectedCourse, setSelectedCourse] = useState(defaultValues?.course ?? "");
@@ -168,6 +170,16 @@ export function LessonForm({
     const d = v.slice(0, 10);
     revalidateCourse(selectedCustomerId, d || today);
     applySuggestion(selectedCustomerId, d);
+  }
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    if (!confirm("このレッスンを削除しますか？")) return;
+    setError("");
+    await run(async () => {
+      try { await onDelete(); onClose(); }
+      catch (e) { setError(e instanceof Error ? e.message : "削除に失敗しました"); }
+    });
   }
 
   // 作成時のみ：複数日時／繰り返し（個人予定と同様・排他）
@@ -262,20 +274,22 @@ export function LessonForm({
   async function handleSubmit(fd: FormData) {
     setError("");
     if (!startLocal) { setError("開始日時を入力してください"); return; }
-    setLoading(true);
-    try {
-      if (isCreate) {
-        // 作成は複数日時・繰り返しに対応（単発でも1件の配列）
-        fd.set("slots", JSON.stringify(buildLessonSlots()));
-        await multiAction!(fd);
-      } else {
-        // datetime-local はローカル時刻なので UTC ISO に変換して送信
-        fd.set("scheduledAt", localInputToISO(startLocal));
-        fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
-        await action(fd);
-      }
-      onClose();
-    } catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
+    // run() が実行中の連打を同期的に無視するため、二重作成が起きない
+    await run(async () => {
+      try {
+        if (isCreate) {
+          // 作成は複数日時・繰り返しに対応（単発でも1件の配列）
+          fd.set("slots", JSON.stringify(buildLessonSlots()));
+          await multiAction!(fd);
+        } else {
+          // datetime-local はローカル時刻なので UTC ISO に変換して送信
+          fd.set("scheduledAt", localInputToISO(startLocal));
+          fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
+          await action(fd);
+        }
+        onClose();
+      } catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+    });
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -609,11 +623,17 @@ export function LessonForm({
           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
           キャンセル
         </button>
-        <button type="submit" disabled={loading || noPassAvailable}
+        <button type="submit" disabled={locked || noPassAvailable}
           className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
-          {loading && <Spinner size={14} />}{loading ? "保存中..." : submitLabel}
+          {locked && <Spinner size={14} />}{locked ? "保存中..." : submitLabel}
         </button>
       </div>
+      {onDelete && (
+        <button type="button" onClick={handleDelete} disabled={locked}
+          className="w-full mt-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition disabled:opacity-50">
+          <Trash2 size={15} /> このレッスンを削除
+        </button>
+      )}
     </form>
   );
 }
@@ -670,7 +690,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; stores: Store[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
   // 編集/削除は管理者 or 追加した本人のみ
   const canEdit = isAdmin || (!!lesson.createdById && lesson.createdById === currentMemberId);
@@ -750,10 +770,10 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
             className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
             <Pencil size={12} />
           </button>
-          <button onClick={async () => {
+          <button onClick={() => {
+            if (deleting) return;
             if (!confirm("このレッスンを削除しますか？")) return;
-            setDeleting(true);
-            await deleteLessonAction(lesson.id);
+            runDelete(() => deleteLessonAction(lesson.id));
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}

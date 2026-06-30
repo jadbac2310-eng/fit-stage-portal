@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, Check } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import Link from "next/link";
+import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight } from "lucide-react";
 import { MemberLabel } from "@/components/ui/member-label";
-import { setCommissionRateAction } from "./actions";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
@@ -114,7 +112,7 @@ function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; i
                   <th className="text-left py-1.5 pr-3 font-medium">コース</th>
                   <th className="text-left py-1.5 pr-3 font-medium">日付</th>
                   {isAdmin && <th className="text-right py-1.5 pr-3 font-medium">単価</th>}
-                  <th className="text-right py-1.5 font-medium">{isAdmin ? "歩合(50%)" : "歩合"}</th>
+                  <th className="text-right py-1.5 font-medium">歩合</th>
                 </tr>
               </thead>
               <tbody>
@@ -273,57 +271,22 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
   );
 }
 
-// ─── トレーナー歩合率の設定（管理者のみ） ─────────────────
-function RateRow({ member, onSaved }: { member: { id: string; name: string; commissionRate?: number }; onSaved: () => void }) {
-  const [val, setVal] = useState(member.commissionRate != null ? String(member.commissionRate) : "");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  async function save() {
-    setSaving(true); setSaved(false);
-    try {
-      await setCommissionRateAction(member.id, val.trim() === "" ? null : parseInt(val, 10));
-      setSaved(true); onSaved();
-    } finally { setSaving(false); }
-  }
-
+// ─── 歩合率設定へのリンク（管理者のみ） ─────────────────
+function RateSettingsLink() {
   return (
-    <div className="flex items-center gap-2">
-      <span className="flex-1 text-sm text-gray-700 truncate">{member.name}</span>
-      <input
-        type="number" min="0" max="100" step="1"
-        value={val}
-        onChange={(e) => { setVal(e.target.value); setSaved(false); }}
-        placeholder="50"
-        className="w-16 px-2 py-1.5 rounded-lg border border-gray-300 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <span className="text-xs text-gray-400 w-3">%</span>
-      <button
-        onClick={save} disabled={saving}
-        className="inline-flex items-center justify-center gap-1 min-w-[3.5rem] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg px-2.5 py-1.5 transition"
-      >
-        {saving ? <Spinner size={12} /> : saved ? <Check size={13} /> : "保存"}
-      </button>
-    </div>
-  );
-}
-
-function RateEditor({ members }: { members: { id: string; name: string; commissionRate?: number }[] }) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="mb-4 border border-gray-200 rounded-2xl overflow-hidden bg-white">
-      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition">
-        <span className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Percent size={15} className="text-blue-600" /> トレーナー歩合率の設定</span>
-        <ChevronDown size={16} className={cn("text-gray-400 transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="px-4 pb-3 pt-1 space-y-2 border-t border-gray-100">
-          {members.map((m) => <RateRow key={m.id} member={m} onSaved={() => router.refresh()} />)}
-          <p className="text-[11px] text-gray-400 pt-1">空欄で保存すると既定の50%に戻ります。担当者には表示されません（管理者のみ）。</p>
-        </div>
-      )}
-    </div>
+    <Link
+      href="/commissions/rates"
+      className="mb-4 flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
+    >
+      <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+        <Percent size={17} className="text-blue-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-900">歩合率設定</p>
+        <p className="text-xs text-gray-500 mt-0.5">担当者×顧客ごとの歩合率を設定（未設定は50%）</p>
+      </div>
+      <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+    </Link>
   );
 }
 
@@ -337,6 +300,7 @@ export function CommissionsClient({
   lessonFees,
   sessionPassPriceMap,
   members,
+  trainerRates,
   isAdmin,
   currentMemberId,
 }: {
@@ -347,7 +311,8 @@ export function CommissionsClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:  Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:      { id: string; name: string; avatarUrl?: string; commissionRate?: number }[];
+  members:      { id: string; name: string; avatarUrl?: string }[];
+  trainerRates?: { memberId: string; customerId: string; rate: number }[];
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {
@@ -356,8 +321,8 @@ export function CommissionsClient({
   const [activeTab, setActiveTab] = useState<"trainer" | "sales">("trainer");
 
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members, lessonFees, sessionPassPriceMap }
-  ), [customers, sessionPasses, customerPlans, members, lessonFees, sessionPassPriceMap]);
+    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
+  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap]);
 
   // 選択月のトレーナー集計（管理者は全員、それ以外は自分の分のみ）
   const trainerEntries = useMemo((): TrainerEntry[] => {
@@ -384,8 +349,8 @@ export function CommissionsClient({
         </p>
       </div>
 
-      {/* 歩合率の設定（管理者のみ） */}
-      {isAdmin && <RateEditor members={members} />}
+      {/* 歩合率設定へのリンク（管理者のみ） */}
+      {isAdmin && <RateSettingsLink />}
       <div className="md:hidden mb-4">
         <h1 className="text-lg font-bold text-gray-900">歩合管理</h1>
       </div>

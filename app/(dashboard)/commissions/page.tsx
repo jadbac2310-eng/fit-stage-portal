@@ -5,6 +5,7 @@ import { getCurrentMember, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
+import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { CommissionsClient } from "./commissions-client";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function CommissionsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -31,10 +32,16 @@ export default async function CommissionsPage() {
     getMembers(),
     getAllPlans(),
     getAllSessionPassPrices(),
+    getMemberCustomerRates(),
   ]);
 
   const completedLessons = lessons.filter((l) => l.status === "completed");
   const contractedTrials = trialLessons.filter((l) => l.contracted === true);
+
+  // 歩合率は他人ぶんを渡さない（管理者は全件、それ以外は自分ぶんのみ）
+  const trainerRates = allRates
+    .filter((r) => member.isAdmin || r.memberId === member.id)
+    .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }));
 
   return (
     <CommissionsClient
@@ -45,7 +52,8 @@ export default async function CommissionsPage() {
       customerPlans={customerPlans}
       lessonFees={buildLessonFeeMap(plansMaster)}
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
-      members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl, commissionRate: (member.isAdmin || m.id === member.id) ? m.commissionRate : undefined }))}
+      members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl }))}
+      trainerRates={trainerRates}
       isAdmin={member.isAdmin}
       currentMemberId={member.id}
     />

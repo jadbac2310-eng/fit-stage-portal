@@ -16,6 +16,7 @@ import {
   deleteTrialLessonAction,
 } from "./actions";
 import { cn } from "@/lib/cn";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -72,17 +73,18 @@ function LessonForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
 
   async function handleSubmit(fd: FormData) {
     setError("");
-    setLoading(true);
     // datetime-local はローカル時刻を返すので、UTC ISO に変換してから送信
     const raw = fd.get("scheduledAt") as string;
     if (raw) fd.set("scheduledAt", localInputToISO(raw));
-    try { await action(fd); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
+    await run(async () => {
+      try { await action(fd); onClose(); }
+      catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+    });
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -152,7 +154,7 @@ function ContractResultForm({
   lesson: TrialLesson;
   onClose: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [contracted, setContracted] = useState<string>(
     lesson.contracted === true ? "true" : lesson.contracted === false ? "false" : "null"
   );
@@ -161,9 +163,10 @@ function ContractResultForm({
 
   async function handleSubmit(fd: FormData) {
     setError("");
-    setLoading(true);
-    try { await boundSave(fd); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
+    await run(async () => {
+      try { await boundSave(fd); onClose(); }
+      catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+    });
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -207,7 +210,7 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
   lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
   // 契約結果は管理者・担当トレーナー・担当営業が記録できる
   const canRecordResult = isAdmin
@@ -303,10 +306,10 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
                 className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
                 <Pencil size={13} />
               </button>
-              <button onClick={async () => {
+              <button onClick={() => {
+                if (deleting) return;
                 if (!confirm(`${lesson.customerName} の体験レッスンを削除しますか？`)) return;
-                setDeleting(true);
-                await deleteTrialLessonAction(lesson.id);
+                runDelete(() => deleteTrialLessonAction(lesson.id));
               }} disabled={deleting}
                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
                 {deleting ? <Spinner size={13} /> : <Trash2 size={13} />}
@@ -324,7 +327,7 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
   lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
   // 契約結果は管理者・担当トレーナー・担当営業が記録できる
   const canRecordResult = isAdmin
@@ -403,10 +406,10 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
               className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 font-medium bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 px-2.5 py-1.5 rounded-lg transition">
               <Pencil size={11} /> 編集
             </button>
-            <button onClick={async () => {
+            <button onClick={() => {
+              if (deleting) return;
               if (!confirm(`${lesson.customerName} の体験レッスンを削除しますか？`)) return;
-              setDeleting(true);
-              await deleteTrialLessonAction(lesson.id);
+              runDelete(() => deleteTrialLessonAction(lesson.id));
             }} disabled={deleting}
               className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 font-medium bg-red-50 hover:bg-red-100 border border-red-300 px-2.5 py-1.5 rounded-lg transition">
               {deleting ? <><Spinner size={11} /> 削除中...</> : <><Trash2 size={11} /> 削除</>}

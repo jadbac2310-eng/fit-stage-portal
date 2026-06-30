@@ -12,6 +12,7 @@ import {
   updateCustomerStatusAction,
 } from "./actions";
 import { cn } from "@/lib/cn";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -38,16 +39,16 @@ const STATUS_OPTIONS: CustomerStatus[] = ["trial", "pending", "active", "inactiv
 
 function StatusSelect({ customerId, status }: { customerId: string; status: CustomerStatus }) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [current, setCurrent] = useState(status);
 
   async function handleChange(next: CustomerStatus) {
     if (next === current) { setOpen(false); return; }
-    setLoading(true);
-    await updateCustomerStatusAction(customerId, next);
-    setCurrent(next);
-    setOpen(false);
-    setLoading(false);
+    await run(async () => {
+      await updateCustomerStatusAction(customerId, next);
+      setCurrent(next);
+      setOpen(false);
+    });
   }
 
   return (
@@ -111,25 +112,24 @@ function CustomerForm({
   submitLabel: string;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
 
   async function handleSubmit(fd: FormData) {
     setError("");
-    setLoading(true);
-    try {
-      const res = await action(fd);
-      if (res && res.ok === false) {
-        setError(res.error || "エラーが発生しました");
-        setLoading(false);
-        return;
+    await run(async () => {
+      try {
+        const res = await action(fd);
+        if (res && res.ok === false) {
+          setError(res.error || "エラーが発生しました");
+          return;
+        }
+        router.refresh();
+        onClose();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "エラーが発生しました");
       }
-      router.refresh();
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "エラーが発生しました");
-      setLoading(false);
-    }
+    });
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -336,13 +336,13 @@ function CustomerForm({
 // ─── 顧客行（テーブル） ───────────────────────────────
 function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
 
   async function handleDelete() {
+    if (deleting) return;
     if (!confirm(`「${customer.fullName}」を削除しますか？`)) return;
-    setDeleting(true);
-    await deleteCustomerAction(customer.id);
+    runDelete(() => deleteCustomerAction(customer.id));
   }
 
   if (mode === "edit") return (
@@ -407,13 +407,13 @@ function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: C
 // ─── 顧客カード（モバイル） ───────────────────────────
 function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
 
   async function handleDelete() {
+    if (deleting) return;
     if (!confirm(`「${customer.fullName}」を削除しますか？`)) return;
-    setDeleting(true);
-    await deleteCustomerAction(customer.id);
+    runDelete(() => deleteCustomerAction(customer.id));
   }
 
   if (mode === "edit") return (

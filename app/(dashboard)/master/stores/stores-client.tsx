@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, X, MapPin, Store as StoreIcon } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import type { Store } from "@/lib/stores";
 import { createStoreAction, updateStoreAction, deleteStoreAction } from "./actions";
 
@@ -20,13 +21,15 @@ function StoreForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
 
   async function handleSubmit(fd: FormData) {
-    setError(""); setLoading(true);
-    try { await action(fd); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : "エラー"); setLoading(false); }
+    setError("");
+    await run(async () => {
+      try { await action(fd); onClose(); }
+      catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+    });
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -60,13 +63,13 @@ function StoreForm({
 
 function StoreRow({ store, isAdmin }: { store: Store; isAdmin: boolean }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateStoreAction.bind(null, store.id);
 
-  async function handleDelete() {
+  function handleDelete() {
+    if (deleting) return;
     if (!confirm(`「${store.name}」を削除しますか？`)) return;
-    setDeleting(true);
-    await deleteStoreAction(store.id);
+    runDelete(() => deleteStoreAction(store.id));
   }
 
   if (mode === "edit") {

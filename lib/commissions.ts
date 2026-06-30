@@ -61,7 +61,9 @@ export interface CommissionContext {
   customers:     Customer[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
-  members:       { id: string; name: string; commissionRate?: number }[];
+  members:       { id: string; name: string }[];
+  /** 担当者×顧客の組み合わせごとのトレーナー歩合率（％）。未設定の組み合わせは既定50%。 */
+  trainerRates?: { memberId: string; customerId: string; rate: number }[];
   /** プランマスタ由来のコース名→1回単価。未指定コースは固定単価表にフォールバック */
   lessonFees?:   Record<string, number>;
   /** 回数券標準金額マスタ { 人数: { 回数: 総額 } }。回数券に price 未設定時のフォールバック */
@@ -117,17 +119,17 @@ export function buildTrainerEntries(lessons: Lesson[], month: string, ctx: Commi
   const filtered = lessons.filter((l) => isoToMonth(l.scheduledAt) === month && l.trainerMemberId);
   const map = new Map<string, TrainerEntry>();
 
-  // 担当者ごとの歩合率（％）。未設定は既定 TRAINER_RATE。
-  const rateOf = (memberId: string) => {
-    const m = ctx.members.find((mm) => mm.id === memberId);
-    return m?.commissionRate != null ? m.commissionRate / 100 : TRAINER_RATE;
+  // 担当者×顧客の組み合わせ歩合率（％）。未設定の組み合わせは既定 TRAINER_RATE(50%)。
+  const rateOf = (memberId: string, customerId: string) => {
+    const r = ctx.trainerRates?.find((x) => x.memberId === memberId && x.customerId === customerId);
+    return r != null ? r.rate / 100 : TRAINER_RATE;
   };
 
   for (const l of filtered) {
     const tid  = l.trainerMemberId!;
     // 歩合はレッスン料金そのものを対象とする（レンタルジム代は控除しない／利益計算側で差し引く）
     const fee  = resolveLessonFee(l, ctx);
-    const comm = Math.round(fee * rateOf(tid));
+    const comm = Math.round(fee * rateOf(tid, l.customerId));
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: l.trainerMemberName ?? tid, lessons: [], total: 0 });

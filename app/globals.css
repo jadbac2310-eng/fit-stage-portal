@@ -23,6 +23,15 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* スマホは操作しやすいよう全体を少しだけ底上げ（rem基準の文字・余白・ボタン・入力欄が一律に拡大）。
+   印刷時は等倍に戻す。 */
+@media (max-width: 767px) {
+  html { font-size: 17.5px; }
+}
+@media print {
+  html { font-size: 16px; }
+}
+
 /* 印刷/PDF: 背景のグレーを消して白にする */
 @media print {
   html, body { background: #ffffff !important; }

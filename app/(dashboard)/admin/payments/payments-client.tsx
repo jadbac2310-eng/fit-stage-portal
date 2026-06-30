@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, Link2, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
 import type { Receivable } from "@/lib/payments-types";
 import { SOURCE_TYPE_LABEL, PAYMENT_METHODS, type PaymentSourceType } from "@/lib/payments-types";
@@ -39,19 +40,19 @@ const TYPE_CLS: Record<PaymentSourceType, string> = {
 
 function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void }) {
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
+  const { locked: saving, run } = useSubmitLock();
   const inputClass = "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSaving(true);
-    try {
-      await recordPaymentAction(new FormData(e.currentTarget));
-      router.refresh();
-      onClose();
-    } catch {
-      setSaving(false);
-    }
+    const fd = new FormData(e.currentTarget);
+    await run(async () => {
+      try {
+        await recordPaymentAction(fd);
+        router.refresh();
+        onClose();
+      } catch {}
+    });
   }
 
   return (
@@ -92,18 +93,18 @@ function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void 
 function Row({ item }: { item: Receivable }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [removing, setRemoving] = useState(false);
+  const { locked: removing, run: runRemove } = useSubmitLock();
   const paid = !!item.payment;
 
-  async function unrecord() {
+  function unrecord() {
+    if (removing) return;
     if (!confirm("入金記録を取り消しますか？")) return;
-    setRemoving(true);
-    try {
-      await unrecordPaymentAction(item.sourceType, item.sourceId);
-      router.refresh();
-    } catch {
-      setRemoving(false);
-    }
+    runRemove(async () => {
+      try {
+        await unrecordPaymentAction(item.sourceType, item.sourceId);
+        router.refresh();
+      } catch {}
+    });
   }
 
   return (
@@ -156,7 +157,7 @@ function CheckoutCard({
   existing?: StripeCheckout;
 }) {
   const [url, setUrl] = useState<string | null>(existing?.status === "pending" ? existing.url ?? null : null);
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,21 +172,20 @@ function CheckoutCard({
   }
 
   async function generate() {
-    setLoading(true);
     setError(null);
-    try {
-      const res = await createCheckoutLinkAction(customerId, month);
-      if (res.ok) {
-        setUrl(res.url);
-        await copy(res.url);
-      } else {
-        setError(res.error);
+    await run(async () => {
+      try {
+        const res = await createCheckoutLinkAction(customerId, month);
+        if (res.ok) {
+          setUrl(res.url);
+          await copy(res.url);
+        } else {
+          setError(res.error);
+        }
+      } catch {
+        setError("リンク発行に失敗しました");
       }
-    } catch {
-      setError("リンク発行に失敗しました");
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (

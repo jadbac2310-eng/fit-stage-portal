@@ -11,6 +11,7 @@ import {
   Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
@@ -23,7 +24,7 @@ import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
-import { createLessonAction, createLessonsAction, updateLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
+import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 
 export type ScheduleItem = {
   id: string;
@@ -188,8 +189,8 @@ function LessonCard({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [settingStatus, setSettingStatus] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
+  const { locked: settingStatus, run: runStatus } = useSubmitLock();
   const isTrial = item.type === "trial";
   const isPersonal = item.type === "personal";
   const cancelled = item.status === "cancelled";
@@ -204,27 +205,28 @@ function LessonCard({
 
   const editHref = isTrial ? "/lessons/trial" : "/lessons/regular";
 
-  async function handleDelete() {
+  function handleDelete() {
+    if (deleting) return;
     if (!confirm("この予定を削除しますか？")) return;
-    setDeleting(true);
-    try {
-      await deletePersonalEventAction(item.id);
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "削除に失敗しました");
-      setDeleting(false);
-    }
+    runDelete(async () => {
+      try {
+        await deletePersonalEventAction(item.id);
+        router.refresh();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "削除に失敗しました");
+      }
+    });
   }
 
-  async function handleSetStatus(status: "completed" | "scheduled") {
-    setSettingStatus(true);
-    try {
-      await setLessonStatusAction(item.id, status);
-      router.refresh();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
-      setSettingStatus(false);
-    }
+  function handleSetStatus(status: "completed" | "scheduled") {
+    runStatus(async () => {
+      try {
+        await setLessonStatusAction(item.id, status);
+        router.refresh();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
+      }
+    });
   }
 
   return (
@@ -681,7 +683,7 @@ function PersonalEventModal({
   const [notify, setNotify] = useState(initial?.notify ?? true);
   const [isPrivate, setIsPrivate] = useState(initial?.isPrivate ?? false);
   const [memberQuery, setMemberQuery] = useState("");
-  const [pending, setPending] = useState(false);
+  const { locked: pending, run } = useSubmitLock();
   const [error, setError] = useState<string | null>(null);
 
   // ─── 複数日時 / 繰り返し（作成時のみ・排他） ───
@@ -737,23 +739,23 @@ function PersonalEventModal({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setPending(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
-    try {
-      if (mode === "edit" && initial) {
-        await updatePersonalEventAction(initial.id, fd);
-      } else {
-        // 作成時は複数日時（基準＋繰り返し＋追加）をまとめて作成
-        fd.set("slots", JSON.stringify(buildSlots()));
-        await createPersonalEventsAction(fd);
+    await run(async () => {
+      try {
+        if (mode === "edit" && initial) {
+          await updatePersonalEventAction(initial.id, fd);
+        } else {
+          // 作成時は複数日時（基準＋繰り返し＋追加）をまとめて作成
+          fd.set("slots", JSON.stringify(buildSlots()));
+          await createPersonalEventsAction(fd);
+        }
+        router.refresh();
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "保存に失敗しました");
       }
-      router.refresh();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
-      setPending(false);
-    }
+    });
   }
 
   return (
@@ -1043,6 +1045,7 @@ function LessonModal({
             onClose={close}
             action={isEdit ? updateLessonAction.bind(null, editLesson!.id) : createLessonAction}
             multiAction={isEdit ? undefined : createLessonsAction}
+            onDelete={isEdit ? async () => { await deleteLessonAction(editLesson!.id); } : undefined}
             submitLabel={isEdit ? "保存する" : "追加する"}
           />
         </div>

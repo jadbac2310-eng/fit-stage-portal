@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
+import { useSubmitLock } from "@/lib/use-submit-lock";
 
 type MemberNames = Record<string, string>;
 // プラン選択時の標準金額（プランマスタ由来）
@@ -55,15 +56,17 @@ function PlanForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(defaultValues?.plan ?? "");
   const [price, setPrice] = useState(defaultValues?.price?.toString() ?? "");
 
   async function handleSubmit(fd: FormData) {
-    setError(""); setLoading(true);
-    try { await action(fd); onClose(); }
-    catch (e) { setError(e instanceof Error ? e.message : "エラーが発生しました"); setLoading(false); }
+    await run(async () => {
+      setError("");
+      try { await action(fd); onClose(); }
+      catch (e) { setError(e instanceof Error ? e.message : "エラーが発生しました"); }
+    });
   }
 
   const inputClass = "w-full min-w-0 max-w-full box-border px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -168,7 +171,7 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNa
   planDefaults: PlanDefault[]; isAdmin: boolean; memberNames: MemberNames;
 }) {
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updatePlanAction.bind(null, record.id, customer.id);
 
   if (editing) return (
@@ -208,10 +211,10 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNa
             className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition">
             <Pencil size={12} />
           </button>
-          <button onClick={async () => {
+          <button onClick={() => {
+            if (deleting) return;
             if (!confirm("このプランを削除しますか？")) return;
-            setDeleting(true);
-            await deletePlanAction(record.id);
+            runDelete(() => deletePlanAction(record.id));
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}
@@ -230,7 +233,7 @@ function SessionPassForm({
   sessionPassPriceMap: SessionPassPriceMap;
   onClose: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const { locked: loading, run } = useSubmitLock();
   const [personCount, setPersonCount] = useState(1);
   const [totalCount, setTotalCount] = useState("");
   const [price, setPrice] = useState("");
@@ -242,9 +245,10 @@ function SessionPassForm({
   }
 
   async function handleSubmit(fd: FormData) {
-    setLoading(true);
-    try { await createSessionPassAction(fd); onClose(); }
-    catch { setLoading(false); }
+    await run(async () => {
+      await createSessionPassAction(fd);
+      onClose();
+    });
   }
 
   const inputClass = "w-full min-w-0 max-w-full box-border px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
@@ -342,8 +346,8 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
   pass: SessionPass; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
 }) {
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { locked: deleting, run: runDelete } = useSubmitLock();
+  const { locked: loading, run } = useSubmitLock();
   const [personCount, setPersonCount] = useState(pass.personCount ?? 1);
   const [totalCount, setTotalCount] = useState(String(pass.totalCount));
   const [price, setPrice] = useState(pass.price != null ? String(pass.price) : "");
@@ -351,9 +355,10 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
   const inputClass = "w-full min-w-0 max-w-full box-border px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500";
 
   async function handleEdit(fd: FormData) {
-    setLoading(true);
-    try { await updateSessionPassAction(pass.id, fd); setEditing(false); }
-    catch { setLoading(false); }
+    await run(async () => {
+      await updateSessionPassAction(pass.id, fd);
+      setEditing(false);
+    });
   }
 
   if (editing) return (
@@ -454,10 +459,10 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
             className="p-1 text-gray-300 hover:text-amber-500 transition">
             <Pencil size={11} />
           </button>
-          <button onClick={async () => {
+          <button onClick={() => {
+            if (deleting) return;
             if (!confirm("この回数券を削除しますか？")) return;
-            setDeleting(true);
-            await deleteSessionPassAction(pass.id);
+            runDelete(() => deleteSessionPassAction(pass.id));
           }} disabled={deleting}
             className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
             {deleting ? <Spinner size={11} /> : <Trash2 size={11} />}
