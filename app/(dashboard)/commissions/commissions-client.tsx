@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks } from "lucide-react";
 import { MemberLabel } from "@/components/ui/member-label";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
@@ -271,22 +271,37 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
   );
 }
 
-// ─── 歩合率設定へのリンク（管理者のみ） ─────────────────
-function RateSettingsLink() {
+// ─── 管理者向けリンク（歩合率設定・月次明細） ─────────────
+function AdminLinks() {
   return (
-    <Link
-      href="/commissions/rates"
-      className="mb-4 flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
-    >
-      <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-        <Percent size={17} className="text-blue-600" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900">歩合率設定</p>
-        <p className="text-xs text-gray-500 mt-0.5">担当者×顧客ごとの歩合率を設定（未設定は50%）</p>
-      </div>
-      <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
-    </Link>
+    <div className="mb-4 space-y-2">
+      <Link
+        href="/commissions/details"
+        className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
+      >
+        <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <ListChecks size={17} className="text-green-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">月次レッスン明細</p>
+          <p className="text-xs text-gray-500 mt-0.5">1件ごとの歩合を確認して支払い額を検算</p>
+        </div>
+        <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+      </Link>
+      <Link
+        href="/commissions/rates"
+        className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
+      >
+        <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <Percent size={17} className="text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">歩合率設定</p>
+          <p className="text-xs text-gray-500 mt-0.5">担当者×顧客ごとの歩合率を設定（未設定は50%）</p>
+        </div>
+        <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+      </Link>
+    </div>
   );
 }
 
@@ -349,8 +364,8 @@ export function CommissionsClient({
         </p>
       </div>
 
-      {/* 歩合率設定へのリンク（管理者のみ） */}
-      {isAdmin && <RateSettingsLink />}
+      {/* 管理者向けリンク（月次明細・歩合率設定） */}
+      {isAdmin && <AdminLinks />}
       <div className="md:hidden mb-4">
         <h1 className="text-lg font-bold text-gray-900">歩合管理</h1>
       </div>

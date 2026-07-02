@@ -114,22 +114,22 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
   return ctx.lessonFees?.[course] ?? getLessonFee(course);
 }
 
+/** 担当者×顧客の組み合わせ歩合率（0〜1の割合）。未設定の組み合わせは既定 TRAINER_RATE(50%)。 */
+export function resolveTrainerRate(memberId: string, customerId: string, ctx: CommissionContext): number {
+  const r = ctx.trainerRates?.find((x) => x.memberId === memberId && x.customerId === customerId);
+  return r != null ? r.rate / 100 : TRAINER_RATE;
+}
+
 /** 選択月のトレーナー歩合集計（lessons は完了レッスンを渡す） */
 export function buildTrainerEntries(lessons: Lesson[], month: string, ctx: CommissionContext): TrainerEntry[] {
   const filtered = lessons.filter((l) => isoToMonth(l.scheduledAt) === month && l.trainerMemberId);
   const map = new Map<string, TrainerEntry>();
 
-  // 担当者×顧客の組み合わせ歩合率（％）。未設定の組み合わせは既定 TRAINER_RATE(50%)。
-  const rateOf = (memberId: string, customerId: string) => {
-    const r = ctx.trainerRates?.find((x) => x.memberId === memberId && x.customerId === customerId);
-    return r != null ? r.rate / 100 : TRAINER_RATE;
-  };
-
   for (const l of filtered) {
     const tid  = l.trainerMemberId!;
     // 歩合はレッスン料金そのものを対象とする（レンタルジム代は控除しない／利益計算側で差し引く）
     const fee  = resolveLessonFee(l, ctx);
-    const comm = Math.round(fee * rateOf(tid, l.customerId));
+    const comm = Math.round(fee * resolveTrainerRate(tid, l.customerId, ctx));
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: l.trainerMemberName ?? tid, lessons: [], total: 0 });
