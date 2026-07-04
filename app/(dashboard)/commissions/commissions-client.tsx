@@ -310,6 +310,7 @@ export function CommissionsClient({
   customers,
   lessons,
   trialLessons,
+  completedTrialLessons,
   sessionPasses,
   customerPlans,
   lessonFees,
@@ -322,6 +323,7 @@ export function CommissionsClient({
   customers:    Customer[];
   lessons:      Lesson[];
   trialLessons: TrialLesson[];
+  completedTrialLessons?: TrialLesson[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
   lessonFees?:  Record<string, number>;
@@ -341,9 +343,9 @@ export function CommissionsClient({
 
   // 選択月のトレーナー集計（管理者は全員、それ以外は自分の分のみ）
   const trainerEntries = useMemo((): TrainerEntry[] => {
-    const all = buildTrainerEntries(lessons, month, ctx);
+    const all = buildTrainerEntries(lessons, completedTrialLessons ?? [], month, ctx);
     return isAdmin ? all : all.filter((e) => e.memberId === currentMemberId);
-  }, [lessons, month, ctx, isAdmin, currentMemberId]);
+  }, [lessons, completedTrialLessons, month, ctx, isAdmin, currentMemberId]);
 
   // 選択月の営業集計（管理者は全員、それ以外は自分の分のみ）
   const salesEntries = useMemo((): SalesEntry[] => {

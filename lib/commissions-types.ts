@@ -9,7 +9,11 @@ export const LESSON_PRICE: Record<string, number> = {
   "回数券8回":  9600,
   "回数券16回": 9300,
   "回数券32回": 9000,
+  "体験レッスン": 6600,
 };
+
+// 体験レッスンのコース名（歩合計算・プランマスタでの単価キーとして使用）
+export const TRIAL_LESSON_COURSE_NAME = "体験レッスン";
 
 // トレーナー歩合率 (50%)
 export const TRAINER_RATE = 0.50;

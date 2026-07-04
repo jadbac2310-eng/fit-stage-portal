@@ -10,6 +10,7 @@ import { getMembers } from "@/lib/members";
 import { getAllPlans, getAllSessionPassPrices, buildLessonFeeMap, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getActivityLogs } from "@/lib/activity-logs";
+import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
   resolveLessonFee, buildTrainerEntries, buildSalesEntries, isoToMonth, type CommissionContext,
 } from "@/lib/commissions";
@@ -83,7 +84,7 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "list_lessons",
-    description: "レッスン一覧を取得します。月・顧客名・トレーナー名・ステータス（scheduled/completed/cancelled）で絞れます。",
+    description: "レッスン一覧を取得します。月・顧客名・トレーナー名・ステータス（scheduled/completed/cancelled/cancelled_same_day）で絞れます。",
     input_schema: {
       type: "object",
       properties: {
@@ -163,11 +164,12 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
       case "get_business_summary": {
         const month = (input.month as string) || thisMonth();
         const { ctx, customers, lessons, trialLessons } = await buildCtx();
-        const completed = lessons.filter((l) => l.status === "completed");
+        const completed = lessons.filter((l) => isBillableLessonStatus(l.status));
+        const completedTrials = trialLessons.filter((t) => t.status === "completed");
         const inMonth = completed.filter((l) => isoToMonth(l.scheduledAt) === month);
         const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
         const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0);
-        const trainerPayout = buildTrainerEntries(completed, month, ctx).reduce((s, e) => s + e.total, 0);
+        const trainerPayout = buildTrainerEntries(completed, completedTrials, month, ctx).reduce((s, e) => s + e.total, 0);
         const contractedTrials = trialLessons.filter((t) => t.contracted === true);
         const salesPayout = buildSalesEntries(completed, contractedTrials, month, ctx).reduce((s, e) => s + e.total, 0);
         const profit = revenue - trainerPayout - salesPayout - rentalCost;
@@ -248,9 +250,10 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
       case "get_commissions": {
         const month = (input.month as string) || thisMonth();
         const { ctx, lessons, trialLessons } = await buildCtx();
-        const completed = lessons.filter((l) => l.status === "completed");
+        const completed = lessons.filter((l) => isBillableLessonStatus(l.status));
+        const completedTrials = trialLessons.filter((t) => t.status === "completed");
         const contractedTrials = trialLessons.filter((t) => t.contracted === true);
-        const trainer = buildTrainerEntries(completed, month, ctx).map((e) => ({ name: e.memberName, total: yen(e.total), lessons: e.lessons.length }));
+        const trainer = buildTrainerEntries(completed, completedTrials, month, ctx).map((e) => ({ name: e.memberName, total: yen(e.total), lessons: e.lessons.length }));
         const sales = buildSalesEntries(completed, contractedTrials, month, ctx).map((e) => ({ name: e.memberName, total: yen(e.total), lessonPart: yen(e.lessonTotal), bonusPart: yen(e.bonusTotal) }));
         return JSON.stringify({ month, trainer, sales });
       }
@@ -270,9 +273,10 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
         }
         const myLessons = lessons.filter((l) => l.trainerMemberId === member.id);
         const monthLessons = myLessons.filter((l) => isoToMonth(l.scheduledAt) === month);
-        const completed = lessons.filter((l) => l.status === "completed");
+        const completed = lessons.filter((l) => isBillableLessonStatus(l.status));
+        const completedTrials = trialLessons.filter((t) => t.status === "completed");
         const contractedTrials = trialLessons.filter((t) => t.contracted === true);
-        const trainerComm = buildTrainerEntries(completed, month, ctx).find((e) => e.memberId === member.id);
+        const trainerComm = buildTrainerEntries(completed, completedTrials, month, ctx).find((e) => e.memberId === member.id);
         const salesComm = buildSalesEntries(completed, contractedTrials, month, ctx).find((e) => e.memberId === member.id);
         const myTrials = trialLessons.filter(
           (t) => (t.trainerMemberId === member.id || t.salesMemberId === member.id) && isoToMonth(t.scheduledAt) === month,
@@ -288,6 +292,7 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
             completed: monthLessons.filter((l) => l.status === "completed").length,
             scheduled: monthLessons.filter((l) => l.status === "scheduled").length,
             cancelled: monthLessons.filter((l) => l.status === "cancelled").length,
+            cancelledSameDay: monthLessons.filter((l) => l.status === "cancelled_same_day").length,
           },
           totalLessonsAllTime: myLessons.length,
           recentLessons: myLessons

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, Link2, Copy, Check } from "lucide-react";
+import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, Link2, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
@@ -218,13 +218,45 @@ function CheckoutCard({
   );
 }
 
+// ─── 顧客・法人ごとにまとめた1グループ（1レッスンごとに行が並んで埋もれるのを防ぐ） ───
+function CustomerPaymentGroup({ billerName, items }: { billerName: string; items: Receivable[] }) {
+  const unpaid = items.filter((r) => !r.payment);
+  const [expanded, setExpanded] = useState(items.length <= 1);
+  const total = items.reduce((s, r) => s + r.amount, 0);
+  const unpaidTotal = unpaid.reduce((s, r) => s + r.amount, 0);
+
+  return (
+    <div className={cn("rounded-2xl border overflow-hidden", unpaid.length > 0 ? "bg-amber-50/30 border-amber-200" : "bg-white border-gray-200")}>
+      <button onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-black/[0.02] transition text-left">
+        <div className="mt-0.5 flex-shrink-0">
+          {unpaid.length === 0 ? <CheckCircle2 size={18} className="text-green-600" /> : <Circle size={18} className="text-amber-400" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{billerName}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {items.length}件 ・ {yen(total)}
+            {unpaid.length > 0 && <span className="text-amber-600 font-medium">　未入金 {unpaid.length}件・{yen(unpaidTotal)}</span>}
+          </p>
+        </div>
+        {expanded ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
+      </button>
+      {expanded && (
+        <div className="border-t border-gray-100 px-3 py-2.5 space-y-2 bg-white/60">
+          {items.map((r) => <Row key={`${r.sourceType}-${r.sourceId}`} item={r} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PaymentsClient({
-  receivables, month, checkouts = {}, stripeEnabled = false,
+  receivables, month, checkouts = {}, stripeEnabled = false, billerMap = {},
 }: {
   receivables: Receivable[];
   month: string;
   checkouts?: Record<string, StripeCheckout>;
   stripeEnabled?: boolean;
+  billerMap?: Record<string, { id: string; name: string }>;
 }) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
@@ -252,6 +284,25 @@ export function PaymentsClient({
   const shown = receivables.filter((r) =>
     filter === "all" ? true : filter === "paid" ? !!r.payment : !r.payment,
   );
+
+  // 同じ会社・人物(billingToCustomerId でまとめ先が同じ顧客)ごとにグルーピングする
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; billerName: string; items: Receivable[] }>();
+    for (const r of shown) {
+      const biller = billerMap[r.customerId];
+      const key = biller?.id ?? r.customerId;
+      const name = biller?.name ?? r.customerName;
+      if (!map.has(key)) map.set(key, { key, billerName: name, items: [] });
+      map.get(key)!.items.push(r);
+    }
+    for (const g of map.values()) g.items.sort((a, b) => b.date.localeCompare(a.date));
+    // 未入金を含むグループを先に、件数が多い順で並べる
+    return Array.from(map.values()).sort((a, b) => {
+      const aUnpaid = a.items.some((r) => !r.payment) ? 1 : 0;
+      const bUnpaid = b.items.some((r) => !r.payment) ? 1 : 0;
+      return bUnpaid - aUnpaid || b.items.length - a.items.length;
+    });
+  }, [shown, billerMap]);
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
@@ -338,7 +389,9 @@ export function PaymentsClient({
         </div>
       ) : (
         <div className="space-y-2">
-          {shown.map((r) => <Row key={`${r.sourceType}-${r.sourceId}`} item={r} />)}
+          {groups.map((g) => (
+            <CustomerPaymentGroup key={g.key} billerName={g.billerName} items={g.items} />
+          ))}
         </div>
       )}
     </div>

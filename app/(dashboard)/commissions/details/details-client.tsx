@@ -6,14 +6,17 @@ import { MemberLabel } from "@/components/ui/member-label";
 import type { Customer } from "@/lib/customers-types";
 import { CUSTOMER_TYPE_LABEL } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
+import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import {
   isoToMonth,
   resolveLessonFee,
   resolveTrainerRate,
+  resolveTrialLessonFee,
   type CommissionContext,
 } from "@/lib/commissions";
+import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { cn } from "@/lib/cn";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
@@ -54,6 +57,7 @@ interface DetailRow {
   fee:           number;
   ratePercent:   number;
   commission:    number;
+  sameDayCancel?: boolean;
   planNote?:     string;
   sessionPassNote?: string;
   rentalGymNote?: string;
@@ -72,6 +76,7 @@ interface TrainerGroup {
 export function DetailsClient({
   customers,
   lessons,
+  trialLessons,
   sessionPasses,
   customerPlans,
   lessonFees,
@@ -83,6 +88,7 @@ export function DetailsClient({
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
+  trialLessons?: TrialLesson[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
@@ -159,29 +165,55 @@ export function DetailsClient({
         storeNote = `${store?.name ?? "不明な店舗"}${storeFee != null ? `・${yen(storeFee)}` : ""}`;
       }
 
-      if (!map.has(tid)) {
-        map.set(tid, {
-          memberId: tid,
-          memberName: member?.name ?? l.trainerMemberName ?? tid,
-          avatarUrl: member?.avatarUrl,
-          rows: [], feeTotal: 0, commissionTotal: 0,
-        });
-      }
-      const group = map.get(tid)!;
+      const ensureGroup = (id: string, name: string, avatarUrl?: string) => {
+        if (!map.has(id)) map.set(id, { memberId: id, memberName: name, avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
+        return map.get(id)!;
+      };
+
+      const group = ensureGroup(tid, member?.name ?? l.trainerMemberName ?? tid, member?.avatarUrl);
       group.rows.push({
         lessonId: l.id,
         scheduledAt: l.scheduledAt,
         customerName: l.customerName,
         customerType: customerTypeMap.get(l.customerId) ?? "個人",
         course, fee, ratePercent: Math.round(rate * 100), commission,
+        sameDayCancel: l.status === "cancelled_same_day",
         planNote, sessionPassNote, rentalGymNote, storeNote,
       });
       group.feeTotal += fee;
       group.commissionTotal += commission;
     }
 
+    // 体験レッスン（完了分）もトレーナー歩合に含める
+    const trialFee = resolveTrialLessonFee(ctx);
+    const filteredTrials = (trialLessons ?? [])
+      .filter((t) => isoToMonth(t.scheduledAt) === month && t.trainerMemberId)
+      .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+
+    for (const t of filteredTrials) {
+      const tid = t.trainerMemberId!;
+      const member = members.find((m) => m.id === tid);
+      const rate = resolveTrainerRate(tid, t.customerId, ctx);
+      const commission = Math.round(trialFee * rate);
+
+      if (!map.has(tid)) {
+        map.set(tid, { memberId: tid, memberName: member?.name ?? t.trainerMemberName ?? tid, avatarUrl: member?.avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
+      }
+      const group = map.get(tid)!;
+      group.rows.push({
+        lessonId: `trial-${t.id}`,
+        scheduledAt: t.scheduledAt,
+        customerName: t.customerName,
+        customerType: customerTypeMap.get(t.customerId) ?? "個人",
+        course: TRIAL_LESSON_COURSE_NAME, fee: trialFee, ratePercent: Math.round(rate * 100), commission,
+      });
+      group.feeTotal += trialFee;
+      group.commissionTotal += commission;
+    }
+
+    for (const g of map.values()) g.rows.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     return Array.from(map.values()).sort((a, b) => b.commissionTotal - a.commissionTotal);
-  }, [lessons, month, ctx, members, sessionPasses, customerPlans, customerTypeMap, rentalGymMap, storeMap]);
+  }, [lessons, trialLessons, month, ctx, members, sessionPasses, customerPlans, customerTypeMap, rentalGymMap, storeMap]);
 
   const grandTotalCommission = groups.reduce((s, g) => s + g.commissionTotal, 0);
   const grandTotalLessons    = groups.reduce((s, g) => s + g.rows.length, 0);
@@ -209,13 +241,13 @@ export function DetailsClient({
           ))}
         </select>
         <div className="ml-auto flex items-center gap-4 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-2.5">
-          <p className="text-xs text-blue-500">完了レッスン {grandTotalLessons}件</p>
+          <p className="text-xs text-blue-500">対象件数 {grandTotalLessons}件</p>
           <p className="text-sm font-bold text-blue-700">歩合合計 {yen(grandTotalCommission)}</p>
         </div>
       </div>
 
       {groups.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-16">この月の完了レッスンはありません</p>
+        <p className="text-sm text-gray-400 text-center py-16">この月の対象レッスンはありません</p>
       )}
 
       <div className="space-y-4">
@@ -255,7 +287,14 @@ export function DetailsClient({
                         </span>
                       </td>
                       <td className="py-2 px-3 text-gray-600">
-                        <p className="font-medium text-gray-700">{row.course || "—"}</p>
+                        <p className="font-medium text-gray-700 flex items-center gap-1.5">
+                          {row.course || "—"}
+                          {row.sameDayCancel && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 whitespace-nowrap">
+                              当日キャンセル
+                            </span>
+                          )}
+                        </p>
                         {row.planNote && <p className="text-gray-400 mt-0.5">{row.planNote}</p>}
                         {row.sessionPassNote && <p className="text-gray-400 mt-0.5">{row.sessionPassNote}</p>}
                       </td>

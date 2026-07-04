@@ -2,7 +2,7 @@ import type { Customer, CustomerType } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus } from "./lessons-types";
 
 // ─── 発行元・振込先 ───────────────────────────────────────
 export const ISSUER = {
@@ -105,7 +105,7 @@ export function buildInvoice(
   // 単発レッスン（都度・オンラインパーソナル等。その月に完了したもの）
   for (const l of data.lessons) {
     if (l.customerId !== customer.id) continue;
-    if (courseToPaymentType(l.course) !== "single" || l.status !== "completed") continue;
+    if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inMonth(l.scheduledAt, month)) continue;
     const amount = (typeof l.amount === "number" && l.amount > 0)
       ? l.amount

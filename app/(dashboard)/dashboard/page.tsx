@@ -14,6 +14,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { buildTrainerEntries, buildSalesEntries, type CommissionContext } from "@/lib/commissions";
+import { isBillableLessonStatus } from "@/lib/lessons-types";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,10 @@ export default async function DashboardPage() {
   const myId = currentMember?.id;
 
   const completedThisMonth = lessons.filter(
-    (l) => l.status === "completed" && isoToMonth(l.scheduledAt) === mon
+    (l) => isBillableLessonStatus(l.status) && isoToMonth(l.scheduledAt) === mon
+  );
+  const completedTrialsThisMonth = trialLessons.filter(
+    (tl) => tl.status === "completed" && isoToMonth(tl.scheduledAt) === mon
   );
 
   // 自分の今月の完了／予定レッスン（通常レッスンのトレーナー担当分）
@@ -80,7 +84,7 @@ export default async function DashboardPage() {
 
   // 自分の今月の歩合（見込み）
   const contractedTrials = trialLessons.filter((tl) => tl.contracted === true);
-  const myTrainerCommission = buildTrainerEntries(completedThisMonth, mon, ctx)
+  const myTrainerCommission = buildTrainerEntries(completedThisMonth, completedTrialsThisMonth, mon, ctx)
     .find((e) => e.memberId === myId)?.total ?? 0;
   const mySalesCommission = buildSalesEntries(completedThisMonth, contractedTrials, mon, ctx)
     .find((e) => e.memberId === myId)?.total ?? 0;

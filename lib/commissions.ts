@@ -4,7 +4,7 @@ import { courseToPaymentType } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
-import { getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS } from "./commissions-types";
+import { getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS, TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 
 // ─── 表示行・集計の型 ────────────────────────────────────
 export interface TrainerLessonRow {
@@ -81,7 +81,7 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
   if (lesson.sessionPassId) {
     const pass = ctx.sessionPasses.find((p) => p.id === lesson.sessionPassId);
     if (pass) {
-      if (pass.price && pass.totalCount > 0) return Math.round(pass.price / pass.totalCount);
+      if (pass.price != null && pass.totalCount > 0) return Math.round(pass.price / pass.totalCount);
       // price 未設定の場合は人数×回数でマスタから標準単価を算出
       const masterTotal = ctx.sessionPassPriceMap?.[pass.personCount]?.[pass.totalCount];
       if (masterTotal && pass.totalCount > 0) return Math.round(masterTotal / pass.totalCount);
@@ -120,14 +120,29 @@ export function resolveTrainerRate(memberId: string, customerId: string, ctx: Co
   return r != null ? r.rate / 100 : TRAINER_RATE;
 }
 
-/** 選択月のトレーナー歩合集計（lessons は完了レッスンを渡す） */
-export function buildTrainerEntries(lessons: Lesson[], month: string, ctx: CommissionContext): TrainerEntry[] {
+/** 体験レッスン1件あたりの単価（プランマスタの「体験レッスン」行を優先、無ければ固定単価表） */
+export function resolveTrialLessonFee(ctx: CommissionContext): number {
+  return ctx.lessonFees?.[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME);
+}
+
+/**
+ * 選択月のトレーナー歩合集計。
+ * - lessons: 完了した通常レッスン
+ * - trialLessons: 完了した体験レッスン（担当トレーナーへの歩合対象。成約有無は問わない）
+ */
+export function buildTrainerEntries(
+  lessons: Lesson[],
+  trialLessons: TrialLesson[],
+  month: string,
+  ctx: CommissionContext,
+): TrainerEntry[] {
   const filtered = lessons.filter((l) => isoToMonth(l.scheduledAt) === month && l.trainerMemberId);
+  const filteredTrials = trialLessons.filter((t) => isoToMonth(t.scheduledAt) === month && t.trainerMemberId);
   const map = new Map<string, TrainerEntry>();
 
   for (const l of filtered) {
     const tid  = l.trainerMemberId!;
-    // 歩合はレッスン料金そのものを対象とする（レンタルジム代は控除しない／利益計算側で差し引く）
+    // 歩合はレッスン料金そのものを対象とする(レンタルジム代は控除しない／利益計算側で差し引く)
     const fee  = resolveLessonFee(l, ctx);
     const comm = Math.round(fee * resolveTrainerRate(tid, l.customerId, ctx));
 
@@ -139,6 +154,23 @@ export function buildTrainerEntries(lessons: Lesson[], month: string, ctx: Commi
       lessonId: l.id, customerName: l.customerName,
       course: l.course ?? "", scheduledAt: l.scheduledAt,
       fee, commission: comm,
+    });
+    entry.total += comm;
+  }
+
+  const trialFee = resolveTrialLessonFee(ctx);
+  for (const tl of filteredTrials) {
+    const tid  = tl.trainerMemberId!;
+    const comm = Math.round(trialFee * resolveTrainerRate(tid, tl.customerId, ctx));
+
+    if (!map.has(tid)) {
+      map.set(tid, { memberId: tid, memberName: tl.trainerMemberName ?? tid, lessons: [], total: 0 });
+    }
+    const entry = map.get(tid)!;
+    entry.lessons.push({
+      lessonId: `trial-${tl.id}`, customerName: tl.customerName,
+      course: TRIAL_LESSON_COURSE_NAME, scheduledAt: tl.scheduledAt,
+      fee: trialFee, commission: comm,
     });
     entry.total += comm;
   }

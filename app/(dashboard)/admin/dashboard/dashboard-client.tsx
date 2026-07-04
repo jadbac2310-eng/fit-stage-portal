@@ -13,7 +13,7 @@ import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import {
-  buildTrainerEntries, buildSalesEntries, resolveLessonFee, isoToMonth,
+  buildTrainerEntries, buildSalesEntries, resolveLessonFee, resolveTrialLessonFee, isoToMonth,
   type CommissionContext,
 } from "@/lib/commissions";
 import { cn } from "@/lib/cn";
@@ -53,12 +53,15 @@ function computeMonth(
   month: string,
   lessons: Lesson[],
   trialLessons: TrialLesson[],
+  completedTrialLessons: TrialLesson[],
   ctx: CommissionContext,
 ): MonthFigures {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
-  const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
+  const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
+  const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
+    + trialsInMonth.length * resolveTrialLessonFee(ctx);
   const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.storeFee ?? 0), 0);
-  const trainerPayout = buildTrainerEntries(lessons, month, ctx).reduce((s, e) => s + e.total, 0);
+  const trainerPayout = buildTrainerEntries(lessons, completedTrialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
 }
@@ -151,11 +154,12 @@ function KpiCard({
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
   trialLessons:  TrialLesson[];
+  completedTrialLessons?: TrialLesson[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
@@ -166,6 +170,7 @@ export function RevenueDashboardClient({
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
+  const trialsCompleted = useMemo(() => completedTrialLessons ?? [], [completedTrialLessons]);
 
   const ctx = useMemo((): CommissionContext => (
     { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
@@ -175,13 +180,13 @@ export function RevenueDashboardClient({
   const series = useMemo(() => {
     const months = [...monthOptions].reverse();
     return months.map((o) => {
-      const f = computeMonth(o.value, lessons, trialLessons, ctx);
+      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx);
       const [, m] = o.value.split("-");
       return { ...f, label: `${Number(m)}月` };
     });
-  }, [monthOptions, lessons, trialLessons, ctx]);
+  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx]);
 
-  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, ctx), [month, lessons, trialLessons, ctx]);
+  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx), [month, lessons, trialLessons, trialsCompleted, ctx]);
 
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
 

@@ -51,9 +51,11 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
           </span>
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
             lesson.status === "scheduled" ? "bg-blue-50 text-blue-600" :
-            lesson.status === "completed" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            lesson.status === "completed" ? "bg-green-100 text-green-700" :
+            lesson.status === "cancelled_same_day" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
           }`}>
-            {lesson.status === "completed" ? <CheckCircle size={10} /> : lesson.status === "cancelled" ? <XCircle size={10} /> : <Clock size={10} />}
+            {lesson.status === "completed" ? <CheckCircle size={10} /> :
+             (lesson.status === "cancelled" || lesson.status === "cancelled_same_day") ? <XCircle size={10} /> : <Clock size={10} />}
             {LESSON_STATUS_LABEL[lesson.status]}
           </span>
         </div>
@@ -61,7 +63,9 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
 
         <div className="bg-white rounded-2xl border border-gray-200 px-4">
           <Row icon={<Calendar size={15} />} label="日付">{fmtDate(lesson.scheduledAt)}</Row>
-          <Row icon={<Clock size={15} />} label="時刻">{fmtTime(lesson.scheduledAt)}</Row>
+          <Row icon={<Clock size={15} />} label="時刻">
+            {fmtTime(lesson.scheduledAt)}{lesson.endAt ? `〜${fmtTime(lesson.endAt)}` : ""}
+          </Row>
           <Row icon={<User size={15} />} label="担当トレーナー">{lesson.trainerMemberName ?? "未設定"}</Row>
           {lesson.course && <Row icon={<Ticket size={15} />} label="コース">{lesson.course}</Row>}
           {lesson.location && <Row icon={<MapPin size={15} />} label="場所">{lesson.location}</Row>}

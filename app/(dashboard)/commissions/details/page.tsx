@@ -1,5 +1,6 @@
 import { getCustomers } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
+import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
@@ -7,6 +8,7 @@ import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPa
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
+import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { DetailsClient } from "./details-client";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +25,10 @@ export default async function CommissionDetailsPage() {
     );
   }
 
-  const [customers, lessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, trainerRates, rentalGyms, stores] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, trainerRates, rentalGyms, stores] = await Promise.all([
     getCustomers(),
     getLessons(),
+    getTrialLessons(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
@@ -36,12 +39,14 @@ export default async function CommissionDetailsPage() {
     getStores(),
   ]);
 
-  const completedLessons = lessons.filter((l) => l.status === "completed");
+  const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
+  const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
 
   return (
     <DetailsClient
       customers={customers}
       lessons={completedLessons}
+      trialLessons={completedTrialLessons}
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
       lessonFees={buildLessonFeeMap(plansMaster)}

@@ -36,7 +36,7 @@ export type ScheduleItem = {
   color?: EventColor;
   location?: string;
   course?: string;
-  status: "scheduled" | "completed" | "cancelled";
+  status: "scheduled" | "completed" | "cancelled" | "cancelled_same_day";
   trainerId?: string;
   trainerName?: string;
   trainerAvatarUrl?: string;
@@ -161,10 +161,11 @@ function StatusPill({ status }: { status: ScheduleItem["status"] }) {
   return (
     <span className={cn(
       "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium",
-      status === "completed" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+      status === "completed" ? "bg-green-100 text-green-700" :
+      status === "cancelled_same_day" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
     )}>
       {status === "completed" ? <CheckCircle size={9} /> : <XCircle size={9} />}
-      {status === "completed" ? "完了" : "キャンセル"}
+      {status === "completed" ? "完了" : status === "cancelled_same_day" ? "当日キャンセル" : "キャンセル"}
     </span>
   );
 }
@@ -194,12 +195,15 @@ function LessonCard({
   const isTrial = item.type === "trial";
   const isPersonal = item.type === "personal";
   const cancelled = item.status === "cancelled";
+  const sameDayCancel = item.status === "cancelled_same_day";
   const color = item.color ?? "blue";
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
   // 通常レッスンの編集可否（管理者 or 追加した本人）
   const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
   // 完了/予定に戻すは「担当トレーナー本人」のみ
   const canCompleteLesson = item.type === "regular" && !!currentMemberId && item.trainerId === currentMemberId;
+  // キャンセル・当日キャンセルへの変更も担当トレーナー本人のみ（すでにキャンセル系のときは表示しない）
+  const canCancelLesson = canCompleteLesson && !cancelled && !sameDayCancel;
 
   const hasStaff = isPersonal ? !!item.ownerName : (!!item.trainerName || (isTrial && !!item.salesName));
 
@@ -219,6 +223,19 @@ function LessonCard({
   }
 
   function handleSetStatus(status: "completed" | "scheduled") {
+    runStatus(async () => {
+      try {
+        await setLessonStatusAction(item.id, status);
+        router.refresh();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
+      }
+    });
+  }
+
+  function handleCancel(status: "cancelled" | "cancelled_same_day") {
+    const label = status === "cancelled_same_day" ? "当日キャンセル" : "キャンセル";
+    if (!confirm(`このレッスンを${label}にしますか？`)) return;
     runStatus(async () => {
       try {
         await setLessonStatusAction(item.id, status);
@@ -254,6 +271,14 @@ function LessonCard({
           )}>
             {isPersonal && item.allDay ? "終日" : timeStr(item.scheduledAt)}
           </span>
+          {!(isPersonal && item.allDay) && item.endAt && (
+            <span className={cn(
+              "text-[10px] tabular-nums",
+              cancelled ? "text-gray-300 line-through" : "text-gray-400"
+            )}>
+              〜{timeStr(item.endAt)}
+            </span>
+          )}
         </div>
 
         {/* 本文 */}
@@ -384,6 +409,26 @@ function LessonCard({
                 <CheckCircle size={13} /> {settingStatus ? "変更中…" : "完了にする"}
               </button>
             )
+          )}
+          {canCancelLesson && (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleCancel("cancelled_same_day")}
+                disabled={settingStatus}
+                className="flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <XCircle size={13} /> 当日キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancel("cancelled")}
+                disabled={settingStatus}
+                className="flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <XCircle size={13} /> キャンセル
+              </button>
+            </div>
           )}
           {canEditLesson && (
             <button
@@ -569,6 +614,7 @@ function CalendarView({
                     className={cn(
                       "text-[9px] font-medium leading-tight px-1 py-0.5 rounded truncate",
                       it.status === "cancelled" ? "bg-gray-100 text-gray-400 line-through" :
+                      it.status === "cancelled_same_day" ? "bg-amber-100 text-amber-700" :
                       it.type === "personal" ? COLOR_MAP[it.color ?? "blue"].chip :
                       it.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                     )}

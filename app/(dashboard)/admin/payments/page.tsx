@@ -5,6 +5,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getLessons } from "@/lib/lessons";
 import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getPayments, buildReceivables } from "@/lib/payments";
+import { billingGroups, billingName } from "@/lib/invoices";
 import { getCheckoutsByMonth } from "@/lib/stripe-checkouts";
 import { isStripeConfigured } from "@/lib/stripe";
 import { PaymentsClient } from "./payments-client";
@@ -48,12 +49,19 @@ export default async function PaymentsPage({
     sessionPassPriceMap: buildSessionPassPriceMap(sppPrices),
   });
 
+  // 同じ会社・人物への請求をまとめる先（billingToCustomerId）ごとに顧客IDをグルーピングする
+  const billerMap: Record<string, { id: string; name: string }> = {};
+  for (const { biller, members } of billingGroups(customers)) {
+    for (const m of members) billerMap[m.id] = { id: biller.id, name: billingName(biller) };
+  }
+
   return (
     <PaymentsClient
       receivables={receivables}
       month={month}
       checkouts={checkouts}
       stripeEnabled={isStripeConfigured()}
+      billerMap={billerMap}
     />
   );
 }

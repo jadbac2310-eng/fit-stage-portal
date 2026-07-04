@@ -4,7 +4,7 @@ import type { Customer } from "./customers-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus } from "./lessons-types";
 import { paymentKey, type Payment, type PaymentSourceType, type Receivable } from "./payments-types";
 export type { Payment, PaymentSourceType, Receivable } from "./payments-types";
 
@@ -136,7 +136,7 @@ export function buildReceivables(
 
   // 単発払い（都度・オンラインパーソナル等。その月に完了したもの）
   for (const l of data.lessons) {
-    if (courseToPaymentType(l.course) !== "single" || l.status !== "completed") continue;
+    if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inMonth(l.scheduledAt, month)) continue;
     const cust = data.customers.find((c) => c.id === l.customerId);
     const amount = (typeof l.amount === "number" && l.amount > 0)

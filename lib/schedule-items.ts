@@ -43,7 +43,7 @@ export async function collectNotifyItems(): Promise<NotifyItem[]> {
   }
 
   for (const l of lessons) {
-    if (l.status === "cancelled" || !l.trainerMemberId) continue;
+    if (l.status === "cancelled" || l.status === "cancelled_same_day" || !l.trainerMemberId) continue;
     items.push({
       ref: `regular:${l.id}`,
       title: `${l.customerName} レッスン`,

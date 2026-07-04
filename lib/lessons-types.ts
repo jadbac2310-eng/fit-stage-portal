@@ -1,7 +1,7 @@
 import type { Exercise } from "./exercise-types";
 
 export type LessonPaymentType = "monthly" | "session_pass" | "single";
-export type LessonStatus = "scheduled" | "completed" | "cancelled";
+export type LessonStatus = "scheduled" | "completed" | "cancelled" | "cancelled_same_day";
 
 export interface Lesson {
   id: string;
@@ -36,7 +36,13 @@ export const LESSON_STATUS_LABEL: Record<LessonStatus, string> = {
   scheduled: "予定",
   completed: "完了",
   cancelled: "キャンセル",
+  cancelled_same_day: "当日キャンセル",
 };
+
+/** 売上・歩合の計算対象に含めるステータスか（当日キャンセルは実施扱いで売上・歩合が発生する） */
+export function isBillableLessonStatus(status: LessonStatus): boolean {
+  return status === "completed" || status === "cancelled_same_day";
+}
 
 export const COURSE_OPTIONS: { value: string; label: string; paymentType: LessonPaymentType }[] = [
   { value: "回数券", label: "回数券", paymentType: "session_pass" },

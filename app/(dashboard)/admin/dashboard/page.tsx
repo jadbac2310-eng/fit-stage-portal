@@ -6,6 +6,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
   getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
 } from "@/lib/analytics";
@@ -45,14 +46,16 @@ export default async function AdminDashboardPage() {
     getAnalyticsDiagnostic(),
   ]);
 
-  const completedLessons = lessons.filter((l) => l.status === "completed");
+  const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const contractedTrials = trialLessons.filter((l) => l.contracted === true);
+  const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
 
   return (
     <RevenueDashboardClient
       customers={customers}
       lessons={completedLessons}
       trialLessons={contractedTrials}
+      completedTrialLessons={completedTrialLessons}
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
       lessonFees={buildLessonFeeMap(plansMaster)}

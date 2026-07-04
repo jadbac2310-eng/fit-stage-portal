@@ -43,14 +43,21 @@ function StatusBadge({ status }: { status: LessonStatus }) {
       "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
       status === "scheduled" ? "bg-blue-100 text-blue-700"   :
       status === "completed" ? "bg-green-100 text-green-700" :
+      status === "cancelled_same_day" ? "bg-amber-100 text-amber-700" :
                                "bg-gray-100 text-gray-500"
     )}>
       {status === "scheduled" && <Clock size={9} />}
       {status === "completed" && <CheckCircle size={9} />}
-      {status === "cancelled" && <XCircle size={9} />}
+      {(status === "cancelled" || status === "cancelled_same_day") && <XCircle size={9} />}
       {LESSON_STATUS_LABEL[status]}
     </span>
   );
+}
+
+// レッスン日時 → "2026年6月" 形式（顧客ごとの一覧を月単位でかためて見やすくするための小見出し）
+function monthLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
 }
 
 function passLabel(pass: SessionPass) {
@@ -606,7 +613,8 @@ export function LessonForm({
           <select name="status" defaultValue={defaultValues?.status ?? "scheduled"} className={inputClass}>
             <option value="scheduled">予定</option>
             <option value="completed">完了</option>
-            <option value="cancelled">キャンセル</option>
+            <option value="cancelled_same_day">当日キャンセル（実施扱い・売上/歩合あり）</option>
+            <option value="cancelled">キャンセル（白紙）</option>
           </select>
         </div>
       )}
@@ -843,12 +851,21 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 
       {expanded && (
         <div className="border-t border-gray-100 px-4">
-          {/* レッスン一覧 */}
-          {lessons.map((l) => (
-            <LessonItem key={l.id} lesson={l} customers={customers} members={members}
-              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
-              isAdmin={isAdmin} currentMemberId={currentMemberId} />
-          ))}
+          {/* レッスン一覧（月ごとに小見出しでかためて表示） */}
+          {lessons.map((l, i) => {
+            const label = monthLabel(l.scheduledAt);
+            const showMonthHeader = i === 0 || label !== monthLabel(lessons[i - 1].scheduledAt);
+            return (
+              <div key={l.id}>
+                {showMonthHeader && (
+                  <p className="text-xs font-bold text-gray-400 pt-3 pb-1 first:pt-3">{label}</p>
+                )}
+                <LessonItem lesson={l} customers={customers} members={members}
+                  sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
+                  isAdmin={isAdmin} currentMemberId={currentMemberId} />
+              </div>
+            );
+          })}
 
           {showAdd ? (
             <div className="py-3">
@@ -893,7 +910,8 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
       map.get(l.customerId)?.lessons.push(l);
     });
     map.forEach((g) => g.lessons.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)));
-    return Array.from(map.values());
+    // 直近のレッスンがある顧客ほど上に来るよう並べる（各グループは既に新しい順にソート済み）
+    return Array.from(map.values()).sort((a, b) => b.lessons[0].scheduledAt.localeCompare(a.lessons[0].scheduledAt));
   }, [lessons, customers]);
 
   const filtered = grouped.filter(({ customer }) => {

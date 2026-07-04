@@ -6,6 +6,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { CommissionsClient } from "./commissions-client";
 
 export const dynamic = "force-dynamic";
@@ -35,8 +36,9 @@ export default async function CommissionsPage() {
     getMemberCustomerRates(),
   ]);
 
-  const completedLessons = lessons.filter((l) => l.status === "completed");
+  const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const contractedTrials = trialLessons.filter((l) => l.contracted === true);
+  const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
 
   // 歩合率は他人ぶんを渡さない（管理者は全件、それ以外は自分ぶんのみ）
   const trainerRates = allRates
@@ -48,6 +50,7 @@ export default async function CommissionsPage() {
       customers={customers}
       lessons={completedLessons}
       trialLessons={contractedTrials}
+      completedTrialLessons={completedTrialLessons}
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
       lessonFees={buildLessonFeeMap(plansMaster)}
