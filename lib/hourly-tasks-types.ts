@@ -24,13 +24,13 @@ export interface HourlyTask {
   updatedAt: string;
 }
 
-/** 時給業務の稼働時間（時間単位・小数） */
+/** 業務の稼働時間（時間単位・小数） */
 export function hourlyTaskHours(task: Pick<HourlyTask, "scheduledAt" | "endAt">): number {
   const minutes = (new Date(task.endAt).getTime() - new Date(task.scheduledAt).getTime()) / 60000;
   return Math.max(0, minutes) / 60;
 }
 
-/** 時給業務の支払い額（時給 × 稼働時間、円未満四捨五入） */
+/** 業務の支払い額（時給 × 稼働時間、円未満四捨五入） */
 export function hourlyTaskAmount(task: Pick<HourlyTask, "scheduledAt" | "endAt" | "hourlyRate">): number {
   return Math.round(task.hourlyRate * hourlyTaskHours(task));
 }

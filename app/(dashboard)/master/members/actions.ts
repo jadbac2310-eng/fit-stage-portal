@@ -14,6 +14,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
   const email    = (formData.get("email")    as string)?.trim() || undefined;
   const role     = (formData.get("role")     as string)?.trim() || undefined;
   const note     = (formData.get("note")     as string)?.trim() || undefined;
+  const invoiceNumber = (formData.get("invoiceNumber") as string)?.trim() || undefined;
   const password = (formData.get("password") as string)?.trim() || undefined;
   const callerIsAdmin = await getCurrentIsAdmin();
   const isAdmin = callerIsAdmin && formData.get("isAdmin") === "on";
@@ -49,7 +50,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
     }
   }
 
-  const created = await addMember({ name, email, role, note, avatarUrl, authUserId, isAdmin });
+  const created = await addMember({ name, email, role, note, invoiceNumber, avatarUrl, authUserId, isAdmin });
   await logActivity({ action: "create", entityType: "member", entityId: created.id, summary: `担当者を追加: ${name}` });
   revalidatePath("/master/members");
 }
@@ -61,6 +62,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const email       = (formData.get("email")    as string)?.trim() || undefined;
   const role        = (formData.get("role")     as string)?.trim() || undefined;
   const note        = (formData.get("note")     as string)?.trim() || undefined;
+  const invoiceNumber = (formData.get("invoiceNumber") as string)?.trim() || undefined;
   const newPassword   = (formData.get("password") as string)?.trim() || undefined;
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
@@ -112,6 +114,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     email,
     role,
     note,
+    invoiceNumber,
     isAdmin,
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),

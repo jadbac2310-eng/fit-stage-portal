@@ -10,6 +10,7 @@ export interface Member {
   authUserId?: string;
   isAdmin: boolean;
   commissionRate?: number; // トレーナー歩合率（％）。未設定は既定50%
+  invoiceNumber?: string;  // インボイス登録番号（コミッション明細に表示）
   lineUserId?: string;
   lineLinkCode?: string;
   createdAt: string;
@@ -25,6 +26,7 @@ type DbRow = {
   auth_user_id: string | null;
   is_admin: boolean;
   commission_rate?: number | null;
+  invoice_number?: string | null;
   line_user_id?: string | null;
   line_link_code?: string | null;
   created_at: string;
@@ -41,6 +43,7 @@ function fromDb(row: DbRow): Member {
     authUserId: row.auth_user_id ?? undefined,
     isAdmin:    row.is_admin,
     commissionRate: row.commission_rate ?? undefined,
+    invoiceNumber: row.invoice_number ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
     lineLinkCode: row.line_link_code ?? undefined,
     createdAt:  row.created_at,
@@ -99,6 +102,7 @@ export async function addMember(
       auth_user_id: data.authUserId ?? null,
       is_admin:     data.isAdmin,
       commission_rate: data.commissionRate ?? null,
+      invoice_number: data.invoiceNumber ?? null,
     })
     .select()
     .single();
@@ -119,6 +123,7 @@ export async function updateMember(
   if (data.authUserId !== undefined) patch.auth_user_id = data.authUserId ?? null;
   if (data.isAdmin    !== undefined) patch.is_admin     = data.isAdmin;
   if (data.commissionRate !== undefined) patch.commission_rate = data.commissionRate ?? null;
+  if (data.invoiceNumber  !== undefined) patch.invoice_number  = data.invoiceNumber  ?? null;
 
   const { data: row, error } = await createAdminClient()
     .from("members")

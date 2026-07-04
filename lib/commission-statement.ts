@@ -12,7 +12,7 @@ export interface StatementLine {
   amount:       number;
 }
 
-/** 時給業務の明細1行 */
+/** 業務の明細1行 */
 export interface HourlyStatementLine {
   date:   string; // YYYY-MM-DD
   title:  string;
@@ -27,14 +27,14 @@ export interface TrainerStatement {
   trainerTotal: number;
   salesLines:   StatementLine[]; // 営業としてのレッスン歩合＋成約ボーナス
   salesTotal:   number;
-  hourlyLines:  HourlyStatementLine[]; // 時給業務
+  hourlyLines:  HourlyStatementLine[]; // 業務
   hourlyTotal:  number;
   total:        number;
 }
 
 /**
- * 月次のトレーナー明細を全員ぶん作る。
- * レッスン担当分（トレーナー歩合）・営業分（営業歩合＋成約ボーナス）・時給業務のうち
+ * 月次のコミッション明細を全員ぶん作る。
+ * レッスン担当分（トレーナー歩合）・営業分（営業歩合＋成約ボーナス）・業務のうち
  * 複数を持つ人は、1人分の明細に全部まとめて含める。
  */
 export function buildTrainerStatements(

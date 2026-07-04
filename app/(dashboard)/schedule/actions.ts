@@ -197,7 +197,7 @@ export async function deletePersonalEventAction(id: string) {
   revalidatePath("/schedule");
 }
 
-// ─── 時給業務（管理者のみ・スケジュールから割り当てる） ───────
+// ─── 業務（管理者のみ・スケジュールから割り当てる） ───────
 function hourlyTaskTimes(formData: FormData): { scheduledAt: string; endAt: string } {
   const startDate = (formData.get("startDate") as string)?.trim();
   const startTime = (formData.get("startTime") as string)?.trim();
@@ -227,7 +227,7 @@ export async function createHourlyTaskAction(formData: FormData) {
   const created = await addHourlyTask({ memberId, title, scheduledAt, endAt, hourlyRate, location, note, createdBy: admin?.id });
   await logActivity({
     action: "create", entityType: "hourly_task", entityId: created.id,
-    summary: `時給業務を追加: ${assignee?.name ?? ""} ${title}`,
+    summary: `業務を追加: ${assignee?.name ?? ""} ${title}`,
   });
   revalidatePath("/schedule");
 }
@@ -249,7 +249,7 @@ export async function updateHourlyTaskAction(id: string, formData: FormData) {
   const { scheduledAt, endAt } = hourlyTaskTimes(formData);
 
   await updateHourlyTask(id, { memberId, title, scheduledAt, endAt, hourlyRate, location, note, status });
-  await logActivity({ action: "update", entityType: "hourly_task", entityId: id, summary: `時給業務を編集: ${title}` });
+  await logActivity({ action: "update", entityType: "hourly_task", entityId: id, summary: `業務を編集: ${title}` });
   revalidatePath("/schedule");
 }
 
@@ -257,6 +257,6 @@ export async function deleteHourlyTaskAction(id: string) {
   await requireAdmin();
   const task = await getHourlyTask(id);
   await deleteHourlyTask(id);
-  await logActivity({ action: "delete", entityType: "hourly_task", entityId: id, summary: `時給業務を削除: ${task?.title ?? ""}` });
+  await logActivity({ action: "delete", entityType: "hourly_task", entityId: id, summary: `業務を削除: ${task?.title ?? ""}` });
   revalidatePath("/schedule");
 }

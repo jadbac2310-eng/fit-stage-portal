@@ -296,7 +296,7 @@ function AdminLinks() {
           <FileText size={17} className="text-violet-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900">トレーナー明細</p>
+          <p className="text-sm font-semibold text-gray-900">コミッション明細</p>
           <p className="text-xs text-gray-500 mt-0.5">給料の支払い用に明細を発行（単価・歩合率は非表示）</p>
         </div>
         <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />

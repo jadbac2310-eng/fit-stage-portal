@@ -204,7 +204,7 @@ function LessonCard({
   const sameDayCancel = item.status === "cancelled_same_day";
   const color = item.color ?? "blue";
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
-  // 時給業務の編集/削除は管理者のみ
+  // 業務の編集/削除は管理者のみ
   const canManageHourly = isHourly && isAdmin;
   // 通常レッスンの編集可否（管理者 or 追加した本人）
   const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
@@ -232,7 +232,7 @@ function LessonCard({
 
   function handleDeleteHourly() {
     if (deleting) return;
-    if (!confirm("この時給業務を削除しますか？")) return;
+    if (!confirm("この業務を削除しますか？")) return;
     runDelete(async () => {
       try {
         await deleteHourlyTaskAction(item.id);
@@ -310,7 +310,7 @@ function LessonCard({
               isPersonal ? COLOR_MAP[color].chip : isTrial ? "bg-purple-100 text-purple-700" : isHourly ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
             )}>
               {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : isHourly ? <Wallet size={9} /> : <Dumbbell size={9} />}
-              {isPersonal ? "個人" : isTrial ? "体験" : isHourly ? "時給業務" : "通常"}
+              {isPersonal ? "個人" : isTrial ? "体験" : isHourly ? "業務" : "通常"}
             </span>
             {item.isPrivate && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-200 text-gray-600">
@@ -724,7 +724,7 @@ function CalendarView({
                         onClick={() => { setAddOpen(false); onAddHourly(keyToYmd(selectedKey)); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                       >
-                        <Wallet size={14} className="text-amber-500" /> 時給業務
+                        <Wallet size={14} className="text-amber-500" /> 業務
                       </button>
                     )}
                   </div>
@@ -1158,7 +1158,7 @@ function LessonModal({
   );
 }
 
-// ─── 時給業務の追加/編集モーダル（管理者のみ） ─────────────
+// ─── 業務の追加/編集モーダル（管理者のみ） ─────────────
 function HourlyTaskModal({
   members, defaultDate, editTask, onClose,
 }: {
@@ -1210,7 +1210,7 @@ function HourlyTaskModal({
 
   async function handleDelete() {
     if (!editTask || deleting) return;
-    if (!confirm("この時給業務を削除しますか？")) return;
+    if (!confirm("この業務を削除しますか？")) return;
     runDelete(async () => {
       try {
         await deleteHourlyTaskAction(editTask.id);
@@ -1227,7 +1227,7 @@ function HourlyTaskModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="text-base font-bold text-gray-900">{isEdit ? "時給業務を編集" : "時給業務を追加"}</p>
+          <p className="text-base font-bold text-gray-900">{isEdit ? "業務を編集" : "業務を追加"}</p>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
 
@@ -1313,7 +1313,7 @@ function HourlyTaskModal({
           {isEdit && (
             <button type="button" onClick={handleDelete} disabled={deleting}
               className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2.5 transition disabled:opacity-50">
-              <Trash2 size={13} /> {deleting ? "削除中…" : "この時給業務を削除"}
+              <Trash2 size={13} /> {deleting ? "削除中…" : "この業務を削除"}
             </button>
           )}
         </form>
@@ -1441,7 +1441,7 @@ function TimelineView({
                 {onAddHourly && (
                   <button type="button" onClick={() => { setAddOpen(false); onAddHourly(keyToYmd(key)); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                    <Wallet size={14} className="text-amber-500" /> 時給業務
+                    <Wallet size={14} className="text-amber-500" /> 業務
                   </button>
                 )}
               </div>
@@ -1558,7 +1558,7 @@ export function ScheduleClient({
     const l = lessons.find((x) => x.id === lessonId);
     if (l) { setEditLesson(l); setLessonDate(undefined); setLessonModalOpen(true); }
   };
-  // 時給業務の追加/編集モーダル（管理者のみ）
+  // 業務の追加/編集モーダル（管理者のみ）
   const [hourlyModalOpen, setHourlyModalOpen] = useState(false);
   const [hourlyDate, setHourlyDate] = useState<string | undefined>(undefined);
   const [editHourlyTask, setEditHourlyTask] = useState<HourlyTask | null>(null);
@@ -1567,7 +1567,7 @@ export function ScheduleClient({
     const h = hourlyTasks.find((x) => x.id === hourlyId);
     if (h) { setEditHourlyTask(h); setHourlyDate(undefined); setHourlyModalOpen(true); }
   };
-  // 追加メニュー（レッスン / 個人予定 / 時給業務）の開閉
+  // 追加メニュー（レッスン / 個人予定 / 業務）の開閉
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const canAddLesson = customers.length > 0;
 
@@ -1669,7 +1669,7 @@ export function ScheduleClient({
                     onClick={() => { setAddMenuOpen(false); openHourly(); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
-                    <Wallet size={14} className="text-amber-500" /> 時給業務
+                    <Wallet size={14} className="text-amber-500" /> 業務
                   </button>
                 )}
               </div>

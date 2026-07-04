@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
   const buffer = await renderToBuffer(
     CommissionStatementDocument({
       trainerName: trainer.name,
+      trainerInvoiceNumber: trainer.invoiceNumber,
       trainerLines: statement?.trainerLines ?? [],
       trainerTotal: statement?.trainerTotal ?? 0,
       salesLines: statement?.salesLines ?? [],

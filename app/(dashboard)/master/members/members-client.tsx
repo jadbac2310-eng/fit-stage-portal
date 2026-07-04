@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -238,6 +238,19 @@ function MemberForm({
           placeholder="example@fitstage.jp"
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+          <Receipt size={12} /> インボイス登録番号 <span className="text-gray-300 font-normal">（任意）</span>
+        </label>
+        <input
+          name="invoiceNumber"
+          defaultValue={defaultValues?.invoiceNumber ?? ""}
+          placeholder="T1234567890123"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-400 mt-1">コミッション明細に表示されます</p>
       </div>
 
       <div>

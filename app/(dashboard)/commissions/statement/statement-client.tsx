@@ -31,7 +31,7 @@ export function StatementClient({ statements, month }: { statements: TrainerStat
       <div className="mb-4">
         <div className="flex items-center gap-2">
           <Receipt size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">トレーナー明細</h1>
+          <h1 className="text-xl font-bold text-gray-900">コミッション明細</h1>
         </div>
         <p className="text-sm text-gray-500 mt-0.5">トレーナーごとに月次のお支払い明細を発行します（単価・歩合率は表示されません）</p>
       </div>
@@ -61,7 +61,7 @@ export function StatementClient({ statements, month }: { statements: TrainerStat
             const parts = [
               e.trainerLines.length > 0 && "レッスン",
               e.salesLines.length > 0 && "営業",
-              e.hourlyLines.length > 0 && "時給業務",
+              e.hourlyLines.length > 0 && "業務",
             ].filter((v): v is string => !!v);
             return (
             <Link

@@ -123,7 +123,7 @@ export default async function SchedulePage() {
     });
   }
 
-  // 時給業務（全件・管理者のみ追加/編集可。割り当てられた担当者のスケジュールにも表示）
+  // 業務（全件・管理者のみ追加/編集可。割り当てられた担当者のスケジュールにも表示）
   for (const h of hourlyTasks) {
     items.push({
       id: h.id,

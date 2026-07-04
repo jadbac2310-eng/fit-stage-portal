@@ -27,6 +27,7 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
   toBox: { width: "55%" },
   toName: { fontSize: 14, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#9ca3af", paddingBottom: 3 },
+  toSub: { fontSize: 9, color: C.sub, marginTop: 6 },
   fromBox: { width: "42%", alignItems: "flex-end" },
   fromName: { fontSize: 12, fontWeight: "bold" },
   fromLine: { fontSize: 9, color: C.sub },
@@ -86,7 +87,7 @@ function HourlyLineSection({ lines, subtotal }: { lines: HourlyStatementLine[]; 
   if (lines.length === 0) return null;
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle}>時給業務</Text>
+      <Text style={s.sectionTitle}>業務</Text>
       <View style={s.th}>
         <Text style={[s.thText, s.cDate]}>日付</Text>
         <Text style={[s.thText, s.cHourlyTitle]}>業務内容</Text>
@@ -111,6 +112,7 @@ function HourlyLineSection({ lines, subtotal }: { lines: HourlyStatementLine[]; 
 
 export interface CommissionStatementPdfData {
   trainerName: string;
+  trainerInvoiceNumber?: string;
   trainerLines: StatementLine[];
   trainerTotal: number;
   salesLines: StatementLine[];
@@ -124,7 +126,7 @@ export interface CommissionStatementPdfData {
 }
 
 export function CommissionStatementDocument({
-  trainerName, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total, issuer, statementNo, monthLabel,
+  trainerName, trainerInvoiceNumber, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total, issuer, statementNo, monthLabel,
 }: CommissionStatementPdfData) {
   return (
     <Document title={`コミッション明細 ${trainerName} ${monthLabel}`}>
@@ -134,6 +136,7 @@ export function CommissionStatementDocument({
         <View style={s.headerRow}>
           <View style={s.toBox}>
             <Text style={s.toName}>{trainerName} 様</Text>
+            {trainerInvoiceNumber ? <Text style={s.toSub}>登録番号: {trainerInvoiceNumber}</Text> : null}
           </View>
           <View style={s.fromBox}>
             <Text style={s.fromName}>{issuer.name}</Text>
@@ -155,7 +158,7 @@ export function CommissionStatementDocument({
           <Text style={s.totalValue}>{yen(total)}</Text>
         </View>
 
-        {/* レッスン担当分・営業分・時給業務（単価・歩合率は表示しない） */}
+        {/* レッスン担当分・営業分・業務（単価・歩合率は表示しない） */}
         <LineSection title="レッスン担当分" lines={trainerLines} subtotal={trainerTotal} />
         <LineSection title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} subtotal={salesTotal} />
         <HourlyLineSection lines={hourlyLines} subtotal={hourlyTotal} />

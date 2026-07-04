@@ -65,7 +65,7 @@ function HourlyLineTable({ lines, total }: { lines: HourlyStatementLine[]; total
   if (lines.length === 0) return null;
   return (
     <div className="mb-6">
-      <p className="text-sm font-bold text-gray-700 mb-2">時給業務</p>
+      <p className="text-sm font-bold text-gray-700 mb-2">業務</p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b-2 border-gray-300 text-gray-500">
@@ -164,6 +164,7 @@ export default async function CommissionStatementPrintPage({
           {/* 宛先 */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-gray-900 border-b border-gray-400 pb-1 inline-block">{trainer.name} 様</p>
+            {trainer.invoiceNumber && <p className="text-xs text-gray-500 mt-2">登録番号: {trainer.invoiceNumber}</p>}
           </div>
           {/* 発行元 */}
           <div className="text-right text-xs text-gray-600 flex-shrink-0">
@@ -185,7 +186,7 @@ export default async function CommissionStatementPrintPage({
           <span className="text-2xl font-bold text-gray-900">{yen(total)}</span>
         </div>
 
-        {/* レッスン担当分・営業分・時給業務（単価・歩合率は表示しない） */}
+        {/* レッスン担当分・営業分・業務（単価・歩合率は表示しない） */}
         <LineTable title="レッスン担当分" lines={trainerLines} total={statement?.trainerTotal ?? 0} />
         <LineTable title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} total={statement?.salesTotal ?? 0} />
         <HourlyLineTable lines={hourlyLines} total={statement?.hourlyTotal ?? 0} />
