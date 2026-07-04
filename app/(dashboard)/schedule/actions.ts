@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentMember } from "@/lib/members";
+import { getCurrentMember, requireAdmin, getMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
 import {
   addPersonalEvent, updatePersonalEvent, deletePersonalEvent, getPersonalEvent,
@@ -9,6 +9,10 @@ import {
 import { normalizeColor } from "@/lib/personal-events-types";
 import { notifyMembersByLine, jstDateLabel, jstTimeStr } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
+import {
+  addHourlyTask, updateHourlyTask, deleteHourlyTask, getHourlyTask,
+} from "@/lib/hourly-tasks";
+import type { HourlyTaskStatus } from "@/lib/hourly-tasks-types";
 
 // 予定の日時ラベル（日本時間）
 function whenLabel(startAt: string, allDay: boolean): string {
@@ -190,5 +194,69 @@ export async function deletePersonalEventAction(id: string) {
       (m) => `❌ 予定が削除されました\n${event.title}\n${whenLabel(event.startAt, event.allDay)}\n削除: ${member.name}${scheduleLink(m)}`,
     );
   }
+  revalidatePath("/schedule");
+}
+
+// ─── 時給業務（管理者のみ・スケジュールから割り当てる） ───────
+function hourlyTaskTimes(formData: FormData): { scheduledAt: string; endAt: string } {
+  const startDate = (formData.get("startDate") as string)?.trim();
+  const startTime = (formData.get("startTime") as string)?.trim();
+  const endDate   = (formData.get("endDate")   as string)?.trim() || startDate;
+  const endTime   = (formData.get("endTime")   as string)?.trim();
+  if (!startDate || !startTime || !endTime) throw new Error("開始・終了の日時を入力してください");
+  return { scheduledAt: toIso(startDate, startTime), endAt: toIso(endDate, endTime) };
+}
+
+export async function createHourlyTaskAction(formData: FormData) {
+  await requireAdmin();
+  const admin = await getCurrentMember();
+
+  const memberId   = (formData.get("memberId")   as string)?.trim();
+  const title      = (formData.get("title")      as string)?.trim();
+  const rateRaw    = (formData.get("hourlyRate")  as string)?.trim();
+  const hourlyRate = parseInt(rateRaw, 10);
+  const location   = (formData.get("location")    as string)?.trim() || undefined;
+  const note       = (formData.get("note")        as string)?.trim() || undefined;
+
+  if (!memberId || !title || !Number.isFinite(hourlyRate)) {
+    throw new Error("必須項目が未入力です");
+  }
+  const { scheduledAt, endAt } = hourlyTaskTimes(formData);
+
+  const assignee = await getMember(memberId);
+  const created = await addHourlyTask({ memberId, title, scheduledAt, endAt, hourlyRate, location, note, createdBy: admin?.id });
+  await logActivity({
+    action: "create", entityType: "hourly_task", entityId: created.id,
+    summary: `時給業務を追加: ${assignee?.name ?? ""} ${title}`,
+  });
+  revalidatePath("/schedule");
+}
+
+export async function updateHourlyTaskAction(id: string, formData: FormData) {
+  await requireAdmin();
+
+  const memberId   = (formData.get("memberId")   as string)?.trim();
+  const title      = (formData.get("title")      as string)?.trim();
+  const rateRaw    = (formData.get("hourlyRate")  as string)?.trim();
+  const hourlyRate = parseInt(rateRaw, 10);
+  const location   = (formData.get("location")    as string)?.trim() || null;
+  const note       = (formData.get("note")        as string)?.trim() || null;
+  const status     = (formData.get("status")      as string)?.trim() as HourlyTaskStatus;
+
+  if (!memberId || !title || !Number.isFinite(hourlyRate)) {
+    throw new Error("必須項目が未入力です");
+  }
+  const { scheduledAt, endAt } = hourlyTaskTimes(formData);
+
+  await updateHourlyTask(id, { memberId, title, scheduledAt, endAt, hourlyRate, location, note, status });
+  await logActivity({ action: "update", entityType: "hourly_task", entityId: id, summary: `時給業務を編集: ${title}` });
+  revalidatePath("/schedule");
+}
+
+export async function deleteHourlyTaskAction(id: string) {
+  await requireAdmin();
+  const task = await getHourlyTask(id);
+  await deleteHourlyTask(id);
+  await logActivity({ action: "delete", entityType: "hourly_task", entityId: id, summary: `時給業務を削除: ${task?.title ?? ""}` });
   revalidatePath("/schedule");
 }

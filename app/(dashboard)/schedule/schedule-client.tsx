@@ -8,14 +8,17 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
-import { createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction } from "./actions";
+import {
+  createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction,
+  createHourlyTaskAction, updateHourlyTaskAction, deleteHourlyTaskAction,
+} from "./actions";
 import type { Member } from "@/lib/members";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
@@ -23,12 +26,13 @@ import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
+import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 
 export type ScheduleItem = {
   id: string;
-  type: "regular" | "trial" | "personal";
+  type: "regular" | "trial" | "personal" | "hourly";
   customerName: string;
   scheduledAt: string;
   endAt?: string;
@@ -180,13 +184,14 @@ function personalTimeLabel(item: ScheduleItem): string {
 
 // ─── 1件のカード（クリックでその場で展開） ───────────────
 function LessonCard({
-  item, isAdmin, currentMemberId, onEditPersonal, onEditLesson,
+  item, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly,
 }: {
   item: ScheduleItem;
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onEditHourly?: (hourlyId: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -194,10 +199,13 @@ function LessonCard({
   const { locked: settingStatus, run: runStatus } = useSubmitLock();
   const isTrial = item.type === "trial";
   const isPersonal = item.type === "personal";
+  const isHourly = item.type === "hourly";
   const cancelled = item.status === "cancelled";
   const sameDayCancel = item.status === "cancelled_same_day";
   const color = item.color ?? "blue";
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
+  // 時給業務の編集/削除は管理者のみ
+  const canManageHourly = isHourly && isAdmin;
   // 通常レッスンの編集可否（管理者 or 追加した本人）
   const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
   // 完了/予定に戻すは「担当トレーナー本人」のみ
@@ -215,6 +223,19 @@ function LessonCard({
     runDelete(async () => {
       try {
         await deletePersonalEventAction(item.id);
+        router.refresh();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "削除に失敗しました");
+      }
+    });
+  }
+
+  function handleDeleteHourly() {
+    if (deleting) return;
+    if (!confirm("この時給業務を削除しますか？")) return;
+    runDelete(async () => {
+      try {
+        await deleteHourlyTaskAction(item.id);
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "削除に失敗しました");
@@ -259,7 +280,7 @@ function LessonCard({
       >
         {/* カラーアクセント */}
         <div className={cn("w-1 flex-shrink-0",
-          isPersonal ? COLOR_MAP[color].accent : isTrial ? "bg-purple-400" : "bg-blue-500"
+          isPersonal ? COLOR_MAP[color].accent : isTrial ? "bg-purple-400" : isHourly ? "bg-amber-400" : "bg-blue-500"
         )} />
 
         {/* 時刻 */}
@@ -286,10 +307,10 @@ function LessonCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className={cn(
               "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
-              isPersonal ? COLOR_MAP[color].chip : isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+              isPersonal ? COLOR_MAP[color].chip : isTrial ? "bg-purple-100 text-purple-700" : isHourly ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
             )}>
-              {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : <Dumbbell size={9} />}
-              {isPersonal ? "個人" : isTrial ? "体験" : "通常"}
+              {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : isHourly ? <Wallet size={9} /> : <Dumbbell size={9} />}
+              {isPersonal ? "個人" : isTrial ? "体験" : isHourly ? "時給業務" : "通常"}
             </span>
             {item.isPrivate && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-200 text-gray-600">
@@ -348,6 +369,10 @@ function LessonCard({
                 {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
               </DetailRow>
             </>
+          ) : isHourly ? (
+            <DetailRow icon={<UserRound size={13} />} label="担当者">
+              {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+            </DetailRow>
           ) : (
             <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">
               {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
@@ -382,6 +407,25 @@ function LessonCard({
               <button
                 type="button"
                 onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2 px-4 transition disabled:opacity-50"
+              >
+                <Trash2 size={13} /> {deleting ? "削除中…" : "削除"}
+              </button>
+            </div>
+          )}
+          {canManageHourly && (
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => onEditHourly?.(item.id)}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
+              >
+                <Pencil size={13} /> 編集
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteHourly}
                 disabled={deleting}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2 px-4 transition disabled:opacity-50"
               >
@@ -455,7 +499,7 @@ function LessonCard({
 
 // ─── 日付グループ ─────────────────────────────────────
 function DayGroup({
-  date, items, isAdmin, currentMemberId, onEditPersonal, onEditLesson,
+  date, items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly,
 }: {
   date: Date;
   items: ScheduleItem[];
@@ -463,6 +507,7 @@ function DayGroup({
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onEditHourly?: (hourlyId: string) => void;
 }) {
   const { main, sub, accent } = dayLabel(date);
   return (
@@ -475,7 +520,7 @@ function DayGroup({
       <div className="space-y-2">
         {items.map((it) => (
           <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
-            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} />
+            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} onEditHourly={onEditHourly} />
         ))}
       </div>
     </div>
@@ -489,15 +534,17 @@ function keyToYmd(key: string): string {
 
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
 function CalendarView({
-  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onAddPersonal, onAddLesson,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onEditHourly?: (hourlyId: string) => void;
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
+  onAddHourly?: (ymd: string) => void;
 }) {
   const [cursor, setCursor] = useState(() => {
     const t = new Date();
@@ -640,7 +687,7 @@ function CalendarView({
             {selectedKey ? fullDateStr(keyToYmd(selectedKey) + "T00:00:00+09:00") : "日付を選択"}
           </span>
           {selectedItems.length > 0 && <span className="text-xs text-gray-300">{selectedItems.length}件</span>}
-          {selectedKey && (onAddPersonal || onAddLesson) && (
+          {selectedKey && (onAddPersonal || onAddLesson || onAddHourly) && (
             <div className="relative ml-auto flex-shrink-0">
               <button
                 type="button"
@@ -671,6 +718,15 @@ function CalendarView({
                         <CalendarPlus size={14} className="text-green-500" /> 個人予定
                       </button>
                     )}
+                    {onAddHourly && (
+                      <button
+                        type="button"
+                        onClick={() => { setAddOpen(false); onAddHourly(keyToYmd(selectedKey)); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                      >
+                        <Wallet size={14} className="text-amber-500" /> 時給業務
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -683,7 +739,7 @@ function CalendarView({
           <div className="space-y-2">
             {selectedItems.map((it) => (
               <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
-                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} />
+                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} onEditHourly={onEditHourly} />
             ))}
           </div>
         )}
@@ -1102,17 +1158,183 @@ function LessonModal({
   );
 }
 
+// ─── 時給業務の追加/編集モーダル（管理者のみ） ─────────────
+function HourlyTaskModal({
+  members, defaultDate, editTask, onClose,
+}: {
+  members: Member[];
+  defaultDate?: string;
+  editTask?: HourlyTask; // 指定時は編集モード
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const isEdit = !!editTask;
+  const startDateInit = editTask ? datePart(editTask.scheduledAt) : (defaultDate ?? todayDate());
+  const startTimeInit = editTask ? timePart(editTask.scheduledAt) : "10:00";
+  const [startDate, setStartDate] = useState(startDateInit);
+  const [startTime, setStartTime] = useState(startTimeInit);
+  const [endDate, setEndDate] = useState(editTask ? datePart(editTask.endAt) : startDateInit);
+  const [endTime, setEndTime] = useState(editTask ? timePart(editTask.endAt) : addOneHour(startTimeInit));
+  const [status, setStatus] = useState(editTask?.status ?? "scheduled");
+  const { locked: pending, run } = useSubmitLock();
+  const { locked: deleting, run: runDelete } = useSubmitLock();
+  const [error, setError] = useState<string | null>(null);
+
+  function onStartDateChange(v: string) {
+    setStartDate(v);
+    setEndDate(v);
+  }
+  function onStartTimeChange(v: string) {
+    setStartTime(v);
+    setEndTime(addOneHour(v));
+  }
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    await run(async () => {
+      try {
+        if (isEdit && editTask) {
+          await updateHourlyTaskAction(editTask.id, fd);
+        } else {
+          await createHourlyTaskAction(fd);
+        }
+        router.refresh();
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "保存に失敗しました");
+      }
+    });
+  }
+
+  async function handleDelete() {
+    if (!editTask || deleting) return;
+    if (!confirm("この時給業務を削除しますか？")) return;
+    runDelete(async () => {
+      try {
+        await deleteHourlyTaskAction(editTask.id);
+        router.refresh();
+        onClose();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "削除に失敗しました");
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <p className="text-base font-bold text-gray-900">{isEdit ? "時給業務を編集" : "時給業務を追加"}</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
+        </div>
+
+        <form onSubmit={onSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">担当者 <span className="text-red-400">*</span></label>
+            <select name="memberId" defaultValue={editTask?.memberId ?? ""} required
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="" disabled>選択してください</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">業務内容 <span className="text-red-400">*</span></label>
+            <input name="title" defaultValue={editTask?.title ?? ""} required
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="例: 事務作業、SNS運用" />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">開始</label>
+            <div className="flex gap-2">
+              <input type="date" name="startDate" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} required
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="time" name="startTime" value={startTime} onChange={(e) => onStartTimeChange(e.target.value)} required
+                className="w-28 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">終了</label>
+            <div className="flex gap-2">
+              <input type="date" name="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} required
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="time" name="endTime" value={endTime} onChange={(e) => setEndTime(e.target.value)} required
+                className="w-28 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">時給（円） <span className="text-red-400">*</span></label>
+            <input type="number" name="hourlyRate" min="0" step="1" defaultValue={editTask?.hourlyRate ?? ""} required
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">場所 <span className="text-gray-300 font-normal">（任意）</span></label>
+            <input name="location" defaultValue={editTask?.location ?? ""}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          {isEdit && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">ステータス</label>
+              <select name="status" value={status} onChange={(e) => setStatus(e.target.value as HourlyTask["status"])}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="scheduled">予定</option>
+                <option value="completed">完了</option>
+                <option value="cancelled">キャンセル</option>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">メモ <span className="text-gray-300 font-normal">（任意）</span></label>
+            <textarea name="note" defaultValue={editTask?.note ?? ""} rows={3}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+              キャンセル
+            </button>
+            <button type="submit" disabled={pending}
+              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+              {pending ? "保存中…" : "保存"}
+            </button>
+          </div>
+          {isEdit && (
+            <button type="button" onClick={handleDelete} disabled={deleting}
+              className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2.5 transition disabled:opacity-50">
+              <Trash2 size={13} /> {deleting ? "削除中…" : "この時給業務を削除"}
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── 時間軸（縦タイムライン・Outlook風） ─────────────────
 function TimelineView({
-  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onAddPersonal, onAddLesson,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onEditHourly?: (hourlyId: string) => void;
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
+  onAddHourly?: (ymd: string) => void;
 }) {
   const router = useRouter();
   const [day, setDay] = useState(() => startOfDay(new Date()));
@@ -1194,7 +1416,7 @@ function TimelineView({
       </div>
 
       {/* この日に追加 */}
-      {(onAddPersonal || onAddLesson) && (
+      {(onAddPersonal || onAddLesson || onAddHourly) && (
         <div className="relative mb-3 flex justify-end">
           <button type="button" onClick={() => setAddOpen((v) => !v)}
             className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 hover:bg-blue-700 transition">
@@ -1214,6 +1436,12 @@ function TimelineView({
                   <button type="button" onClick={() => { setAddOpen(false); onAddPersonal(keyToYmd(key)); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
                     <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                  </button>
+                )}
+                {onAddHourly && (
+                  <button type="button" onClick={() => { setAddOpen(false); onAddHourly(keyToYmd(key)); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                    <Wallet size={14} className="text-amber-500" /> 時給業務
                   </button>
                 )}
               </div>
@@ -1257,10 +1485,12 @@ function TimelineView({
             const isTrial = it.type === "trial";
             const widthPct = 100 / b.cols;
             const cls = isPersonal ? COLOR_MAP[it.color ?? "blue"].chip
-              : isTrial ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700";
+              : isTrial ? "bg-purple-100 text-purple-700"
+              : it.type === "hourly" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700";
             const onClick = () => {
               if (isPersonal) onEditPersonal?.(it);
               else if (it.type === "regular" && onEditLesson) onEditLesson(it.id);
+              else if (it.type === "hourly" && onEditHourly) onEditHourly(it.id);
               else router.push(`/schedule/${it.id}`);
             };
             return (
@@ -1293,7 +1523,7 @@ function TimelineView({
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
-  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [],
+  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], hourlyTasks = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
@@ -1306,6 +1536,7 @@ export function ScheduleClient({
   lessons?: Lesson[];
   rentalGyms?: RentalGym[];
   stores?: Store[];
+  hourlyTasks?: HourlyTask[];
 }) {
   const [view, setView] = useState<"list" | "calendar" | "timeline">("list");
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
@@ -1327,7 +1558,16 @@ export function ScheduleClient({
     const l = lessons.find((x) => x.id === lessonId);
     if (l) { setEditLesson(l); setLessonDate(undefined); setLessonModalOpen(true); }
   };
-  // 追加メニュー（レッスン / 個人予定）の開閉
+  // 時給業務の追加/編集モーダル（管理者のみ）
+  const [hourlyModalOpen, setHourlyModalOpen] = useState(false);
+  const [hourlyDate, setHourlyDate] = useState<string | undefined>(undefined);
+  const [editHourlyTask, setEditHourlyTask] = useState<HourlyTask | null>(null);
+  const openHourly = (defaultDate?: string) => { setEditHourlyTask(null); setHourlyDate(defaultDate); setHourlyModalOpen(true); };
+  const openEditHourly = (hourlyId: string) => {
+    const h = hourlyTasks.find((x) => x.id === hourlyId);
+    if (h) { setEditHourlyTask(h); setHourlyDate(undefined); setHourlyModalOpen(true); }
+  };
+  // 追加メニュー（レッスン / 個人予定 / 時給業務）の開閉
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const canAddLesson = customers.length > 0;
 
@@ -1423,6 +1663,15 @@ export function ScheduleClient({
                 >
                   <CalendarPlus size={14} className="text-green-500" /> 個人予定
                 </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => { setAddMenuOpen(false); openHourly(); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    <Wallet size={14} className="text-amber-500" /> 時給業務
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -1503,14 +1752,16 @@ export function ScheduleClient({
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly}
           onAddPersonal={(ymd) => openCreate(ymd)}
-          onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
+          onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined}
+          onAddHourly={isAdmin ? (ymd) => openHourly(ymd) : undefined} />
       ) : view === "timeline" ? (
         <TimelineView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly}
           onAddPersonal={(ymd) => openCreate(ymd)}
-          onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined} />
+          onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined}
+          onAddHourly={isAdmin ? (ymd) => openHourly(ymd) : undefined} />
       ) : (
         <>
       {/* 次の予定ハイライト */}
@@ -1568,7 +1819,7 @@ export function ScheduleClient({
         <div className="space-y-5">
           {groups.map((g) => (
             <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin}
-              currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} />
+              currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly} />
           ))}
         </div>
       )}
@@ -1598,6 +1849,15 @@ export function ScheduleClient({
           defaultDate={lessonDate}
           editLesson={editLesson ?? undefined}
           onClose={() => { setLessonModalOpen(false); setEditLesson(null); }}
+        />
+      )}
+
+      {hourlyModalOpen && (
+        <HourlyTaskModal
+          members={members}
+          defaultDate={hourlyDate}
+          editTask={editHourlyTask ?? undefined}
+          onClose={() => { setHourlyModalOpen(false); setEditHourlyTask(null); }}
         />
       )}
     </div>

@@ -4,13 +4,15 @@ import { notFound } from "next/navigation";
 import { getCustomers } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
-import { buildTrainerEntries, type CommissionContext } from "@/lib/commissions";
+import { type CommissionContext } from "@/lib/commissions";
+import { buildTrainerStatements, type StatementLine, type HourlyStatementLine } from "@/lib/commission-statement";
 import { ISSUER, monthLabel } from "@/lib/invoices";
 import { StatementActions } from "./statement-actions";
 
@@ -24,6 +26,76 @@ function statementNumber(month: string, memberId: string): string {
   return `PAY-${month.replace("-", "")}-${memberId.slice(0, 6).toUpperCase()}`;
 }
 
+function LineTable({ title, lines, total }: { title: string; lines: StatementLine[]; total: number }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <p className="text-sm font-bold text-gray-700 mb-2">{title}</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b-2 border-gray-300 text-gray-500">
+            <th className="text-left py-2 font-medium w-28">日付</th>
+            <th className="text-left py-2 font-medium">顧客</th>
+            <th className="text-left py-2 font-medium">内容</th>
+            <th className="text-right py-2 font-medium w-28">金額</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i} className="border-b border-gray-100">
+              <td className="py-2 text-gray-500">{l.date}</td>
+              <td className="py-2 text-gray-800">{l.customerName}</td>
+              <td className="py-2 text-gray-600">{l.label}</td>
+              <td className="py-2 text-right text-gray-800 tabular-nums">{yen(l.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={3} className="py-2 text-right text-sm font-bold text-gray-700">小計</td>
+            <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+function HourlyLineTable({ lines, total }: { lines: HourlyStatementLine[]; total: number }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <p className="text-sm font-bold text-gray-700 mb-2">時給業務</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b-2 border-gray-300 text-gray-500">
+            <th className="text-left py-2 font-medium w-28">日付</th>
+            <th className="text-left py-2 font-medium">業務内容</th>
+            <th className="text-right py-2 font-medium w-20">時間</th>
+            <th className="text-right py-2 font-medium w-28">金額</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i} className="border-b border-gray-100">
+              <td className="py-2 text-gray-500">{l.date}</td>
+              <td className="py-2 text-gray-800">{l.title}</td>
+              <td className="py-2 text-right text-gray-600 tabular-nums">{l.hours}h</td>
+              <td className="py-2 text-right text-gray-800 tabular-nums">{yen(l.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={3} className="py-2 text-right text-sm font-bold text-gray-700">小計</td>
+            <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
 export default async function CommissionStatementPrintPage({
   searchParams,
 }: {
@@ -35,10 +107,11 @@ export default async function CommissionStatementPrintPage({
   const { member: memberId, month } = await searchParams;
   if (!memberId || !month) notFound();
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
+    getHourlyTasks(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
@@ -60,11 +133,14 @@ export default async function CommissionStatementPrintPage({
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
-  const entry = buildTrainerEntries(completedLessons, completedTrialLessons, month, ctx)
-    .find((e) => e.memberId === memberId);
+  const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
+  const statement = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx)
+    .find((s) => s.memberId === memberId);
 
-  const lessonRows = entry?.lessons ?? [];
-  const total = entry?.total ?? 0;
+  const trainerLines = statement?.trainerLines ?? [];
+  const salesLines = statement?.salesLines ?? [];
+  const hourlyLines = statement?.hourlyLines ?? [];
+  const total = statement?.total ?? 0;
   const stmtNo = statementNumber(month, memberId);
   const pdfHref = `/commissions/statement/print/pdf?member=${memberId}&month=${month}`;
   const pdfFilename = `コミッション明細_${trainer.name}_${month}.pdf`;
@@ -109,35 +185,12 @@ export default async function CommissionStatementPrintPage({
           <span className="text-2xl font-bold text-gray-900">{yen(total)}</span>
         </div>
 
-        {/* レッスン明細（単価・歩合率は表示しない） */}
-        <table className="w-full text-sm mb-2">
-          <thead>
-            <tr className="border-b-2 border-gray-300 text-gray-500">
-              <th className="text-left py-2 font-medium w-28">日付</th>
-              <th className="text-left py-2 font-medium">顧客</th>
-              <th className="text-left py-2 font-medium">コース</th>
-              <th className="text-right py-2 font-medium w-28">金額</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lessonRows.map((l) => (
-              <tr key={l.lessonId} className="border-b border-gray-100">
-                <td className="py-2 text-gray-500">{l.scheduledAt.slice(0, 10)}</td>
-                <td className="py-2 text-gray-800">{l.customerName}</td>
-                <td className="py-2 text-gray-600">{l.course || "—"}</td>
-                <td className="py-2 text-right text-gray-800 tabular-nums">{yen(l.commission)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={3} className="py-2 text-right text-sm font-bold text-gray-700">合計</td>
-              <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(total)}</td>
-            </tr>
-          </tfoot>
-        </table>
+        {/* レッスン担当分・営業分・時給業務（単価・歩合率は表示しない） */}
+        <LineTable title="レッスン担当分" lines={trainerLines} total={statement?.trainerTotal ?? 0} />
+        <LineTable title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} total={statement?.salesTotal ?? 0} />
+        <HourlyLineTable lines={hourlyLines} total={statement?.hourlyTotal ?? 0} />
 
-        {lessonRows.length === 0 && (
+        {trainerLines.length === 0 && salesLines.length === 0 && hourlyLines.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-8">この月の対象レッスンはありません</p>
         )}
       </div>

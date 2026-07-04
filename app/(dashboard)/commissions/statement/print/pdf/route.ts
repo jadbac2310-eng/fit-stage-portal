@@ -3,13 +3,15 @@ import type { NextRequest } from "next/server";
 import { getCustomers } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
-import { buildTrainerEntries, type CommissionContext } from "@/lib/commissions";
+import { type CommissionContext } from "@/lib/commissions";
+import { buildTrainerStatements } from "@/lib/commission-statement";
 import { ISSUER, monthLabel } from "@/lib/invoices";
 import { CommissionStatementDocument } from "@/lib/commission-statement-pdf";
 
@@ -28,10 +30,11 @@ export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   if (!memberId || !month) return new Response("パラメータが不正です", { status: 400 });
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
+    getHourlyTasks(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
@@ -53,14 +56,20 @@ export async function GET(req: NextRequest) {
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
-  const entry = buildTrainerEntries(completedLessons, completedTrialLessons, month, ctx)
-    .find((e) => e.memberId === memberId);
+  const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
+  const statement = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx)
+    .find((s) => s.memberId === memberId);
 
   const buffer = await renderToBuffer(
     CommissionStatementDocument({
       trainerName: trainer.name,
-      lessons: entry?.lessons ?? [],
-      total: entry?.total ?? 0,
+      trainerLines: statement?.trainerLines ?? [],
+      trainerTotal: statement?.trainerTotal ?? 0,
+      salesLines: statement?.salesLines ?? [],
+      salesTotal: statement?.salesTotal ?? 0,
+      hourlyLines: statement?.hourlyLines ?? [],
+      hourlyTotal: statement?.hourlyTotal ?? 0,
+      total: statement?.total ?? 0,
       issuer: { name: ISSUER.name, contact: ISSUER.contact, address: ISSUER.address, tel: ISSUER.tel },
       statementNo: statementNumber(month, memberId),
       monthLabel: monthLabel(month),

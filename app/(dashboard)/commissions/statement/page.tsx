@@ -1,13 +1,15 @@
 import { getCustomers } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
-import { buildTrainerEntries, type CommissionContext } from "@/lib/commissions";
+import { type CommissionContext } from "@/lib/commissions";
+import { buildTrainerStatements } from "@/lib/commission-statement";
 import { StatementClient } from "./statement-client";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +37,11 @@ export default async function CommissionStatementPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
+    getHourlyTasks(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
@@ -57,9 +60,9 @@ export default async function CommissionStatementPage({
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
+  const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
 
-  const entries = buildTrainerEntries(completedLessons, completedTrialLessons, month, ctx)
-    .filter((e) => e.total > 0);
+  const statements = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx);
 
-  return <StatementClient entries={entries} month={month} />;
+  return <StatementClient statements={statements} month={month} />;
 }

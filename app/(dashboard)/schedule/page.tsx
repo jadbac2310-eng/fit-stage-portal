@@ -7,6 +7,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
 import { getPersonalEvents } from "@/lib/personal-events";
+import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { ScheduleClient, type ScheduleItem } from "./schedule-client";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +28,12 @@ export default async function SchedulePage() {
   const isAdmin = member.isAdmin;
   // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
   // customers / sessionPasses / customerPlans はスケジュールから通常レッスンを追加するフォーム用。
-  const [lessons, trialLessons, members, personalEvents, customers, sessionPasses, customerPlans, rentalGyms, stores] = await Promise.all([
+  const [lessons, trialLessons, members, personalEvents, hourlyTasks, customers, sessionPasses, customerPlans, rentalGyms, stores] = await Promise.all([
     getLessons(),
     getTrialLessons(),
     getMembers(),
     getPersonalEvents(),
+    getHourlyTasks(),
     getCustomers(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
@@ -121,6 +123,27 @@ export default async function SchedulePage() {
     });
   }
 
+  // 時給業務（全件・管理者のみ追加/編集可。割り当てられた担当者のスケジュールにも表示）
+  for (const h of hourlyTasks) {
+    items.push({
+      id: h.id,
+      type: "hourly",
+      customerName: h.title,
+      scheduledAt: h.scheduledAt,
+      endAt: h.endAt,
+      location: h.location,
+      status: h.status,
+      trainerId: h.memberId,
+      trainerName: h.memberName,
+      trainerAvatarUrl: avatarOf(h.memberId),
+      createdByName: nameOf(h.createdById),
+      createdAt: h.createdAt,
+      updatedByName: nameOf(h.updatedById),
+      updatedAt: h.updatedAt,
+      note: h.note,
+    });
+  }
+
   return (
     <ScheduleClient
       items={items}
@@ -134,6 +157,7 @@ export default async function SchedulePage() {
       lessons={lessons}
       rentalGyms={rentalGyms}
       stores={stores}
+      hourlyTasks={hourlyTasks}
     />
   );
 }

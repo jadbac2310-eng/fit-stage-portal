@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Receipt, ChevronRight } from "lucide-react";
-import type { TrainerEntry } from "@/lib/commissions";
+import type { TrainerStatement } from "@/lib/commission-statement";
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -21,10 +21,10 @@ function monthOptions(): { value: string; label: string }[] {
   return opts;
 }
 
-export function StatementClient({ entries, month }: { entries: TrainerEntry[]; month: string }) {
+export function StatementClient({ statements, month }: { statements: TrainerStatement[]; month: string }) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
-  const grandTotal = entries.reduce((s, e) => s + e.total, 0);
+  const grandTotal = statements.reduce((s, e) => s + e.total, 0);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -46,18 +46,24 @@ export function StatementClient({ entries, month }: { entries: TrainerEntry[]; m
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <span className="text-sm text-gray-500 ml-auto">
-          {entries.length}名 ・ 合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
+          {statements.length}名 ・ 合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
         </span>
       </div>
 
-      {entries.length === 0 ? (
+      {statements.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🧾</p>
           <p className="text-sm font-semibold text-gray-600">この月の対象レッスンはありません</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {entries.map((e) => (
+          {statements.map((e) => {
+            const parts = [
+              e.trainerLines.length > 0 && "レッスン",
+              e.salesLines.length > 0 && "営業",
+              e.hourlyLines.length > 0 && "時給業務",
+            ].filter((v): v is string => !!v);
+            return (
             <Link
               key={e.memberId}
               href={`/commissions/statement/print?member=${e.memberId}&month=${month}`}
@@ -68,12 +74,16 @@ export function StatementClient({ entries, month }: { entries: TrainerEntry[]; m
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm truncate">{e.memberName}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{e.lessons.length}件</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {e.trainerLines.length + e.salesLines.length + e.hourlyLines.length}件
+                  {parts.length > 1 && `（${parts.join("＋")}）`}
+                </p>
               </div>
               <p className="text-base font-bold text-gray-800">{yen(e.total)}</p>
               <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
