@@ -619,7 +619,9 @@ function CalendarView({
                       it.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
                     )}
                   >
-                    {it.type === "personal" && it.allDay ? "終日" : timeStr(it.scheduledAt)} {it.customerName}
+                    {it.type === "personal" && it.allDay
+                      ? "終日"
+                      : `${timeStr(it.scheduledAt)}${it.endAt ? `-${timeStr(it.endAt)}` : ""}`} {it.customerName}
                   </span>
                 ))}
                 {dayItems.length > 3 && (
@@ -1522,7 +1524,7 @@ export function ScheduleClient({
               <p className="text-lg font-bold truncate">{nextItem.customerName}</p>
               <p className="text-xs text-blue-100 mt-0.5">
                 {new Date(nextItem.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })}
-                {" "}{timeStr(nextItem.scheduledAt)}
+                {" "}{timeStr(nextItem.scheduledAt)}{nextItem.endAt ? `〜${timeStr(nextItem.endAt)}` : ""}
                 {nextItem.location && ` ・ ${nextItem.location}`}
               </p>
             </div>

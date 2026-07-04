@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks, FileText } from "lucide-react";
 import { MemberLabel } from "@/components/ui/member-label";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
@@ -285,6 +285,19 @@ function AdminLinks() {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900">月次レッスン明細</p>
           <p className="text-xs text-gray-500 mt-0.5">1件ごとの歩合を確認して支払い額を検算</p>
+        </div>
+        <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+      </Link>
+      <Link
+        href="/commissions/statement"
+        className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
+      >
+        <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <FileText size={17} className="text-violet-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">トレーナー明細</p>
+          <p className="text-xs text-gray-500 mt-0.5">給料の支払い用に明細を発行（単価・歩合率は非表示）</p>
         </div>
         <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
       </Link>
