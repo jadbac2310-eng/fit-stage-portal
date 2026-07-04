@@ -60,6 +60,53 @@ function monthLabel(iso: string): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月`;
 }
 
+// ─── 月ごとのアコーディオン（顧客アコーディオンの中に入れ子で表示） ───
+function LessonMonthGroup({
+  label, lessons, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, stores, isAdmin, currentMemberId, defaultOpen,
+}: {
+  label: string;
+  lessons: Lesson[];
+  customers: Customer[];
+  members: Member[];
+  sessionPasses: SessionPass[];
+  customerPlans: CustomerPlanRecord[];
+  allLessons: Lesson[];
+  rentalGyms: RentalGym[];
+  stores: Store[];
+  isAdmin: boolean;
+  currentMemberId?: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  const scheduledCount = lessons.filter((l) => l.status === "scheduled").length;
+
+  return (
+    <div className="border-b border-gray-100 last:border-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 py-2.5 -mx-1 px-1 text-left rounded-lg hover:bg-gray-50 transition"
+      >
+        <span className="text-xs font-bold text-gray-600">{label}</span>
+        <span className="text-[11px] text-gray-400">
+          {lessons.length}件{scheduledCount > 0 && `・予定 ${scheduledCount}件`}
+        </span>
+        <span className="ml-auto text-gray-300 flex-shrink-0">
+          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </span>
+      </button>
+      {open && (
+        <div className="pb-1">
+          {lessons.map((l) => (
+            <LessonItem key={l.id} lesson={l} customers={customers} members={members}
+              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
+              isAdmin={isAdmin} currentMemberId={currentMemberId} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function passLabel(pass: SessionPass) {
   return `${pass.totalCount}回券（残り${pass.remainingCount}回）${pass.expiredAt ? "　期限: " + pass.expiredAt : ""}`;
 }
@@ -706,6 +753,9 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const scheduledDate = new Date(lesson.scheduledAt);
   const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
   const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
+  const endTimeStr = lesson.endAt
+    ? new Date(lesson.endAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })
+    : undefined;
 
   const linkedPass = lesson.sessionPassId ? sessionPasses.find((p) => p.id === lesson.sessionPassId) : undefined;
   // この回数券レッスンが何回目か（同じ回数券に紐づく非キャンセルのレッスンを日付順に並べた順位）
@@ -733,7 +783,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
     <div className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
       <div className="w-16 flex-shrink-0 text-center">
         <p className="text-xs font-semibold text-gray-900">{dateStr}</p>
-        <p className="text-xs text-gray-400">{timeStr}</p>
+        <p className="text-xs text-gray-400">{timeStr}{endTimeStr ? `〜${endTimeStr}` : ""}</p>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-1.5 mb-1">
@@ -813,6 +863,17 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   const hasUnassigned = lessons.some((l) => !l.trainerMemberId);
   const scheduledCount = lessons.filter((l) => l.status === "scheduled").length;
   const customerPasses = sessionPasses.filter((p) => p.customerId === customer.id);
+
+  // 月ごとにグルーピング（lessons は新しい順ソート済みなので、そのまま先頭から束ねる）
+  const monthGroups = useMemo(() => {
+    const map = new Map<string, Lesson[]>();
+    for (const l of lessons) {
+      const label = monthLabel(l.scheduledAt);
+      if (!map.has(label)) map.set(label, []);
+      map.get(label)!.push(l);
+    }
+    return Array.from(map.entries()).map(([label, ls]) => ({ label, lessons: ls }));
+  }, [lessons]);
   const lowPassCount = customerPasses.some((p) => p.remainingCount > 0 && p.remainingCount <= 2);
   const exhaustedPass = customerPasses.some((p) => p.remainingCount === 0);
 
@@ -851,21 +912,13 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 
       {expanded && (
         <div className="border-t border-gray-100 px-4">
-          {/* レッスン一覧（月ごとに小見出しでかためて表示） */}
-          {lessons.map((l, i) => {
-            const label = monthLabel(l.scheduledAt);
-            const showMonthHeader = i === 0 || label !== monthLabel(lessons[i - 1].scheduledAt);
-            return (
-              <div key={l.id}>
-                {showMonthHeader && (
-                  <p className="text-xs font-bold text-gray-400 pt-3 pb-1 first:pt-3">{label}</p>
-                )}
-                <LessonItem lesson={l} customers={customers} members={members}
-                  sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
-                  isAdmin={isAdmin} currentMemberId={currentMemberId} />
-              </div>
-            );
-          })}
+          {/* レッスン一覧（月ごとのアコーディオンでかためて表示・直近月だけ初期展開） */}
+          {monthGroups.map((g, i) => (
+            <LessonMonthGroup key={g.label} label={g.label} lessons={g.lessons} defaultOpen={i === 0}
+              customers={customers} members={members} sessionPasses={sessionPasses}
+              customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores}
+              isAdmin={isAdmin} currentMemberId={currentMemberId} />
+          ))}
 
           {showAdd ? (
             <div className="py-3">

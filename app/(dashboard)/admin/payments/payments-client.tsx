@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, Link2, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, Link2, Copy, Check, ChevronDown, ChevronUp, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
 import type { Receivable } from "@/lib/payments-types";
 import { SOURCE_TYPE_LABEL, PAYMENT_METHODS, type PaymentSourceType } from "@/lib/payments-types";
 import type { StripeCheckout } from "@/lib/stripe-checkouts";
-import { recordPaymentAction, unrecordPaymentAction, createCheckoutLinkAction } from "./actions";
+import { recordPaymentAction, recordPaymentsBulkAction, unrecordPaymentAction, createCheckoutLinkAction } from "./actions";
 
 function yen(n: number) { return `¥${Math.round(n).toLocaleString("ja-JP")}`; }
 function todayStr() {
@@ -84,6 +84,56 @@ function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void 
         <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">キャンセル</button>
         <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
           {saving && <Spinner size={13} />}{item.payment ? "入金を更新" : "入金済みにする"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () => void }) {
+  const router = useRouter();
+  const { locked: saving, run } = useSubmitLock();
+  const inputClass = "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const total = items.reduce((s, r) => s + r.amount, 0);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    fd.set("items", JSON.stringify(items.map((r) => ({
+      sourceType: r.sourceType, sourceId: r.sourceId, customerId: r.customerId, amount: r.amount,
+    }))));
+    await run(async () => {
+      try {
+        await recordPaymentsBulkAction(fd);
+        router.refresh();
+        onClose();
+      } catch {}
+    });
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="p-3 rounded-xl bg-violet-50 border border-violet-200 space-y-2.5">
+      <p className="text-xs text-violet-700 font-medium">未入金 {items.length}件（合計 {yen(total)}）をまとめて入金済みにします</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[11px] font-semibold text-gray-500 mb-1 block">入金日</label>
+          <input type="date" name="paidAt" defaultValue={todayStr()} className={inputClass} />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-gray-500 mb-1 block">入金方法</label>
+          <select name="method" defaultValue="振込" className={inputClass}>
+            {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-gray-500 mb-1 block">メモ（任意）</label>
+        <input name="note" placeholder="振込人名義など" className={inputClass} />
+      </div>
+      <div className="flex gap-2 pt-0.5">
+        <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">キャンセル</button>
+        <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+          {saving && <Spinner size={13} />}まとめて入金済みにする
         </button>
       </div>
     </form>
@@ -222,6 +272,7 @@ function CheckoutCard({
 function CustomerPaymentGroup({ billerName, items }: { billerName: string; items: Receivable[] }) {
   const unpaid = items.filter((r) => !r.payment);
   const [expanded, setExpanded] = useState(items.length <= 1);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const total = items.reduce((s, r) => s + r.amount, 0);
   const unpaidTotal = unpaid.reduce((s, r) => s + r.amount, 0);
 
@@ -242,6 +293,18 @@ function CustomerPaymentGroup({ billerName, items }: { billerName: string; items
       </button>
       {expanded && (
         <div className="border-t border-gray-100 px-3 py-2.5 space-y-2 bg-white/60">
+          {unpaid.length > 1 && (
+            bulkOpen ? (
+              <BulkPaymentForm items={unpaid} onClose={() => setBulkOpen(false)} />
+            ) : (
+              <button
+                onClick={() => setBulkOpen(true)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl py-2.5 transition"
+              >
+                <Layers size={14} /> {unpaid.length}件をまとめて入金記録
+              </button>
+            )
+          )}
           {items.map((r) => <Row key={`${r.sourceType}-${r.sourceId}`} item={r} />)}
         </div>
       )}
