@@ -55,22 +55,28 @@ function fromDb(row: DbRow): TrialLesson {
 }
 
 const SELECT = "*, customers(full_name), sales_member:members!sales_member_id(name), trainer_member:members!trainer_member_id(name)";
+// members への JOIN 関連がスキーマキャッシュで解決できない(PGRST200)場合の退避（担当者名は空になるが描画は継続）
+const SELECT_LEGACY = "*, customers(full_name)";
 
 export async function getTrialLessons(): Promise<TrialLesson[]> {
-  const { data, error } = await createAdminClient()
-    .from("trial_lessons")
-    .select(SELECT)
-    .order("scheduled_at", { ascending: false });
-  if (error) throw error;
+  const client = createAdminClient();
+  let { data, error } = await client.from("trial_lessons").select(SELECT).order("scheduled_at", { ascending: false });
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("trial_lessons").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
+  }
+  if (error) {
+    if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
+    throw error;
+  }
   return (data as DbRow[]).map(fromDb);
 }
 
 export async function getTrialLesson(id: string): Promise<TrialLesson | null> {
-  const { data, error } = await createAdminClient()
-    .from("trial_lessons")
-    .select(SELECT)
-    .eq("id", id)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("trial_lessons").select(SELECT).eq("id", id).single();
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("trial_lessons").select(SELECT_LEGACY).eq("id", id).single());
+  }
   if (error || !data) return null;
   return fromDb(data as DbRow);
 }

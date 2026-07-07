@@ -45,6 +45,8 @@ function fromDb(row: DbRow): PersonalEvent {
 }
 
 const SELECT = "*, member:members!member_id(name)";
+// members への JOIN 関連が解決できない(PGRST200)場合の退避（作成者名は空になるが描画は継続）
+const SELECT_LEGACY = "*";
 
 // participant_ids / notify 列が未追加（マイグレーション未適用）の環境でも動くようにする。
 // スキーマ関連エラーはメッセージに列名が出ないことがあるためコードでも判定する。
@@ -53,11 +55,17 @@ function isMissingOptionalColumn(err: { code?: string; message?: string } | null
   return /participant_ids|notify|is_private/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
+// members への JOIN(member_id) が解決できないエラーか（読み取りの退避判定）
+function isMissingMemberJoin(err: { code?: string; message?: string } | null): boolean {
+  return err?.code === "PGRST200";
+}
+
 export async function getPersonalEvents(): Promise<PersonalEvent[]> {
-  const { data, error } = await createAdminClient()
-    .from("personal_events")
-    .select(SELECT)
-    .order("start_at", { ascending: false });
+  const client = createAdminClient();
+  let { data, error } = await client.from("personal_events").select(SELECT).order("start_at", { ascending: false });
+  if (error && isMissingMemberJoin(error)) {
+    ({ data, error } = await client.from("personal_events").select(SELECT_LEGACY).order("start_at", { ascending: false }));
+  }
   if (error) {
     // テーブル未作成（マイグレーション未適用）の場合は空配列で耐える
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
@@ -67,11 +75,11 @@ export async function getPersonalEvents(): Promise<PersonalEvent[]> {
 }
 
 export async function getPersonalEvent(id: string): Promise<PersonalEvent | null> {
-  const { data, error } = await createAdminClient()
-    .from("personal_events")
-    .select(SELECT)
-    .eq("id", id)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("personal_events").select(SELECT).eq("id", id).single();
+  if (error && isMissingMemberJoin(error)) {
+    ({ data, error } = await client.from("personal_events").select(SELECT_LEGACY).eq("id", id).single());
+  }
   if (error || !data) return null;
   return fromDb(data as DbRow);
 }

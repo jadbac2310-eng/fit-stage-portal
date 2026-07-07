@@ -41,12 +41,15 @@ function fromDb(row: DbRow): HourlyTask {
 }
 
 const SELECT = "*, member:members!member_id(name)";
+// members への JOIN 関連が解決できない(PGRST200)場合の退避（担当者名は空になるが描画は継続）
+const SELECT_LEGACY = "*";
 
 export async function getHourlyTasks(): Promise<HourlyTask[]> {
-  const { data, error } = await createAdminClient()
-    .from("hourly_tasks")
-    .select(SELECT)
-    .order("scheduled_at", { ascending: false });
+  const client = createAdminClient();
+  let { data, error } = await client.from("hourly_tasks").select(SELECT).order("scheduled_at", { ascending: false });
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("hourly_tasks").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
+  }
   if (error) {
     // テーブル未作成（マイグレーション未適用）の場合は空配列で耐える
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
@@ -56,11 +59,11 @@ export async function getHourlyTasks(): Promise<HourlyTask[]> {
 }
 
 export async function getHourlyTask(id: string): Promise<HourlyTask | null> {
-  const { data, error } = await createAdminClient()
-    .from("hourly_tasks")
-    .select(SELECT)
-    .eq("id", id)
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("hourly_tasks").select(SELECT).eq("id", id).single();
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("hourly_tasks").select(SELECT_LEGACY).eq("id", id).single());
+  }
   if (error || !data) return null;
   return fromDb(data as DbRow);
 }
