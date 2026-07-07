@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useId } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
@@ -207,6 +208,7 @@ export function LessonForm({
   onDelete?: () => Promise<void>;                 // 編集時の削除（管理者または登録者本人）
   submitLabel: string;
 }) {
+  const router = useRouter();
   const { locked, run } = useSubmitLock();
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
@@ -231,7 +233,7 @@ export function LessonForm({
     if (!confirm("このレッスンを削除しますか？")) return;
     setError("");
     await run(async () => {
-      try { await onDelete(); onClose(); }
+      try { await onDelete(); router.refresh(); onClose(); }
       catch (e) { setError(e instanceof Error ? e.message : "削除に失敗しました"); }
     });
   }
@@ -341,6 +343,7 @@ export function LessonForm({
           fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
           await action(fd);
         }
+        router.refresh();
         onClose();
       } catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
     });
@@ -744,6 +747,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; stores: Store[]; isAdmin: boolean; currentMemberId?: string;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateLessonAction.bind(null, lesson.id);
@@ -831,7 +835,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           <button onClick={() => {
             if (deleting) return;
             if (!confirm("このレッスンを削除しますか？")) return;
-            runDelete(() => deleteLessonAction(lesson.id));
+            runDelete(async () => { await deleteLessonAction(lesson.id); router.refresh(); });
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}

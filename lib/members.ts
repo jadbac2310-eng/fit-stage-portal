@@ -50,10 +50,11 @@ function fromDb(row: DbRow): Member {
   };
 }
 
-// line_user_id / line_link_code 列が未追加（マイグレーション未適用）でも落ちないための判定
+// line_user_id / line_link_code 列が未追加（マイグレーション未適用）でも落ちないための判定。
+// メッセージに列名が明示されている場合のみ真とする（コードだけでの判定は無関係な一時エラーも拾ってしまうため避ける）。
 function isMissingLineColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /line_user_id|line_link_code/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
+  return /line_user_id|line_link_code/i.test(err.message ?? "");
 }
 
 export async function getMembers(): Promise<Member[]> {
