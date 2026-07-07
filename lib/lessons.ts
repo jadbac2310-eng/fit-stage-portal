@@ -69,12 +69,14 @@ const SELECT = "*, customers(full_name), trainer_member:members!trainer_member_i
 // created_by 列が未追加（マイグレーション未適用）の環境でも動くフォールバック
 const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_member_id(name)";
 
-// 後から追加した任意列（created_by / updated_by / rental_gym_*）が未適用のときのエラーか。
-// メッセージに列名が明示されている場合のみ真とする（コードだけでの判定は、無関係な一時エラーまで
-// 誤って「列がない」と扱ってしまい、end_at 等を無言で欠落させて保存する原因になるため避ける）。
+// 読み取り(getLessons/getLesson)の SELECT で、members への JOIN 関連(created_by 等)が
+// スキーマキャッシュで解決できず失敗した場合に、JOIN 無しの SELECT_LEGACY へ退避するための判定。
+// PostgREST の関連エラー(PGRST200)等はメッセージに列名が出ないことがあるため、コードでも判定する。
+// ※ 書き込み(addLesson/updateLesson)は JOIN を含めないため、この判定で列を落とすことはない。
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /created_by|updated_by|rental_gym|store|amount|end_at/i.test(err.message ?? "");
+  return /created_by|updated_by|rental_gym|store|amount|end_at/i.test(err.message ?? "")
+    || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
 export async function getLessons(): Promise<Lesson[]> {

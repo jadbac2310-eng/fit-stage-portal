@@ -47,10 +47,10 @@ function fromDb(row: DbRow): PersonalEvent {
 const SELECT = "*, member:members!member_id(name)";
 
 // participant_ids / notify 列が未追加（マイグレーション未適用）の環境でも動くようにする。
-// メッセージに列名が明示されている場合のみ真とする（コードだけでの判定は無関係な一時エラーも拾ってしまうため避ける）。
+// スキーマ関連エラーはメッセージに列名が出ないことがあるためコードでも判定する。
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /participant_ids|notify|is_private/i.test(err.message ?? "");
+  return /participant_ids|notify|is_private/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
 export async function getPersonalEvents(): Promise<PersonalEvent[]> {
