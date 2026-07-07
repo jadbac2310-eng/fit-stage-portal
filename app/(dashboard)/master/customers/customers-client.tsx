@@ -38,6 +38,7 @@ function StatusBadge({ status }: { status: CustomerStatus }) {
 const STATUS_OPTIONS: CustomerStatus[] = ["trial", "pending", "active", "inactive"];
 
 function StatusSelect({ customerId, status }: { customerId: string; status: CustomerStatus }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const { locked: loading, run } = useSubmitLock();
   const [current, setCurrent] = useState(status);
@@ -46,6 +47,7 @@ function StatusSelect({ customerId, status }: { customerId: string; status: Cust
     if (next === current) { setOpen(false); return; }
     await run(async () => {
       await updateCustomerStatusAction(customerId, next);
+      router.refresh();
       setCurrent(next);
       setOpen(false);
     });
@@ -335,6 +337,7 @@ function CustomerForm({
 
 // ─── 顧客行（テーブル） ───────────────────────────────
 function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
@@ -342,7 +345,10 @@ function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: C
   async function handleDelete() {
     if (deleting) return;
     if (!confirm(`「${customer.fullName}」を削除しますか？`)) return;
-    runDelete(() => deleteCustomerAction(customer.id));
+    runDelete(async () => {
+      await deleteCustomerAction(customer.id);
+      router.refresh();
+    });
   }
 
   if (mode === "edit") return (
@@ -406,6 +412,7 @@ function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: C
 
 // ─── 顧客カード（モバイル） ───────────────────────────
 function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateCustomerAction.bind(null, customer.id);
@@ -413,7 +420,10 @@ function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: 
   async function handleDelete() {
     if (deleting) return;
     if (!confirm(`「${customer.fullName}」を削除しますか？`)) return;
-    runDelete(() => deleteCustomerAction(customer.id));
+    runDelete(async () => {
+      await deleteCustomerAction(customer.id);
+      router.refresh();
+    });
   }
 
   if (mode === "edit") return (

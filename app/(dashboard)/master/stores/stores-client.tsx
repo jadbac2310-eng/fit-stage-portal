@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, X, MapPin, Store as StoreIcon } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -21,13 +22,14 @@ function StoreForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
 
   async function handleSubmit(fd: FormData) {
     setError("");
     await run(async () => {
-      try { await action(fd); onClose(); }
+      try { await action(fd); router.refresh(); onClose(); }
       catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
     });
   }
@@ -62,6 +64,7 @@ function StoreForm({
 }
 
 function StoreRow({ store, isAdmin }: { store: Store; isAdmin: boolean }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateStoreAction.bind(null, store.id);
@@ -69,7 +72,10 @@ function StoreRow({ store, isAdmin }: { store: Store; isAdmin: boolean }) {
   function handleDelete() {
     if (deleting) return;
     if (!confirm(`「${store.name}」を削除しますか？`)) return;
-    runDelete(() => deleteStoreAction(store.id));
+    runDelete(async () => {
+      await deleteStoreAction(store.id);
+      router.refresh();
+    });
   }
 
   if (mode === "edit") {

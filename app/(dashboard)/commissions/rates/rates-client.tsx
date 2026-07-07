@@ -209,7 +209,7 @@ export function RatesClient({
                     className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
                     title="削除（既定50%に戻す）"
                   >
-                    <Trash2 size={16} />
+                    {removing ? <Spinner size={16} /> : <Trash2 size={16} />}
                   </button>
                 </div>
               );

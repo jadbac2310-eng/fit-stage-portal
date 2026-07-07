@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, X, MapPin, Building2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -19,13 +20,14 @@ function GymForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
 
   async function handleSubmit(fd: FormData) {
     setError("");
     await run(async () => {
-      try { await action(fd); onClose(); }
+      try { await action(fd); router.refresh(); onClose(); }
       catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
     });
   }
@@ -60,6 +62,7 @@ function GymForm({
 }
 
 function GymRow({ gym, isAdmin }: { gym: RentalGym; isAdmin: boolean }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateRentalGymAction.bind(null, gym.id);
@@ -67,7 +70,10 @@ function GymRow({ gym, isAdmin }: { gym: RentalGym; isAdmin: boolean }) {
   function handleDelete() {
     if (deleting) return;
     if (!confirm(`「${gym.name}」を削除しますか？`)) return;
-    runDelete(() => deleteRentalGymAction(gym.id));
+    runDelete(async () => {
+      await deleteRentalGymAction(gym.id);
+      router.refresh();
+    });
   }
 
   if (mode === "edit") {

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle, Check, Copy, RefreshCw } from "lucide-react";
 import { unlinkLineAction, regenerateLinkCodeAction } from "./line-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 export function LineLinkCard({ linked, code, oaUrl }: {
   linked: boolean;
@@ -45,8 +46,8 @@ export function LineLinkCard({ linked, code, oaUrl }: {
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-gray-500">予定のリマインドや変更通知がLINEに届きます。</p>
           <button onClick={unlink} disabled={pending}
-            className="text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition disabled:opacity-50 flex-shrink-0">
-            連携を解除
+            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition disabled:opacity-50 flex-shrink-0">
+            {pending && <Spinner size={12} />}{pending ? "解除中…" : "連携を解除"}
           </button>
         </div>
       ) : code ? (
@@ -70,7 +71,7 @@ export function LineLinkCard({ linked, code, oaUrl }: {
             </button>
             <button onClick={regen} disabled={pending} title="コードを再発行"
               className="inline-flex items-center text-xs text-gray-400 hover:text-gray-700 rounded-lg px-2 py-2 transition disabled:opacity-50">
-              <RefreshCw size={14} />
+              {pending ? <Spinner size={14} /> : <RefreshCw size={14} />}
             </button>
           </div>
         </div>

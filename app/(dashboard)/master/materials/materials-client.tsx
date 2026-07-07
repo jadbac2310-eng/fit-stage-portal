@@ -83,11 +83,13 @@ function MaterialForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
 
   async function handleSubmit(fd: FormData) {
     await run(async () => {
       await action(fd);
+      router.refresh();
       onClose();
     });
   }
@@ -155,12 +157,16 @@ function MaterialCard({
   isAdmin: boolean;
   onEdit: (m: Material) => void;
 }) {
+  const router = useRouter();
   const { locked: deleting, run: runDelete } = useSubmitLock();
 
   function handleDelete() {
     if (deleting) return;
     if (!confirm(`「${material.name}」を削除しますか？`)) return;
-    runDelete(() => deleteMaterialAction(material.id));
+    runDelete(async () => {
+      await deleteMaterialAction(material.id);
+      router.refresh();
+    });
   }
 
   async function handleDownload() {

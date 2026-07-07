@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
@@ -462,7 +463,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <XCircle size={13} /> 当日キャンセル
+                {settingStatus ? <Spinner size={13} /> : <XCircle size={13} />} {settingStatus ? "変更中…" : "当日キャンセル"}
               </button>
               <button
                 type="button"
@@ -470,7 +471,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <XCircle size={13} /> キャンセル
+                {settingStatus ? <Spinner size={13} /> : <XCircle size={13} />} {settingStatus ? "変更中…" : "キャンセル"}
               </button>
             </div>
           )}
@@ -1098,8 +1099,8 @@ function PersonalEventModal({
               キャンセル
             </button>
             <button type="submit" disabled={pending}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
-              {pending ? "保存中…" : "保存"}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+              {pending ? <Spinner size={14} /> : null} {pending ? "保存中…" : "保存"}
             </button>
           </div>
         </form>
@@ -1306,14 +1307,14 @@ function HourlyTaskModal({
               キャンセル
             </button>
             <button type="submit" disabled={pending}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
-              {pending ? "保存中…" : "保存"}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+              {pending ? <Spinner size={14} /> : null} {pending ? "保存中…" : "保存"}
             </button>
           </div>
           {isEdit && (
             <button type="button" onClick={handleDelete} disabled={deleting}
               className="w-full flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2.5 transition disabled:opacity-50">
-              <Trash2 size={13} /> {deleting ? "削除中…" : "この業務を削除"}
+              {deleting ? <Spinner size={13} /> : <Trash2 size={13} />} {deleting ? "削除中…" : "この業務を削除"}
             </button>
           )}
         </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search,
   ChevronDown, ChevronUp, CalendarRange, Ticket,
@@ -56,6 +57,7 @@ function PlanForm({
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(defaultValues?.plan ?? "");
@@ -64,7 +66,7 @@ function PlanForm({
   async function handleSubmit(fd: FormData) {
     await run(async () => {
       setError("");
-      try { await action(fd); onClose(); }
+      try { await action(fd); onClose(); router.refresh(); }
       catch (e) { setError(e instanceof Error ? e.message : "エラーが発生しました"); }
     });
   }
@@ -170,6 +172,7 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNa
   record: CustomerPlanRecord; customer: Customer; customers: Customer[];
   planDefaults: PlanDefault[]; isAdmin: boolean; memberNames: MemberNames;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updatePlanAction.bind(null, record.id, customer.id);
@@ -214,7 +217,7 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNa
           <button onClick={() => {
             if (deleting) return;
             if (!confirm("このプランを削除しますか？")) return;
-            runDelete(() => deletePlanAction(record.id));
+            runDelete(async () => { await deletePlanAction(record.id); router.refresh(); });
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}
@@ -233,6 +236,7 @@ function SessionPassForm({
   sessionPassPriceMap: SessionPassPriceMap;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [personCount, setPersonCount] = useState(1);
   const [totalCount, setTotalCount] = useState("");
@@ -248,6 +252,7 @@ function SessionPassForm({
     await run(async () => {
       await createSessionPassAction(fd);
       onClose();
+      router.refresh();
     });
   }
 
@@ -345,6 +350,7 @@ function SessionPassForm({
 function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
   pass: SessionPass; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const { locked: loading, run } = useSubmitLock();
@@ -358,6 +364,7 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
     await run(async () => {
       await updateSessionPassAction(pass.id, fd);
       setEditing(false);
+      router.refresh();
     });
   }
 
@@ -462,7 +469,7 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
           <button onClick={() => {
             if (deleting) return;
             if (!confirm("この回数券を削除しますか？")) return;
-            runDelete(() => deleteSessionPassAction(pass.id));
+            runDelete(async () => { await deleteSessionPassAction(pass.id); router.refresh(); });
           }} disabled={deleting}
             className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
             {deleting ? <Spinner size={11} /> : <Trash2 size={11} />}

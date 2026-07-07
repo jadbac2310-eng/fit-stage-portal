@@ -689,7 +689,7 @@ export function LessonForm({
       {onDelete && (
         <button type="button" onClick={handleDelete} disabled={locked}
           className="w-full mt-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition disabled:opacity-50">
-          <Trash2 size={15} /> このレッスンを削除
+          {locked ? <Spinner size={15} /> : <Trash2 size={15} />} {locked ? "削除中…" : "このレッスンを削除"}
         </button>
       )}
     </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Save, CalendarRange, Ticket, Coins, Users } from "lucide-react";
 import type { PlanMaster, PlanPaymentType, SessionPassPrice } from "@/lib/plans-master-types";
 import { updatePlanAmountAction, updateSessionPassPriceAmountAction } from "./actions";
@@ -19,6 +20,7 @@ const TYPE_META: Record<PlanPaymentType, { icon: typeof CalendarRange; color: st
 
 // ─── プラン1行 ────────────────────────────────────────
 function PlanRow({ plan, isAdmin }: { plan: PlanMaster; isAdmin: boolean }) {
+  const router = useRouter();
   const [amount, setAmount] = useState(String(plan.amount));
   const { locked: loading, run } = useSubmitLock();
   const [saved, setSaved] = useState(false);
@@ -37,6 +39,7 @@ function PlanRow({ plan, isAdmin }: { plan: PlanMaster; isAdmin: boolean }) {
       const fd = new FormData();
       fd.set("amount", amount);
       await updatePlanAmountAction(plan.id, fd);
+      router.refresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });
@@ -94,6 +97,7 @@ function PlanRow({ plan, isAdmin }: { plan: PlanMaster; isAdmin: boolean }) {
 
 // ─── 回数券マトリクス1行（人数×回数） ─────────────────
 function SessionPassPriceRow({ row, isAdmin }: { row: SessionPassPrice; isAdmin: boolean }) {
+  const router = useRouter();
   const [amount, setAmount] = useState(String(row.amount));
   const { locked: loading, run } = useSubmitLock();
   const [saved, setSaved] = useState(false);
@@ -109,6 +113,7 @@ function SessionPassPriceRow({ row, isAdmin }: { row: SessionPassPrice; isAdmin:
       const fd = new FormData();
       fd.set("amount", amount);
       await updateSessionPassPriceAmountAction(row.id, fd);
+      router.refresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });

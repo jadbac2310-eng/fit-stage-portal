@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
@@ -163,6 +164,7 @@ function MemberForm({
   action: (fd: FormData) => Promise<{ error?: string } | void>;
   submitLabel: string;
 }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const { locked: loading, run } = useSubmitLock();
   const [name, setName] = useState(defaultValues?.name ?? "");
@@ -190,6 +192,7 @@ function MemberForm({
         setError(result.error);
         return;
       }
+      router.refresh();
       onClose();
     });
   }
@@ -313,7 +316,7 @@ function MemberForm({
 
 // ─── 担当者カード ─────────────────────────────────────
 function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAdmin: boolean; currentMemberId?: string }) {
-
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateMemberAction.bind(null, member.id);
@@ -321,7 +324,10 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
   function handleDelete() {
     if (deleting) return;
     if (!confirm(`「${member.name}」を削除しますか？`)) return;
-    runDelete(() => deleteMemberAction(member.id));
+    runDelete(async () => {
+      await deleteMemberAction(member.id);
+      router.refresh();
+    });
   }
 
   if (editing) {

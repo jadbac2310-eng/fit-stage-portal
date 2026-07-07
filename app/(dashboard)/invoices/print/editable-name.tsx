@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, Check, X } from "lucide-react";
 import { updateBillingNameAction } from "../actions";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * 請求書の宛名。クリックで編集でき、保存すると billing_name を更新する。
@@ -36,7 +37,7 @@ export function EditableBillingName({ customerId, name, suffix = "様" }: { cust
         <span className="text-lg font-bold text-gray-900">{suffix}</span>
         <button type="button" onClick={save} disabled={saving}
           className="print:hidden text-green-600 hover:bg-green-50 rounded p-1 disabled:opacity-50">
-          <Check size={16} />
+          {saving ? <Spinner size={16} /> : <Check size={16} />}
         </button>
         <button type="button" onClick={() => { setValue(name); setEditing(false); }}
           className="print:hidden text-gray-400 hover:bg-gray-100 rounded p-1">
