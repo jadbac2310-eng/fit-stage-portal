@@ -65,13 +65,18 @@ function fromDb(row: DbRow): Lesson {
   };
 }
 
-const SELECT = "*, customers(full_name), trainer_member:members!trainer_member_id(name), created_by_member:members!created_by(name)";
-// created_by 列が未追加（マイグレーション未適用）の環境でも動くフォールバック
-const SELECT_LEGACY = "*, customers(full_name), trainer_member:members!trainer_member_id(name)";
+// JOIN 段階を順に落としていく SELECT のカスケード。
+// members/customers への JOIN 関連がスキーマキャッシュで解決できない(PGRST200)本番でも、
+// 最終的に JOIN 無し("*")まで退避して「絶対に描画は落とさない」ことを保証する（名前は空になる）。
+const SELECTS = [
+  "*, customers(full_name), trainer_member:members!trainer_member_id(name), created_by_member:members!created_by(name)",
+  "*, customers(full_name), trainer_member:members!trainer_member_id(name)",
+  "*, customers(full_name)",
+  "*",
+];
 
-// 読み取り(getLessons/getLesson)の SELECT で、members への JOIN 関連(created_by 等)が
-// スキーマキャッシュで解決できず失敗した場合に、JOIN 無しの SELECT_LEGACY へ退避するための判定。
-// PostgREST の関連エラー(PGRST200)等はメッセージに列名が出ないことがあるため、コードでも判定する。
+// JOIN 関連/列欠落に由来するエラーか（次段の SELECT へ退避してよいか）の判定。
+// 関連エラー(PGRST200)等はメッセージに列名が出ないことがあるためコードでも判定する。
 // ※ 書き込み(addLesson/updateLesson)は JOIN を含めないため、この判定で列を落とすことはない。
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
@@ -81,22 +86,24 @@ function isMissingOptionalColumn(err: { code?: string; message?: string } | null
 
 export async function getLessons(): Promise<Lesson[]> {
   const client = createAdminClient();
-  let { data, error } = await client.from("lessons").select(SELECT).order("scheduled_at", { ascending: false });
-  if (error && isMissingOptionalColumn(error)) {
-    ({ data, error } = await client.from("lessons").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
+  for (let i = 0; i < SELECTS.length; i++) {
+    const { data, error } = await client.from("lessons").select(SELECTS[i]).order("scheduled_at", { ascending: false });
+    if (!error) return (data as unknown as DbRow[]).map(fromDb);
+    // JOIN/列に由来しないエラーで、まだ後段が残っていないなら投げる
+    if (!isMissingOptionalColumn(error) || i === SELECTS.length - 1) throw error;
   }
-  if (error) throw error;
-  return (data as DbRow[]).map(fromDb);
+  return [];
 }
 
 export async function getLesson(id: string): Promise<Lesson | null> {
   const client = createAdminClient();
-  let { data, error } = await client.from("lessons").select(SELECT).eq("id", id).single();
-  if (error && isMissingOptionalColumn(error)) {
-    ({ data, error } = await client.from("lessons").select(SELECT_LEGACY).eq("id", id).single());
+  for (let i = 0; i < SELECTS.length; i++) {
+    const { data, error } = await client.from("lessons").select(SELECTS[i]).eq("id", id).single();
+    if (!error && data) return fromDb(data as unknown as DbRow);
+    if (error && (!isMissingOptionalColumn(error) || i === SELECTS.length - 1)) return null;
+    if (!error) return null; // data が無い（該当なし）
   }
-  if (error || !data) return null;
-  return fromDb(data as DbRow);
+  return null;
 }
 
 export async function addLesson(input: {
