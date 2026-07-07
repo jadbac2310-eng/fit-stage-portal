@@ -393,7 +393,10 @@ export function LessonForm({
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
+    // action(フォームアクション)ではなく onSubmit を使う。React のフォームアクションは
+    // トランザクション扱いで locked の反映（ボタンのスピナー表示）が遅れることがあるため、
+    // preventDefault + 手動 FormData で「押した瞬間に」ローディングを出す。
+    <form onSubmit={(e) => { e.preventDefault(); handleSubmit(new FormData(e.currentTarget)); }} className="space-y-4">
       {fixedCustomerId ? (
         <input type="hidden" name="customerId" value={fixedCustomerId} />
       ) : (

@@ -115,35 +115,30 @@ export async function addLesson(input: {
   storeFee?: number | null;
 }): Promise<Lesson> {
   const client = createAdminClient();
-  const base = {
+  const row = {
     customer_id:       input.customerId,
     trainer_member_id: input.trainerMemberId ?? null,
     scheduled_at:      input.scheduledAt,
+    end_at:            input.endAt ?? null,
     location:          input.location ?? null,
     course:            input.course ?? null,
     payment_type:      input.paymentType ?? null,
     session_pass_id:   input.sessionPassId ?? null,
+    amount:            input.amount ?? null,
     note:              input.note ?? null,
+    created_by:        input.createdBy ?? null,
+    rental_gym_id:     input.rentalGymId ?? null,
+    rental_gym_fee:    input.rentalGymFee ?? null,
+    store_id:          input.storeId ?? null,
+    store_fee:         input.storeFee ?? null,
   };
-  const optional = {
-    end_at:         input.endAt ?? null,
-    amount:         input.amount ?? null,
-    created_by:     input.createdBy ?? null,
-    rental_gym_id:  input.rentalGymId ?? null,
-    rental_gym_fee: input.rentalGymFee ?? null,
-    store_id:       input.storeId ?? null,
-    store_fee:      input.storeFee ?? null,
-  };
-  let { data, error } = await client
-    .from("lessons")
-    .insert({ ...base, ...optional })
-    .select(SELECT)
-    .single();
-  if (error && isMissingOptionalColumn(error)) {
-    ({ data, error } = await client.from("lessons").insert(base).select(SELECT_LEGACY).single());
-  }
+  // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
+  // 表示用のJOIN済みデータは getLesson で別途取得する。
+  const { data, error } = await client.from("lessons").insert(row).select("id").single();
   if (error) throw error;
-  return fromDb(data as DbRow);
+  const created = await getLesson((data as { id: string }).id);
+  if (!created) throw new Error("作成したレッスンの取得に失敗しました");
+  return created;
 }
 
 export async function updateLesson(
@@ -191,15 +186,12 @@ export async function updateLesson(
   patch.updated_by = (await currentMemberId()) ?? null;
 
   const client = createAdminClient();
-  let { data, error } = await client.from("lessons").update(patch).eq("id", id).select(SELECT).single();
-  // 後付けの任意列が未適用の環境では、それらを外して再試行
-  if (error && isMissingOptionalColumn(error)) {
-    const { rental_gym_id, rental_gym_fee, store_id, store_fee, updated_by, amount, end_at, ...rest } = patch;
-    void rental_gym_id; void rental_gym_fee; void store_id; void store_fee; void updated_by; void amount; void end_at;
-    ({ data, error } = await client.from("lessons").update(rest).eq("id", id).select(SELECT_LEGACY).single());
-  }
+  // 書き込みは JOIN を含めず実行する（members への関連取得が壊れても end_at 等の列を落とさないため）。
+  // 以前はここで JOIN 付き select に失敗すると end_at/amount 等を patch から外して再試行しており、
+  // 終了時刻が無言で保存されない不具合の原因になっていた。表示用の再取得は getLesson に委ねる。
+  const { error } = await client.from("lessons").update(patch).eq("id", id);
   if (error) throw error;
-  return fromDb(data as DbRow);
+  return getLesson(id);
 }
 
 export async function deleteLesson(id: string): Promise<void> {
