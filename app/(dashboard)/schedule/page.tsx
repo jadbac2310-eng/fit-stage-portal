@@ -28,49 +28,18 @@ export default async function SchedulePage() {
   const isAdmin = member.isAdmin;
   // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
   // customers / sessionPasses / customerPlans はスケジュールから通常レッスンを追加するフォーム用。
-  // 各取得を個別に捕捉し、どれが失敗したか＋実際のDBエラー内容を画面に出す（本番でも原因が分かるように）。
-  async function safe<T>(label: string, fn: () => Promise<T>): Promise<{ label: string; value?: T; error?: unknown }> {
-    try { return { label, value: await fn() }; }
-    catch (e) { return { label, error: e }; }
-  }
-  const results = await Promise.all([
-    safe("getLessons", getLessons),
-    safe("getTrialLessons", getTrialLessons),
-    safe("getMembers", getMembers),
-    safe("getPersonalEvents", getPersonalEvents),
-    safe("getHourlyTasks", getHourlyTasks),
-    safe("getCustomers", getCustomers),
-    safe("getAllSessionPasses", getAllSessionPasses),
-    safe("getAllCustomerPlans", getAllCustomerPlans),
-    safe("getRentalGyms", getRentalGyms),
-    safe("getStores", getStores),
+  const [lessons, trialLessons, members, personalEvents, hourlyTasks, customers, sessionPasses, customerPlans, rentalGyms, stores] = await Promise.all([
+    getLessons(),
+    getTrialLessons(),
+    getMembers(),
+    getPersonalEvents(),
+    getHourlyTasks(),
+    getCustomers(),
+    getAllSessionPasses(),
+    getAllCustomerPlans(),
+    getRentalGyms(),
+    getStores(),
   ]);
-  const failed = results.filter((r) => r.error);
-  if (failed.length > 0) {
-    return (
-      <div className="p-4 md:p-6 max-w-2xl mx-auto">
-        <p className="text-sm font-bold text-red-600 mb-2">データ取得エラー（この内容を共有してください）</p>
-        {failed.map((r) => {
-          const e = r.error as { code?: string; message?: string; details?: string; hint?: string } | Error;
-          return (
-            <pre key={r.label} className="text-[11px] whitespace-pre-wrap break-all bg-red-50 border border-red-200 rounded-xl p-3 mb-2 text-red-800">
-              {r.label}{"\n"}{JSON.stringify(e, Object.getOwnPropertyNames(e), 2)}
-            </pre>
-          );
-        })}
-      </div>
-    );
-  }
-  const lessons        = results[0].value as Awaited<ReturnType<typeof getLessons>>;
-  const trialLessons   = results[1].value as Awaited<ReturnType<typeof getTrialLessons>>;
-  const members        = results[2].value as Awaited<ReturnType<typeof getMembers>>;
-  const personalEvents = results[3].value as Awaited<ReturnType<typeof getPersonalEvents>>;
-  const hourlyTasks    = results[4].value as Awaited<ReturnType<typeof getHourlyTasks>>;
-  const customers      = results[5].value as Awaited<ReturnType<typeof getCustomers>>;
-  const sessionPasses  = results[6].value as Awaited<ReturnType<typeof getAllSessionPasses>>;
-  const customerPlans  = results[7].value as Awaited<ReturnType<typeof getAllCustomerPlans>>;
-  const rentalGyms     = results[8].value as Awaited<ReturnType<typeof getRentalGyms>>;
-  const stores         = results[9].value as Awaited<ReturnType<typeof getStores>>;
 
   const items: ScheduleItem[] = [];
   const nameOf = (id?: string) => (id ? members.find((m) => m.id === id)?.name : undefined);
