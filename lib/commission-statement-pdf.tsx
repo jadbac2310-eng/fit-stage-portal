@@ -54,6 +54,14 @@ const s = StyleSheet.create({
   tfoot: { flexDirection: "row", alignItems: "center", paddingTop: 8 },
   tfootLabel: { width: "78%", textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151", paddingRight: 8, lineHeight: 1 },
   tfootValue: { width: "22%", textAlign: "right", fontSize: 12, fontWeight: "bold", lineHeight: 1 },
+
+  taxBox: { marginTop: 10, marginLeft: "auto", width: "55%", borderWidth: 1, borderColor: "#d1d5db", borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12 },
+  taxRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
+  taxKey: { fontSize: 9, color: C.sub },
+  taxVal: { fontSize: 9, textAlign: "right" },
+  taxTotalRow: { borderTopWidth: 0.5, borderTopColor: "#d1d5db", marginTop: 3, paddingTop: 4 },
+  taxKeyBold: { fontSize: 10, fontWeight: "bold", color: "#374151" },
+  taxValBold: { fontSize: 11, fontWeight: "bold", textAlign: "right" },
 });
 
 function LineSection({ title, lines, subtotal }: { title: string; lines: StatementLine[]; subtotal: number }) {
@@ -120,13 +128,14 @@ export interface CommissionStatementPdfData {
   hourlyLines: HourlyStatementLine[];
   hourlyTotal: number;
   total: number;
+  tax: { rate: number; net: number; tax: number; gross: number };
   issuer: { name: string; contact?: string; address: string; tel: string };
   statementNo: string;
   monthLabel: string;
 }
 
 export function CommissionStatementDocument({
-  trainerName, trainerInvoiceNumber, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total, issuer, statementNo, monthLabel,
+  trainerName, trainerInvoiceNumber, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total, tax, issuer, statementNo, monthLabel,
 }: CommissionStatementPdfData) {
   return (
     <Document title={`コミッション明細 ${trainerName} ${monthLabel}`}>
@@ -162,6 +171,24 @@ export function CommissionStatementDocument({
         <LineSection title="レッスン担当分" lines={trainerLines} subtotal={trainerTotal} />
         <LineSection title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} subtotal={salesTotal} />
         <HourlyLineSection lines={hourlyLines} subtotal={hourlyTotal} />
+
+        {/* 消費税の内訳（各金額を税込として税抜・消費税に割り戻し） */}
+        {total > 0 ? (
+          <View style={s.taxBox}>
+            <View style={s.taxRow}>
+              <Text style={s.taxKey}>{tax.rate}% 対象（税抜）</Text>
+              <Text style={s.taxVal}>{yen(tax.net)}</Text>
+            </View>
+            <View style={s.taxRow}>
+              <Text style={s.taxKey}>消費税（{tax.rate}%）</Text>
+              <Text style={s.taxVal}>{yen(tax.tax)}</Text>
+            </View>
+            <View style={[s.taxRow, s.taxTotalRow]}>
+              <Text style={s.taxKeyBold}>合計（税込）</Text>
+              <Text style={s.taxValBold}>{yen(tax.gross)}</Text>
+            </View>
+          </View>
+        ) : null}
       </Page>
     </Document>
   );

@@ -12,7 +12,7 @@ import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
-import { ISSUER, monthLabel } from "@/lib/invoices";
+import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
 import { CommissionStatementDocument } from "@/lib/commission-statement-pdf";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
       hourlyLines: statement?.hourlyLines ?? [],
       hourlyTotal: statement?.hourlyTotal ?? 0,
       total: statement?.total ?? 0,
+      tax: taxBreakdown(statement?.total ?? 0),
       issuer: { name: ISSUER.name, contact: ISSUER.contact, address: ISSUER.address, tel: ISSUER.tel },
       statementNo: statementNumber(month, memberId),
       monthLabel: monthLabel(month),

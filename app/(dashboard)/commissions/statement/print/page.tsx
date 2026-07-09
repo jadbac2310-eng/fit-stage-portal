@@ -13,7 +13,7 @@ import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements, type StatementLine, type HourlyStatementLine } from "@/lib/commission-statement";
-import { ISSUER, monthLabel } from "@/lib/invoices";
+import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
 import { StatementActions } from "./statement-actions";
 
 export const dynamic = "force-dynamic";
@@ -141,6 +141,7 @@ export default async function CommissionStatementPrintPage({
   const salesLines = statement?.salesLines ?? [];
   const hourlyLines = statement?.hourlyLines ?? [];
   const total = statement?.total ?? 0;
+  const tax = taxBreakdown(total); // 各金額は税込扱い → 税抜/消費税に割り戻す
   const stmtNo = statementNumber(month, memberId);
   const pdfHref = `/commissions/statement/print/pdf?member=${memberId}&month=${month}`;
   const pdfFilename = `コミッション明細_${trainer.name}_${month}.pdf`;
@@ -190,6 +191,24 @@ export default async function CommissionStatementPrintPage({
         <LineTable title="レッスン担当分" lines={trainerLines} total={statement?.trainerTotal ?? 0} />
         <LineTable title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} total={statement?.salesTotal ?? 0} />
         <HourlyLineTable lines={hourlyLines} total={statement?.hourlyTotal ?? 0} />
+
+        {/* 消費税の内訳（各金額を税込として税抜・消費税に割り戻し） */}
+        {total > 0 && (
+          <div className="ml-auto w-full sm:w-1/2 border border-gray-300 rounded-xl px-4 py-3 text-sm">
+            <div className="flex justify-between text-gray-600 py-0.5">
+              <span>{tax.rate}% 対象（税抜）</span>
+              <span className="tabular-nums">{yen(tax.net)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600 py-0.5">
+              <span>消費税（{tax.rate}%）</span>
+              <span className="tabular-nums">{yen(tax.tax)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-gray-900 border-t border-gray-200 mt-1.5 pt-1.5">
+              <span>合計（税込）</span>
+              <span className="tabular-nums">{yen(tax.gross)}</span>
+            </div>
+          </div>
+        )}
 
         {trainerLines.length === 0 && salesLines.length === 0 && hourlyLines.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-8">この月の対象レッスンはありません</p>
