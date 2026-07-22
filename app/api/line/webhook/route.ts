@@ -46,6 +46,8 @@ async function handleEvent(event: LineEvent) {
   const reply = event.replyToken;
 
   if (event.type === "follow") {
+    // 連携済みの LINE ユーザーには案内を送らない（未連携の人だけ案内）
+    if (userId && (await getMemberByLineUserId(userId))) return;
     if (reply) await replyLineMessage(reply, HELP);
     return;
   }
@@ -55,6 +57,8 @@ async function handleEvent(event: LineEvent) {
     if (!userId) return;
 
     if (!/^[A-Z0-9]{6}$/.test(code)) {
+      // 連携済みの担当者が普通のメッセージを送っても自動返信しない。案内は未連携の人だけに出す。
+      if (await getMemberByLineUserId(userId)) return;
       if (reply) await replyLineMessage(reply, HELP);
       return;
     }
