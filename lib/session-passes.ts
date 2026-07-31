@@ -1,6 +1,7 @@
 import { createAdminClient } from "./supabase";
 export type { SessionPass } from "./session-passes-types";
 import type { SessionPass } from "./session-passes-types";
+import { passUsageOrdinals } from "./session-passes-types";
 import { currentMemberId, isMissingAuthorColumn } from "./audit";
 
 type DbRow = {
@@ -107,6 +108,29 @@ export async function deleteSessionPass(id: string): Promise<void> {
     .delete()
     .eq("id", id);
   if (error) throw error;
+}
+
+export type SessionPassUsage = { ordinal: number; totalCount: number };
+
+// 指定レッスンがその回数券の何回目の利用かを返す（同じ回数券のレッスンを日時順に数えた序数）。
+// 取得に失敗した場合は null を返し、呼び出し元の描画は落とさない。
+export async function getSessionPassUsage(passId: string, lessonId: string): Promise<SessionPassUsage | null> {
+  try {
+    const client = createAdminClient();
+    const [passRes, lessonsRes] = await Promise.all([
+      client.from("session_passes").select("total_count").eq("id", passId).single(),
+      client.from("lessons").select("id, scheduled_at, created_at").eq("session_pass_id", passId),
+    ]);
+    if (passRes.error || lessonsRes.error || !passRes.data) return null;
+    const rows = (lessonsRes.data ?? []) as { id: string; scheduled_at: string; created_at: string }[];
+    const ordinal = passUsageOrdinals(
+      rows.map((r) => ({ id: r.id, scheduledAt: r.scheduled_at, createdAt: r.created_at }))
+    ).get(lessonId);
+    if (!ordinal) return null;
+    return { ordinal, totalCount: (passRes.data as { total_count: number }).total_count };
+  } catch {
+    return null;
+  }
 }
 
 export async function decrementSessionPass(id: string): Promise<void> {

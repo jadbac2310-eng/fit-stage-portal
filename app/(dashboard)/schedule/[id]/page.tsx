@@ -5,6 +5,7 @@ import {
   CheckCircle, XCircle, StickyNote, Ticket, Pencil,
 } from "lucide-react";
 import { getLesson } from "@/lib/lessons";
+import { getSessionPassUsage } from "@/lib/session-passes";
 import { getTrialLesson } from "@/lib/trial-lessons";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { LESSON_STATUS_LABEL } from "@/lib/lessons-types";
@@ -39,6 +40,9 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
 
   // ─── 通常レッスン ───────────────────────────────────
   if (lesson) {
+    const passUsage = lesson.sessionPassId
+      ? await getSessionPassUsage(lesson.sessionPassId, lesson.id)
+      : null;
     return (
       <div className="p-4 md:p-6 max-w-lg mx-auto">
         <Link href="/schedule" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition mb-4">
@@ -67,7 +71,16 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
             {fmtTime(lesson.scheduledAt)}{lesson.endAt ? `〜${fmtTime(lesson.endAt)}` : ""}
           </Row>
           <Row icon={<User size={15} />} label="担当トレーナー">{lesson.trainerMemberName ?? "未設定"}</Row>
-          {lesson.course && <Row icon={<Ticket size={15} />} label="コース">{lesson.course}</Row>}
+          {(lesson.course || passUsage) && (
+            <Row icon={<Ticket size={15} />} label="コース">
+              {lesson.course ?? "回数券"}
+              {passUsage && (
+                <span className="ml-1.5 font-semibold text-blue-600">
+                  {passUsage.ordinal}回目 / 全{passUsage.totalCount}回
+                </span>
+              )}
+            </Row>
+          )}
           {lesson.location && <Row icon={<MapPin size={15} />} label="場所">{lesson.location}</Row>}
           {lesson.note && <Row icon={<StickyNote size={15} />} label="備考"><span className="whitespace-pre-wrap">{lesson.note}</span></Row>}
         </div>

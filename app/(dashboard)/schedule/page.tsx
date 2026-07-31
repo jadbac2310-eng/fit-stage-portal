@@ -3,6 +3,7 @@ import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
+import { passUsageOrdinals } from "@/lib/session-passes-types";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
@@ -45,6 +46,23 @@ export default async function SchedulePage() {
   const nameOf = (id?: string) => (id ? members.find((m) => m.id === id)?.name : undefined);
   const avatarOf = (id?: string) => (id ? members.find((m) => m.id === id)?.avatarUrl : undefined);
 
+  // 回数券レッスンが「何回目の利用か」を事前計算（回数券ごとに紐づくレッスンを日時順に数える）
+  const lessonsByPass = new Map<string, typeof lessons>();
+  for (const l of lessons) {
+    if (!l.sessionPassId) continue;
+    const arr = lessonsByPass.get(l.sessionPassId);
+    if (arr) arr.push(l);
+    else lessonsByPass.set(l.sessionPassId, [l]);
+  }
+  const passTotalById = new Map(sessionPasses.map((p) => [p.id, p.totalCount]));
+  const passUsageByLessonId = new Map<string, { ordinal: number; total?: number }>();
+  for (const [passId, passLessons] of lessonsByPass) {
+    const ordinals = passUsageOrdinals(passLessons);
+    for (const l of passLessons) {
+      passUsageByLessonId.set(l.id, { ordinal: ordinals.get(l.id)!, total: passTotalById.get(passId) });
+    }
+  }
+
   // 通常レッスン（全件）
   for (const l of lessons) {
     items.push({
@@ -56,6 +74,8 @@ export default async function SchedulePage() {
       endAt: l.endAt,
       location: l.location,
       course: l.course,
+      passOrdinal: passUsageByLessonId.get(l.id)?.ordinal,
+      passTotal: passUsageByLessonId.get(l.id)?.total,
       status: l.status,
       trainerId: l.trainerMemberId,
       trainerName: l.trainerMemberName,

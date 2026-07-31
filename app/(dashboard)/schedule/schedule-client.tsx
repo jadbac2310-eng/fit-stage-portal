@@ -41,6 +41,8 @@ export type ScheduleItem = {
   color?: EventColor;
   location?: string;
   course?: string;
+  passOrdinal?: number;  // 回数券の何回目の利用か（通常レッスンで回数券使用時のみ）
+  passTotal?: number;    // その回数券の総回数
   status: "scheduled" | "completed" | "cancelled" | "cancelled_same_day";
   trainerId?: string;
   trainerName?: string;
@@ -112,6 +114,12 @@ function jstMinutes(iso: string): number {
 
 function fullDateStr(iso: string) {
   return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+}
+
+// 回数券の利用回数表示（例: 3回目/全10回）。回数券未使用のレッスンは null
+function passUsageLabel(item: ScheduleItem): string | null {
+  if (!item.passOrdinal) return null;
+  return item.passTotal ? `${item.passOrdinal}回目/全${item.passTotal}回` : `${item.passOrdinal}回目`;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -322,7 +330,12 @@ function LessonCard({
           </div>
           <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
           <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap">
-            {item.course && <span className="text-xs text-gray-500">{item.course}</span>}
+            {item.course && (
+              <span className="text-xs text-gray-500">
+                {item.course}
+                {item.passOrdinal ? `（${passUsageLabel(item)}）` : ""}
+              </span>
+            )}
             {item.location && (
               <span className="text-xs text-gray-400 flex items-center gap-0.5 min-w-0">
                 <MapPin size={10} className="flex-shrink-0" />
@@ -382,7 +395,14 @@ function LessonCard({
           {item.type === "regular" && item.createdByName && (
             <DetailRow icon={<CalendarPlus size={13} />} label="追加者">{item.createdByName}</DetailRow>
           )}
-          {item.course && <DetailRow icon={<Ticket size={13} />} label="コース">{item.course}</DetailRow>}
+          {item.course && (
+            <DetailRow icon={<Ticket size={13} />} label="コース">
+              {item.course}
+              {item.passOrdinal ? (
+                <span className="ml-1 font-semibold text-blue-600">{passUsageLabel(item)}</span>
+              ) : null}
+            </DetailRow>
+          )}
           {item.location && <DetailRow icon={<MapPin size={13} />} label="場所">{item.location}</DetailRow>}
           {item.note && (
             <DetailRow icon={<StickyNote size={13} />} label={isPersonal ? "メモ" : "備考"}>
