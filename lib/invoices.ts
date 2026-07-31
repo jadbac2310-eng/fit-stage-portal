@@ -152,7 +152,7 @@ export function billingName(c: Customer): string {
 
 /**
  * まとめ先(biller)の請求書を、グループ内の全顧客の明細を合算して組み立てる。
- * 別顧客の明細には「氏名: 品目」と前置して区別する。
+ * 品目に受講者の氏名は入れない（誰が受けたかは請求書に出さない方針）。
  */
 export function buildGroupInvoice(
   biller: Customer,
@@ -163,10 +163,7 @@ export function buildGroupInvoice(
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
   for (const c of members) {
-    const inv = buildInvoice(c, month, data, singleSessionFee);
-    for (const l of inv.lines) {
-      lines.push({ ...l, label: c.id === biller.id ? l.label : `${c.fullName}：${l.label}` });
-    }
+    lines.push(...buildInvoice(c, month, data, singleSessionFee).lines);
   }
   lines.sort((a, b) => a.date.localeCompare(b.date));
   const total = lines.reduce((s, l) => s + l.amount, 0);

@@ -5,6 +5,7 @@ import { getLessons } from "@/lib/lessons";
 import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import { billingGroups, buildGroupInvoice } from "@/lib/invoices";
+import { courseToPaymentType, isBillableLessonStatus } from "@/lib/lessons-types";
 import { InvoicesClient } from "./invoices-client";
 
 export const dynamic = "force-dynamic";
@@ -49,5 +50,20 @@ export default async function InvoicesPage({
     .filter((inv) => inv.total > 0)
     .sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
 
-  return <InvoicesClient invoices={invoices} month={month} />;
+  // 請求漏れの検知: 実施済み（完了・当日キャンセル）なのにコース未設定のレッスン。
+  // コースが無いと請求書の明細にも回数券の消化にもならず、どこにも計上されない。
+  const uncounted = lessons
+    .filter((l) =>
+      l.scheduledAt.slice(0, 7) === month &&
+      isBillableLessonStatus(l.status) &&
+      !courseToPaymentType(l.course) &&
+      !l.sessionPassId)
+    .map((l) => ({
+      id: l.id,
+      date: l.scheduledAt.slice(0, 10),
+      customerName: l.customerName || customers.find((c) => c.id === l.customerId)?.fullName || "（不明）",
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return <InvoicesClient invoices={invoices} month={month} uncounted={uncounted} />;
 }

@@ -321,10 +321,14 @@ export function LessonForm({
   );
 
   function applySuggestion(customerId: string, date: string) {
-    if (!defaultValues?.id) {
-      const sug = computeSuggestion(customerId, date, allLessons, customerPlans);
-      if (sug?.course) setSelectedCourse(sug.course);
-    }
+    if (defaultValues?.id) return;
+    const sug = computeSuggestion(customerId, date, allLessons, customerPlans);
+    if (sug?.course) { setSelectedCourse(sug.course); return; }
+    // プランも有効な回数券も無い顧客は「都度」を既定にする。
+    // コース未選択のまま登録されると請求書の明細に載らず、請求漏れになるため。
+    if (!customerId) return;
+    const hasPass = sessionPasses.some((p) => p.customerId === customerId && p.remainingCount > 0);
+    if (!hasPass) setSelectedCourse("都度");
   }
 
   async function handleSubmit(fd: FormData) {
@@ -598,9 +602,10 @@ export function LessonForm({
       </div>
 
       <div>
-        <label className={labelClass}>コース</label>
-        <select name="course" value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className={inputClass}>
-          <option value="">未選択</option>
+        <label className={labelClass}>コース <span className="text-red-500">*</span></label>
+        {/* 必須。未選択だと請求書の明細に載らず請求漏れになるため空のまま登録させない */}
+        <select name="course" required value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className={inputClass}>
+          <option value="">選択してください</option>
           {passCourses.length > 0 && (
             <optgroup label="回数券">
               {passCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

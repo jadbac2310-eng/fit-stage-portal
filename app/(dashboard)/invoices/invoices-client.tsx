@@ -3,8 +3,15 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Receipt, ChevronRight } from "lucide-react";
+import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
 import type { CustomerInvoice } from "@/lib/invoices";
+
+/** コース未設定で請求書に載っていない実施済みレッスン */
+export interface UncountedLesson {
+  id: string;
+  date: string;
+  customerName: string;
+}
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -21,7 +28,13 @@ function monthOptions(): { value: string; label: string }[] {
   return opts;
 }
 
-export function InvoicesClient({ invoices, month }: { invoices: CustomerInvoice[]; month: string }) {
+export function InvoicesClient({
+  invoices, month, uncounted = [],
+}: {
+  invoices: CustomerInvoice[];
+  month: string;
+  uncounted?: UncountedLesson[];
+}) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
   const grandTotal = invoices.reduce((s, inv) => s + inv.total, 0);
@@ -49,6 +62,33 @@ export function InvoicesClient({ invoices, month }: { invoices: CustomerInvoice[
           {invoices.length}件 ・ 合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
         </span>
       </div>
+
+      {uncounted.length > 0 && (
+        <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+            <p className="text-sm font-semibold text-amber-800">
+              請求に含まれていないレッスンが{uncounted.length}件あります
+            </p>
+          </div>
+          <p className="text-xs text-amber-700 mt-1">
+            コースが未設定のため請求書の明細に載りません。レッスンを開いてコース（都度・月会費・回数券）を選んでください。
+          </p>
+          <div className="mt-2.5 space-y-1">
+            {uncounted.map((l) => (
+              <Link
+                key={l.id}
+                href={`/schedule/${l.id}`}
+                className="flex items-center gap-2 text-xs text-amber-900 bg-white/70 rounded-lg px-2.5 py-1.5 hover:bg-white transition"
+              >
+                <span className="text-amber-600">{l.date}</span>
+                <span className="font-semibold truncate">{l.customerName}</span>
+                <ChevronRight size={12} className="ml-auto flex-shrink-0 text-amber-500" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {invoices.length === 0 ? (
         <div className="text-center py-16">

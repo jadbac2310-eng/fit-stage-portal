@@ -42,6 +42,8 @@ export async function createLessonAction(formData: FormData) {
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
   if (!customerId || !scheduledAt) return;
+  // コース未設定のレッスンは請求書の明細に載らない（請求漏れになる）ため受け付けない
+  if (!course) throw new Error("コースを選択してください");
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
@@ -78,6 +80,7 @@ export async function createLessonsAction(formData: FormData) {
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
   if (!customerId) return;
+  if (!course) throw new Error("コースを選択してください");
 
   let slots: { scheduledAt?: string; endAt?: string | null }[] = [];
   try {
@@ -119,6 +122,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
   if (!scheduledAt) return;
+  if (!course) throw new Error("コースを選択してください");
 
   const paymentType = courseToPaymentType(course ?? undefined) ?? null;
 
