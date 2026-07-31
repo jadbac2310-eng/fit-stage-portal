@@ -26,12 +26,28 @@ export function jstDateLabel(iso: string): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]})`;
 }
 
-/** 予定1件の表示行（時刻 タイトル（X） ＠場所）。who を渡すと担当/本人名を括弧で表示 */
-export function fmtItemLine(opts: { startAt: string; allDay?: boolean; title: string; location?: string; who?: string }): string {
-  const time = opts.allDay ? "終日" : jstTimeStr(opts.startAt);
-  const who = opts.who ? `（${opts.who}）` : "";
-  const loc = opts.location ? ` ＠${opts.location}` : "";
-  return `${time}　${opts.title}${who}${loc}`;
+// ─── 従業員向け通知のON/OFF ────────────────────────────
+// LINE公式アカウントの無料枠は月200通（カウントは「送信回数 × 送った人数」）。
+// フリープランは超過しても課金されず、代わりに配信できなくなるため通数の管理が要る。
+// 毎朝のまとめは2026-07-29に廃止（管理者向け「全員のスケジュール」だけで月約60通を消費し、
+// ポータルを開けば見られる情報だったため）。残りは既定ON、止めたい種類だけ "off" にする。
+//   LINE_NOTIFY_REMINDER … 開始30分前のリマインド（月100通強）
+//   LINE_NOTIFY_INSTANT  … 予定の追加/変更/削除/参加者追加の即時通知
+// ※ webhookの応答メッセージ(reply)は無料枠の対象外なので、この設定の影響を受けない。
+export type StaffNotifyKind = "reminder" | "instant";
+
+const STAFF_NOTIFY_ENV: Record<StaffNotifyKind, string> = {
+  reminder: "LINE_NOTIFY_REMINDER",
+  instant:  "LINE_NOTIFY_INSTANT",
+};
+
+export function staffNotifyEnabled(kind: StaffNotifyKind): boolean {
+  return (process.env[STAFF_NOTIFY_ENV[kind]] ?? "").trim().toLowerCase() !== "off";
+}
+
+/** 従業員向け通知が1種類でも有効か（全部 "off" ならLINE連携カード自体を出さない） */
+export function anyStaffNotifyEnabled(): boolean {
+  return (Object.keys(STAFF_NOTIFY_ENV) as StaffNotifyKind[]).some(staffNotifyEnabled);
 }
 
 /**
@@ -43,6 +59,7 @@ export async function notifyMembersByLine(
   text: string | ((m: Member) => string),
   membersCache?: Member[],
 ): Promise<void> {
+  if (!staffNotifyEnabled("instant")) return;
   try {
     const ids = Array.from(new Set(memberIds.filter(Boolean)));
     if (ids.length === 0) return;

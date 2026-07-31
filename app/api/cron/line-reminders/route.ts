@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMembers } from "@/lib/members";
 import { collectNotifyItems } from "@/lib/schedule-items";
 import { pushLineMessage } from "@/lib/line";
-import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr } from "@/lib/line-notify";
+import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr, staffNotifyEnabled } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
 
 export const runtime = "nodejs";
@@ -19,6 +19,8 @@ function authorized(req: NextRequest): boolean {
 // 予定の開始 REMINDER_MIN 分前にリマインドを送る。数分おきに叩かれる前提（重複は送信済みログで防止）。
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // 無料枠(月200通)を使い切らないよう既定では停止。LINE_NOTIFY_REMINDER=on で再開。
+  if (!staffNotifyEnabled("reminder")) return NextResponse.json({ ok: true, sent: 0, disabled: true });
 
   const now = Date.now();
   const windowMs = REMINDER_MIN * 60 * 1000;

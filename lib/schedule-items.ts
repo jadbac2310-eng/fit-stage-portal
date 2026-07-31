@@ -10,7 +10,6 @@ export interface NotifyItem {
   allDay:       boolean;
   location?:    string;
   recipientIds: string[];      // 通知先の担当者id（重複可・呼び出し側で連携状態を判定）
-  who?:         string;        // 担当/本人名（管理者向けの全体表示用。レッスン=担当、個人予定=作成者）
   notify?:      boolean;       // 個人予定のLINE通知ON/OFF（未設定=常に通知。レッスン等は対象外）
 }
 
@@ -37,7 +36,6 @@ export async function collectNotifyItems(): Promise<NotifyItem[]> {
       allDay: e.allDay,
       location: e.location,
       recipientIds: [e.memberId, ...e.participantIds],
-      who: e.memberName,
       notify: e.notify,
     });
   }
@@ -51,7 +49,6 @@ export async function collectNotifyItems(): Promise<NotifyItem[]> {
       allDay: false,
       location: l.location,
       recipientIds: [l.trainerMemberId],
-      who: l.trainerMemberName,
     });
   }
 
@@ -66,7 +63,6 @@ export async function collectNotifyItems(): Promise<NotifyItem[]> {
       allDay: false,
       location: t.location,
       recipientIds: recipients,
-      who: t.trainerMemberName ?? t.salesMemberName,
     });
   }
 

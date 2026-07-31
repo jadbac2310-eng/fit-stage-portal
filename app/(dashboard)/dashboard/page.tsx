@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { getCurrentMember, getMembers, ensureMemberLinkCode } from "@/lib/members";
 import { isLineConfigured } from "@/lib/line";
+import { anyStaffNotifyEnabled } from "@/lib/line-notify";
 import { LineLinkCard } from "./line-link-card";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
@@ -100,8 +101,8 @@ export default async function DashboardPage() {
       .map((t) => ({ id: t.id, type: "trial" as const, customerName: t.customerName, scheduledAt: t.scheduledAt, location: t.location })),
   ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
-  // LINE通知の連携カード（トークン設定済みのときのみ表示）
-  const lineEnabled = isLineConfigured();
+  // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
+  const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
   const lineLinked = !!currentMember?.lineUserId;
   const lineCode = lineEnabled && currentMember && !lineLinked
     ? await ensureMemberLinkCode(currentMember.id)
