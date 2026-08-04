@@ -62,11 +62,21 @@ export function monthLabel(month: string): string {
   const [y, m] = month.split("-");
   return `${y}年${parseInt(m, 10)}月`;
 }
-// 支払期限 = 対象月の翌月10日（例: 6月分 → 7月10日）
-export function dueDateLabel(month: string): string {
+// 支払期限の既定 = 対象月の翌月10日（例: 6月分 → 7月10日）。戻り値は YYYY-MM-DD。
+export function defaultDueDate(month: string): string {
   const [y, m] = month.split("-").map((x) => parseInt(x, 10));
-  const due = new Date(y, m, 10); // m は1始まり → JS(0始まり)では m が翌月
-  return `${due.getFullYear()}年${due.getMonth() + 1}月${due.getDate()}日`;
+  const year = m === 12 ? y + 1 : y;
+  const mon = m === 12 ? 1 : m + 1;
+  return `${year}-${String(mon).padStart(2, "0")}-10`;
+}
+/** YYYY-MM-DD → 「2026年8月10日」 */
+export function formatDueDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
+  return `${y}年${m}月${d}日`;
+}
+/** 請求書に表示する支払期限。個別設定(override)があればそれを、無ければ既定を使う。 */
+export function dueDateLabel(month: string, override?: string | null): string {
+  return formatDueDate(override || defaultDueDate(month));
 }
 export function invoiceNumber(month: string, customerId: string): string {
   return `INV-${month.replace("-", "")}-${customerId.slice(0, 6).toUpperCase()}`;

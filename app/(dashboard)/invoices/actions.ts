@@ -9,7 +9,8 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getPayments, buildReceivables } from "@/lib/payments";
-import { billingGroups, buildGroupInvoice, billingName, monthLabel } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice, billingName, monthLabel, dueDateLabel, formatDueDate } from "@/lib/invoices";
+import { setInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { isStripeConfigured } from "@/lib/stripe";
 import { createStripeCheckout, type CheckoutItem } from "@/lib/stripe-checkouts";
 
@@ -20,6 +21,30 @@ export async function updateBillingNameAction(customerId: string, name: string) 
   await logActivity({ action: "update", entityType: "invoice", entityId: customerId, summary: `請求書の宛名を変更: ${name.trim() || "（氏名に戻す）"}` });
   revalidatePath("/invoices");
   revalidatePath("/master/customers");
+}
+
+/**
+ * 請求書（まとめ先=biller、対象月）の支払期限を上書きする。
+ * dueDate が空なら設定を消して既定（対象月の翌月10日）に戻す。
+ */
+export async function updateInvoiceDueDateAction(
+  billerId: string,
+  month: string,
+  dueDate: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!billerId || !/^\d{4}-\d{2}$/.test(month)) return { ok: false, error: "対象が不正です" };
+  const value = dueDate?.trim() || null;
+  if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) return { ok: false, error: "日付の形式が不正です" };
+
+  await setInvoiceDueDate(billerId, month, value);
+  await logActivity({
+    action: "update", entityType: "invoice", entityId: billerId,
+    summary: `支払期限を変更: ${month} → ${value ? formatDueDate(value) : `既定（${dueDateLabel(month)}）`}`,
+  });
+  revalidatePath("/invoices");
+  revalidatePath("/invoices/print");
+  return { ok: true };
 }
 
 function yen(n: number): string {

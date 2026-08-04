@@ -9,9 +9,11 @@ import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
-  monthLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
+  monthLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
+import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { EditableBillingName } from "./editable-name";
+import { EditableDueDate } from "./editable-due-date";
 import { InvoiceActions } from "./invoice-actions";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +51,7 @@ export default async function InvoicePrintPage({
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
   const invoice = buildGroupInvoice(customer, group.members, month, { plans, passes, lessons }, singleFee);
+  const dueOverride = await getInvoiceDueDate(customer.id, month);
   const invoiceNo = invoiceNumber(month, customer.id);
   const suffix = addresseeSuffix(customer.customerType);
   const tax = taxBreakdown(invoice.total);
@@ -149,7 +152,13 @@ export default async function InvoicePrintPage({
             <span className="text-gray-500">口座番号</span><span>{BANK_INFO.accountNumber}</span>
             <span className="text-gray-500">口座名義</span><span>{BANK_INFO.accountHolder}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-3">お支払期限: {dueDateLabel(month)}（振込手数料はご負担ください）</p>
+          <EditableDueDate
+            billerId={customer.id}
+            month={month}
+            label={dueDateLabel(month, dueOverride)}
+            value={dueOverride}
+            defaultValue={defaultDueDate(month)}
+          />
         </div>
       </div>
     </div>

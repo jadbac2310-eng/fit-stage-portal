@@ -10,6 +10,7 @@ import {
   billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
   monthLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
+import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { InvoiceDocument } from "@/lib/invoice-pdf";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
   const invoice = buildGroupInvoice(biller, group.members, month, { plans, passes, lessons }, singleFee);
+  const dueOverride = await getInvoiceDueDate(biller.id, month);
 
   const buffer = await renderToBuffer(
     InvoiceDocument({
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
       bank: BANK_INFO,
       invoiceNo: invoiceNumber(month, biller.id),
       monthLabel: monthLabel(month),
-      dueDateLabel: dueDateLabel(month),
+      dueDateLabel: dueDateLabel(month, dueOverride),
       addresseeSuffix: addresseeSuffix(biller.customerType),
       tax: taxBreakdown(invoice.total),
     }),
