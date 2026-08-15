@@ -245,7 +245,7 @@ function SessionPassForm({
   function autoFillPrice(persons: number, count: string) {
     const n = parseInt(count, 10);
     const defaultPrice = sessionPassPriceMap[persons]?.[n];
-    if (defaultPrice && !price) setPrice(String(defaultPrice));
+    if (defaultPrice != null && price === "") setPrice(String(defaultPrice));
   }
 
   async function handleSubmit(fd: FormData) {
@@ -274,7 +274,7 @@ function SessionPassForm({
                 setPersonCount(n);
                 const cnt = parseInt(totalCount, 10);
                 const defaultPrice = sessionPassPriceMap[n]?.[cnt];
-                if (defaultPrice) setPrice(String(defaultPrice));
+                if (defaultPrice != null) setPrice(String(defaultPrice));
               }}
               className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition ${
                 personCount === n
@@ -380,7 +380,7 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
                 setPersonCount(n);
                 const cnt = parseInt(totalCount, 10);
                 const def = sessionPassPriceMap[n]?.[cnt];
-                if (def) setPrice(String(def));
+                if (def != null) setPrice(String(def));
               }}
               className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition ${
                 personCount === n ? "bg-amber-500 border-amber-500 text-white" : "border-gray-300 text-gray-600 hover:bg-gray-50"
@@ -397,7 +397,7 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
               setTotalCount(e.target.value);
               const n = parseInt(e.target.value, 10);
               const def = sessionPassPriceMap[personCount]?.[n];
-              if (def && !price) setPrice(String(def));
+              if (def != null && price === "") setPrice(String(def));
             }}
             className={inputClass} />
         </div>

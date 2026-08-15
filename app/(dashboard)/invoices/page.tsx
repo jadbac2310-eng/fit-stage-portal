@@ -47,7 +47,7 @@ export default async function InvoicesPage({
 
   const invoices = billingGroups(customers)
     .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons }, singleFee))
-    .filter((inv) => inv.total > 0)
+    .filter((inv) => inv.lines.length > 0) // 明細があれば出す（合計0円でも隠さない）
     .sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
 
   // 請求漏れの検知: 実施済み（完了・当日キャンセル）なのにコース未設定のレッスン。

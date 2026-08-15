@@ -1,6 +1,6 @@
 import type { Customer, CustomerType } from "./customers-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType } from "./lessons-types";
+import { courseToPaymentType, resolveSingleLessonAmount } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
@@ -84,7 +84,7 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
       if (pass.price != null && pass.totalCount > 0) return Math.round(pass.price / pass.totalCount);
       // price 未設定の場合は人数×回数でマスタから標準単価を算出
       const masterTotal = ctx.sessionPassPriceMap?.[pass.personCount]?.[pass.totalCount];
-      if (masterTotal && pass.totalCount > 0) return Math.round(masterTotal / pass.totalCount);
+      if (masterTotal != null && pass.totalCount > 0) return Math.round(masterTotal / pass.totalCount);
       // それもなければ固定単価表
       return getLessonFee("回数券");
     }
@@ -100,14 +100,14 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
              p.startedAt <= date && (!p.endedAt || p.endedAt >= date)
     );
     const sessions = planSessions(course);
-    if (plan?.price && sessions > 0) return Math.round(plan.price / sessions);
+    if (plan?.price != null && sessions > 0) return Math.round(plan.price / sessions);
   }
 
   // 単発(都度・オンライン等): レッスン個別金額 → 顧客の都度単価
   if (courseToPaymentType(course) === "single") {
-    if (typeof lesson.amount === "number" && lesson.amount > 0) return lesson.amount;
     const cust = ctx.customers.find((c) => c.id === lesson.customerId);
-    if (cust?.singleSessionPrice && cust.singleSessionPrice > 0) return cust.singleSessionPrice;
+    const amount = resolveSingleLessonAmount(lesson.amount, cust?.singleSessionPrice);
+    if (amount != null) return amount;
   }
 
   // フォールバック: プランマスタの標準単価 → 従来の固定単価表（旧コース名の互換用）

@@ -4,7 +4,7 @@ import type { Customer } from "./customers-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType, isBillableLessonStatus } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
 import { paymentKey, type Payment, type PaymentSourceType, type Receivable } from "./payments-types";
 export type { Payment, PaymentSourceType, Receivable } from "./payments-types";
 
@@ -122,10 +122,10 @@ export function buildReceivables(
     });
   }
 
-  // 月額プラン（購入月で計上）
+  // 月額プラン（購入月で計上）。0円は「0円と決めた」扱いだが、入金管理には出さない
   for (const p of data.plans) {
     const date = p.purchasedAt ?? p.startedAt;
-    if (!inMonth(date, month) || !p.price) continue;
+    if (!inMonth(date, month) || p.price == null || p.price <= 0) continue;
     items.push({
       sourceType: "customer_plan", sourceId: p.id, customerId: p.customerId,
       customerName: nameOf.get(p.customerId) ?? "",
@@ -139,10 +139,8 @@ export function buildReceivables(
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inMonth(l.scheduledAt, month)) continue;
     const cust = data.customers.find((c) => c.id === l.customerId);
-    const amount = (typeof l.amount === "number" && l.amount > 0)
-      ? l.amount
-      : (cust?.singleSessionPrice && cust.singleSessionPrice > 0) ? cust.singleSessionPrice : singleSessionFee;
-    if (amount <= 0) continue;
+    const amount = resolveSingleLessonAmount(l.amount, cust?.singleSessionPrice) ?? singleSessionFee;
+    if (amount <= 0) continue; // 0円は請求も入金も発生しないので入金管理には出さない
     items.push({
       sourceType: "single_lesson", sourceId: l.id, customerId: l.customerId,
       customerName: l.customerName,

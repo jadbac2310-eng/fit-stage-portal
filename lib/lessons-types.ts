@@ -56,3 +56,21 @@ export const COURSE_OPTIONS: { value: string; label: string; paymentType: Lesson
 export function courseToPaymentType(course: string | undefined): LessonPaymentType | null {
   return COURSE_OPTIONS.find((o) => o.value === course)?.paymentType ?? null;
 }
+
+/**
+ * 単発（都度・オンライン等）レッスン1回の計上額を決める。
+ * レッスン個別金額 → 顧客の都度単価 の順に見て、どちらも未設定なら null
+ * （呼び出し側でプランマスタの既定単価などにフォールバックする）。
+ *
+ * 0円は「未設定」ではなく「0円と決めた」として扱う。金額の判定に真偽値
+ * （`amount &&` や `amount > 0`）を使うと0円が未設定と同じ扱いになり、
+ * 顧客の単価が勝手に使われてしまうので必ずこの関数を通すこと。
+ */
+export function resolveSingleLessonAmount(
+  lessonAmount: number | null | undefined,
+  customerSinglePrice: number | null | undefined,
+): number | null {
+  if (lessonAmount != null) return lessonAmount;
+  if (customerSinglePrice != null) return customerSinglePrice;
+  return null;
+}

@@ -133,7 +133,7 @@ export function DetailsClient({
       if (l.sessionPassId) {
         const pass = sessionPasses.find((p) => p.id === l.sessionPassId);
         if (pass) {
-          sessionPassNote = `残${pass.remainingCount}/${pass.totalCount}回・${pass.personCount}名様${pass.price ? `・${yen(pass.price)}` : ""}`;
+          sessionPassNote = `残${pass.remainingCount}/${pass.totalCount}回・${pass.personCount}名様${pass.price != null ? `・${yen(pass.price)}` : ""}`;
         }
       }
 
@@ -147,7 +147,7 @@ export function DetailsClient({
                  p.startedAt <= date && (!p.endedAt || p.endedAt >= date)
         );
         if (plan) {
-          planNote = `${plan.startedAt}〜${plan.endedAt ?? ""}${plan.price ? `・${yen(plan.price)}/月` : ""}`;
+          planNote = `${plan.startedAt}〜${plan.endedAt ?? ""}${plan.price != null ? `・${yen(plan.price)}/月` : ""}`;
         }
       }
 

@@ -2,7 +2,7 @@ import type { Customer, CustomerType } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType, isBillableLessonStatus } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
 
 // ─── 発行元・振込先 ───────────────────────────────────────
 export const ISSUER = {
@@ -96,9 +96,9 @@ export function buildInvoice(
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
 
-  // 月額プラン（購入月で計上）
+  // 月額プラン（購入月で計上）。金額未設定(null)のみ除外し、0円は0円として明細に出す
   for (const p of data.plans) {
-    if (p.customerId !== customer.id || !p.price) continue;
+    if (p.customerId !== customer.id || p.price == null) continue;
     const date = p.purchasedAt ?? p.startedAt;
     if (!inMonth(date, month)) continue;
     lines.push({ date, label: `${PROGRAM_LABEL}（${p.plan}）`, amount: p.price });
@@ -106,7 +106,7 @@ export function buildInvoice(
 
   // 回数券（購入月で計上）
   for (const pass of data.passes) {
-    if (pass.customerId !== customer.id || !pass.price) continue;
+    if (pass.customerId !== customer.id || pass.price == null) continue;
     if (!inMonth(pass.purchasedAt, month)) continue;
     const persons = pass.personCount && pass.personCount > 1 ? `（${pass.personCount}名）` : "";
     lines.push({ date: pass.purchasedAt, label: `${PROGRAM_LABEL}（回数券 ${pass.totalCount}回${persons}）`, amount: pass.price });
@@ -117,11 +117,7 @@ export function buildInvoice(
     if (l.customerId !== customer.id) continue;
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inMonth(l.scheduledAt, month)) continue;
-    const amount = (typeof l.amount === "number" && l.amount > 0)
-      ? l.amount
-      : (customer.singleSessionPrice && customer.singleSessionPrice > 0)
-        ? customer.singleSessionPrice
-        : singleSessionFee;
+    const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? singleSessionFee;
     const label = l.course === "オンラインパーソナル"
       ? `${PROGRAM_LABEL}（オンライン）`
       : `${PROGRAM_LABEL}（店舗）`;
