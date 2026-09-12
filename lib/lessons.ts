@@ -24,7 +24,6 @@ type DbRow = {
   rental_gym_id: string | null;
   rental_gym_fee: number | null;
   store_id: string | null;
-  store_fee: number | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -56,7 +55,6 @@ function fromDb(row: DbRow): Lesson {
     rentalGymId:       row.rental_gym_id ?? undefined,
     rentalGymFee:      row.rental_gym_fee ?? undefined,
     storeId:           row.store_id ?? undefined,
-    storeFee:          row.store_fee ?? undefined,
     createdById:       row.created_by ?? undefined,
     createdByName:     row.created_by_member?.name ?? undefined,
     updatedById:       row.updated_by ?? undefined,
@@ -121,7 +119,6 @@ export async function addLesson(input: {
   rentalGymId?: string | null;
   rentalGymFee?: number | null;
   storeId?: string | null;
-  storeFee?: number | null;
 }): Promise<Lesson> {
   const client = createAdminClient();
   const row = {
@@ -139,7 +136,6 @@ export async function addLesson(input: {
     rental_gym_id:     input.rentalGymId ?? null,
     rental_gym_fee:    input.rentalGymFee ?? null,
     store_id:          input.storeId ?? null,
-    store_fee:         input.storeFee ?? null,
   };
   // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
   // 表示用のJOIN済みデータは getLesson で別途取得する。
@@ -170,7 +166,6 @@ export async function updateLesson(
     rentalGymId: string | null;
     rentalGymFee: number | null;
     storeId: string | null;
-    storeFee: number | null;
   }>
 ): Promise<Lesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -191,7 +186,6 @@ export async function updateLesson(
   if (input.rentalGymId        !== undefined) patch.rental_gym_id        = input.rentalGymId;
   if (input.rentalGymFee       !== undefined) patch.rental_gym_fee       = input.rentalGymFee;
   if (input.storeId            !== undefined) patch.store_id             = input.storeId;
-  if (input.storeFee           !== undefined) patch.store_fee            = input.storeFee;
   patch.updated_by = (await currentMemberId()) ?? null;
 
   const client = createAdminClient();

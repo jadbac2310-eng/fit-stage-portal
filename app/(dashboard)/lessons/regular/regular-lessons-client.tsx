@@ -272,17 +272,14 @@ export function LessonForm({
   const [rentalGymFee, setRentalGymFee] = useState(
     defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
   );
-  // 店舗（レンタルジムとは別概念。利用料は一律2000円が既定）。場所はレンタルジムと排他
+  // 店舗（レンタルジムとは別概念。利用料は無い）。場所はレンタルジムと排他
   const [storeId, setStoreId] = useState(defaultValues?.storeId ?? "");
-  const [storeFee, setStoreFee] = useState(
-    defaultValues?.storeFee != null ? String(defaultValues.storeFee) : ""
-  );
 
   function onRentalGymChange(id: string) {
     setRentalGymId(id);
     const gym = rentalGyms.find((g) => g.id === id);
     if (gym) {
-      setStoreId(""); setStoreFee("");            // 店舗とは排他
+      setStoreId("");                             // 店舗とは排他
       setRentalGymFee(String(gym.fee));
       setLocation(gym.name); // 場所を自動入力（編集可）
     } else {
@@ -295,10 +292,7 @@ export function LessonForm({
     const store = stores.find((s) => s.id === id);
     if (store) {
       setRentalGymId(""); setRentalGymFee("");    // レンタルジムとは排他
-      setStoreFee(String(store.fee));
       setLocation(store.name); // 場所を自動入力（編集可）
-    } else {
-      setStoreFee("");
     }
   }
 
@@ -575,30 +569,15 @@ export function LessonForm({
         )}
       </div>
 
-      {/* 店舗（レンタルジムとは別概念・一律2000円） */}
+      {/* 店舗（レンタルジムとは別概念・利用料は無い） */}
       <div>
         <label className={labelClass}><Building2 size={12} /> 店舗</label>
         <select name="storeId" value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={inputClass}>
           <option value="">なし</option>
           {stores.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}（¥{s.fee.toLocaleString("ja-JP")}）</option>
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-        {storeId && (
-          <div className="mt-2">
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">店舗利用料（税込）</label>
-            <input
-              name="storeFee"
-              type="number"
-              min="0"
-              step="1"
-              value={storeFee}
-              onChange={(e) => setStoreFee(e.target.value)}
-              className={inputClass}
-            />
-            <p className="text-xs text-gray-400 mt-1">既定は一律2000円です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
-          </div>
-        )}
       </div>
 
       <div>

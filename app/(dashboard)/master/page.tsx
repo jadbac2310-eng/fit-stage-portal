@@ -122,7 +122,7 @@ export default async function MasterPage() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 text-sm">店舗マスタ</p>
-            <p className="text-xs text-gray-500 mt-0.5">店舗の名前・住所・利用料（一律2000円）</p>
+            <p className="text-xs text-gray-500 mt-0.5">店舗の名前・住所</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-gray-400">{storesCount}件</span>

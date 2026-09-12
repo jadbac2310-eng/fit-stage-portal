@@ -8,12 +8,6 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import type { Store } from "@/lib/stores";
 import { createStoreAction, updateStoreAction, deleteStoreAction } from "./actions";
 
-const DEFAULT_STORE_FEE = 2000; // 一律2000円（サーバ専用の lib/stores を client から import しないため定義）
-
-function yen(n: number) {
-  return `¥${n.toLocaleString("ja-JP")}`;
-}
-
 function StoreForm({
   defaultValues, onClose, action, submitLabel,
 }: {
@@ -46,11 +40,6 @@ function StoreForm({
       <div>
         <label className={labelClass}>住所</label>
         <input name="address" defaultValue={defaultValues?.address} placeholder="大阪府..." className={inputClass} />
-      </div>
-      <div>
-        <label className={labelClass}>利用料（税込・1回あたり）</label>
-        <input name="fee" type="number" min="0" step="1" defaultValue={defaultValues?.fee ?? DEFAULT_STORE_FEE} className={inputClass} />
-        <p className="text-xs text-gray-400 mt-1">既定は一律2000円。レッスン追加時の初期値になります（その場で変更可）</p>
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
@@ -100,7 +89,6 @@ function StoreRow({ store, isAdmin }: { store: Store; isAdmin: boolean }) {
         {store.address && (
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><MapPin size={11} className="flex-shrink-0" />{store.address}</p>
         )}
-        <p className="text-xs font-semibold text-teal-600 mt-1">{yen(store.fee)} / 回</p>
       </div>
       {isAdmin && (
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -125,7 +113,7 @@ export function StoresClient({ stores, isAdmin }: { stores: Store[]; isAdmin: bo
             <StoreIcon size={20} className="text-teal-600" />
             <h1 className="text-xl font-bold text-gray-900">店舗マスタ</h1>
           </div>
-          <p className="text-sm text-gray-500 mt-0.5">店舗の名前・住所・利用料を管理（{stores.length}件）</p>
+          <p className="text-sm text-gray-500 mt-0.5">店舗の名前・住所を管理（{stores.length}件）</p>
         </div>
         {isAdmin && !showAdd && (
           <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">

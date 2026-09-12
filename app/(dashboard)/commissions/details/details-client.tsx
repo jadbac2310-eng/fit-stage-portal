@@ -96,7 +96,7 @@ export function DetailsClient({
   members:       { id: string; name: string; avatarUrl?: string }[];
   trainerRates:  { memberId: string; customerId: string; rate: number }[];
   rentalGyms:    { id: string; name: string; fee: number }[];
-  stores:        { id: string; name: string; fee: number }[];
+  stores:        { id: string; name: string }[];
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
@@ -160,9 +160,7 @@ export function DetailsClient({
       }
       let storeNote: string | undefined;
       if (l.storeId) {
-        const store = storeMap.get(l.storeId);
-        const storeFee = l.storeFee ?? store?.fee;
-        storeNote = `${store?.name ?? "不明な店舗"}${storeFee != null ? `・${yen(storeFee)}` : ""}`;
+        storeNote = storeMap.get(l.storeId)?.name ?? "不明な店舗";
       }
 
       const ensureGroup = (id: string, name: string, avatarUrl?: string) => {

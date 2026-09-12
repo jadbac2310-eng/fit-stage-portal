@@ -1,13 +1,10 @@
 import { createAdminClient } from "./supabase";
 
-// 店舗の既定利用料（一律2000円）
-export const DEFAULT_STORE_FEE = 2000;
-
+// 店舗（自社/提携の店舗）。利用料は無い（レンタルジムとは別概念）
 export interface Store {
   id:        string;
   name:      string;
   address?:  string;
-  fee:       number;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -17,7 +14,6 @@ type DbRow = {
   id:         string;
   name:       string;
   address:    string | null;
-  fee:        number;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -28,7 +24,6 @@ function fromDb(row: DbRow): Store {
     id:        row.id,
     name:      row.name,
     address:   row.address ?? undefined,
-    fee:       row.fee,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -48,10 +43,10 @@ export async function getStores(): Promise<Store[]> {
   return (data as DbRow[]).map(fromDb);
 }
 
-export async function addStore(input: { name: string; address?: string; fee: number }): Promise<Store> {
+export async function addStore(input: { name: string; address?: string }): Promise<Store> {
   const { data, error } = await createAdminClient()
     .from("stores")
-    .insert({ name: input.name, address: input.address ?? null, fee: input.fee })
+    .insert({ name: input.name, address: input.address ?? null })
     .select()
     .single();
   if (error) throw error;
@@ -60,12 +55,11 @@ export async function addStore(input: { name: string; address?: string; fee: num
 
 export async function updateStore(
   id: string,
-  input: Partial<{ name: string; address: string | null; fee: number }>,
+  input: Partial<{ name: string; address: string | null }>,
 ): Promise<Store> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.name    !== undefined) patch.name    = input.name;
   if (input.address !== undefined) patch.address = input.address;
-  if (input.fee     !== undefined) patch.fee     = input.fee;
 
   const { data, error } = await createAdminClient()
     .from("stores")
