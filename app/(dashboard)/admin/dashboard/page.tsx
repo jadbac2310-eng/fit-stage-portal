@@ -6,6 +6,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { getRentalGyms } from "@/lib/rental-gyms";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
   getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
@@ -27,7 +28,7 @@ export default async function AdminDashboardPage() {
   }
 
   const [
-    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates,
+    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, rentalGyms,
     popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError,
   ] = await Promise.all([
     getCustomers(),
@@ -39,6 +40,7 @@ export default async function AdminDashboardPage() {
     getAllPlans(),
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
+    getRentalGyms(),
     getPopularPages(28, 5),
     getTrafficSources(28, 6),
     getDeviceBreakdown(28),
@@ -62,6 +64,7 @@ export default async function AdminDashboardPage() {
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
       members={members.map((m) => ({ id: m.id, name: m.name }))}
       trainerRates={allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }))}
+      rentalGyms={rentalGyms.map((g) => ({ id: g.id, name: g.name }))}
       analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}
     />
   );

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2 } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, ChevronRight, ChevronDown, X } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
 import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
@@ -14,8 +14,9 @@ import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import {
   buildTrainerEntries, buildSalesEntries, resolveLessonFee, resolveTrialLessonFee, isoToMonth,
-  type CommissionContext,
+  type CommissionContext, type TrainerEntry, type SalesEntry,
 } from "@/lib/commissions";
+import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { cn } from "@/lib/cn";
 
 function yen(n: number): string {
@@ -60,10 +61,89 @@ function computeMonth(
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
     + trialsInMonth.length * resolveTrialLessonFee(ctx);
-  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.storeFee ?? 0), 0);
+  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, completedTrialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
+}
+
+// ─── KPIカードの内訳（タップで表示） ─────────────────────
+type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "profit";
+
+const BREAKDOWN_LABEL: Record<BreakdownKind, string> = {
+  revenue: "売上",
+  trainer: "トレーナー支払",
+  sales:   "営業支払",
+  rental:  "場所利用料",
+  profit:  "利益",
+};
+
+interface BreakdownRow {
+  key:    string;
+  label:  string;
+  count:  number;
+  amount: number;
+}
+
+interface MonthBreakdown {
+  revenueByCourse: BreakdownRow[];
+  trainers:        TrainerEntry[];
+  sales:           SalesEntry[];
+  rentalByGym:     BreakdownRow[];
+}
+
+// computeMonth と同じ計算（resolveLessonFee・buildTrainerEntries 等）で集計するので、合計はカードの金額と一致する
+function computeBreakdown(
+  month: string,
+  lessons: Lesson[],
+  trialLessons: TrialLesson[],
+  completedTrialLessons: TrialLesson[],
+  ctx: CommissionContext,
+  gymNames: Map<string, string>,
+): MonthBreakdown {
+  const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
+  const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
+
+  const add = (map: Map<string, BreakdownRow>, key: string, label: string, amount: number) => {
+    const row = map.get(key) ?? { key, label, count: 0, amount: 0 };
+    row.count += 1;
+    row.amount += amount;
+    map.set(key, row);
+  };
+  const sorted = (map: Map<string, BreakdownRow>) => Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+
+  // 売上: コース別
+  const byCourse = new Map<string, BreakdownRow>();
+  for (const l of inMonth) {
+    const course = l.course || "コース未設定";
+    add(byCourse, course, course, resolveLessonFee(l, ctx));
+  }
+  const trialFee = resolveTrialLessonFee(ctx);
+  trialsInMonth.forEach(() => add(byCourse, TRIAL_LESSON_COURSE_NAME, TRIAL_LESSON_COURSE_NAME, trialFee));
+
+  // 場所利用料: レンタルジム別
+  const byGym = new Map<string, BreakdownRow>();
+  for (const l of inMonth) {
+    if (!l.rentalGymFee) continue;
+    const name = (l.rentalGymId && gymNames.get(l.rentalGymId)) || l.location || "不明なジム";
+    add(byGym, l.rentalGymId ?? `location:${name}`, name, l.rentalGymFee);
+  }
+
+  return {
+    revenueByCourse: sorted(byCourse),
+    trainers:        buildTrainerEntries(lessons, completedTrialLessons, month, ctx),
+    sales:           buildSalesEntries(lessons, trialLessons, month, ctx),
+    rentalByGym:     sorted(byGym),
+  };
+}
+
+function mdLabel(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function byDate<T extends { scheduledAt: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 }
 
 interface AnalyticsData {
@@ -138,23 +218,179 @@ function SiteAnalytics({ data }: { data: AnalyticsData }) {
 }
 
 function KpiCard({
-  icon, label, value, accent, sub,
+  icon, label, value, accent, sub, onClick,
 }: {
-  icon: React.ReactNode; label: string; value: number; accent: string; sub?: string;
+  icon: React.ReactNode; label: string; value: number; accent: string; sub?: string; onClick: () => void;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4">
-      <p className={cn("text-xs font-semibold flex items-center gap-1.5 mb-1", accent)}>
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm active:bg-gray-50 transition"
+    >
+      <span className={cn("text-xs font-semibold flex items-center gap-1.5 mb-1", accent)}>
         {icon} {label}
-      </p>
-      <p className="text-xl font-bold text-gray-900 tabular-nums">{yen(value)}</p>
-      {sub && <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>}
+        <ChevronRight size={12} className="ml-auto text-gray-300" />
+      </span>
+      <span className="block text-xl font-bold text-gray-900 tabular-nums">{yen(value)}</span>
+      {sub && <span className="block text-[11px] text-gray-400 mt-0.5">{sub}</span>}
+    </button>
+  );
+}
+
+function BreakdownLine({ label, sub, amount, strong, compact }: {
+  label: string; sub?: string; amount: number; strong?: boolean; compact?: boolean;
+}) {
+  return (
+    <div className={cn("flex items-baseline justify-between gap-3", compact ? "py-1.5" : "py-2.5 border-b border-gray-100 last:border-0")}>
+      <div className="min-w-0">
+        <p className={cn("truncate", compact ? "text-xs text-gray-700" : "text-sm text-gray-800", strong && "font-semibold")}>{label}</p>
+        {sub && <p className="text-[11px] text-gray-400 truncate">{sub}</p>}
+      </div>
+      <p className={cn("tabular-nums flex-shrink-0", compact ? "text-xs text-gray-700" : "text-sm text-gray-900", strong && "font-bold")}>{yen(amount)}</p>
+    </div>
+  );
+}
+
+function EmptyBreakdown() {
+  return <p className="text-sm text-gray-400 text-center py-6">この月の対象はありません</p>;
+}
+
+function GroupedRows({ rows, unit, note }: { rows: BreakdownRow[]; unit: string; note: string }) {
+  if (rows.length === 0) return <EmptyBreakdown />;
+  return (
+    <div>
+      {rows.map((r) => <BreakdownLine key={r.key} label={r.label} sub={`${r.count}${unit}`} amount={r.amount} />)}
+      <p className="text-[11px] text-gray-400 mt-3">{note}</p>
+    </div>
+  );
+}
+
+// 担当者ごとの行。タップでその人の明細を開閉する
+function MemberRow({ label, sub, amount, open, onToggle, children }: {
+  label: string; sub: string; amount: number; open: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div className="border-b border-gray-100 last:border-0">
+      <button type="button" onClick={onToggle} className="w-full flex items-center justify-between gap-3 py-2.5 text-left">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-gray-800 truncate">{label}</span>
+          <span className="block text-[11px] text-gray-400">{sub}</span>
+        </span>
+        <span className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-sm font-bold text-gray-900 tabular-nums">{yen(amount)}</span>
+          <ChevronDown size={14} className={cn("text-gray-400 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && <div className="ml-1 mb-2 pl-3 border-l-2 border-gray-100">{children}</div>}
+    </div>
+  );
+}
+
+function TrainerBreakdown({ entries }: { entries: TrainerEntry[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (entries.length === 0) return <EmptyBreakdown />;
+  return (
+    <div>
+      {entries.map((e) => (
+        <MemberRow
+          key={e.memberId}
+          label={e.memberName}
+          sub={`${e.lessons.length}件のレッスン`}
+          amount={e.total}
+          open={openId === e.memberId}
+          onToggle={() => setOpenId(openId === e.memberId ? null : e.memberId)}
+        >
+          {byDate(e.lessons).map((l) => (
+            <BreakdownLine key={l.lessonId} compact
+              label={`${mdLabel(l.scheduledAt)} ${l.customerName}`}
+              sub={`${l.course || "コース未設定"}・単価 ${yen(l.fee)}`}
+              amount={l.commission} />
+          ))}
+        </MemberRow>
+      ))}
+      <p className="text-[11px] text-gray-400 mt-3">担当者ごとの歩合の合計です。タップするとレッスンごとの内訳を表示します。</p>
+    </div>
+  );
+}
+
+function SalesBreakdown({ entries }: { entries: SalesEntry[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (entries.length === 0) return <EmptyBreakdown />;
+  return (
+    <div>
+      {entries.map((e) => (
+        <MemberRow
+          key={e.memberId}
+          label={e.memberName}
+          sub={`歩合 ${yen(e.lessonTotal)}（${e.lessons.length}件）・成約ボーナス ${yen(e.bonusTotal)}（${e.bonuses.length}件）`}
+          amount={e.total}
+          open={openId === e.memberId}
+          onToggle={() => setOpenId(openId === e.memberId ? null : e.memberId)}
+        >
+          {byDate(e.bonuses).map((b) => (
+            <BreakdownLine key={`bonus-${b.trialId}`} compact
+              label={`${mdLabel(b.scheduledAt)} ${b.customerName}`} sub="成約ボーナス" amount={b.amount} />
+          ))}
+          {byDate(e.lessons).map((l) => (
+            <BreakdownLine key={l.lessonId} compact
+              label={`${mdLabel(l.scheduledAt)} ${l.customerName}`}
+              sub={`${l.course || "コース未設定"}・単価 ${yen(l.fee)}`}
+              amount={l.commission} />
+          ))}
+        </MemberRow>
+      ))}
+      <p className="text-[11px] text-gray-400 mt-3">担当者ごとの歩合＋成約ボーナスの合計です。タップすると内訳を表示します。</p>
+    </div>
+  );
+}
+
+// スマホは下から出るシート、PCは中央のダイアログ
+function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose }: {
+  kind: BreakdownKind; monthLabel: string; figures: MonthFigures; breakdown: MonthBreakdown; margin: number; onClose: () => void;
+}) {
+  const total: Record<BreakdownKind, number> = {
+    revenue: figures.revenue, trainer: figures.trainerPayout, sales: figures.salesPayout, rental: figures.rentalCost, profit: figures.profit,
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full md:w-[480px] rounded-t-3xl md:rounded-2xl p-5 pb-10 md:pb-5 shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4 md:hidden" />
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-500">{monthLabel}の{BREAKDOWN_LABEL[kind]}の内訳</p>
+            <p className="text-2xl font-bold text-gray-900 tabular-nums mt-0.5">{yen(total[kind])}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="閉じる" className="text-gray-400 hover:text-gray-600 transition">
+            <X size={18} />
+          </button>
+        </div>
+        {kind === "revenue" && (
+          <GroupedRows rows={breakdown.revenueByCourse} unit="件"
+            note="コース別の合計です。回数券・月プランは入金額を回数で割った1回あたりの単価で計上しています。" />
+        )}
+        {kind === "trainer" && <TrainerBreakdown entries={breakdown.trainers} />}
+        {kind === "sales" && <SalesBreakdown entries={breakdown.sales} />}
+        {kind === "rental" && (
+          <GroupedRows rows={breakdown.rentalByGym} unit="回" note="レッスンに登録したレンタルジム代の合計です。" />
+        )}
+        {kind === "profit" && (
+          <div>
+            <BreakdownLine label="売上" amount={figures.revenue} />
+            <BreakdownLine label="− トレーナー支払" amount={figures.trainerPayout} />
+            <BreakdownLine label="− 営業支払" amount={figures.salesPayout} />
+            <BreakdownLine label="− 場所利用料" amount={figures.rentalCost} />
+            <BreakdownLine label="＝ 利益" sub={`利益率 ${margin}%`} amount={figures.profit} strong />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, rentalGyms, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -166,6 +402,7 @@ export function RevenueDashboardClient({
   sessionPassPriceMap?: Record<number, Record<number, number>>;
   members:       { id: string; name: string }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
+  rentalGyms?:   { id: string; name: string }[];
   analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
@@ -189,6 +426,15 @@ export function RevenueDashboardClient({
   const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx), [month, lessons, trialLessons, trialsCompleted, ctx]);
 
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
+  const monthLabel = monthOptions.find((o) => o.value === month)?.label ?? month;
+
+  // タップされたKPIカードの内訳（選択月）
+  const [openCard, setOpenCard] = useState<BreakdownKind | null>(null);
+  const gymNames = useMemo(() => new Map((rentalGyms ?? []).map((g) => [g.id, g.name])), [rentalGyms]);
+  const breakdown = useMemo(
+    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames) : null,
+    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames],
+  );
 
   // 今月の実績（全体）
   const biz = useMemo(() => {
@@ -223,25 +469,34 @@ export function RevenueDashboardClient({
         </select>
       </div>
 
-      {/* KPI カード */}
+      {/* KPI カード（タップで内訳） */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} accent="text-blue-600" sub="完了レッスン単価の合計" />
-        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" />
-        <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" />
-        <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} accent="text-rose-600" sub="レンタルジム・店舗の利用料" />
+        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} accent="text-blue-600" sub="完了レッスン単価の合計" onClick={() => setOpenCard("revenue")} />
+        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" onClick={() => setOpenCard("trainer")} />
+        <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" onClick={() => setOpenCard("sales")} />
+        <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />
       </div>
-      <div className="bg-gradient-to-br from-green-600 to-green-500 rounded-2xl p-4 text-white shadow-sm shadow-green-200 mb-3">
-        <p className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-green-50">
+      <button
+        type="button"
+        onClick={() => setOpenCard("profit")}
+        className="w-full text-left bg-gradient-to-br from-green-600 to-green-500 rounded-2xl p-4 text-white shadow-sm shadow-green-200 mb-3 hover:brightness-105 transition"
+      >
+        <span className="text-xs font-semibold flex items-center gap-1.5 mb-1 text-green-50">
           <Wallet size={12} /> 利益
-        </p>
-        <p className="text-2xl font-bold tabular-nums">{yen(cur.profit)}</p>
-        <p className="text-[11px] text-green-100 mt-0.5">利益率 {margin}%</p>
-      </div>
+          <ChevronRight size={12} className="ml-auto text-green-100" />
+        </span>
+        <span className="block text-2xl font-bold tabular-nums">{yen(cur.profit)}</span>
+        <span className="block text-[11px] text-green-100 mt-0.5">利益率 {margin}%</span>
+      </button>
 
       {/* 内訳メモ */}
       <p className="text-[11px] text-gray-400 mb-4 px-1">
-        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料
+        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料。カードをタップすると内訳を表示します。
       </p>
+
+      {openCard && breakdown && (
+        <BreakdownModal kind={openCard} monthLabel={monthLabel} figures={cur} breakdown={breakdown} margin={margin} onClose={() => setOpenCard(null)} />
+      )}
 
       {/* 今月の実績（全体） */}
       <div className="grid grid-cols-2 gap-3 mb-6">
