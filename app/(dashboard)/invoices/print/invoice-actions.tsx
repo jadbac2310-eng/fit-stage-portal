@@ -7,7 +7,7 @@ import { createInvoiceShareAction } from "../actions";
 
 /**
  * 請求書の送付。
- * - 「LINEで送る」= 内訳＋金額＋Stripe決済リンクの文面を作り、共有シート/コピーで公式LINEに貼って送る。
+ * - 「LINEで送る」= 内訳＋金額＋お振込先の文面を作り、共有シート/コピーで公式LINEに貼って送る。
  * - 「共有」「PDF」= 従来どおり請求書PDFを共有/保存。
  */
 export function InvoiceActions({

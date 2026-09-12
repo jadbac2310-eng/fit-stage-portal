@@ -7,12 +7,9 @@ import { logActivity } from "@/lib/activity-logs";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
-import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap } from "@/lib/plans-master";
-import { getPayments, buildReceivables } from "@/lib/payments";
-import { billingGroups, buildGroupInvoice, billingName, monthLabel, dueDateLabel, formatDueDate } from "@/lib/invoices";
-import { setInvoiceDueDate } from "@/lib/invoice-due-dates";
-import { isStripeConfigured } from "@/lib/stripe";
-import { createStripeCheckout, type CheckoutItem } from "@/lib/stripe-checkouts";
+import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
+import { billingGroups, buildGroupInvoice, billingName, monthLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
+import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
 export async function updateBillingNameAction(customerId: string, name: string) {
@@ -25,7 +22,7 @@ export async function updateBillingNameAction(customerId: string, name: string) 
 
 /**
  * 請求書（まとめ先=biller、対象月）の支払期限を上書きする。
- * dueDate が空なら設定を消して既定（対象月の翌月10日）に戻す。
+ * dueDate が空なら設定を消して既定（対象月の翌月末日）に戻す。
  */
 export async function updateInvoiceDueDateAction(
   billerId: string,
@@ -52,21 +49,19 @@ function yen(n: number): string {
 }
 
 /**
- * 請求書1件（まとめ先=biller、対象月）について、
- * - 未入金分の Stripe 決済リンクを発行し、
- * - 顧客へLINEで貼って送るための「内訳＋金額＋決済リンク」メッセージ文面を組み立てて返す。
+ * 請求書1件（まとめ先=biller、対象月）について、顧客へLINEで貼って送るための
+ * 「内訳＋金額＋お振込先」メッセージ文面を組み立てて返す。
  * 実際の送信は行わない（社長が公式LINEに貼って送る）。
  */
 export async function createInvoiceShareAction(
   billerId: string,
   month: string,
-): Promise<{ ok: true; message: string; url?: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   await requireAdmin();
   if (!billerId || !month) return { ok: false, error: "対象が不正です" };
 
-  const [customers, plans, passes, lessons, plansMaster, sppPrices, payments] = await Promise.all([
-    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(),
-    getAllPlans(), getAllSessionPassPrices(), getPayments(),
+  const [customers, plans, passes, lessons, plansMaster] = await Promise.all([
+    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getAllPlans(),
   ]);
 
   // まとめ先(biller)のグループを解決
@@ -83,30 +78,7 @@ export async function createInvoiceShareAction(
   const invoice = buildGroupInvoice(biller, group.members, month, { plans, passes, lessons }, singleFee);
   if (invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
 
-  // 未入金分（決済リンクの対象）
-  const memberIds = new Set(group.members.map((m) => m.id));
-  const receivables = buildReceivables(month, {
-    customers, passes, plans, lessons, payments,
-    singleSessionFee: singleFee,
-    sessionPassPriceMap: buildSessionPassPriceMap(sppPrices),
-  });
-  const unpaid = receivables.filter((r) => memberIds.has(r.customerId) && !r.payment && r.amount > 0);
-  const unpaidTotal = unpaid.reduce((s, r) => s + r.amount, 0);
-
-  // 未入金があり Stripe 設定済みなら決済リンクを発行
-  let url: string | undefined;
-  if (unpaidTotal > 0 && isStripeConfigured()) {
-    const items: CheckoutItem[] = unpaid.map((r) => ({
-      sourceType: r.sourceType, sourceId: r.sourceId, amount: r.amount, label: r.label,
-    }));
-    const result = await createStripeCheckout({
-      customerId: biller.id,
-      customerName: billingName(biller),
-      month,
-      items,
-    });
-    url = result?.url;
-  }
+  const dueOverride = await getInvoiceDueDate(biller.id, month);
 
   // メッセージ文面
   const lines: string[] = [];
@@ -118,12 +90,11 @@ export async function createInvoiceShareAction(
   lines.push("【ご請求の内訳】");
   for (const l of invoice.lines) lines.push(`${l.date}　${l.label}　${yen(l.amount)}`);
   lines.push(`合計　${yen(invoice.total)}`);
-  if (url) {
-    lines.push("");
-    if (unpaidTotal !== invoice.total) lines.push(`お支払い金額：${yen(unpaidTotal)}`);
-    lines.push("▼カードでのお支払いはこちらから");
-    lines.push(url);
-  }
+  lines.push("");
+  lines.push("【お振込先】");
+  lines.push(`${BANK_INFO.bankName}　${BANK_INFO.accountType}　${BANK_INFO.accountNumber}`);
+  lines.push(`口座名義：${BANK_INFO.accountHolder}`);
+  lines.push(`お支払期限：${dueDateLabel(month, dueOverride)}（振込手数料はご負担ください）`);
   lines.push("");
   lines.push("ご不明点はこのトークにご返信ください。");
   lines.push("FIT STAGE");
@@ -131,9 +102,8 @@ export async function createInvoiceShareAction(
 
   await logActivity({
     action: "create", entityType: "invoice", entityId: biller.id,
-    summary: `請求LINE文面を作成: ${billingName(biller)} ${month}${url ? `（決済リンク¥${unpaidTotal.toLocaleString("ja-JP")}）` : ""}`,
+    summary: `請求LINE文面を作成: ${billingName(biller)} ${month}`,
   });
-  revalidatePath("/admin/payments");
 
-  return { ok: true, message, url };
+  return { ok: true, message };
 }

@@ -6,8 +6,6 @@ import { getLessons } from "@/lib/lessons";
 import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getPayments, buildReceivables } from "@/lib/payments";
 import { billingGroups, billingName } from "@/lib/invoices";
-import { getCheckoutsByMonth } from "@/lib/stripe-checkouts";
-import { isStripeConfigured } from "@/lib/stripe";
 import { PaymentsClient } from "./payments-client";
 
 export const dynamic = "force-dynamic";
@@ -35,9 +33,9 @@ export default async function PaymentsPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, passes, plans, lessons, plansMaster, sppPrices, payments, checkouts] = await Promise.all([
+  const [customers, passes, plans, lessons, plansMaster, sppPrices, payments] = await Promise.all([
     getCustomers(), getAllSessionPasses(), getAllCustomerPlans(), getLessons(),
-    getAllPlans(), getAllSessionPassPrices(), getPayments(), getCheckoutsByMonth(month),
+    getAllPlans(), getAllSessionPassPrices(), getPayments(),
   ]);
 
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
@@ -59,8 +57,6 @@ export default async function PaymentsPage({
     <PaymentsClient
       receivables={receivables}
       month={month}
-      checkouts={checkouts}
-      stripeEnabled={isStripeConfigured()}
       billerMap={billerMap}
     />
   );

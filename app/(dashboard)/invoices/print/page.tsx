@@ -67,7 +67,7 @@ export default async function InvoicePrintPage({
         </Link>
         <InvoiceActions pdfHref={pdfHref} filename={pdfFilename} billerId={customer.id} month={month} />
       </div>
-      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「LINEで送る」で内訳＋決済リンクの文面を作って送れます（PDFを送る場合は「PDF共有」）。</p>
+      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「LINEで送る」で内訳＋お振込先の文面を作って送れます（PDFを送る場合は「PDF共有」）。</p>
 
       {/* 請求書本体 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 print:border-0 print:p-0 print:rounded-none">
