@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 /**
  * 請求書の支払期限。クリックで編集でき、保存すると請求書（顧客×対象月）ごとに上書きされる。
- * 「既定に戻す」で上書きを消すと、対象月の翌月10日に戻る。
+ * 「既定に戻す」で上書きを消すと、対象月の翌月末日に戻る。
  * 編集用の操作ボタンは印刷時には表示しない（print:hidden）。
  */
 export function EditableDueDate({
@@ -17,7 +17,7 @@ export function EditableDueDate({
 }: {
   billerId: string;
   month: string;
-  label: string;        // 表示用（例: 2026年8月10日）
+  label: string;        // 表示用（例: 2026年8月31日）
   value: string | null; // 上書き設定（YYYY-MM-DD）。未設定なら null
   defaultValue: string; // 既定の支払期限（YYYY-MM-DD）
 }) {

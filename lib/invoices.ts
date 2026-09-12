@@ -9,7 +9,7 @@ export const ISSUER = {
   name: "FIT STAGE",
   contact: "坂根尚樹",                       // 窓口担当者
   registrationNumber: "T2810714106494",      // 適格請求書発行事業者 登録番号（インボイス）
-  address: "大阪府吹田市豊津町5-28\nドムス江坂II - A",
+  address: "大阪府吹田市豊津町5-27\nドムス江坂II - A",
   tel: "TEL: 070-2397-1822",
   email: "fitstage.000@gmail.com",
 };
@@ -62,12 +62,13 @@ export function monthLabel(month: string): string {
   const [y, m] = month.split("-");
   return `${y}年${parseInt(m, 10)}月`;
 }
-// 支払期限の既定 = 対象月の翌月10日（例: 6月分 → 7月10日）。戻り値は YYYY-MM-DD。
+// 支払期限の既定 = 対象月の翌月末日（例: 6月分 → 7月31日）。戻り値は YYYY-MM-DD。
 export function defaultDueDate(month: string): string {
   const [y, m] = month.split("-").map((x) => parseInt(x, 10));
   const year = m === 12 ? y + 1 : y;
   const mon = m === 12 ? 1 : m + 1;
-  return `${year}-${String(mon).padStart(2, "0")}-10`;
+  const lastDay = new Date(year, mon, 0).getDate(); // new Date(年, mon, 0) = mon月（1始まり）の末日
+  return `${year}-${String(mon).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 }
 /** YYYY-MM-DD → 「2026年8月10日」 */
 export function formatDueDate(iso: string): string {

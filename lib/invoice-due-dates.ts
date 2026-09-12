@@ -2,7 +2,7 @@ import { createAdminClient } from "./supabase";
 
 /**
  * 請求書ごとの支払期限の上書き（まとめ先の顧客 × 対象月）。
- * 行が無ければ既定（対象月の翌月10日 = lib/invoices.ts の defaultDueDate）を使う。
+ * 行が無ければ既定（対象月の翌月末日 = lib/invoices.ts の defaultDueDate）を使う。
  * テーブル未作成でも請求書は必ず表示したいので、読み取りは失敗しても既定に倒す。
  */
 
@@ -40,7 +40,7 @@ export async function getInvoiceDueDatesByMonth(month: string): Promise<Map<stri
   return new Map((data as DbRow[]).map((r) => [r.customer_id, r.due_date]));
 }
 
-/** 支払期限を設定する。null を渡すと設定を消して既定（翌月10日）に戻す。 */
+/** 支払期限を設定する。null を渡すと設定を消して既定（翌月末日）に戻す。 */
 export async function setInvoiceDueDate(customerId: string, month: string, dueDate: string | null): Promise<void> {
   const db = createAdminClient();
   if (!dueDate) {
