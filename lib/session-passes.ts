@@ -133,12 +133,61 @@ export async function getSessionPassUsage(passId: string, lessonId: string): Pro
   }
 }
 
-export async function decrementSessionPass(id: string): Promise<void> {
-  const { error } = await createAdminClient().rpc("decrement_session_pass", { pass_id: id });
-  if (error) throw error;
+// マイグレーション（20260919000001）未適用の環境でも予約を止めないための判定。
+// PostgREST は未定義の関数呼び出しを PGRST202 で返す。
+function isMissingRpc(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || /could not find the function/i.test(error.message ?? "");
 }
 
-export async function incrementSessionPass(id: string): Promise<void> {
-  const { error } = await createAdminClient().rpc("increment_session_pass", { pass_id: id });
-  if (error) throw error;
+async function remainingCountOf(id: string): Promise<{ remaining: number; total: number }> {
+  const { data } = await createAdminClient()
+    .from("session_passes")
+    .select("remaining_count, total_count")
+    .eq("id", id)
+    .maybeSingle();
+  const row = data as { remaining_count: number; total_count: number } | null;
+  return { remaining: row?.remaining_count ?? 0, total: row?.total_count ?? 0 };
+}
+
+/** 回数券の残数を count 回ぶん確保する。足りなければ1回も消費せずエラーを投げる。
+ *  レッスンを作る「前」に呼ぶこと（残数0でもレッスンだけ登録される状態を防ぐため）。 */
+export async function reserveSessionPass(id: string, count = 1): Promise<void> {
+  if (count <= 0) return;
+  const client = createAdminClient();
+  const { data, error } = await client.rpc("reserve_session_pass", { pass_id: id, amount: count });
+  if (error && !isMissingRpc(error)) throw error;
+
+  if (!error) {
+    if (data === true) return;
+    const { remaining } = await remainingCountOf(id);
+    throw new Error(shortageMessage(remaining, count));
+  }
+
+  // 旧 RPC での代替実行（アトミックではないが、残数不足の予約は同様に弾く）
+  const { remaining } = await remainingCountOf(id);
+  if (remaining < count) throw new Error(shortageMessage(remaining, count));
+  for (let i = 0; i < count; i++) {
+    const { error: e } = await client.rpc("decrement_session_pass", { pass_id: id });
+    if (e) throw e;
+  }
+}
+
+/** 確保した残数を count 回ぶん戻す（レッスンの削除・回数券の付け替え・作成失敗時）。 */
+export async function releaseSessionPass(id: string, count = 1): Promise<void> {
+  if (count <= 0) return;
+  const client = createAdminClient();
+  const { error } = await client.rpc("release_session_pass", { pass_id: id, amount: count });
+  if (!error) return;
+  if (!isMissingRpc(error)) throw error;
+
+  // 旧 RPC には上限が無いので、総回数を超えないぶんだけ戻す
+  const { remaining, total } = await remainingCountOf(id);
+  for (let i = 0; i < Math.min(count, Math.max(total - remaining, 0)); i++) {
+    const { error: e } = await client.rpc("increment_session_pass", { pass_id: id });
+    if (e) throw e;
+  }
+}
+
+function shortageMessage(remaining: number, needed: number): string {
+  return `回数券の残数が足りません（残り${remaining}回・必要${needed}回）。登録する件数を減らすか、回数券を追加してください。`;
 }

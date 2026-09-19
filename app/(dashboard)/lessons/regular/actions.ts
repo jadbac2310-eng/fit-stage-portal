@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons";
-import { addSessionPass, deleteSessionPass, decrementSessionPass, incrementSessionPass } from "@/lib/session-passes";
+import { addSessionPass, deleteSessionPass, reserveSessionPass, releaseSessionPass } from "@/lib/session-passes";
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
@@ -45,10 +45,17 @@ export async function createLessonAction(formData: FormData) {
 
   const paymentType = courseToPaymentType(course) ?? undefined;
 
-  const created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId });
+  // 回数券は「先に確保してからレッスンを作る」。あとから消費すると、残数0でもレッスンだけが
+  // 登録されてしまい、回数券に紐づくレッスン数が総回数を超える（残数表示がズレる）ため。
+  const usesPass = paymentType === "session_pass" && !!sessionPassId;
+  if (usesPass) await reserveSessionPass(sessionPassId!, 1);
 
-  if (paymentType === "session_pass" && sessionPassId) {
-    await decrementSessionPass(sessionPassId);
+  let created;
+  try {
+    created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId });
+  } catch (e) {
+    if (usesPass) await releaseSessionPass(sessionPassId!, 1); // 作成に失敗したぶんは戻す
+    throw e;
   }
 
   await logActivity({ action: "create", entityType: "lesson", entityId: created.id, summary: `通常レッスンを追加: ${created.customerName}`, memberId: member.id, memberName: member.name });
@@ -87,11 +94,20 @@ export async function createLessonsAction(formData: FormData) {
   if (slots.length > 200) throw new Error("一度に作成できるレッスンは最大200件です。繰り返しの終了日を見直してください。");
 
   const paymentType = courseToPaymentType(course) ?? undefined;
+  // 作成前に「件数ぶんまとめて」確保する。1件ずつ消費すると、残数が尽きたあとのレッスンが
+  // 0消費で登録され、16回券に17レッスンが紐づくような状態になってしまう。
+  const usesPass = paymentType === "session_pass" && !!sessionPassId;
+  if (usesPass) await reserveSessionPass(sessionPassId!, slots.length);
+
   let count = 0;
-  for (const s of slots) {
-    await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId });
-    if (paymentType === "session_pass" && sessionPassId) await decrementSessionPass(sessionPassId);
-    count++;
+  try {
+    for (const s of slots) {
+      await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId });
+      count++;
+    }
+  } catch (e) {
+    if (usesPass) await releaseSessionPass(sessionPassId!, slots.length - count); // 作れなかったぶんを戻す
+    throw e;
   }
   await logActivity({ action: "create", entityType: "lesson", entityId: customerId, summary: `通常レッスンを${count}件追加`, memberId: member.id, memberName: member.name });
   revalidatePath("/lessons/regular");
@@ -123,8 +139,9 @@ export async function updateLessonAction(id: string, formData: FormData) {
   const oldPassId = existing?.sessionPassId ?? null;
 
   if (oldPassId !== sessionPassId) {
-    if (oldPassId) await incrementSessionPass(oldPassId);
-    if (sessionPassId && paymentType === "session_pass") await decrementSessionPass(sessionPassId);
+    // 新しい回数券の確保を先に行う（残数不足ならここで中断し、元の回数券は消費したまま保つ）
+    if (sessionPassId && paymentType === "session_pass") await reserveSessionPass(sessionPassId, 1);
+    if (oldPassId) await releaseSessionPass(oldPassId, 1);
   }
 
   await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId });
@@ -152,7 +169,7 @@ export async function setLessonStatusAction(id: string, status: LessonStatus) {
 export async function deleteLessonAction(id: string) {
   const { lesson: existing } = await assertCanEditLesson(id);
   if (existing?.sessionPassId && existing.paymentType === "session_pass") {
-    await incrementSessionPass(existing.sessionPassId);
+    await releaseSessionPass(existing.sessionPassId, 1);
   }
   await deleteLesson(id);
   await logActivity({ action: "delete", entityType: "lesson", entityId: id, summary: `通常レッスンを削除: ${existing.customerName}` });

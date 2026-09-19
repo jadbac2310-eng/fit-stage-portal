@@ -8,7 +8,7 @@ import {
   CheckCircle, Clock, XCircle, Ticket, Building2,
 } from "lucide-react";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "@/lib/lessons-types";
-import { SessionPass } from "@/lib/session-passes-types";
+import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
@@ -213,6 +213,7 @@ export function LessonForm({
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
   const [selectedCourse, setSelectedCourse] = useState(defaultValues?.course ?? "");
+  const [selectedPassId, setSelectedPassId] = useState(defaultValues?.sessionPassId ?? "");
   // 開始・終了で管理（基本60分。開始を入れたら終了は1時間後が初期値）
   const startLocalInit = defaultValues?.scheduledAt ? isoToLocalInput(defaultValues.scheduledAt) : "";
   const [startLocal, setStartLocal] = useState(startLocalInit);
@@ -328,6 +329,10 @@ export function LessonForm({
   async function handleSubmit(fd: FormData) {
     setError("");
     if (!startLocal) { setError("開始日時を入力してください"); return; }
+    if (passShortage > 0 && selectedPass) {
+      setError(`回数券の残りは${selectedPass.remainingCount}回です。${plannedCount}件はまとめて登録できません。`);
+      return;
+    }
     // run() が実行中の連打を同期的に無視するため、二重作成が起きない
     await run(async () => {
       try {
@@ -356,6 +361,14 @@ export function LessonForm({
     (p) => p.customerId === selectedCustomerId && (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId)
   );
   const noPassAvailable = isSessionPassCourse && selectedCustomerId !== "" && availablePasses.length === 0;
+
+  // 作成する件数（単発は1件、複数日時・繰り返しはその件数）と回数券の残数の突き合わせ。
+  // 残数を超えた件数をまとめて登録すると、超過分が0消費のまま登録されてしまうため事前に止める。
+  const plannedCount = isCreate && startLocal ? buildLessonSlots().length : 1;
+  const selectedPass = sessionPasses.find((p) => p.id === selectedPassId);
+  const passShortage = isCreate && isSessionPassCourse && selectedPass
+    ? plannedCount - selectedPass.remainingCount
+    : 0;
 
   // ─── 選択可能なコースの算出 ───────────────────────────
   const today = new Date().toISOString().slice(0, 10);
@@ -401,7 +414,7 @@ export function LessonForm({
         <div>
           <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
           <select name="customerId" required defaultValue={defaultValues?.customerId ?? ""}
-            onChange={(e) => { setSelectedCustomerId(e.target.value); revalidateCourse(e.target.value, refDate); applySuggestion(e.target.value, scheduledDate); }}
+            onChange={(e) => { setSelectedCustomerId(e.target.value); setSelectedPassId(""); revalidateCourse(e.target.value, refDate); applySuggestion(e.target.value, scheduledDate); }}
             className={inputClass}>
             <option value="">顧客を選択...</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
@@ -634,12 +647,20 @@ export function LessonForm({
               有効な回数券がありません。プラン管理から追加してください。
             </p>
           ) : (
-            <select name="sessionPassId" required defaultValue={defaultValues?.sessionPassId ?? ""} className={inputClass}>
+            <select name="sessionPassId" required value={selectedPassId}
+              onChange={(e) => setSelectedPassId(e.target.value)} className={inputClass}>
               <option value="">回数券を選択...</option>
               {availablePasses.map((p) => (
                 <option key={p.id} value={p.id}>{passLabel(p)}</option>
               ))}
             </select>
+          )}
+          {passShortage > 0 && selectedPass && (
+            <p className="text-xs text-red-600 font-medium mt-2 flex items-start gap-1">
+              <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+              回数券の残りは{selectedPass.remainingCount}回です（登録しようとしている件数: {plannedCount}件）。
+              日時を{passShortage}件減らすか、回数券を追加してください。
+            </p>
           )}
         </div>
       )}
@@ -668,7 +689,7 @@ export function LessonForm({
           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
           キャンセル
         </button>
-        <button type="submit" disabled={locked || noPassAvailable}
+        <button type="submit" disabled={locked || noPassAvailable || passShortage > 0}
           className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
           {locked && <Spinner size={14} />}{locked ? "保存中..." : submitLabel}
         </button>
@@ -749,13 +770,15 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
     : undefined;
 
   const linkedPass = lesson.sessionPassId ? sessionPasses.find((p) => p.id === lesson.sessionPassId) : undefined;
-  // この回数券レッスンが何回目か（同じ回数券に紐づく非キャンセルのレッスンを日付順に並べた順位）
+  // この回数券レッスンが何回目か。残数はレッスン作成時に減るので、キャンセル済みも1回として数える
+  // （スケジュール画面と同じ passUsageOrdinals を使い、画面ごとに回数がズレないようにする）
   const sessionNumber = linkedPass
-    ? allLessons
-        .filter((l) => l.sessionPassId === linkedPass.id && l.status !== "cancelled")
-        .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-        .findIndex((l) => l.id === lesson.id) + 1
+    ? passUsageOrdinals(allLessons.filter((l) => l.sessionPassId === linkedPass.id)).get(lesson.id) ?? 0
     : 0;
+  // 「この回を消化した時点での残り」。回数券の現在の残数をそのまま出すと、過去の回にも同じ数字が
+  // 並び、消化済みなのに「残り1回」のように見えてしまうため、回数から逆算する。
+  const remainingAfter = linkedPass ? linkedPass.totalCount - sessionNumber : 0;
+  const overConsumed = sessionNumber > 0 && !!linkedPass && sessionNumber > linkedPass.totalCount;
 
   if (editing) return (
     <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 my-2">
@@ -794,10 +817,10 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           )}
         </div>
         {linkedPass && (
-          <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+          <p className={cn("text-xs mt-0.5 flex items-center gap-1", overConsumed ? "text-red-600" : "text-amber-600")}>
             <Ticket size={10} /> {linkedPass.totalCount}回券
             {sessionNumber > 0 && <span className="font-semibold">・{sessionNumber}回目/全{linkedPass.totalCount}回</span>}
-            （残り{linkedPass.remainingCount}回）
+            {overConsumed ? "（回数超過）" : `（この回の後 残り${remainingAfter}回）`}
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
