@@ -60,10 +60,19 @@ export function tallyLessons(items: TallyItem[], month: string, by: TallyBy): Le
   );
 }
 
-/** 全担当者・全顧客を合わせた合計（by に関係なく同じ値になる） */
-export function tallyTotal(rows: LessonTally[]): { done: number; scheduled: number } {
-  return rows.reduce(
+/**
+ * 全担当者・全顧客を合わせた合計（by に関係なく同じ値になる）。
+ * total は実施済み＋予定＝その月のレッスン件数そのもの。
+ */
+export function tallyTotal(rows: LessonTally[]): { done: number; scheduled: number; total: number } {
+  const sum = rows.reduce(
     (s, r) => ({ done: s.done + r.done, scheduled: s.scheduled + r.scheduled }),
     { done: 0, scheduled: 0 },
   );
+  return { ...sum, total: sum.done + sum.scheduled };
+}
+
+/** 1行分の合計件数（実施済み＋予定） */
+export function tallyRowTotal(row: LessonTally): number {
+  return row.done + row.scheduled;
 }

@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
-import { monthKey, tallyLessons, tallyTotal } from "@/lib/schedule-tally";
+import { monthKey, tallyLessons, tallyTotal, tallyRowTotal } from "@/lib/schedule-tally";
 import {
   createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction,
   createHourlyTaskAction, updateHourlyTaskAction, deleteHourlyTaskAction,
@@ -160,7 +160,7 @@ function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
           <p className="text-xs text-gray-500 mt-0.5">
             実施済み <span className="font-bold text-green-600">{total.done}</span> 件
             <span className="mx-1.5 text-gray-300">/</span>
-            予定 <span className="font-bold text-blue-600">{total.scheduled}</span> 件
+            合計 <span className="font-bold text-blue-600">{total.total}</span> 件
           </p>
         </div>
         <ChevronDown size={16} className={cn("text-gray-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
@@ -194,7 +194,7 @@ function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
                   <span className="flex-shrink-0 text-[11px] text-gray-400">
                     実施 <span className="text-xs font-bold text-green-600">{r.done}</span>
                     <span className="mx-1 text-gray-300">/</span>
-                    予定 <span className="text-xs font-bold text-blue-600">{r.scheduled}</span>
+                    合計 <span className="text-xs font-bold text-blue-600">{tallyRowTotal(r)}</span>
                   </span>
                 </div>
               ))}
@@ -211,9 +211,9 @@ function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
           )}
 
           <p className="text-[11px] text-gray-400 mt-2.5 leading-relaxed">
-            通常レッスン＋体験レッスンの件数です（個人予定・業務は含みません）。
-            当日キャンセルは実施済みに数え、白紙キャンセルは数えません。
-            上の絞り込みに関係なく、今月の全件を集計します。
+            合計は実施済み＋未実施（予定）です。通常レッスン＋体験レッスンを数えます
+            （個人予定・業務は含みません）。当日キャンセルは実施済みに数え、
+            白紙キャンセルは数えません。上の絞り込みに関係なく、今月の全件を集計します。
           </p>
         </div>
       )}
