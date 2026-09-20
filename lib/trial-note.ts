@@ -17,10 +17,32 @@ export interface TrialNoteItem {
 }
 
 export interface ParsedTrialNote {
-  /** 「ラベル: 値」として読めた項目 */
+  /** 「ラベル: 値」として読めた項目（値は英訳を落とした表示用） */
   items: TrialNoteItem[];
   /** ラベルが付いていない行（手書きのメモなど） */
   freeText: string;
+  /**
+   * items のもとになった行を、原文のまま改行で繋いだもの。
+   * 編集画面で申込内容を読み取り専用にしつつ、保存時に原文を復元するのに使う。
+   */
+  structuredText: string;
+}
+
+/**
+ * 申込フォームからの回答とみなせるか（「ラベル: 値」が2項目以上）。
+ * 手入力で1行だけ「駐車場: 南側」のように書いた場合まで読み取り専用に
+ * してしまわないよう、2項目以上のときだけ申込内容として扱う。
+ */
+export function looksLikeApplication(note?: string): boolean {
+  return parseTrialNote(note).items.length >= 2;
+}
+
+/**
+ * 申込内容（原文）と編集後のメモを1つの備考に組み立てる。
+ * 編集画面の保存で使う。
+ */
+export function joinTrialNote(structuredText: string, memo: string): string {
+  return [structuredText.trim(), memo.trim()].filter(Boolean).join("\n");
 }
 
 const JP = "\\u3040-\\u30ff\\u3400-\\u9fff\\uff66-\\uff9f";
@@ -49,7 +71,8 @@ export function stripBilingual(value: string): string {
 export function parseTrialNote(note?: string): ParsedTrialNote {
   const items: TrialNoteItem[] = [];
   const free: string[] = [];
-  if (!note) return { items, freeText: "" };
+  const structured: string[] = [];
+  if (!note) return { items, freeText: "", structuredText: "" };
 
   for (const rawLine of note.split("\n")) {
     const line = rawLine.trim();
@@ -60,12 +83,13 @@ export function parseTrialNote(note?: string): ParsedTrialNote {
     const m = line.match(/^([^:：]{1,20})[:：]\s*(.+)$/);
     if (m && JAPANESE.test(m[1])) {
       items.push({ label: m[1].trim(), value: stripBilingual(m[2]) });
+      structured.push(line);
     } else {
       free.push(line);
     }
   }
 
-  return { items, freeText: free.join("\n") };
+  return { items, freeText: free.join("\n"), structuredText: structured.join("\n") };
 }
 
 /**

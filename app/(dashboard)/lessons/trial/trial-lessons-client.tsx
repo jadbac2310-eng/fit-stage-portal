@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
+import type { TrialNoteItem } from "@/lib/trial-note";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
-import { parseTrialNote, isShortNote } from "@/lib/trial-note";
+import { parseTrialNote, isShortNote, looksLikeApplication, joinTrialNote } from "@/lib/trial-note";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import type { RentalGym } from "@/lib/rental-gyms";
@@ -71,6 +72,29 @@ function CourseBadge({ course, amount }: { course?: string; amount?: number }) {
 // ─── 備考（申込フォームの回答） ───────────────────────
 // 申込フォームからの備考は「ラベル: 値」が6行ほど並び、値には英訳も併記されるため、
 // そのまま出すと一覧がテキストの壁になる。項目に分解して英訳を落とし、既定は畳んでおく。
+// 項目リスト本体（一覧の折りたたみの中身と、編集画面の読み取り専用表示で共用）
+function NoteItems({ items, freeText, className }: {
+  items: TrialNoteItem[]; freeText?: string; className?: string;
+}) {
+  return (
+    <div className={cn("rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 space-y-1.5 text-xs", className)}>
+      {items.map((item, i) => (
+        <div key={i}>
+          <p className="text-[11px] text-gray-400">{item.label}</p>
+          <p className="text-gray-700 leading-snug">{item.value}</p>
+        </div>
+      ))}
+      {freeText && (
+        <div>
+          <p className="text-[11px] text-gray-400">メモ</p>
+          <p className="text-gray-700 leading-snug whitespace-pre-wrap">{freeText}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 一覧用: 既定は畳んでおき、タップで項目リストを開く
 function NoteBlock({ note }: { note?: string }) {
   const [open, setOpen] = useState(false);
   if (!note?.trim()) return null;
@@ -100,22 +124,7 @@ function NoteBlock({ note }: { note?: string }) {
         <ChevronDown size={12} className={cn("text-gray-400 transition-transform", open && "rotate-180")} />
       </button>
 
-      {open && (
-        <div className="mt-1.5 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 space-y-1.5">
-          {items.map((item, i) => (
-            <div key={i}>
-              <p className="text-[11px] text-gray-400">{item.label}</p>
-              <p className="text-gray-700 leading-snug">{item.value}</p>
-            </div>
-          ))}
-          {freeText && (
-            <div>
-              <p className="text-[11px] text-gray-400">メモ</p>
-              <p className="text-gray-700 leading-snug whitespace-pre-wrap">{freeText}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {open && <NoteItems items={items} freeText={freeText} className="mt-1.5" />}
     </div>
   );
 }
@@ -158,6 +167,20 @@ function LessonForm({
   );
   const [storeId, setStoreId] = useState(defaultValues?.storeId ?? "");
   const [course, setCourse] = useState(defaultValues?.course ?? TRIAL_LESSON_COURSE_NAME);
+
+  // 備考: 申込フォームの回答（ラベル: 値 が2項目以上）は読み取り専用で見せ、
+  // 編集できるのは申し送りメモだけにする。回答をテキストエリアに丸ごと出すと
+  // 中身が読めないうえ、うっかり消してしまえるため。
+  const originalNote = defaultValues?.note ?? "";
+  const isApplication = looksLikeApplication(originalNote);
+  const parsedNote = parseTrialNote(originalNote);
+  const [memo, setMemo] = useState(isApplication ? parsedNote.freeText : originalNote);
+  // メモを触っていなければ原文をそのまま保存する（行の並びまで元のまま保つ）
+  const noteToSave = !isApplication
+    ? memo
+    : memo.trim() === parsedNote.freeText.trim()
+      ? originalNote
+      : joinTrialNote(parsedNote.structuredText, memo);
 
   function onRentalGymChange(id: string) {
     setRentalGymId(id);
@@ -295,10 +318,21 @@ function LessonForm({
         <p className="text-xs text-gray-400 mt-1">いつもと違う金額のときだけ入力してください。</p>
       </div>
 
+      {/* 申込フォームの回答（読み取り専用）。編集できるのは下のメモだけ */}
+      {isApplication && (
+        <div>
+          <label className={labelClass}><ClipboardList size={12} /> 申込内容（{parsedNote.items.length}項目）</label>
+          <NoteItems items={parsedNote.items} />
+          <p className="text-xs text-gray-400 mt-1">申込フォームの回答です。編集せずそのまま保存されます。</p>
+        </div>
+      )}
+
       <div>
-        <label className={labelClass}><StickyNote size={12} /> 備考</label>
-        <textarea name="note" defaultValue={defaultValues?.note} rows={3}
-          placeholder="第2希望日時、申し送りなど..."
+        <label className={labelClass}><StickyNote size={12} /> {isApplication ? "メモ（申し送り）" : "備考"}</label>
+        {/* 保存する備考は「申込内容の原文 ＋ メモ」を組み立てたもの */}
+        <input type="hidden" name="note" value={noteToSave} />
+        <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={3}
+          placeholder={isApplication ? "当日の申し送りなど..." : "第2希望日時、申し送りなど..."}
           className={cn(inputClass, "resize-none")} />
       </div>
 
