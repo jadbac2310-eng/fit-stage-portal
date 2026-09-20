@@ -13,10 +13,10 @@ import {
   isoToMonth,
   resolveLessonFee,
   resolveTrainerRate,
-  resolveTrialLessonFee,
+  resolveTrialFee,
   type CommissionContext,
 } from "@/lib/commissions";
-import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
+import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
@@ -183,7 +183,6 @@ export function DetailsClient({
     }
 
     // 体験レッスン（完了分）もトレーナー歩合に含める
-    const trialFee = resolveTrialLessonFee(ctx);
     const filteredTrials = (trialLessons ?? [])
       .filter((t) => isoToMonth(t.scheduledAt) === month && t.trainerMemberId)
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
@@ -192,7 +191,17 @@ export function DetailsClient({
       const tid = t.trainerMemberId!;
       const member = members.find((m) => m.id === tid);
       const rate = resolveTrainerRate(tid, t.customerId, ctx);
-      const commission = Math.round(trialFee * rate);
+      const fee = resolveTrialFee(t, ctx);
+      const commission = Math.round(fee * rate);
+
+      // 体験レッスンのレンタルジム・店舗の内訳（通常レッスンと同じ見せ方）
+      let trialGymNote: string | undefined;
+      if (t.rentalGymId) {
+        const gym = rentalGymMap.get(t.rentalGymId);
+        const gymFee = t.rentalGymFee ?? gym?.fee;
+        trialGymNote = `${gym?.name ?? "不明なジム"}${gymFee != null ? `・${yen(gymFee)}` : ""}`;
+      }
+      const trialStoreNote = t.storeId ? (storeMap.get(t.storeId)?.name ?? "不明な店舗") : undefined;
 
       if (!map.has(tid)) {
         map.set(tid, { memberId: tid, memberName: member?.name ?? t.trainerMemberName ?? tid, avatarUrl: member?.avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
@@ -203,9 +212,10 @@ export function DetailsClient({
         scheduledAt: t.scheduledAt,
         customerName: t.customerName,
         customerType: customerTypeMap.get(t.customerId) ?? "個人",
-        course: TRIAL_LESSON_COURSE_NAME, fee: trialFee, ratePercent: Math.round(rate * 100), commission,
+        course: trialCourseLabel(t.course), fee, ratePercent: Math.round(rate * 100), commission,
+        rentalGymNote: trialGymNote, storeNote: trialStoreNote,
       });
-      group.feeTotal += trialFee;
+      group.feeTotal += fee;
       group.commissionTotal += commission;
     }
 

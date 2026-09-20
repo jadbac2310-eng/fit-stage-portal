@@ -3,8 +3,10 @@ import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
+import { trialCourseLabel } from "./trial-lessons-types";
 import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
-import { TRIAL_LESSON_COURSE_NAME, getLessonFee } from "./commissions-types";
+import { TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
+import { resolveTrialFee } from "./commissions";
 import type { PlanMaster } from "./plans-master-types";
 import { buildLessonFeeMap, planUnitPrice } from "./plans-master-types";
 
@@ -91,8 +93,8 @@ export function invoiceNumber(month: string, customerId: string): string {
 export interface InvoiceFees {
   /** 都度レッスンの既定単価（レッスン個別金額も顧客の都度単価も無いときのフォールバック） */
   single: number;
-  /** 体験レッスン1回の単価（プランマスタの「体験レッスン」行） */
-  trial: number;
+  /** コース名 → 1回単価。体験レッスンの料金区分を解決するのに使う */
+  lessonFees: Record<string, number>;
 }
 
 /**
@@ -104,11 +106,10 @@ export function invoiceFeesFromPlans(plansMaster: PlanMaster[]): InvoiceFees {
   const singleMaster = plansMaster.find(
     (p) => p.paymentType === "single" && p.name !== TRIAL_LESSON_COURSE_NAME,
   );
-  const unitPrices = buildLessonFeeMap(plansMaster);
   return {
     single: singleMaster ? planUnitPrice(singleMaster) : 0,
-    // マスタ未登録の環境でも 6,600円（固定単価表）にフォールバックする
-    trial: unitPrices[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME),
+    // マスタ未登録のコースは resolveTrialFee 側で固定単価表（体験=6,600円）にフォールバックする
+    lessonFees: buildLessonFeeMap(plansMaster),
   };
 }
 
@@ -131,7 +132,7 @@ export function buildInvoice(
   customer: Customer,
   month: string,
   data: InvoiceData,
-  fees: InvoiceFees = { single: 0, trial: 0 },
+  fees: InvoiceFees = { single: 0, lessonFees: {} },
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
 
@@ -163,14 +164,14 @@ export function buildInvoice(
     lines.push({ date: l.scheduledAt.slice(0, 10), label, amount });
   }
 
-  // 体験レッスン（その月に完了したもの。単価はプランマスタの「体験レッスン」）
+  // 体験レッスン（その月に完了したもの）。料金区分が「都度」等なら、その単価で計上する。
   for (const t of data.trialLessons ?? []) {
     if (t.customerId !== customer.id || t.status !== "completed") continue;
     if (!inMonth(t.scheduledAt, month)) continue;
     lines.push({
       date: t.scheduledAt.slice(0, 10),
-      label: `${PROGRAM_LABEL}（${TRIAL_LESSON_COURSE_NAME}）`,
-      amount: fees.trial,
+      label: `${PROGRAM_LABEL}（${trialCourseLabel(t.course)}）`,
+      amount: resolveTrialFee(t, { lessonFees: fees.lessonFees }),
     });
   }
 
@@ -215,7 +216,7 @@ export function buildGroupInvoice(
   members: Customer[],
   month: string,
   data: InvoiceData,
-  fees: InvoiceFees = { single: 0, trial: 0 },
+  fees: InvoiceFees = { single: 0, lessonFees: {} },
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
   for (const c of members) {

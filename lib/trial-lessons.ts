@@ -13,6 +13,11 @@ type DbRow = {
   trainer_member_id: string | null;
   scheduled_at: string;
   location: string | null;
+  rental_gym_id: string | null;
+  rental_gym_fee: number | null;
+  store_id: string | null;
+  course: string | null;
+  amount: number | null;
   status: TrialLessonStatus;
   contracted: boolean | null;
   contract_plan: CustomerPlan | null;
@@ -40,6 +45,11 @@ function fromDb(row: DbRow): TrialLesson {
     trainerMemberName:   row.trainer_member?.name ?? undefined,
     scheduledAt:         row.scheduled_at,
     location:            row.location ?? undefined,
+    rentalGymId:         row.rental_gym_id ?? undefined,
+    rentalGymFee:        row.rental_gym_fee ?? undefined,
+    storeId:             row.store_id ?? undefined,
+    course:              row.course ?? undefined,
+    amount:              row.amount ?? undefined,
     status:              row.status,
     contracted:          row.contracted,
     contractPlan:        row.contract_plan ?? undefined,
@@ -87,6 +97,11 @@ export async function addTrialLesson(input: {
   trainerMemberId?: string;
   scheduledAt: string;
   location?: string;
+  rentalGymId?: string | null;
+  rentalGymFee?: number | null;
+  storeId?: string | null;
+  course?: string | null;
+  amount?: number | null;
   note?: string;
 }): Promise<TrialLesson> {
   const client = createAdminClient();
@@ -100,8 +115,19 @@ export async function addTrialLesson(input: {
     contracted:        null,
     note:              input.note ?? null,
   };
+  // 場所・料金区分の列（マイグレーション 20260920000002）。未適用の環境では落として再試行する。
+  const extra = {
+    rental_gym_id:  input.rentalGymId ?? null,
+    rental_gym_fee: input.rentalGymFee ?? null,
+    store_id:       input.storeId ?? null,
+    course:         input.course ?? null,
+    amount:         input.amount ?? null,
+  };
   const creator = (await currentMemberId()) ?? null;
-  let { data, error } = await client.from("trial_lessons").insert({ ...base, created_by: creator, updated_by: creator }).select(SELECT).single();
+  let { data, error } = await client.from("trial_lessons").insert({ ...base, ...extra, created_by: creator, updated_by: creator }).select(SELECT).single();
+  if (error && isMissingAuthorColumn(error)) {
+    ({ data, error } = await client.from("trial_lessons").insert({ ...base, ...extra }).select(SELECT).single());
+  }
   if (error && isMissingAuthorColumn(error)) {
     ({ data, error } = await client.from("trial_lessons").insert(base).select(SELECT).single());
   }
@@ -117,6 +143,11 @@ export async function updateTrialLesson(
     trainerMemberId: string | null;
     scheduledAt: string;
     location: string | null;
+    rentalGymId: string | null;
+    rentalGymFee: number | null;
+    storeId: string | null;
+    course: string | null;
+    amount: number | null;
     status: TrialLessonStatus;
     contracted: boolean | null;
     contractPlan: CustomerPlan | null;
@@ -133,6 +164,14 @@ export async function updateTrialLesson(
   if (input.scheduledAt         !== undefined) patch.scheduled_at         = input.scheduledAt;
   if (input.location            !== undefined) patch.location             = input.location;
   if (input.status              !== undefined) patch.status               = input.status;
+  // 場所・料金区分の列（マイグレーション 20260920000002）。未適用の環境では落として再試行する。
+  const extraKeys: string[] = [];
+  const setExtra = (key: string, value: unknown) => { patch[key] = value; extraKeys.push(key); };
+  if (input.rentalGymId         !== undefined) setExtra("rental_gym_id",  input.rentalGymId);
+  if (input.rentalGymFee        !== undefined) setExtra("rental_gym_fee", input.rentalGymFee);
+  if (input.storeId             !== undefined) setExtra("store_id",       input.storeId);
+  if (input.course              !== undefined) setExtra("course",         input.course);
+  if (input.amount              !== undefined) setExtra("amount",         input.amount);
   if (input.contracted          !== undefined) patch.contracted           = input.contracted;
   if (input.contractPlan        !== undefined) patch.contract_plan        = input.contractPlan;
   if (input.trainingContent     !== undefined) patch.training_content     = input.trainingContent;
@@ -146,6 +185,12 @@ export async function updateTrialLesson(
   if (error && isMissingAuthorColumn(error)) {
     const { updated_by, ...rest } = patch;
     void updated_by;
+    ({ data, error } = await client.from("trial_lessons").update(rest).eq("id", id).select(SELECT).single());
+  }
+  if (error && isMissingAuthorColumn(error) && extraKeys.length > 0) {
+    const rest = { ...patch };
+    delete rest.updated_by;
+    for (const k of extraKeys) delete rest[k];
     ({ data, error } = await client.from("trial_lessons").update(rest).eq("id", id).select(SELECT).single());
   }
   if (error) throw error;

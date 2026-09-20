@@ -13,10 +13,10 @@ import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import {
-  buildTrainerEntries, buildSalesEntries, resolveLessonFee, resolveTrialLessonFee, isoToMonth,
+  buildTrainerEntries, buildSalesEntries, resolveLessonFee, resolveTrialFee, isoToMonth,
   type CommissionContext, type TrainerEntry, type SalesEntry,
 } from "@/lib/commissions";
-import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
+import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 
 function yen(n: number): string {
@@ -60,8 +60,10 @@ function computeMonth(
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
-    + trialsInMonth.length * resolveTrialLessonFee(ctx);
-  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0);
+    + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx), 0);
+  // 場所利用料は体験レッスンのレンタルジム代も差し引く
+  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0)
+    + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, completedTrialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
@@ -118,12 +120,15 @@ function computeBreakdown(
     const course = l.course || "コース未設定";
     add(byCourse, course, course, resolveLessonFee(l, ctx));
   }
-  const trialFee = resolveTrialLessonFee(ctx);
-  trialsInMonth.forEach(() => add(byCourse, TRIAL_LESSON_COURSE_NAME, TRIAL_LESSON_COURSE_NAME, trialFee));
+  // 体験レッスンは料金区分（既定=体験レッスン）ごとに計上する
+  for (const t of trialsInMonth) {
+    const course = trialCourseLabel(t.course);
+    add(byCourse, course, course, resolveTrialFee(t, ctx));
+  }
 
-  // 場所利用料: レンタルジム別
+  // 場所利用料: レンタルジム別（通常レッスン＋体験レッスン）
   const byGym = new Map<string, BreakdownRow>();
-  for (const l of inMonth) {
+  for (const l of [...inMonth, ...trialsInMonth]) {
     if (!l.rentalGymFee) continue;
     const name = (l.rentalGymId && gymNames.get(l.rentalGymId)) || l.location || "不明なジム";
     add(byGym, l.rentalGymId ?? `location:${name}`, name, l.rentalGymFee);

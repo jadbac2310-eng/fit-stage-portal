@@ -2,6 +2,7 @@ import type { Customer, CustomerType } from "./customers-types";
 import type { Lesson } from "./lessons-types";
 import { courseToPaymentType, resolveSingleLessonAmount } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
+import { trialCourseLabel } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
 import { getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS, TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
@@ -120,9 +121,26 @@ export function resolveTrainerRate(memberId: string, customerId: string, ctx: Co
   return r != null ? r.rate / 100 : TRAINER_RATE;
 }
 
-/** 体験レッスン1件あたりの単価（プランマスタの「体験レッスン」行を優先、無ければ固定単価表） */
-export function resolveTrialLessonFee(ctx: CommissionContext): number {
+/** 体験レッスン1件あたりの標準単価（プランマスタの「体験レッスン」行を優先、無ければ固定単価表） */
+export function resolveTrialLessonFee(ctx: Pick<CommissionContext, "lessonFees">): number {
   return ctx.lessonFees?.[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME);
+}
+
+/**
+ * 体験レッスン1件の計上額。
+ * この回だけの金額(amount) → 料金区分(course)の単価 → 体験レッスンの標準単価、の順に見る。
+ * course 未設定は「体験レッスン」なので、従来どおり 6,600円 になる。
+ */
+export function resolveTrialFee(
+  trial: Pick<TrialLesson, "course" | "amount">,
+  ctx: Pick<CommissionContext, "lessonFees">,
+): number {
+  if (trial.amount != null) return trial.amount;
+  const course = trial.course;
+  if (course && course !== TRIAL_LESSON_COURSE_NAME) {
+    return ctx.lessonFees?.[course] ?? getLessonFee(course);
+  }
+  return resolveTrialLessonFee(ctx);
 }
 
 /**
@@ -158,10 +176,10 @@ export function buildTrainerEntries(
     entry.total += comm;
   }
 
-  const trialFee = resolveTrialLessonFee(ctx);
   for (const tl of filteredTrials) {
     const tid  = tl.trainerMemberId!;
-    const comm = Math.round(trialFee * resolveTrainerRate(tid, tl.customerId, ctx));
+    const fee  = resolveTrialFee(tl, ctx);
+    const comm = Math.round(fee * resolveTrainerRate(tid, tl.customerId, ctx));
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: tl.trainerMemberName ?? tid, lessons: [], total: 0 });
@@ -169,8 +187,8 @@ export function buildTrainerEntries(
     const entry = map.get(tid)!;
     entry.lessons.push({
       lessonId: `trial-${tl.id}`, customerName: tl.customerName,
-      course: TRIAL_LESSON_COURSE_NAME, scheduledAt: tl.scheduledAt,
-      fee: trialFee, commission: comm,
+      course: trialCourseLabel(tl.course), scheduledAt: tl.scheduledAt,
+      fee, commission: comm,
     });
     entry.total += comm;
   }

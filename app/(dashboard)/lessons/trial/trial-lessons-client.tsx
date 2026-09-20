@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
-  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList,
+  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins,
 } from "lucide-react";
 import { AuthorStamp } from "@/components/ui/author-stamp";
-import { TrialLesson, TrialLessonStatus, STATUS_LABEL } from "@/lib/trial-lessons-types";
+import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
+import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
+import type { RentalGym } from "@/lib/rental-gyms";
+import type { Store } from "@/lib/stores";
 import {
   createTrialLessonAction,
   updateTrialLessonAction,
@@ -51,6 +54,19 @@ function ContractBadge({ contracted }: { contracted: boolean | null }) {
   );
 }
 
+// 料金区分バッジ。既定（体験レッスン・金額指定なし）のときは何も出さず、
+// 都度などに切り替えた回だけ一覧で分かるようにする。
+function CourseBadge({ course, amount }: { course?: string; amount?: number }) {
+  if (!course && amount == null) return null;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+      <Coins size={10} />
+      {course ?? TRIAL_LESSON_COURSE_NAME}
+      {amount != null && `・¥${amount.toLocaleString("ja-JP")}`}
+    </span>
+  );
+}
+
 // datetime-local の値（ローカル時刻）を UTC ISO 文字列に変換
 function localInputToISO(value: string): string {
   return new Date(value).toISOString();
@@ -65,11 +81,13 @@ function isoToLocalInput(iso: string): string {
 
 // ─── 体験レッスン作成・編集フォーム ──────────────────
 function LessonForm({
-  defaultValues, customers, members, onClose, action, submitLabel,
+  defaultValues, customers, members, rentalGyms = [], stores = [], onClose, action, submitLabel,
 }: {
   defaultValues?: Partial<TrialLesson>;
   customers: Customer[];
   members: Member[];
+  rentalGyms?: RentalGym[];
+  stores?: Store[];
   onClose: () => void;
   action: (fd: FormData) => Promise<void>;
   submitLabel: string;
@@ -77,6 +95,39 @@ function LessonForm({
   const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
+
+  // 場所（通常レッスンと同じ挙動）: レンタルジム/店舗を選ぶと場所名を自動入力し、手入力は不可にする。
+  // レンタルジムと店舗は排他（どちらか一方だけ）。
+  const [location, setLocation] = useState(defaultValues?.location ?? "");
+  const [rentalGymId, setRentalGymId] = useState(defaultValues?.rentalGymId ?? "");
+  const [rentalGymFee, setRentalGymFee] = useState(
+    defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
+  );
+  const [storeId, setStoreId] = useState(defaultValues?.storeId ?? "");
+  const [course, setCourse] = useState(defaultValues?.course ?? TRIAL_LESSON_COURSE_NAME);
+
+  function onRentalGymChange(id: string) {
+    setRentalGymId(id);
+    const gym = rentalGyms.find((g) => g.id === id);
+    if (gym) {
+      setStoreId("");                     // 店舗とは排他
+      setRentalGymFee(String(gym.fee));
+      setLocation(gym.name);
+    } else {
+      setRentalGymFee("");
+    }
+  }
+
+  function onStoreChange(id: string) {
+    setStoreId(id);
+    const store = stores.find((s) => s.id === id);
+    if (store) {
+      setRentalGymId(""); setRentalGymFee("");  // レンタルジムとは排他
+      setLocation(store.name);
+    }
+  }
+
+  const locationLocked = !!rentalGymId || !!storeId;
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -127,7 +178,68 @@ function LessonForm({
 
       <div>
         <label className={labelClass}><MapPin size={12} /> 場所</label>
-        <input name="location" defaultValue={defaultValues?.location} placeholder="FIT STAGE 渋谷店 など" className={inputClass} />
+        <input
+          name="location"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          readOnly={locationLocked}
+          placeholder="FIT STAGE 渋谷店 など"
+          className={cn(inputClass, locationLocked && "bg-gray-100 text-gray-500 cursor-not-allowed")}
+        />
+        {locationLocked && (
+          <p className="text-[11px] text-gray-400 mt-1">
+            {rentalGymId ? "レンタルジム" : "店舗"}に合わせて自動設定されます
+          </p>
+        )}
+      </div>
+
+      {/* レンタルジム（利益計算で利用料を差し引く） */}
+      <div>
+        <label className={labelClass}><MapPin size={12} /> レンタルジム</label>
+        <select name="rentalGymId" value={rentalGymId} onChange={(e) => onRentalGymChange(e.target.value)} className={inputClass}>
+          <option value="">なし（自社・その他）</option>
+          {rentalGyms.map((g) => (
+            <option key={g.id} value={g.id}>{g.name}（¥{g.fee.toLocaleString("ja-JP")}）</option>
+          ))}
+        </select>
+        {rentalGymId && (
+          <div className="mt-2">
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>
+            <input name="rentalGymFee" type="number" min="0" step="1" value={rentalGymFee}
+              onChange={(e) => setRentalGymFee(e.target.value)} className={inputClass} />
+            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
+          </div>
+        )}
+      </div>
+
+      {/* 店舗（レンタルジムとは別概念・利用料は無い） */}
+      <div>
+        <label className={labelClass}><Building2 size={12} /> 店舗</label>
+        <select name="storeId" value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={inputClass}>
+          <option value="">なし</option>
+          {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+
+      {/* 料金区分。基本は体験レッスンだが、都度料金で実施する場合などに切り替える */}
+      <div>
+        <label className={labelClass}><Coins size={12} /> 料金区分</label>
+        <select name="course" value={course} onChange={(e) => setCourse(e.target.value)} className={inputClass}>
+          {TRIAL_COURSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          {course === TRIAL_LESSON_COURSE_NAME
+            ? "通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます。"
+            : `売上・歩合・請求は「${course}」の単価で計上されます。`}
+        </p>
+      </div>
+
+      <div>
+        <label className={labelClass}><Coins size={12} /> 金額（この回だけ）</label>
+        <input name="amount" type="number" min="0" inputMode="numeric"
+          defaultValue={defaultValues?.amount ?? ""} placeholder="空欄なら料金区分の単価"
+          className={inputClass} />
+        <p className="text-xs text-gray-400 mt-1">いつもと違う金額のときだけ入力してください。</p>
       </div>
 
       <div>
@@ -209,8 +321,10 @@ function ContractResultForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+function LessonRow({ lesson, customers, members, rentalGyms, stores, isAdmin, currentMemberId, openReportId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[];
+  rentalGyms: RentalGym[]; stores: Store[];
+  isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const router = useRouter();
@@ -231,7 +345,7 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
           <p className="text-sm font-bold text-gray-900">体験レッスンを編集</p>
           <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
-        <LessonForm defaultValues={lesson} customers={customers} members={members}
+        <LessonForm defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores}
           onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
       </div>
     </td></tr>
@@ -288,6 +402,7 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
         <div className="flex flex-col gap-1">
           <StatusBadge status={lesson.status} />
           <ContractBadge contracted={lesson.contracted} />
+          <CourseBadge course={lesson.course} amount={lesson.amount} />
         </div>
       </td>
       <td className="px-4 py-3">
@@ -327,8 +442,10 @@ function LessonRow({ lesson, customers, members, isAdmin, currentMemberId, openR
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, openReportId }: {
-  lesson: TrialLesson; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+function LessonCard({ lesson, customers, members, rentalGyms, stores, isAdmin, currentMemberId, openReportId }: {
+  lesson: TrialLesson; customers: Customer[]; members: Member[];
+  rentalGyms: RentalGym[]; stores: Store[];
+  isAdmin: boolean; currentMemberId?: string; openReportId?: string;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const router = useRouter();
@@ -348,7 +465,7 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
         <p className="text-sm font-bold text-gray-900">体験レッスンを編集</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <LessonForm defaultValues={lesson} customers={customers} members={members}
+      <LessonForm defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores}
         onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
@@ -374,6 +491,7 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
         <div className="flex flex-col items-end gap-1">
           <StatusBadge status={lesson.status} />
           <ContractBadge contracted={lesson.contracted} />
+          <CourseBadge course={lesson.course} amount={lesson.amount} />
         </div>
       </div>
       <div className="space-y-1">
@@ -427,8 +545,10 @@ function LessonCard({ lesson, customers, members, isAdmin, currentMemberId, open
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, isAdmin, currentMemberId, initialSearch = "", openReportId }: {
-  lessons: TrialLesson[]; customers: Customer[]; members: Member[]; isAdmin: boolean; currentMemberId?: string;
+export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [], stores = [], isAdmin, currentMemberId, initialSearch = "", openReportId }: {
+  lessons: TrialLesson[]; customers: Customer[]; members: Member[];
+  rentalGyms?: RentalGym[]; stores?: Store[];
+  isAdmin: boolean; currentMemberId?: string;
   initialSearch?: string; openReportId?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -482,7 +602,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
             <p className="text-sm font-bold text-gray-900">体験レッスンを追加</p>
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <LessonForm customers={customers} members={members}
+          <LessonForm customers={customers} members={members} rentalGyms={rentalGyms} stores={stores}
             onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel="追加する" />
         </div>
       )}
@@ -517,7 +637,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
                 ))}
               </tbody>
             </table>
@@ -525,7 +645,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
             ))}
           </div>
         </>
@@ -539,7 +659,7 @@ export function TrialLessonsClient({ lessons, customers, members, isAdmin, curre
 
       {showAdd && (
         <BottomSheet title="体験レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
-          <LessonForm customers={customers} members={members}
+          <LessonForm customers={customers} members={members} rentalGyms={rentalGyms} stores={stores}
             onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel="追加する" />
         </BottomSheet>
       )}

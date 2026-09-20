@@ -1,7 +1,25 @@
 import type { CustomerPlan } from "./customers-types";
 import type { Exercise } from "./exercise-types";
+import { COURSE_OPTIONS } from "./lessons-types";
+import { TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 
 export type TrialLessonStatus = "scheduled" | "completed" | "cancelled";
+
+/**
+ * 体験レッスンで選べる料金区分。
+ * 既定は「体験レッスン」。体験枠で実施したが都度料金で請求する等のために、
+ * 1回ごとに金額が決まるコース（単発）も選べるようにしている。
+ * 月プラン・回数券は契約が前提のコースなのでここには出さない。
+ */
+export const TRIAL_COURSE_OPTIONS: { value: string; label: string }[] = [
+  { value: TRIAL_LESSON_COURSE_NAME, label: TRIAL_LESSON_COURSE_NAME },
+  ...COURSE_OPTIONS.filter((o) => o.paymentType === "single").map((o) => ({ value: o.value, label: o.label })),
+];
+
+/** 体験レッスンの料金区分の表示名（未設定は「体験レッスン」） */
+export function trialCourseLabel(course?: string): string {
+  return course || TRIAL_LESSON_COURSE_NAME;
+}
 
 export interface TrialLesson {
   id: string;
@@ -13,6 +31,11 @@ export interface TrialLesson {
   trainerMemberName?: string;
   scheduledAt: string;
   location?: string;
+  rentalGymId?: string;        // 利用レンタルジム（rental_gyms.id）
+  rentalGymFee?: number;       // この回のレンタルジム代（マスタ値がデフォルト・変更可）
+  storeId?: string;            // 利用店舗（stores.id）。レンタルジムとは別概念で利用料は無い
+  course?: string;             // 料金区分。未設定は「体験レッスン」
+  amount?: number;             // この回だけの金額。未設定はコース単価
   status: TrialLessonStatus;
   contracted: boolean | null;
   contractPlan?: CustomerPlan;

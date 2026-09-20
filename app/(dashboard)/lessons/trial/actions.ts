@@ -5,6 +5,26 @@ import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } 
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
+import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
+
+/**
+ * 場所（店舗・レンタルジム）と料金区分をフォームから読む。
+ * 料金区分が「体験レッスン」のときは course を null で保存する（既定と同じ意味なので）。
+ * レンタルジム代はジムを選んだときだけ保持する。
+ */
+function readPlaceAndCourse(formData: FormData) {
+  const rentalGymId = (formData.get("rentalGymId") as string)?.trim() || null;
+  const rgfRaw      = (formData.get("rentalGymFee") as string)?.trim();
+  const courseRaw   = (formData.get("course") as string)?.trim();
+  const amtRaw      = (formData.get("amount") as string)?.trim();
+  return {
+    rentalGymId,
+    rentalGymFee: rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null,
+    storeId:      (formData.get("storeId") as string)?.trim() || null,
+    course:       courseRaw && courseRaw !== TRIAL_LESSON_COURSE_NAME ? courseRaw : null,
+    amount:       amtRaw ? parseInt(amtRaw, 10) : null,
+  };
+}
 
 export async function createTrialLessonAction(formData: FormData) {
   const customerId      = (formData.get("customerId")      as string)?.trim();
@@ -13,10 +33,14 @@ export async function createTrialLessonAction(formData: FormData) {
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
   const location        = (formData.get("location")        as string)?.trim() || undefined;
   const note            = (formData.get("note")            as string)?.trim() || undefined;
+  const { rentalGymId, rentalGymFee, storeId, course, amount } = readPlaceAndCourse(formData);
 
   if (!customerId || !salesMemberId || !scheduledAt) return;
 
-  const created = await addTrialLesson({ customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
+  const created = await addTrialLesson({
+    customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
+    rentalGymId, rentalGymFee, storeId, course, amount,
+  });
   await logActivity({ action: "create", entityType: "trial_lesson", entityId: created.id, summary: `体験レッスンを追加: ${created.customerName}` });
   revalidatePath("/lessons/trial");
 }
@@ -29,10 +53,14 @@ export async function updateTrialLessonAction(id: string, formData: FormData) {
   const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
   const location        = (formData.get("location")        as string)?.trim() || null;
   const note            = (formData.get("note")            as string)?.trim() || null;
+  const { rentalGymId, rentalGymFee, storeId, course, amount } = readPlaceAndCourse(formData);
 
   if (!customerId || !salesMemberId || !scheduledAt) return;
 
-  await updateTrialLesson(id, { customerId, salesMemberId, trainerMemberId, scheduledAt, location, note });
+  await updateTrialLesson(id, {
+    customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
+    rentalGymId, rentalGymFee, storeId, course, amount,
+  });
   await logActivity({ action: "update", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを編集" });
   revalidatePath("/lessons/trial");
 }

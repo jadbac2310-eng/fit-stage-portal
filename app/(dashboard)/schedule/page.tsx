@@ -106,6 +106,8 @@ export default async function SchedulePage() {
       salesId: t.salesMemberId,
       salesName: t.salesMemberName,
       salesAvatarUrl: avatarOf(t.salesMemberId),
+      storeId: t.storeId,        // 店舗フィルタを体験レッスンにも効かせる
+      course: t.course,          // 料金区分（未設定＝体験レッスン）
       createdByName: nameOf(t.createdById),
       createdAt: t.createdAt,
       updatedByName: nameOf(t.updatedById),
