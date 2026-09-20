@@ -4,10 +4,11 @@ import { getCustomers } from "@/lib/customers";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
-import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
+import { getTrialLessons } from "@/lib/trial-lessons";
+import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
-  billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
+  billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
   monthLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
@@ -24,11 +25,12 @@ export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   if (!customerId || !month) return new Response("パラメータが不正です", { status: 400 });
 
-  const [customers, plans, passes, lessons, plansMaster] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
     getLessons(),
+    getTrialLessons(),
     getAllPlans(),
   ]);
 
@@ -39,9 +41,10 @@ export async function GET(req: NextRequest) {
   if (!group) return new Response("顧客が見つかりません", { status: 404 });
   const biller = group.biller;
 
-  const singleMaster = plansMaster.find((p) => p.paymentType === "single");
-  const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
-  const invoice = buildGroupInvoice(biller, group.members, month, { plans, passes, lessons }, singleFee);
+  const invoice = buildGroupInvoice(
+    biller, group.members, month,
+    { plans, passes, lessons, trialLessons }, invoiceFeesFromPlans(plansMaster),
+  );
   const dueOverride = await getInvoiceDueDate(biller.id, month);
 
   const buffer = await renderToBuffer(

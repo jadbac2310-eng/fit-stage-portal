@@ -2,7 +2,11 @@ import type { Customer, CustomerType } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
+import type { TrialLesson } from "./trial-lessons-types";
 import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
+import { TRIAL_LESSON_COURSE_NAME, getLessonFee } from "./commissions-types";
+import type { PlanMaster } from "./plans-master-types";
+import { buildLessonFeeMap, planUnitPrice } from "./plans-master-types";
 
 // ─── 発行元・振込先 ───────────────────────────────────────
 export const ISSUER = {
@@ -83,17 +87,51 @@ export function invoiceNumber(month: string, customerId: string): string {
   return `INV-${month.replace("-", "")}-${customerId.slice(0, 6).toUpperCase()}`;
 }
 
+/** 請求書の組み立てに使う既定単価。 */
+export interface InvoiceFees {
+  /** 都度レッスンの既定単価（レッスン個別金額も顧客の都度単価も無いときのフォールバック） */
+  single: number;
+  /** 体験レッスン1回の単価（プランマスタの「体験レッスン」行） */
+  trial: number;
+}
+
+/**
+ * プランマスタから請求書の既定単価を取り出す。
+ * 体験レッスンもマスタ上は payment_type='single' なので、「都度」の単価を拾うときは
+ * コース名で除外する（先頭一致で体験レッスンを掴んでしまわないように）。
+ */
+export function invoiceFeesFromPlans(plansMaster: PlanMaster[]): InvoiceFees {
+  const singleMaster = plansMaster.find(
+    (p) => p.paymentType === "single" && p.name !== TRIAL_LESSON_COURSE_NAME,
+  );
+  const unitPrices = buildLessonFeeMap(plansMaster);
+  return {
+    single: singleMaster ? planUnitPrice(singleMaster) : 0,
+    // マスタ未登録の環境でも 6,600円（固定単価表）にフォールバックする
+    trial: unitPrices[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME),
+  };
+}
+
+/** 請求対象データ。体験レッスンは未指定なら請求に含めない。 */
+export interface InvoiceData {
+  plans: CustomerPlanRecord[];
+  passes: SessionPass[];
+  lessons: Lesson[];
+  trialLessons?: TrialLesson[];
+}
+
 /**
  * 顧客1名・対象月の請求を組み立てる。
  * - 月額プラン: 購入日(purchasedAt)がその月のもの → 月額を計上
  * - 回数券: 購入日(purchasedAt)がその月のもの → 総額を計上
  * - 都度: その月に「完了」した都度レッスン → 1回ごとに計上
+ * - 体験: その月に「完了」した体験レッスン → 1回ごとに計上
  */
 export function buildInvoice(
   customer: Customer,
   month: string,
-  data: { plans: CustomerPlanRecord[]; passes: SessionPass[]; lessons: Lesson[] },
-  singleSessionFee = 0,
+  data: InvoiceData,
+  fees: InvoiceFees = { single: 0, trial: 0 },
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
 
@@ -118,11 +156,22 @@ export function buildInvoice(
     if (l.customerId !== customer.id) continue;
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inMonth(l.scheduledAt, month)) continue;
-    const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? singleSessionFee;
+    const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? fees.single;
     const label = l.course === "オンラインパーソナル"
       ? `${PROGRAM_LABEL}（オンライン）`
       : `${PROGRAM_LABEL}（店舗）`;
     lines.push({ date: l.scheduledAt.slice(0, 10), label, amount });
+  }
+
+  // 体験レッスン（その月に完了したもの。単価はプランマスタの「体験レッスン」）
+  for (const t of data.trialLessons ?? []) {
+    if (t.customerId !== customer.id || t.status !== "completed") continue;
+    if (!inMonth(t.scheduledAt, month)) continue;
+    lines.push({
+      date: t.scheduledAt.slice(0, 10),
+      label: `${PROGRAM_LABEL}（${TRIAL_LESSON_COURSE_NAME}）`,
+      amount: fees.trial,
+    });
   }
 
   lines.sort((a, b) => a.date.localeCompare(b.date));
@@ -165,12 +214,12 @@ export function buildGroupInvoice(
   biller: Customer,
   members: Customer[],
   month: string,
-  data: { plans: CustomerPlanRecord[]; passes: SessionPass[]; lessons: Lesson[] },
-  singleSessionFee = 0,
+  data: InvoiceData,
+  fees: InvoiceFees = { single: 0, trial: 0 },
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
   for (const c of members) {
-    lines.push(...buildInvoice(c, month, data, singleSessionFee).lines);
+    lines.push(...buildInvoice(c, month, data, fees).lines);
   }
   lines.sort((a, b) => a.date.localeCompare(b.date));
   const total = lines.reduce((s, l) => s + l.amount, 0);

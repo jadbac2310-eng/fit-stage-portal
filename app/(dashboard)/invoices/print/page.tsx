@@ -5,10 +5,11 @@ import { getCustomers } from "@/lib/customers";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
-import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
+import { getTrialLessons } from "@/lib/trial-lessons";
+import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
-  billingGroups, buildGroupInvoice, ISSUER, BANK_INFO,
+  billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
   monthLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
@@ -33,11 +34,12 @@ export default async function InvoicePrintPage({
   const { customer: customerId, month } = await searchParams;
   if (!customerId || !month) notFound();
 
-  const [customers, plans, passes, lessons, plansMaster] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
     getLessons(),
+    getTrialLessons(),
     getAllPlans(),
   ]);
 
@@ -48,9 +50,10 @@ export default async function InvoicePrintPage({
   if (!group) notFound();
   const customer = group.biller;
 
-  const singleMaster = plansMaster.find((p) => p.paymentType === "single");
-  const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
-  const invoice = buildGroupInvoice(customer, group.members, month, { plans, passes, lessons }, singleFee);
+  const invoice = buildGroupInvoice(
+    customer, group.members, month,
+    { plans, passes, lessons, trialLessons }, invoiceFeesFromPlans(plansMaster),
+  );
   const dueOverride = await getInvoiceDueDate(customer.id, month);
   const invoiceNo = invoiceNumber(month, customer.id);
   const suffix = addresseeSuffix(customer.customerType);

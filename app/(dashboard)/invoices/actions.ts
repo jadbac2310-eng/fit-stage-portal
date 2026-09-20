@@ -7,8 +7,9 @@ import { logActivity } from "@/lib/activity-logs";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
-import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
-import { billingGroups, buildGroupInvoice, billingName, monthLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
+import { getTrialLessons } from "@/lib/trial-lessons";
+import { getAllPlans } from "@/lib/plans-master";
+import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
@@ -60,8 +61,8 @@ export async function createInvoiceShareAction(
   await requireAdmin();
   if (!billerId || !month) return { ok: false, error: "対象が不正です" };
 
-  const [customers, plans, passes, lessons, plansMaster] = await Promise.all([
-    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getAllPlans(),
+  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
+    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getTrialLessons(), getAllPlans(),
   ]);
 
   // まとめ先(biller)のグループを解決
@@ -71,11 +72,11 @@ export async function createInvoiceShareAction(
   if (!group) return { ok: false, error: "顧客が見つかりません" };
   const biller = group.biller;
 
-  const singleMaster = plansMaster.find((p) => p.paymentType === "single");
-  const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
-
   // 請求書の内訳（全明細）
-  const invoice = buildGroupInvoice(biller, group.members, month, { plans, passes, lessons }, singleFee);
+  const invoice = buildGroupInvoice(
+    biller, group.members, month,
+    { plans, passes, lessons, trialLessons }, invoiceFeesFromPlans(plansMaster),
+  );
   if (invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
 
   const dueOverride = await getInvoiceDueDate(biller.id, month);

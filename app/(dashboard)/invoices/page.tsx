@@ -2,9 +2,10 @@ import { getCustomers } from "@/lib/customers";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
-import { getAllPlans, planUnitPrice } from "@/lib/plans-master";
+import { getTrialLessons } from "@/lib/trial-lessons";
+import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
-import { billingGroups, buildGroupInvoice } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans } from "@/lib/invoices";
 import { courseToPaymentType, isBillableLessonStatus } from "@/lib/lessons-types";
 import { InvoicesClient } from "./invoices-client";
 
@@ -34,19 +35,19 @@ export default async function InvoicesPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, plans, passes, lessons, plansMaster] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
     getLessons(),
+    getTrialLessons(),
     getAllPlans(),
   ]);
 
-  const singleMaster = plansMaster.find((p) => p.paymentType === "single");
-  const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
+  const fees = invoiceFeesFromPlans(plansMaster);
 
   const invoices = billingGroups(customers)
-    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons }, singleFee))
+    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons, trialLessons }, fees))
     .filter((inv) => inv.lines.length > 0) // 明細があれば出す（合計0円でも隠さない）
     .sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
 
