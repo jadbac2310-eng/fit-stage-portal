@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
-  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins,
+  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins, ChevronDown,
 } from "lucide-react";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
+import { parseTrialNote, isShortNote } from "@/lib/trial-note";
 import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import type { RentalGym } from "@/lib/rental-gyms";
@@ -64,6 +65,58 @@ function CourseBadge({ course, amount }: { course?: string; amount?: number }) {
       {course ?? TRIAL_LESSON_COURSE_NAME}
       {amount != null && `・¥${amount.toLocaleString("ja-JP")}`}
     </span>
+  );
+}
+
+// ─── 備考（申込フォームの回答） ───────────────────────
+// 申込フォームからの備考は「ラベル: 値」が6行ほど並び、値には英訳も併記されるため、
+// そのまま出すと一覧がテキストの壁になる。項目に分解して英訳を落とし、既定は畳んでおく。
+function NoteBlock({ note }: { note?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!note?.trim()) return null;
+
+  // 手入力の短いメモは畳まずそのまま出す（1行なので邪魔にならない）
+  if (isShortNote(note)) {
+    return (
+      <p className="text-xs text-gray-500 flex items-start gap-1.5">
+        <StickyNote size={11} className="text-gray-400 flex-shrink-0 mt-0.5" />
+        <span className="whitespace-pre-wrap">{note.trim()}</span>
+      </p>
+    );
+  }
+
+  const { items, freeText } = parseTrialNote(note);
+  const count = items.length + (freeText ? 1 : 0);
+
+  return (
+    <div className="text-xs">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600 transition"
+      >
+        <StickyNote size={11} className="text-gray-400 flex-shrink-0" />
+        <span className="font-medium">申込内容{count > 0 && `（${count}項目）`}</span>
+        <ChevronDown size={12} className={cn("text-gray-400 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="mt-1.5 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 space-y-1.5">
+          {items.map((item, i) => (
+            <div key={i}>
+              <p className="text-[11px] text-gray-400">{item.label}</p>
+              <p className="text-gray-700 leading-snug">{item.value}</p>
+            </div>
+          ))}
+          {freeText && (
+            <div>
+              <p className="text-[11px] text-gray-400">メモ</p>
+              <p className="text-gray-700 leading-snug whitespace-pre-wrap">{freeText}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -373,12 +426,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, isAdmin, cu
       </td>
       <td className="px-4 py-3">
         <p className="text-sm font-semibold text-gray-900">{lesson.customerName}</p>
-        {lesson.note && (
-          <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-wrap flex items-start gap-1">
-            <StickyNote size={10} className="flex-shrink-0 mt-0.5" />
-            <span>{lesson.note}</span>
-          </p>
-        )}
+        <div className="mt-1"><NoteBlock note={lesson.note} /></div>
         <AuthorStamp
           createdByName={members.find((m) => m.id === lesson.createdById)?.name}
           createdAt={lesson.createdAt}
@@ -497,12 +545,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, isAdmin, c
       <div className="space-y-1">
         <p className="text-xs text-gray-600 flex items-center gap-1.5"><Calendar size={11} className="text-gray-400" />{dateStr} {timeStr}</p>
         {lesson.location && <p className="text-xs text-gray-600 flex items-center gap-1.5"><MapPin size={11} className="text-gray-400" />{lesson.location}</p>}
-        {lesson.note && (
-          <p className="text-xs text-gray-500 flex items-start gap-1.5 whitespace-pre-wrap">
-            <StickyNote size={11} className="text-gray-400 flex-shrink-0 mt-0.5" />
-            <span>{lesson.note}</span>
-          </p>
-        )}
+        <NoteBlock note={lesson.note} />
         <AuthorStamp
           createdByName={members.find((m) => m.id === lesson.createdById)?.name}
           createdAt={lesson.createdAt}
