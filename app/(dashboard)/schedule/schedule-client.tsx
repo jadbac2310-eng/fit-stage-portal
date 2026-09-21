@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
-import { monthKey, tallyLessons, tallyTotal, tallyRowTotal } from "@/lib/schedule-tally";
+import { monthKey, tallyLessons, tallyTotal, tallyRowTotal, tallyForMember, pinTallyRow } from "@/lib/schedule-tally";
 import {
   createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction,
   createHourlyTaskAction, updateHourlyTaskAction, deleteHourlyTaskAction,
@@ -134,16 +134,38 @@ const TALLY_PREVIEW = 8; // 折りたたみ時に見せる行数
  * 絞り込み（担当者・店舗・顧客）には連動させず、常に今月の全レッスンを集計する。
  * 担当者フィルタの初期値が「自分」のため、連動させると他のメンバーの件数が
  * 見えなくなり「人それぞれ何件か」を把握するという目的を満たせないため。
+ *
+ * 見出しの数字は、管理者は全員の合計、それ以外は自分の担当分。
+ * 現場の担当者がまず知りたいのは自分の稼働なので、畳んだ状態でそれが出るようにする。
+ * 全員の内訳は開けば見られる（担当者別では自分の行を先頭に固定する）。
  */
-function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
+function MonthlyLessonSummary({ items, isAdmin, currentMemberId }: {
+  items: ScheduleItem[]; isAdmin: boolean; currentMemberId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [by, setBy] = useState<"trainer" | "customer">("trainer");
   const [expanded, setExpanded] = useState(false);
   // 「今月」は初回だけ求めて固定する（描画のたびに現在時刻を読むと結果が不安定になるため）
   const [month] = useState(() => monthKey(new Date().toISOString()));
 
-  const rows = useMemo(() => tallyLessons(items, month, by), [items, month, by]);
-  const total = useMemo(() => tallyTotal(rows), [rows]);
+  const showOwn = !isAdmin && !!currentMemberId;
+
+  const rows = useMemo(() => {
+    const r = tallyLessons(items, month, by);
+    // 担当者別のときだけ自分を先頭へ（顧客別はキーが顧客なので対象外）
+    return showOwn && by === "trainer" ? pinTallyRow(r, currentMemberId) : r;
+  }, [items, month, by, showOwn, currentMemberId]);
+
+  const total = useMemo(() => tallyTotal(tallyLessons(items, month, "trainer")), [items, month]);
+  const own = useMemo(
+    () => (currentMemberId ? tallyForMember(items, month, currentMemberId) : null),
+    [items, month, currentMemberId],
+  );
+
+  // 見出しに出す数字
+  const headline = showOwn && own
+    ? { done: own.done, total: tallyRowTotal(own) }
+    : { done: total.done, total: total.total };
 
   const visible = expanded ? rows : rows.slice(0, TALLY_PREVIEW);
 
@@ -156,11 +178,13 @@ function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
       >
         <Dumbbell size={16} className="text-blue-500 flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900">{parseInt(month.slice(5), 10)}月のレッスン件数</p>
+          <p className="text-sm font-bold text-gray-900">
+            {parseInt(month.slice(5), 10)}月のレッスン件数{showOwn && "（自分）"}
+          </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            実施済み <span className="font-bold text-green-600">{total.done}</span> 件
+            実施済み <span className="font-bold text-green-600">{headline.done}</span> 件
             <span className="mx-1.5 text-gray-300">/</span>
-            合計 <span className="font-bold text-blue-600">{total.total}</span> 件
+            合計 <span className="font-bold text-blue-600">{headline.total}</span> 件
           </p>
         </div>
         <ChevronDown size={16} className={cn("text-gray-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
@@ -188,16 +212,24 @@ function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
             <p className="text-xs text-gray-400 py-2">今月のレッスンはまだありません。</p>
           ) : (
             <div>
-              {visible.map((r) => (
-                <div key={r.key} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
-                  <span className="flex-1 min-w-0 truncate text-xs font-medium text-gray-700">{r.name}</span>
-                  <span className="flex-shrink-0 text-[11px] text-gray-400">
-                    実施 <span className="text-xs font-bold text-green-600">{r.done}</span>
-                    <span className="mx-1 text-gray-300">/</span>
-                    合計 <span className="text-xs font-bold text-blue-600">{tallyRowTotal(r)}</span>
-                  </span>
-                </div>
-              ))}
+              {visible.map((r) => {
+                const isSelf = by === "trainer" && !!currentMemberId && r.key === currentMemberId;
+                return (
+                  <div key={r.key} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                    <span className={cn(
+                      "flex-1 min-w-0 truncate text-xs",
+                      isSelf ? "font-bold text-blue-700" : "font-medium text-gray-700",
+                    )}>
+                      {r.name}{isSelf && "（自分）"}
+                    </span>
+                    <span className="flex-shrink-0 text-[11px] text-gray-400">
+                      実施 <span className="text-xs font-bold text-green-600">{r.done}</span>
+                      <span className="mx-1 text-gray-300">/</span>
+                      合計 <span className="text-xs font-bold text-blue-600">{tallyRowTotal(r)}</span>
+                    </span>
+                  </div>
+                );
+              })}
               {rows.length > TALLY_PREVIEW && (
                 <button
                   type="button"
@@ -210,7 +242,20 @@ function MonthlyLessonSummary({ items }: { items: ScheduleItem[] }) {
             </div>
           )}
 
+          {/* 見出しを自分の件数にしているぶん、全員の合計は開いたときに出す */}
+          {showOwn && rows.length > 0 && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+              <span className="flex-1 min-w-0 text-xs font-semibold text-gray-500">全員の合計</span>
+              <span className="flex-shrink-0 text-[11px] text-gray-400">
+                実施 <span className="text-xs font-bold text-green-600">{total.done}</span>
+                <span className="mx-1 text-gray-300">/</span>
+                合計 <span className="text-xs font-bold text-blue-600">{total.total}</span>
+              </span>
+            </div>
+          )}
+
           <p className="text-[11px] text-gray-400 mt-2.5 leading-relaxed">
+            {showOwn && "上の見出しは自分の担当分です。"}
             合計は実施済み＋未実施（予定）です。通常レッスン＋体験レッスンを数えます
             （個人予定・業務は含みません）。当日キャンセルは実施済みに数え、
             白紙キャンセルは数えません。上の絞り込みに関係なく、今月の全件を集計します。
@@ -1871,7 +1916,7 @@ export function ScheduleClient({
       )}
 
       {/* 今月のレッスン件数（担当者別・顧客別） */}
-      <MonthlyLessonSummary items={items} />
+      <MonthlyLessonSummary items={items} isAdmin={isAdmin} currentMemberId={currentMemberId} />
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin}

@@ -76,3 +76,19 @@ export function tallyTotal(rows: LessonTally[]): { done: number; scheduled: numb
 export function tallyRowTotal(row: LessonTally): number {
   return row.done + row.scheduled;
 }
+
+/**
+ * 指定メンバーが担当する、その月のレッスン件数。
+ * 担当が1件も無い月でも 0件の行を返す（見出しの数字を必ず出せるようにするため）。
+ */
+export function tallyForMember(items: TallyItem[], month: string, memberId: string): LessonTally {
+  const found = tallyLessons(items, month, "trainer").find((r) => r.key === memberId);
+  return found ?? { key: memberId, name: "", done: 0, scheduled: 0 };
+}
+
+/** 指定キーの行を先頭に移動する（自分の行を最初に見せるのに使う） */
+export function pinTallyRow(rows: LessonTally[], key?: string): LessonTally[] {
+  if (!key) return rows;
+  const i = rows.findIndex((r) => r.key === key);
+  return i <= 0 ? rows : [rows[i], ...rows.slice(0, i), ...rows.slice(i + 1)];
+}
