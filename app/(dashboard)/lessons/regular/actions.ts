@@ -36,6 +36,9 @@ export async function createLessonAction(formData: FormData) {
   const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
   const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
   const storeId         = (formData.get("storeId")         as string)?.trim() || null;
+  const fctStoreId      = (formData.get("fctStoreId")      as string)?.trim() || null;
+  const fsfRaw          = (formData.get("fctStoreFee")     as string)?.trim();
+  const fctStoreFee     = fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null;
   const amtRaw          = (formData.get("amount")          as string)?.trim();
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -52,7 +55,7 @@ export async function createLessonAction(formData: FormData) {
 
   let created;
   try {
-    created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId });
+    created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee });
   } catch (e) {
     if (usesPass) await releaseSessionPass(sessionPassId!, 1); // 作成に失敗したぶんは戻す
     throw e;
@@ -79,6 +82,9 @@ export async function createLessonsAction(formData: FormData) {
   const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
   const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
   const storeId         = (formData.get("storeId")         as string)?.trim() || null;
+  const fctStoreId      = (formData.get("fctStoreId")      as string)?.trim() || null;
+  const fsfRaw          = (formData.get("fctStoreFee")     as string)?.trim();
+  const fctStoreFee     = fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null;
   const amtRaw          = (formData.get("amount")          as string)?.trim();
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -102,7 +108,7 @@ export async function createLessonsAction(formData: FormData) {
   let count = 0;
   try {
     for (const s of slots) {
-      await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId });
+      await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee });
       count++;
     }
   } catch (e) {
@@ -128,6 +134,9 @@ export async function updateLessonAction(id: string, formData: FormData) {
   const rgfRaw          = (formData.get("rentalGymFee")    as string)?.trim();
   const rentalGymFee    = rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null;
   const storeId         = (formData.get("storeId")         as string)?.trim() || null;
+  const fctStoreId      = (formData.get("fctStoreId")      as string)?.trim() || null;
+  const fsfRaw          = (formData.get("fctStoreFee")     as string)?.trim();
+  const fctStoreFee     = fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null;
   const amtRaw          = (formData.get("amount")          as string)?.trim();
   const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -144,7 +153,7 @@ export async function updateLessonAction(id: string, formData: FormData) {
     if (oldPassId) await releaseSessionPass(oldPassId, 1);
   }
 
-  await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId });
+  await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee });
   await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `通常レッスンを編集: ${existing.customerName}` });
   revalidatePath("/lessons/regular");
   revalidatePath("/schedule");

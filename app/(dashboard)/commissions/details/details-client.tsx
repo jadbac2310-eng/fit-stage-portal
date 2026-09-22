@@ -62,6 +62,7 @@ interface DetailRow {
   sessionPassNote?: string;
   rentalGymNote?: string;
   storeNote?:    string;
+  fctStoreNote?: string;
 }
 
 interface TrainerGroup {
@@ -85,6 +86,7 @@ export function DetailsClient({
   trainerRates,
   rentalGyms,
   stores,
+  fctStores = [],
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -97,6 +99,7 @@ export function DetailsClient({
   trainerRates:  { memberId: string; customerId: string; rate: number }[];
   rentalGyms:    { id: string; name: string; fee: number }[];
   stores:        { id: string; name: string }[];
+  fctStores?:    { id: string; name: string; fee?: number }[];
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
@@ -113,6 +116,7 @@ export function DetailsClient({
 
   const rentalGymMap = useMemo(() => new Map(rentalGyms.map((g) => [g.id, g])), [rentalGyms]);
   const storeMap     = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
+  const fctStoreMap  = useMemo(() => new Map(fctStores.map((f) => [f.id, f])), [fctStores]);
 
   const groups = useMemo((): TrainerGroup[] => {
     const filtered = lessons
@@ -162,6 +166,13 @@ export function DetailsClient({
       if (l.storeId) {
         storeNote = storeMap.get(l.storeId)?.name ?? "不明な店舗";
       }
+      // FCT店舗（レンタルジムと同じく利用料を併記する）
+      let fctStoreNote: string | undefined;
+      if (l.fctStoreId || l.fctStoreFee != null) {
+        const fct = l.fctStoreId ? fctStoreMap.get(l.fctStoreId) : undefined;
+        const fee = l.fctStoreFee ?? fct?.fee;
+        fctStoreNote = `${fct?.name ?? "不明なFCT店舗"}${fee != null ? `・${yen(fee)}` : ""}`;
+      }
 
       const ensureGroup = (id: string, name: string, avatarUrl?: string) => {
         if (!map.has(id)) map.set(id, { memberId: id, memberName: name, avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
@@ -176,7 +187,7 @@ export function DetailsClient({
         customerType: customerTypeMap.get(l.customerId) ?? "個人",
         course, fee, ratePercent: Math.round(rate * 100), commission,
         sameDayCancel: l.status === "cancelled_same_day",
-        planNote, sessionPassNote, rentalGymNote, storeNote,
+        planNote, sessionPassNote, rentalGymNote, storeNote, fctStoreNote,
       });
       group.feeTotal += fee;
       group.commissionTotal += commission;
@@ -202,6 +213,12 @@ export function DetailsClient({
         trialGymNote = `${gym?.name ?? "不明なジム"}${gymFee != null ? `・${yen(gymFee)}` : ""}`;
       }
       const trialStoreNote = t.storeId ? (storeMap.get(t.storeId)?.name ?? "不明な店舗") : undefined;
+      let trialFctNote: string | undefined;
+      if (t.fctStoreId || t.fctStoreFee != null) {
+        const fct = t.fctStoreId ? fctStoreMap.get(t.fctStoreId) : undefined;
+        const fee = t.fctStoreFee ?? fct?.fee;
+        trialFctNote = `${fct?.name ?? "不明なFCT店舗"}${fee != null ? `・${yen(fee)}` : ""}`;
+      }
 
       if (!map.has(tid)) {
         map.set(tid, { memberId: tid, memberName: member?.name ?? t.trainerMemberName ?? tid, avatarUrl: member?.avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
@@ -213,7 +230,7 @@ export function DetailsClient({
         customerName: t.customerName,
         customerType: customerTypeMap.get(t.customerId) ?? "個人",
         course: trialCourseLabel(t.course), fee, ratePercent: Math.round(rate * 100), commission,
-        rentalGymNote: trialGymNote, storeNote: trialStoreNote,
+        rentalGymNote: trialGymNote, storeNote: trialStoreNote, fctStoreNote: trialFctNote,
       });
       group.feeTotal += fee;
       group.commissionTotal += commission;
@@ -221,7 +238,7 @@ export function DetailsClient({
 
     for (const g of map.values()) g.rows.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     return Array.from(map.values()).sort((a, b) => b.commissionTotal - a.commissionTotal);
-  }, [lessons, trialLessons, month, ctx, members, sessionPasses, customerPlans, customerTypeMap, rentalGymMap, storeMap]);
+  }, [lessons, trialLessons, month, ctx, members, sessionPasses, customerPlans, customerTypeMap, rentalGymMap, storeMap, fctStoreMap]);
 
   const grandTotalCommission = groups.reduce((s, g) => s + g.commissionTotal, 0);
   const grandTotalLessons    = groups.reduce((s, g) => s + g.rows.length, 0);
@@ -313,7 +330,10 @@ export function DetailsClient({
                         {row.storeNote && (
                           <p className="flex items-center gap-1 whitespace-nowrap mt-0.5"><Building2 size={11} className="text-gray-400 flex-shrink-0" />{row.storeNote}</p>
                         )}
-                        {!row.rentalGymNote && !row.storeNote && "—"}
+                        {row.fctStoreNote && (
+                          <p className="flex items-center gap-1 whitespace-nowrap mt-0.5"><Building2 size={11} className="text-gray-400 flex-shrink-0" />{row.fctStoreNote}</p>
+                        )}
+                        {!row.rentalGymNote && !row.storeNote && !row.fctStoreNote && "—"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-600 whitespace-nowrap">{yen(row.fee)}</td>
                       <td className="py-2 px-3 text-right text-gray-500 whitespace-nowrap">{row.ratePercent}%</td>

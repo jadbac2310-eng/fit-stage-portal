@@ -7,6 +7,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getRentalGyms } from "@/lib/rental-gyms";
+import { getFctStores } from "@/lib/fct-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
   getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
@@ -28,7 +29,7 @@ export default async function AdminDashboardPage() {
   }
 
   const [
-    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, rentalGyms,
+    customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, rentalGyms, fctStores,
     popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError,
   ] = await Promise.all([
     getCustomers(),
@@ -41,6 +42,7 @@ export default async function AdminDashboardPage() {
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
     getRentalGyms(),
+    getFctStores(),
     getPopularPages(28, 5),
     getTrafficSources(28, 6),
     getDeviceBreakdown(28),
@@ -65,6 +67,7 @@ export default async function AdminDashboardPage() {
       members={members.map((m) => ({ id: m.id, name: m.name }))}
       trainerRates={allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }))}
       rentalGyms={rentalGyms.map((g) => ({ id: g.id, name: g.name }))}
+      fctStores={fctStores.map((f) => ({ id: f.id, name: f.name }))}
       analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}
     />
   );

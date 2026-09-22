@@ -28,6 +28,7 @@ import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
+import type { FctStore } from "@/lib/fct-stores";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
@@ -1275,7 +1276,7 @@ function PersonalEventModal({
 
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, defaultDate, editLesson, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, defaultDate, editLesson, onClose,
 }: {
   customers: Customer[];
   members: Member[];
@@ -1283,6 +1284,7 @@ function LessonModal({
   customerPlans: CustomerPlanRecord[];
   lessons: Lesson[];
   rentalGyms: RentalGym[];
+  fctStores: FctStore[];
   stores: Store[];
   defaultDate?: string;
   editLesson?: Lesson;   // 指定時は編集モード
@@ -1309,6 +1311,7 @@ function LessonModal({
             customerPlans={customerPlans}
             allLessons={lessons}
             rentalGyms={rentalGyms}
+            fctStores={fctStores}
             stores={stores}
             defaultValues={defaultValues}
             onClose={close}
@@ -1688,7 +1691,7 @@ function TimelineView({
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
-  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], hourlyTasks = [],
+  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], fctStores = [], hourlyTasks = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
@@ -1700,6 +1703,7 @@ export function ScheduleClient({
   customerPlans?: CustomerPlanRecord[];
   lessons?: Lesson[];
   rentalGyms?: RentalGym[];
+  fctStores?: FctStore[];
   stores?: Store[];
   hourlyTasks?: HourlyTask[];
 }) {
@@ -2013,6 +2017,7 @@ export function ScheduleClient({
           customerPlans={customerPlans}
           lessons={lessons}
           rentalGyms={rentalGyms}
+          fctStores={fctStores}
           stores={stores}
           defaultDate={lessonDate}
           editLesson={editLesson ?? undefined}

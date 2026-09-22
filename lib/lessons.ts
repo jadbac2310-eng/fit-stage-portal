@@ -23,6 +23,8 @@ type DbRow = {
   note: string | null;
   rental_gym_id: string | null;
   rental_gym_fee: number | null;
+  fct_store_id: string | null;
+  fct_store_fee: number | null;
   store_id: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -54,6 +56,8 @@ function fromDb(row: DbRow): Lesson {
     note:              row.note ?? undefined,
     rentalGymId:       row.rental_gym_id ?? undefined,
     rentalGymFee:      row.rental_gym_fee ?? undefined,
+    fctStoreId:        row.fct_store_id ?? undefined,
+    fctStoreFee:       row.fct_store_fee ?? undefined,
     storeId:           row.store_id ?? undefined,
     createdById:       row.created_by ?? undefined,
     createdByName:     row.created_by_member?.name ?? undefined,
@@ -118,6 +122,8 @@ export async function addLesson(input: {
   createdBy?: string;
   rentalGymId?: string | null;
   rentalGymFee?: number | null;
+  fctStoreId?: string | null;
+  fctStoreFee?: number | null;
   storeId?: string | null;
 }): Promise<Lesson> {
   const client = createAdminClient();
@@ -135,6 +141,8 @@ export async function addLesson(input: {
     created_by:        input.createdBy ?? null,
     rental_gym_id:     input.rentalGymId ?? null,
     rental_gym_fee:    input.rentalGymFee ?? null,
+    fct_store_id:      input.fctStoreId ?? null,
+    fct_store_fee:     input.fctStoreFee ?? null,
     store_id:          input.storeId ?? null,
   };
   // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
@@ -165,6 +173,8 @@ export async function updateLesson(
     note: string | null;
     rentalGymId: string | null;
     rentalGymFee: number | null;
+    fctStoreId: string | null;
+    fctStoreFee: number | null;
     storeId: string | null;
   }>
 ): Promise<Lesson | null> {
@@ -185,6 +195,8 @@ export async function updateLesson(
   if (input.note               !== undefined) patch.note                 = input.note;
   if (input.rentalGymId        !== undefined) patch.rental_gym_id        = input.rentalGymId;
   if (input.rentalGymFee       !== undefined) patch.rental_gym_fee       = input.rentalGymFee;
+  if (input.fctStoreId         !== undefined) patch.fct_store_id         = input.fctStoreId;
+  if (input.fctStoreFee        !== undefined) patch.fct_store_fee        = input.fctStoreFee;
   if (input.storeId            !== undefined) patch.store_id             = input.storeId;
   patch.updated_by = (await currentMemberId()) ?? null;
 

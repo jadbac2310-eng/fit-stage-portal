@@ -16,6 +16,8 @@ type DbRow = {
   rental_gym_id: string | null;
   rental_gym_fee: number | null;
   store_id: string | null;
+  fct_store_id: string | null;
+  fct_store_fee: number | null;
   course: string | null;
   amount: number | null;
   status: TrialLessonStatus;
@@ -48,6 +50,8 @@ function fromDb(row: DbRow): TrialLesson {
     rentalGymId:         row.rental_gym_id ?? undefined,
     rentalGymFee:        row.rental_gym_fee ?? undefined,
     storeId:             row.store_id ?? undefined,
+    fctStoreId:          row.fct_store_id ?? undefined,
+    fctStoreFee:         row.fct_store_fee ?? undefined,
     course:              row.course ?? undefined,
     amount:              row.amount ?? undefined,
     status:              row.status,
@@ -100,6 +104,8 @@ export async function addTrialLesson(input: {
   rentalGymId?: string | null;
   rentalGymFee?: number | null;
   storeId?: string | null;
+  fctStoreId?: string | null;
+  fctStoreFee?: number | null;
   course?: string | null;
   amount?: number | null;
   note?: string;
@@ -120,6 +126,8 @@ export async function addTrialLesson(input: {
     rental_gym_id:  input.rentalGymId ?? null,
     rental_gym_fee: input.rentalGymFee ?? null,
     store_id:       input.storeId ?? null,
+    fct_store_id:   input.fctStoreId ?? null,
+    fct_store_fee:  input.fctStoreFee ?? null,
     course:         input.course ?? null,
     amount:         input.amount ?? null,
   };
@@ -146,6 +154,8 @@ export async function updateTrialLesson(
     rentalGymId: string | null;
     rentalGymFee: number | null;
     storeId: string | null;
+    fctStoreId: string | null;
+    fctStoreFee: number | null;
     course: string | null;
     amount: number | null;
     status: TrialLessonStatus;
@@ -170,6 +180,8 @@ export async function updateTrialLesson(
   if (input.rentalGymId         !== undefined) setExtra("rental_gym_id",  input.rentalGymId);
   if (input.rentalGymFee        !== undefined) setExtra("rental_gym_fee", input.rentalGymFee);
   if (input.storeId             !== undefined) setExtra("store_id",       input.storeId);
+  if (input.fctStoreId          !== undefined) setExtra("fct_store_id",   input.fctStoreId);
+  if (input.fctStoreFee         !== undefined) setExtra("fct_store_fee",  input.fctStoreFee);
   if (input.course              !== undefined) setExtra("course",         input.course);
   if (input.amount              !== undefined) setExtra("amount",         input.amount);
   if (input.contracted          !== undefined) patch.contracted           = input.contracted;

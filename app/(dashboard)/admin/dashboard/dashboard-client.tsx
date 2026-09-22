@@ -61,9 +61,9 @@ function computeMonth(
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
     + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx), 0);
-  // 場所利用料は体験レッスンのレンタルジム代も差し引く
-  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0), 0)
-    + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0), 0);
+  // 場所利用料はレンタルジム代とFCT店舗の利用料。体験レッスン分も差し引く
+  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0), 0)
+    + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0) + (t.fctStoreFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, completedTrialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
@@ -102,6 +102,7 @@ function computeBreakdown(
   completedTrialLessons: TrialLesson[],
   ctx: CommissionContext,
   gymNames: Map<string, string>,
+  fctStoreNames: Map<string, string>,
 ): MonthBreakdown {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
@@ -126,12 +127,17 @@ function computeBreakdown(
     add(byCourse, course, course, resolveTrialFee(t, ctx));
   }
 
-  // 場所利用料: レンタルジム別（通常レッスン＋体験レッスン）
+  // 場所利用料: レンタルジム・FCT店舗別（通常レッスン＋体験レッスン）
   const byGym = new Map<string, BreakdownRow>();
   for (const l of [...inMonth, ...trialsInMonth]) {
-    if (!l.rentalGymFee) continue;
-    const name = (l.rentalGymId && gymNames.get(l.rentalGymId)) || l.location || "不明なジム";
-    add(byGym, l.rentalGymId ?? `location:${name}`, name, l.rentalGymFee);
+    if (l.rentalGymFee) {
+      const name = (l.rentalGymId && gymNames.get(l.rentalGymId)) || l.location || "不明なジム";
+      add(byGym, l.rentalGymId ?? `location:${name}`, name, l.rentalGymFee);
+    }
+    if (l.fctStoreFee) {
+      const name = (l.fctStoreId && fctStoreNames.get(l.fctStoreId)) || l.location || "不明なFCT店舗";
+      add(byGym, l.fctStoreId ?? `fct:${name}`, name, l.fctStoreFee);
+    }
   }
 
   return {
@@ -395,7 +401,7 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, rentalGyms, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, rentalGyms, fctStores, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -408,6 +414,7 @@ export function RevenueDashboardClient({
   members:       { id: string; name: string }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   rentalGyms?:   { id: string; name: string }[];
+  fctStores?:    { id: string; name: string }[];
   analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
@@ -436,9 +443,10 @@ export function RevenueDashboardClient({
   // タップされたKPIカードの内訳（選択月）
   const [openCard, setOpenCard] = useState<BreakdownKind | null>(null);
   const gymNames = useMemo(() => new Map((rentalGyms ?? []).map((g) => [g.id, g.name])), [rentalGyms]);
+  const fctStoreNames = useMemo(() => new Map((fctStores ?? []).map((f) => [f.id, f.name])), [fctStores]);
   const breakdown = useMemo(
-    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames) : null,
-    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames],
+    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames) : null,
+    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames],
   );
 
   // 今月の実績（全体）

@@ -5,6 +5,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
+import { getFctStores } from "@/lib/fct-stores";
 import { RegularLessonsClient } from "./regular-lessons-client";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function RegularLessonsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  const [{ q }, lessons, customers, members, sessionPasses, customerPlans, rentalGyms, stores, member] = await Promise.all([
+  const [{ q }, lessons, customers, members, sessionPasses, customerPlans, rentalGyms, stores, fctStores, member] = await Promise.all([
     searchParams,
     getLessons(),
     getCustomers(),
@@ -23,6 +24,7 @@ export default async function RegularLessonsPage({
     getAllCustomerPlans(),
     getRentalGyms(),
     getStores(),
+    getFctStores(),
     getCurrentMember(),
   ]);
   return (
@@ -34,6 +36,7 @@ export default async function RegularLessonsPage({
       customerPlans={customerPlans}
       rentalGyms={rentalGyms}
       stores={stores}
+      fctStores={fctStores}
       isAdmin={member?.isAdmin ?? false}
       currentMemberId={member?.id}
       initialSearch={q ?? ""}

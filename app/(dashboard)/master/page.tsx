@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store } from "lucide-react";
+import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store, Landmark } from "lucide-react";
 import { getMembers } from "@/lib/members";
 import { getMaterialsCount } from "@/lib/materials";
 import { getKeywordsCount } from "@/lib/keywords";
@@ -7,11 +7,12 @@ import { getCustomersCount } from "@/lib/customers";
 import { getAllPlans } from "@/lib/plans-master";
 import { getRentalGymsCount } from "@/lib/rental-gyms";
 import { getStoresCount } from "@/lib/stores";
+import { getFctStoresCount } from "@/lib/fct-stores";
 
 export const dynamic = "force-dynamic";
 
 export default async function MasterPage() {
-  const [members, materialsCount, keywordsCount, customersCount, plans, rentalGymsCount, storesCount] = await Promise.all([
+  const [members, materialsCount, keywordsCount, customersCount, plans, rentalGymsCount, storesCount, fctStoresCount] = await Promise.all([
     getMembers(),
     getMaterialsCount(),
     getKeywordsCount(),
@@ -19,6 +20,7 @@ export default async function MasterPage() {
     getAllPlans(),
     getRentalGymsCount(),
     getStoresCount(),
+    getFctStoresCount(),
   ]);
 
   return (
@@ -127,6 +129,23 @@ export default async function MasterPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-gray-400">{storesCount}件</span>
             <ArrowRight size={16} className="text-gray-400 group-hover:text-teal-500 transition" />
+          </div>
+        </Link>
+
+        <Link
+          href="/master/fct-stores"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Landmark size={20} className="text-sky-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">FCT店舗マスタ</p>
+            <p className="text-xs text-gray-500 mt-0.5">FCT店舗の名前・住所・利用料</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400">{fctStoresCount}件</span>
+            <ArrowRight size={16} className="text-gray-400 group-hover:text-sky-500 transition" />
           </div>
         </Link>
 

@@ -34,6 +34,8 @@ export interface TrialLesson {
   rentalGymId?: string;        // 利用レンタルジム（rental_gyms.id）
   rentalGymFee?: number;       // この回のレンタルジム代（マスタ値がデフォルト・変更可）
   storeId?: string;            // 利用店舗（stores.id）。レンタルジムとは別概念で利用料は無い
+  fctStoreId?: string;         // 利用FCT店舗（fct_stores.id）
+  fctStoreFee?: number;        // この回のFCT店舗利用料（マスタ値がデフォルト・変更可）
   course?: string;             // 料金区分。未設定は「体験レッスン」
   amount?: number;             // この回だけの金額。未設定はコース単価
   status: TrialLessonStatus;
