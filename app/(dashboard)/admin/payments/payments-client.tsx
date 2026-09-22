@@ -202,7 +202,9 @@ function Row({ item }: { item: Receivable }) {
 // ─── 顧客・法人ごとにまとめた1グループ（1レッスンごとに行が並んで埋もれるのを防ぐ） ───
 function CustomerPaymentGroup({ billerName, items }: { billerName: string; items: Receivable[] }) {
   const unpaid = items.filter((r) => !r.payment);
-  const [expanded, setExpanded] = useState(items.length <= 1);
+  // 常に閉じた状態で開く。1件のグループだけ開いておくと、他の画面から戻るたびに
+  // そこが開いて見えて一覧が揃わないため、件数に関わらず畳んでおく。
+  const [expanded, setExpanded] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const total = items.reduce((s, r) => s + r.amount, 0);
   const unpaidTotal = unpaid.reduce((s, r) => s + r.amount, 0);
