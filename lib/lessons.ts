@@ -141,13 +141,20 @@ export async function addLesson(input: {
     created_by:        input.createdBy ?? null,
     rental_gym_id:     input.rentalGymId ?? null,
     rental_gym_fee:    input.rentalGymFee ?? null,
+    store_id:          input.storeId ?? null,
+  };
+  // FCT店舗の列（マイグレーション 20260922000001）。未適用の環境では列ごと落として再試行する。
+  // 列が無いだけでレッスンの登録自体が失敗すると、業務が止まってしまうため。
+  const fctRow = {
     fct_store_id:      input.fctStoreId ?? null,
     fct_store_fee:     input.fctStoreFee ?? null,
-    store_id:          input.storeId ?? null,
   };
   // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
   // 表示用のJOIN済みデータは getLesson で別途取得する。
-  const { data, error } = await client.from("lessons").insert(row).select("id").single();
+  let { data, error } = await client.from("lessons").insert({ ...row, ...fctRow }).select("id").single();
+  if (error && isMissingOptionalColumn(error)) {
+    ({ data, error } = await client.from("lessons").insert(row).select("id").single());
+  }
   if (error) throw error;
   const created = await getLesson((data as { id: string }).id);
   if (!created) throw new Error("作成したレッスンの取得に失敗しました");
@@ -195,16 +202,24 @@ export async function updateLesson(
   if (input.note               !== undefined) patch.note                 = input.note;
   if (input.rentalGymId        !== undefined) patch.rental_gym_id        = input.rentalGymId;
   if (input.rentalGymFee       !== undefined) patch.rental_gym_fee       = input.rentalGymFee;
-  if (input.fctStoreId         !== undefined) patch.fct_store_id         = input.fctStoreId;
-  if (input.fctStoreFee        !== undefined) patch.fct_store_fee        = input.fctStoreFee;
   if (input.storeId            !== undefined) patch.store_id             = input.storeId;
   patch.updated_by = (await currentMemberId()) ?? null;
+
+  // FCT店舗の列（マイグレーション 20260922000001）。未適用の環境では列ごと落として再試行する。
+  const fctKeys: string[] = [];
+  if (input.fctStoreId  !== undefined) { patch.fct_store_id  = input.fctStoreId;  fctKeys.push("fct_store_id"); }
+  if (input.fctStoreFee !== undefined) { patch.fct_store_fee = input.fctStoreFee; fctKeys.push("fct_store_fee"); }
 
   const client = createAdminClient();
   // 書き込みは JOIN を含めず実行する（members への関連取得が壊れても end_at 等の列を落とさないため）。
   // 以前はここで JOIN 付き select に失敗すると end_at/amount 等を patch から外して再試行しており、
   // 終了時刻が無言で保存されない不具合の原因になっていた。表示用の再取得は getLesson に委ねる。
-  const { error } = await client.from("lessons").update(patch).eq("id", id);
+  let { error } = await client.from("lessons").update(patch).eq("id", id);
+  if (error && fctKeys.length > 0 && isMissingOptionalColumn(error)) {
+    const rest = { ...patch };
+    for (const k of fctKeys) delete rest[k];
+    ({ error } = await client.from("lessons").update(rest).eq("id", id));
+  }
   if (error) throw error;
   return getLesson(id);
 }
