@@ -3,6 +3,7 @@ export type { SessionPass } from "./session-passes-types";
 import type { SessionPass } from "./session-passes-types";
 import { passUsageOrdinals } from "./session-passes-types";
 import { currentMemberId, isMissingAuthorColumn } from "./audit";
+import { ActionError } from "./action-result";
 
 type DbRow = {
   id: string;
@@ -160,12 +161,12 @@ export async function reserveSessionPass(id: string, count = 1): Promise<void> {
   if (!error) {
     if (data === true) return;
     const { remaining } = await remainingCountOf(id);
-    throw new Error(shortageMessage(remaining, count));
+    throw new ActionError(shortageMessage(remaining, count));
   }
 
   // 旧 RPC での代替実行（アトミックではないが、残数不足の予約は同様に弾く）
   const { remaining } = await remainingCountOf(id);
-  if (remaining < count) throw new Error(shortageMessage(remaining, count));
+  if (remaining < count) throw new ActionError(shortageMessage(remaining, count));
   for (let i = 0; i < count; i++) {
     const { error: e } = await client.rpc("decrement_session_pass", { pass_id: id });
     if (e) throw e;

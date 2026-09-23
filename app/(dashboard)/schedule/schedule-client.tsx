@@ -32,6 +32,7 @@ import type { FctStore } from "@/lib/fct-stores";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
+import { assertActionOk } from "@/lib/action-result";
 
 export type ScheduleItem = {
   id: string;
@@ -376,7 +377,7 @@ function LessonCard({
     if (!confirm("この予定を削除しますか？")) return;
     runDelete(async () => {
       try {
-        await deletePersonalEventAction(item.id);
+        assertActionOk(await deletePersonalEventAction(item.id));
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "削除に失敗しました");
@@ -389,7 +390,7 @@ function LessonCard({
     if (!confirm("この業務を削除しますか？")) return;
     runDelete(async () => {
       try {
-        await deleteHourlyTaskAction(item.id);
+        assertActionOk(await deleteHourlyTaskAction(item.id));
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "削除に失敗しました");
@@ -400,7 +401,7 @@ function LessonCard({
   function handleSetStatus(status: "completed" | "scheduled") {
     runStatus(async () => {
       try {
-        await setLessonStatusAction(item.id, status);
+        assertActionOk(await setLessonStatusAction(item.id, status));
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
@@ -413,7 +414,7 @@ function LessonCard({
     if (!confirm(`このレッスンを${label}にしますか？`)) return;
     runStatus(async () => {
       try {
-        await setLessonStatusAction(item.id, status);
+        assertActionOk(await setLessonStatusAction(item.id, status));
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
@@ -1014,11 +1015,11 @@ function PersonalEventModal({
     await run(async () => {
       try {
         if (mode === "edit" && initial) {
-          await updatePersonalEventAction(initial.id, fd);
+          assertActionOk(await updatePersonalEventAction(initial.id, fd));
         } else {
           // 作成時は複数日時（基準＋繰り返し＋追加）をまとめて作成
           fd.set("slots", JSON.stringify(buildSlots()));
-          await createPersonalEventsAction(fd);
+          assertActionOk(await createPersonalEventsAction(fd));
         }
         router.refresh();
         onClose();
@@ -1317,7 +1318,7 @@ function LessonModal({
             onClose={close}
             action={isEdit ? updateLessonAction.bind(null, editLesson!.id) : createLessonAction}
             multiAction={isEdit ? undefined : createLessonsAction}
-            onDelete={isEdit ? async () => { await deleteLessonAction(editLesson!.id); } : undefined}
+            onDelete={isEdit ? async () => { assertActionOk(await deleteLessonAction(editLesson!.id)); } : undefined}
             submitLabel={isEdit ? "保存する" : "追加する"}
           />
         </div>
@@ -1364,9 +1365,9 @@ function HourlyTaskModal({
     await run(async () => {
       try {
         if (isEdit && editTask) {
-          await updateHourlyTaskAction(editTask.id, fd);
+          assertActionOk(await updateHourlyTaskAction(editTask.id, fd));
         } else {
-          await createHourlyTaskAction(fd);
+          assertActionOk(await createHourlyTaskAction(fd));
         }
         router.refresh();
         onClose();
@@ -1381,7 +1382,7 @@ function HourlyTaskModal({
     if (!confirm("この業務を削除しますか？")) return;
     runDelete(async () => {
       try {
-        await deleteHourlyTaskAction(editTask.id);
+        assertActionOk(await deleteHourlyTaskAction(editTask.id));
         router.refresh();
         onClose();
       } catch (e) {

@@ -17,6 +17,7 @@ import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 type MemberNames = Record<string, string>;
 // プラン選択時の標準金額（プランマスタ由来）
@@ -54,7 +55,7 @@ function PlanForm({
   customers: Customer[];
   planDefaults: PlanDefault[];
   onClose: () => void;
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => Promise<ActionResult | void>;
   submitLabel: string;
 }) {
   const router = useRouter();
@@ -66,7 +67,7 @@ function PlanForm({
   async function handleSubmit(fd: FormData) {
     await run(async () => {
       setError("");
-      try { await action(fd); onClose(); router.refresh(); }
+      try { assertActionOk(await action(fd)); onClose(); router.refresh(); }
       catch (e) { setError(e instanceof Error ? e.message : "エラーが発生しました"); }
     });
   }
@@ -217,7 +218,10 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNa
           <button onClick={() => {
             if (deleting) return;
             if (!confirm("このプランを削除しますか？")) return;
-            runDelete(async () => { await deletePlanAction(record.id); router.refresh(); });
+            runDelete(async () => {
+              try { assertActionOk(await deletePlanAction(record.id)); router.refresh(); }
+              catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+            });
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}
@@ -250,7 +254,7 @@ function SessionPassForm({
 
   async function handleSubmit(fd: FormData) {
     await run(async () => {
-      await createSessionPassAction(fd);
+      assertActionOk(await createSessionPassAction(fd));
       onClose();
       router.refresh();
     });
@@ -362,7 +366,7 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
 
   async function handleEdit(fd: FormData) {
     await run(async () => {
-      await updateSessionPassAction(pass.id, fd);
+      assertActionOk(await updateSessionPassAction(pass.id, fd));
       setEditing(false);
       router.refresh();
     });
@@ -469,7 +473,10 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
           <button onClick={() => {
             if (deleting) return;
             if (!confirm("この回数券を削除しますか？")) return;
-            runDelete(async () => { await deleteSessionPassAction(pass.id); router.refresh(); });
+            runDelete(async () => {
+              try { assertActionOk(await deleteSessionPassAction(pass.id)); router.refresh(); }
+              catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+            });
           }} disabled={deleting}
             className="p-1 text-gray-300 hover:text-red-400 transition disabled:opacity-50">
             {deleting ? <Spinner size={11} /> : <Trash2 size={11} />}

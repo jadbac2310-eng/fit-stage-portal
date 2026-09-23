@@ -26,6 +26,7 @@ import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
@@ -153,7 +154,7 @@ function LessonForm({
   stores?: Store[];
   fctStores?: FctStore[];
   onClose: () => void;
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => Promise<ActionResult | void>;
   submitLabel: string;
 }) {
   const router = useRouter();
@@ -230,7 +231,7 @@ function LessonForm({
     const raw = fd.get("scheduledAt") as string;
     if (raw) fd.set("scheduledAt", localInputToISO(raw));
     await run(async () => {
-      try { await action(fd); router.refresh(); onClose(); }
+      try { assertActionOk(await action(fd)); router.refresh(); onClose(); }
       catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
     });
   }
@@ -548,7 +549,10 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
               <button onClick={() => {
                 if (deleting) return;
                 if (!confirm(`${lesson.customerName} の体験レッスンを削除しますか？`)) return;
-                runDelete(async () => { await deleteTrialLessonAction(lesson.id); router.refresh(); });
+                runDelete(async () => {
+                  try { assertActionOk(await deleteTrialLessonAction(lesson.id)); router.refresh(); }
+                  catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+                });
               }} disabled={deleting}
                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
                 {deleting ? <Spinner size={13} /> : <Trash2 size={13} />}
@@ -647,7 +651,10 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
             <button onClick={() => {
               if (deleting) return;
               if (!confirm(`${lesson.customerName} の体験レッスンを削除しますか？`)) return;
-              runDelete(async () => { await deleteTrialLessonAction(lesson.id); router.refresh(); });
+              runDelete(async () => {
+                  try { assertActionOk(await deleteTrialLessonAction(lesson.id)); router.refresh(); }
+                  catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+                });
             }} disabled={deleting}
               className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 font-medium bg-red-50 hover:bg-red-100 border border-red-300 px-2.5 py-1.5 rounded-lg transition">
               {deleting ? <><Spinner size={11} /> 削除中...</> : <><Trash2 size={11} /> 削除</>}

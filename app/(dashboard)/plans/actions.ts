@@ -9,6 +9,7 @@ import { plansOverlap } from "@/lib/customer-plans-types";
 import { requireAdmin } from "@/lib/members";
 import { addSessionPass, updateSessionPass, deleteSessionPass } from "@/lib/session-passes";
 import type { ContractPlan } from "@/lib/customer-plans-types";
+import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 
 async function checkOverlap(
   customerId: string,
@@ -28,90 +29,102 @@ async function checkOverlap(
   return `期間が重複しています（既存プラン: ${label}）`;
 }
 
-export async function createPlanAction(formData: FormData) {
-  await requireAdmin();
-  const customerId = (formData.get("customerId") as string)?.trim();
-  const plan       = (formData.get("plan")       as string)?.trim() as ContractPlan;
-  const startedAt   = (formData.get("startedAt")   as string)?.trim();
-  const endedAt     = (formData.get("endedAt")     as string)?.trim() || null;
-  const purchasedAt = (formData.get("purchasedAt") as string)?.trim() || undefined;
-  const note        = (formData.get("note")        as string)?.trim() || undefined;
-  const priceRaw    = (formData.get("price")       as string)?.trim();
-  const price       = priceRaw ? parseInt(priceRaw, 10) : undefined;
+export async function createPlanAction(formData: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAdmin();
+    const customerId = (formData.get("customerId") as string)?.trim();
+    const plan       = (formData.get("plan")       as string)?.trim() as ContractPlan;
+    const startedAt   = (formData.get("startedAt")   as string)?.trim();
+    const endedAt     = (formData.get("endedAt")     as string)?.trim() || null;
+    const purchasedAt = (formData.get("purchasedAt") as string)?.trim() || undefined;
+    const note        = (formData.get("note")        as string)?.trim() || undefined;
+    const priceRaw    = (formData.get("price")       as string)?.trim();
+    const price       = priceRaw ? parseInt(priceRaw, 10) : undefined;
 
-  if (!customerId || !plan || !startedAt) return;
+    if (!customerId || !plan || !startedAt) return;
 
-  const err = await checkOverlap(customerId, startedAt, endedAt);
-  if (err) throw new Error(err);
+    const err = await checkOverlap(customerId, startedAt, endedAt);
+    if (err) throw new ActionError(err);
 
-  await addCustomerPlan({ customerId, plan, price, purchasedAt, startedAt, endedAt: endedAt ?? undefined, note });
-  revalidatePath("/plans");
+    await addCustomerPlan({ customerId, plan, price, purchasedAt, startedAt, endedAt: endedAt ?? undefined, note });
+    revalidatePath("/plans");
+  });
 }
 
-export async function updatePlanAction(id: string, customerId: string, formData: FormData) {
-  await requireAdmin();
-  const plan      = (formData.get("plan")      as string)?.trim() as ContractPlan;
-  const startedAt   = (formData.get("startedAt")   as string)?.trim();
-  const endedAt     = (formData.get("endedAt")     as string)?.trim() || null;
-  const purchasedAt = (formData.get("purchasedAt") as string)?.trim() || null;
-  const note        = (formData.get("note")        as string)?.trim() || null;
-  const priceRaw    = (formData.get("price")       as string)?.trim();
-  const price       = priceRaw ? parseInt(priceRaw, 10) : null;
+export async function updatePlanAction(id: string, customerId: string, formData: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAdmin();
+    const plan      = (formData.get("plan")      as string)?.trim() as ContractPlan;
+    const startedAt   = (formData.get("startedAt")   as string)?.trim();
+    const endedAt     = (formData.get("endedAt")     as string)?.trim() || null;
+    const purchasedAt = (formData.get("purchasedAt") as string)?.trim() || null;
+    const note        = (formData.get("note")        as string)?.trim() || null;
+    const priceRaw    = (formData.get("price")       as string)?.trim();
+    const price       = priceRaw ? parseInt(priceRaw, 10) : null;
 
-  if (!plan || !startedAt) return;
+    if (!plan || !startedAt) return;
 
-  const err = await checkOverlap(customerId, startedAt, endedAt, id);
-  if (err) throw new Error(err);
+    const err = await checkOverlap(customerId, startedAt, endedAt, id);
+    if (err) throw new ActionError(err);
 
-  await updateCustomerPlan(id, { plan, price, purchasedAt: purchasedAt ?? startedAt, startedAt, endedAt, note });
-  revalidatePath("/plans");
+    await updateCustomerPlan(id, { plan, price, purchasedAt: purchasedAt ?? startedAt, startedAt, endedAt, note });
+    revalidatePath("/plans");
+  });
 }
 
-export async function deletePlanAction(id: string) {
-  await requireAdmin();
-  await deleteCustomerPlan(id);
-  revalidatePath("/plans");
+export async function deletePlanAction(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAdmin();
+    await deleteCustomerPlan(id);
+    revalidatePath("/plans");
+  });
 }
 
 // ─── 回数券 ───────────────────────────────────────────
-export async function createSessionPassAction(formData: FormData) {
-  await requireAdmin();
-  const customerId  = (formData.get("customerId")  as string)?.trim();
-  const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
-  const personCount = parseInt((formData.get("personCount") as string)?.trim(), 10) || 1;
-  const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
-  const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || undefined;
-  const note        = (formData.get("note")        as string)?.trim() || undefined;
-  const priceRaw    = (formData.get("price")       as string)?.trim();
-  const price       = priceRaw ? parseInt(priceRaw, 10) : undefined;
+export async function createSessionPassAction(formData: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAdmin();
+    const customerId  = (formData.get("customerId")  as string)?.trim();
+    const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
+    const personCount = parseInt((formData.get("personCount") as string)?.trim(), 10) || 1;
+    const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
+    const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || undefined;
+    const note        = (formData.get("note")        as string)?.trim() || undefined;
+    const priceRaw    = (formData.get("price")       as string)?.trim();
+    const price       = priceRaw ? parseInt(priceRaw, 10) : undefined;
 
-  if (!customerId || !totalCount || !purchasedAt) return;
+    if (!customerId || !totalCount || !purchasedAt) return;
 
-  await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
-  revalidatePath("/plans");
-  revalidatePath("/lessons/regular");
+    await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
+    revalidatePath("/plans");
+    revalidatePath("/lessons/regular");
+  });
 }
 
-export async function updateSessionPassAction(id: string, formData: FormData) {
-  await requireAdmin();
-  const totalCount  = parseInt((formData.get("totalCount")  as string)?.trim(), 10);
-  const personCount = parseInt((formData.get("personCount") as string)?.trim(), 10) || 1;
-  const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
-  const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || null;
-  const note        = (formData.get("note")        as string)?.trim() || null;
-  const priceRaw    = (formData.get("price")       as string)?.trim();
-  const price       = priceRaw ? parseInt(priceRaw, 10) : null;
+export async function updateSessionPassAction(id: string, formData: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAdmin();
+    const totalCount  = parseInt((formData.get("totalCount")  as string)?.trim(), 10);
+    const personCount = parseInt((formData.get("personCount") as string)?.trim(), 10) || 1;
+    const purchasedAt = (formData.get("purchasedAt") as string)?.trim();
+    const expiredAt   = (formData.get("expiredAt")   as string)?.trim() || null;
+    const note        = (formData.get("note")        as string)?.trim() || null;
+    const priceRaw    = (formData.get("price")       as string)?.trim();
+    const price       = priceRaw ? parseInt(priceRaw, 10) : null;
 
-  if (!totalCount || !purchasedAt) return;
+    if (!totalCount || !purchasedAt) return;
 
-  await updateSessionPass(id, { totalCount, personCount, price, purchasedAt, expiredAt, note });
-  revalidatePath("/plans");
-  revalidatePath("/lessons/regular");
+    await updateSessionPass(id, { totalCount, personCount, price, purchasedAt, expiredAt, note });
+    revalidatePath("/plans");
+    revalidatePath("/lessons/regular");
+  });
 }
 
-export async function deleteSessionPassAction(id: string) {
-  await requireAdmin();
-  await deleteSessionPass(id);
-  revalidatePath("/plans");
-  revalidatePath("/lessons/regular");
+export async function deleteSessionPassAction(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    await requireAdmin();
+    await deleteSessionPass(id);
+    revalidatePath("/plans");
+    revalidatePath("/lessons/regular");
+  });
 }

@@ -21,6 +21,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
+import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 // ─── バッジ ───────────────────────────────────────────
 function CourseBadge({ course }: { course?: string }) {
@@ -206,9 +207,9 @@ export function LessonForm({
   stores?: Store[];
   fixedCustomerId?: string;
   onClose: () => void;
-  action: (fd: FormData) => Promise<void>;
-  multiAction?: (fd: FormData) => Promise<void>; // 作成時の複数日時・繰り返し用
-  onDelete?: () => Promise<void>;                 // 編集時の削除（管理者または登録者本人）
+  action: (fd: FormData) => Promise<ActionResult | void>;
+  multiAction?: (fd: FormData) => Promise<ActionResult | void>; // 作成時の複数日時・繰り返し用
+  onDelete?: () => Promise<ActionResult | void>;  // 編集時の削除（管理者または登録者本人）
   submitLabel: string;
 }) {
   const router = useRouter();
@@ -237,7 +238,7 @@ export function LessonForm({
     if (!confirm("このレッスンを削除しますか？")) return;
     setError("");
     await run(async () => {
-      try { await onDelete(); router.refresh(); onClose(); }
+      try { assertActionOk(await onDelete()); router.refresh(); onClose(); }
       catch (e) { setError(e instanceof Error ? e.message : "削除に失敗しました"); }
     });
   }
@@ -360,12 +361,12 @@ export function LessonForm({
         if (isCreate) {
           // 作成は複数日時・繰り返しに対応（単発でも1件の配列）
           fd.set("slots", JSON.stringify(buildLessonSlots()));
-          await multiAction!(fd);
+          assertActionOk(await multiAction!(fd));
         } else {
           // datetime-local はローカル時刻なので UTC ISO に変換して送信
           fd.set("scheduledAt", localInputToISO(startLocal));
           fd.set("endAt", endLocal ? localInputToISO(endLocal) : "");
-          await action(fd);
+          assertActionOk(await action(fd));
         }
         router.refresh();
         onClose();
@@ -892,7 +893,10 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           <button onClick={() => {
             if (deleting) return;
             if (!confirm("このレッスンを削除しますか？")) return;
-            runDelete(async () => { await deleteLessonAction(lesson.id); router.refresh(); });
+            runDelete(async () => {
+              try { assertActionOk(await deleteLessonAction(lesson.id)); router.refresh(); }
+              catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+            });
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
             {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}

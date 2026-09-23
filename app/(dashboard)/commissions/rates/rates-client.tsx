@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { setMemberCustomerRateAction, deleteMemberCustomerRateAction } from "./actions";
+import { assertActionOk } from "@/lib/action-result";
 
 type Member   = { id: string; name: string; avatarUrl?: string };
 type Customer = { id: string; name: string };
@@ -70,7 +71,7 @@ export function RatesClient({
     setSaved(false);
     await runSave(async () => {
       try {
-        await setMemberCustomerRateAction(memberId, customerId, n);
+        assertActionOk(await setMemberCustomerRateAction(memberId, customerId, n));
         setSaved(true);
         router.refresh();
       } catch (e) {
@@ -83,7 +84,7 @@ export function RatesClient({
     if (removing) return;
     runRemove(async () => {
       try {
-        await deleteMemberCustomerRateAction(r.memberId, r.customerId);
+        assertActionOk(await deleteMemberCustomerRateAction(r.memberId, r.customerId));
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "削除に失敗しました");

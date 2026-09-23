@@ -1,4 +1,5 @@
 import { createAdminClient, createAuthClient } from "./supabase";
+import { ActionError } from "./action-result";
 
 export interface Member {
   id: string;
@@ -162,7 +163,7 @@ export async function getCurrentIsAdmin(): Promise<boolean> {
 
 /** 管理者でなければ例外を投げる。変更系サーバーアクションのガードに使用 */
 export async function requireAdmin(): Promise<void> {
-  if (!(await getCurrentIsAdmin())) throw new Error("権限がありません（管理者のみ実行できます）");
+  if (!(await getCurrentIsAdmin())) throw new ActionError("権限がありません（管理者のみ実行できます）");
 }
 
 // ─── LINE通知連携 ─────────────────────────────────────
