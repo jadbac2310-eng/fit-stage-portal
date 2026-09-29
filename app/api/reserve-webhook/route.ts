@@ -32,8 +32,6 @@ type Body = {
   schedule_note?: string;    // 「22日の午後なら可」などの補足
   people?: string;
   trainer?: string;
-  kids?: string;
-  kids_detail?: string;
   parking?: string;
   goal?: string;
 };
@@ -64,8 +62,6 @@ function buildNote(b: Body, secondISO: string | null): string {
     ["日時の補足", b.schedule_note],
     ["利用人数", b.people],
     ["希望トレーナー", b.trainer],
-    ["お子様の同伴", b.kids],
-    ["お子様の年齢・人数", b.kids_detail],
     ["駐車場", b.parking],
     ["目的・お悩み", b.goal],
   ];
