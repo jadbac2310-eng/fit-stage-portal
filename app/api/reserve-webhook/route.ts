@@ -33,6 +33,8 @@ type Body = {
   people?: string;
   trainer?: string;
   parking?: string;
+  goals?: string;            // 複数選択。HP側で「、」つなぎにしてある
+  habit?: string;
   goal?: string;
 };
 
@@ -63,7 +65,9 @@ function buildNote(b: Body, secondISO: string | null): string {
     ["利用人数", b.people],
     ["希望トレーナー", b.trainer],
     ["駐車場", b.parking],
-    ["目的・お悩み", b.goal],
+    ["お悩み・目的", b.goals],
+    ["運動習慣", b.habit],
+    ["詳しい内容・ご要望", b.goal],
   ];
   return lines
     .filter(([, v]) => v && v.trim())
