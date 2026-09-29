@@ -104,8 +104,15 @@ async function notifyAdmins(customerName: string, storeName: string | undefined,
 export async function POST(req: NextRequest) {
   // 専用の合言葉を優先する。未設定なら既存のカウンセリング用と同じものを使う。
   // 別にしておくと、HP側と揃えるときに既存の連携を触らずに済む。
-  const secret = process.env.RESERVE_WEBHOOK_SECRET || process.env.CONSULTATION_WEBHOOK_SECRET;
-  if (!secret || req.headers.get("x-webhook-secret") !== secret) {
+  // 前後の空白は落としてから比べる。設定画面に貼り付けるときに改行や空白が
+  // 紛れ込むことがあり、見た目が同じなのに合わないという事故が起きるため。
+  const secret = (process.env.RESERVE_WEBHOOK_SECRET || process.env.CONSULTATION_WEBHOOK_SECRET || "").trim();
+  if (!secret) {
+    // 合言葉が未設定。値が合わない場合と区別できるよう、別のコードで返す。
+    console.error("[reserve-webhook] RESERVE_WEBHOOK_SECRET が未設定です");
+    return NextResponse.json({ error: "Webhook secret is not configured" }, { status: 503 });
+  }
+  if ((req.headers.get("x-webhook-secret") ?? "").trim() !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
