@@ -102,7 +102,9 @@ async function notifyAdmins(customerName: string, storeName: string | undefined,
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.CONSULTATION_WEBHOOK_SECRET;
+  // 専用の合言葉を優先する。未設定なら既存のカウンセリング用と同じものを使う。
+  // 別にしておくと、HP側と揃えるときに既存の連携を触らずに済む。
+  const secret = process.env.RESERVE_WEBHOOK_SECRET || process.env.CONSULTATION_WEBHOOK_SECRET;
   if (!secret || req.headers.get("x-webhook-secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
