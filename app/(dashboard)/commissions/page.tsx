@@ -6,6 +6,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { CommissionsClient } from "./commissions-client";
 
@@ -24,7 +25,7 @@ export default async function CommissionsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, allHourlyTasks] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -34,6 +35,7 @@ export default async function CommissionsPage() {
     getAllPlans(),
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
+    getHourlyTasks(),
   ]);
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
@@ -45,6 +47,9 @@ export default async function CommissionsPage() {
     .filter((r) => member.isAdmin || r.memberId === member.id)
     .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }));
 
+  // 業務は時給が入っているので、歩合率と同じく他人ぶんは渡さない
+  const hourlyTasks = allHourlyTasks.filter((t) => member.isAdmin || t.memberId === member.id);
+
   return (
     <CommissionsClient
       customers={customers}
@@ -53,6 +58,7 @@ export default async function CommissionsPage() {
       completedTrialLessons={completedTrialLessons}
       sessionPasses={sessionPasses}
       customerPlans={customerPlans}
+      hourlyTasks={hourlyTasks}
       lessonFees={buildLessonFeeMap(plansMaster)}
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
       members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl }))}

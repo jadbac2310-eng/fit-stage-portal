@@ -4,6 +4,8 @@ import { courseToPaymentType, resolveSingleLessonAmount } from "./lessons-types"
 import type { TrialLesson } from "./trial-lessons-types";
 import { trialCourseLabel } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
+import type { HourlyTask, HourlyTaskStatus } from "./hourly-tasks-types";
+import { hourlyTaskHours, hourlyTaskAmount } from "./hourly-tasks-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
 import { getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS, TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 
@@ -50,6 +52,28 @@ export interface SalesEntry {
   lessonTotal: number;
   bonusTotal:  number;
   total:       number;
+}
+
+/** 業務（時給）の表示行 */
+export interface HourlyTaskRow {
+  taskId:      string;
+  title:       string;
+  scheduledAt: string;
+  hours:       number;
+  hourlyRate:  number;
+  amount:      number;
+  status:      HourlyTaskStatus;
+}
+
+export interface HourlyEntry {
+  memberId:     string;
+  memberName:   string;
+  /** 完了した業務（支払い対象） */
+  tasks:        HourlyTaskRow[];
+  total:        number;
+  /** まだ「予定」のままの業務。支払いには含めないが、完了にし忘れに気付けるよう分けて持つ */
+  pending:      HourlyTaskRow[];
+  pendingTotal: number;
 }
 
 /**
@@ -272,6 +296,53 @@ export function buildSalesEntries(
     });
     entry.bonusTotal += bonus;
     entry.total      += bonus;
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.total - a.total);
+}
+
+/**
+ * 選択月の業務（時給）を担当者ごとにまとめる。
+ *
+ * 支払い対象は「完了」のみ。「予定」のままのものは pending に分けて返し、
+ * 完了にし忘れたまま給与計算に進むのを画面側で気付けるようにする。
+ * 「キャンセル」は集計に含めない。
+ */
+export function buildHourlyEntries(hourlyTasks: HourlyTask[], month: string): HourlyEntry[] {
+  const map = new Map<string, HourlyEntry>();
+  const ensureEntry = (memberId: string, memberName?: string): HourlyEntry => {
+    if (!map.has(memberId)) {
+      map.set(memberId, {
+        memberId, memberName: memberName ?? memberId,
+        tasks: [], total: 0, pending: [], pendingTotal: 0,
+      });
+    }
+    return map.get(memberId)!;
+  };
+
+  for (const t of hourlyTasks) {
+    if (isoToMonth(t.scheduledAt) !== month) continue;
+    if (t.status === "cancelled") continue;
+
+    const entry = ensureEntry(t.memberId, t.memberName);
+    const row: HourlyTaskRow = {
+      taskId: t.id, title: t.title, scheduledAt: t.scheduledAt,
+      hours: Math.round(hourlyTaskHours(t) * 10) / 10,
+      hourlyRate: t.hourlyRate, amount: hourlyTaskAmount(t), status: t.status,
+    };
+
+    if (t.status === "completed") {
+      entry.tasks.push(row);
+      entry.total += row.amount;
+    } else {
+      entry.pending.push(row);
+      entry.pendingTotal += row.amount;
+    }
+  }
+
+  for (const e of map.values()) {
+    e.tasks.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    e.pending.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   }
 
   return Array.from(map.values()).sort((a, b) => b.total - a.total);

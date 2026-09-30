@@ -2,18 +2,21 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks, FileText } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks, FileText, Clock, AlertTriangle } from "lucide-react";
 import { MemberLabel } from "@/components/ui/member-label";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
+import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import {
   buildTrainerEntries,
   buildSalesEntries,
+  buildHourlyEntries,
   type TrainerEntry,
   type SalesEntry,
+  type HourlyEntry,
   type CommissionContext,
 } from "@/lib/commissions";
 import { cn } from "@/lib/cn";
@@ -50,16 +53,14 @@ function SectionCard({
   name,
   avatarUrl,
   total,
-  lessonTotal,
-  bonusTotal,
+  subtitle,
   children,
 }: {
-  name:        string;
-  avatarUrl?:  string;
-  total:       number;
-  lessonTotal?: number;
-  bonusTotal?:  number;
-  children:    React.ReactNode;
+  name:       string;
+  avatarUrl?: string;
+  total:      number;
+  subtitle?:  React.ReactNode;
+  children:   React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -70,11 +71,7 @@ function SectionCard({
       >
         <div className="flex-1 min-w-0">
           <MemberLabel name={name} avatarUrl={avatarUrl} size="sm" textClassName="text-sm font-bold text-gray-900" />
-          {lessonTotal !== undefined && bonusTotal !== undefined && (
-            <p className="text-xs text-gray-400 mt-0.5">
-              レッスン {yen(lessonTotal)} ＋ ボーナス {yen(bonusTotal)}
-            </p>
-          )}
+          {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
         </div>
         <p className="text-base font-bold text-blue-600 mr-1">{yen(total)}</p>
         {open ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
@@ -160,8 +157,7 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
           name={entry.memberName}
           avatarUrl={avatarOf?.(entry.memberId)}
           total={entry.total}
-          lessonTotal={entry.lessonTotal}
-          bonusTotal={entry.bonusTotal}
+          subtitle={`レッスン ${yen(entry.lessonTotal)} ＋ ボーナス ${yen(entry.bonusTotal)}`}
         >
           {/* レッスン歩合 */}
           {entry.lessons.length > 0 && (
@@ -271,6 +267,94 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
   );
 }
 
+// ─── 業務（時給）タブ ─────────────────────────────────────
+function HourlyTaskTable({ rows, muted }: { rows: HourlyEntry["tasks"]; muted?: boolean }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-gray-400 border-b border-gray-100">
+            <th className="text-left py-1.5 pr-3 font-medium">業務内容</th>
+            <th className="text-left py-1.5 pr-3 font-medium">日付</th>
+            <th className="text-right py-1.5 pr-3 font-medium">時間</th>
+            <th className="text-right py-1.5 pr-3 font-medium">時給</th>
+            <th className="text-right py-1.5 font-medium">金額</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((t) => (
+            <tr key={t.taskId} className="border-b border-gray-50 last:border-0">
+              <td className="py-1.5 pr-3 text-gray-700">{t.title}</td>
+              <td className="py-1.5 pr-3 text-gray-500">{formatDate(t.scheduledAt)}</td>
+              <td className="py-1.5 pr-3 text-right text-gray-600">{t.hours}h</td>
+              <td className="py-1.5 pr-3 text-right text-gray-600">{yen(t.hourlyRate)}</td>
+              <td className={cn("py-1.5 text-right font-semibold", muted ? "text-amber-600" : "text-blue-600")}>
+                {yen(t.amount)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HourlyTab({ entries, isAdmin, avatarOf }: { entries: HourlyEntry[]; isAdmin: boolean; avatarOf?: (id: string) => string | undefined }) {
+  if (entries.length === 0) {
+    return <p className="text-sm text-gray-400 text-center py-10">この月の業務はありません</p>;
+  }
+
+  const grandTotal = entries.reduce((s, e) => s + e.total, 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs text-gray-500">{entries.length}名</p>
+        <p className="text-sm font-bold text-gray-700">合計 {yen(grandTotal)}</p>
+      </div>
+      {entries.map((entry) => (
+        <SectionCard
+          key={entry.memberId}
+          name={entry.memberName}
+          avatarUrl={avatarOf?.(entry.memberId)}
+          total={entry.total}
+          subtitle={
+            entry.pending.length > 0
+              ? `完了 ${entry.tasks.length}件 ／ 未完了 ${entry.pending.length}件（${yen(entry.pendingTotal)}）`
+              : `完了 ${entry.tasks.length}件`
+          }
+        >
+          {entry.tasks.length > 0 && (
+            <div className={entry.pending.length > 0 ? "mb-4" : undefined}>
+              <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
+                <Clock size={11} /> 完了した業務
+              </p>
+              <HourlyTaskTable rows={entry.tasks} />
+              <p className="pt-2 text-right text-sm font-bold text-blue-600">小計 {yen(entry.total)}</p>
+            </div>
+          )}
+
+          {/* 「予定」のままの業務。支払い対象外なので、完了にし忘れに気付けるよう並べて出す */}
+          {entry.pending.length > 0 && (
+            <div className="rounded-xl bg-amber-50 border border-amber-100 p-3">
+              <p className="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1">
+                <AlertTriangle size={11} /> まだ「予定」のままの業務
+              </p>
+              <HourlyTaskTable rows={entry.pending} muted />
+              <p className="pt-2 text-right text-sm font-bold text-amber-600">対象外 {yen(entry.pendingTotal)}</p>
+              <p className="text-[11px] text-amber-600 mt-1.5 leading-relaxed">
+                {isAdmin
+                  ? "「完了」にすると支払い対象に入ります。スケジュールから変更してください。"
+                  : "実施済みであれば、管理者に「完了」への変更を依頼してください。"}
+              </p>
+            </div>
+          )}
+        </SectionCard>
+      ))}
+    </div>
+  );
+}
+
 // ─── 管理者向けリンク（歩合率設定・月次明細） ─────────────
 function AdminLinks() {
   return (
@@ -326,6 +410,7 @@ export function CommissionsClient({
   completedTrialLessons,
   sessionPasses,
   customerPlans,
+  hourlyTasks,
   lessonFees,
   sessionPassPriceMap,
   members,
@@ -339,6 +424,7 @@ export function CommissionsClient({
   completedTrialLessons?: TrialLesson[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
+  hourlyTasks?: HourlyTask[];
   lessonFees?:  Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
   members:      { id: string; name: string; avatarUrl?: string }[];
@@ -348,7 +434,7 @@ export function CommissionsClient({
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month,    setMonth]    = useState(currentMonth);
-  const [activeTab, setActiveTab] = useState<"trainer" | "sales">("trainer");
+  const [activeTab, setActiveTab] = useState<"trainer" | "sales" | "hourly">("trainer");
 
   const ctx = useMemo((): CommissionContext => (
     { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
@@ -366,8 +452,14 @@ export function CommissionsClient({
     return isAdmin ? all : all.filter((e) => e.memberId === currentMemberId);
   }, [lessons, trialLessons, month, ctx, isAdmin, currentMemberId]);
 
+  // 選択月の業務集計（ページ側で自分ぶんに絞り込み済み）
+  const hourlyEntries = useMemo((): HourlyEntry[] => buildHourlyEntries(hourlyTasks ?? [], month), [hourlyTasks, month]);
+
   const trainerTotal = trainerEntries.reduce((s, e) => s + e.total, 0);
   const salesTotal   = salesEntries.reduce((s, e) => s + e.total, 0);
+  const hourlyTotal  = hourlyEntries.reduce((s, e) => s + e.total, 0);
+  const pendingTotal = hourlyEntries.reduce((s, e) => s + e.pendingTotal, 0);
+  const pendingCount = hourlyEntries.reduce((s, e) => s + e.pending.length, 0);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -416,11 +508,29 @@ export function CommissionsClient({
           <p className="text-xl font-bold text-green-700">{yen(salesTotal)}</p>
           <p className="text-xs text-green-400 mt-0.5">{isAdmin ? `${salesEntries.length}名` : "あなたの分"}</p>
         </div>
+        {/* 業務は金額が横に長くなりやすいので、2カラムをまたいで1行使う */}
+        <div className="col-span-2 bg-amber-50 rounded-2xl p-4 border border-amber-100">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold text-amber-600 flex items-center gap-1.5">
+              <Clock size={12} /> 業務合計（時給）
+            </p>
+            <p className="text-xl font-bold text-amber-700">{yen(hourlyTotal)}</p>
+          </div>
+          {pendingCount > 0 && (
+            <p className="text-xs text-amber-600 mt-1.5 flex items-start gap-1 leading-relaxed">
+              <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+              <span>
+                まだ「予定」のままの業務が {pendingCount}件（{yen(pendingTotal)}）あります。
+                完了にしないと支払い対象に入りません。
+              </span>
+            </p>
+          )}
+        </div>
       </div>
 
       {/* タブ */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
-        {(["trainer", "sales"] as const).map((tab) => (
+        {(["trainer", "sales", "hourly"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -431,15 +541,18 @@ export function CommissionsClient({
                 : "text-gray-500 hover:text-gray-700"
             )}
           >
-            {tab === "trainer" ? "トレーナー" : "営業"}
+            {tab === "trainer" ? "トレーナー" : tab === "sales" ? "営業" : "業務"}
+            {tab === "hourly" && pendingCount > 0 && (
+              <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-amber-500 align-middle" />
+            )}
           </button>
         ))}
       </div>
 
       {/* コンテンツ */}
-      {activeTab === "trainer"
-        ? <TrainerTab entries={trainerEntries} isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />
-        : <SalesTab   entries={salesEntries} isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />}
+      {activeTab === "trainer" && <TrainerTab entries={trainerEntries} isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />}
+      {activeTab === "sales"   && <SalesTab   entries={salesEntries}   isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />}
+      {activeTab === "hourly"  && <HourlyTab  entries={hourlyEntries}  isAdmin={isAdmin} avatarOf={(id) => members.find((m) => m.id === id)?.avatarUrl} />}
     </div>
   );
 }

@@ -3,8 +3,15 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Receipt, ChevronRight } from "lucide-react";
+import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
 import type { TrainerStatement } from "@/lib/commission-statement";
+
+/** 「予定」のまま残っている業務の件数・金額（支払い前の確認用） */
+export interface PendingHourly {
+  count: number;
+  total: number;
+  names: string[];
+}
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -21,7 +28,7 @@ function monthOptions(): { value: string; label: string }[] {
   return opts;
 }
 
-export function StatementClient({ statements, month }: { statements: TrainerStatement[]; month: string }) {
+export function StatementClient({ statements, month, pendingHourly }: { statements: TrainerStatement[]; month: string; pendingHourly?: PendingHourly }) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
   const grandTotal = statements.reduce((s, e) => s + e.total, 0);
@@ -49,6 +56,22 @@ export function StatementClient({ statements, month }: { statements: TrainerStat
           {statements.length}名 ・ 合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
         </span>
       </div>
+
+      {/* 完了にし忘れた業務があると、その分だけ支払いが少なくなってしまうので先に知らせる */}
+      {pendingHourly && pendingHourly.count > 0 && (
+        <div className="mb-5 rounded-2xl bg-amber-50 border border-amber-200 p-4">
+          <p className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
+            <AlertTriangle size={15} /> まだ「予定」のままの業務があります
+          </p>
+          <p className="text-xs text-amber-700 mt-1.5 leading-relaxed">
+            {pendingHourly.count}件・{yen(pendingHourly.total)}（{pendingHourly.names.join("、")}）。
+            この分は明細に含まれていません。実施済みであれば、スケジュールで「完了」にしてからもう一度ご確認ください。
+          </p>
+          <Link href="/schedule" className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 underline mt-2">
+            スケジュールを開く <ChevronRight size={12} />
+          </Link>
+        </div>
+      )}
 
       {statements.length === 0 ? (
         <div className="text-center py-16">

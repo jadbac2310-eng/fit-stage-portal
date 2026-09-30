@@ -8,7 +8,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
-import { type CommissionContext } from "@/lib/commissions";
+import { buildHourlyEntries, type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
 import { StatementClient } from "./statement-client";
 
@@ -64,5 +64,13 @@ export default async function CommissionStatementPage({
 
   const statements = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx);
 
-  return <StatementClient statements={statements} month={month} />;
+  // 「予定」のままの業務は明細に載らない。支払い前に気付けるよう件数と金額を渡す。
+  const hourlyEntries = buildHourlyEntries(hourlyTasks, month);
+  const pendingHourly = {
+    count: hourlyEntries.reduce((s, e) => s + e.pending.length, 0),
+    total: hourlyEntries.reduce((s, e) => s + e.pendingTotal, 0),
+    names: hourlyEntries.filter((e) => e.pending.length > 0).map((e) => e.memberName),
+  };
+
+  return <StatementClient statements={statements} month={month} pendingHourly={pendingHourly} />;
 }
