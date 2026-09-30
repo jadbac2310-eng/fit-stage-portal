@@ -19,7 +19,7 @@ import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { monthKey, tallyLessons, tallyTotal, tallyRowTotal, tallyForMember, pinTallyRow } from "@/lib/schedule-tally";
 import {
   createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction,
-  createHourlyTaskAction, updateHourlyTaskAction, deleteHourlyTaskAction,
+  createHourlyTaskAction, updateHourlyTaskAction, deleteHourlyTaskAction, setHourlyTaskStatusAction,
 } from "./actions";
 import type { Member } from "@/lib/members";
 import type { Customer } from "@/lib/customers-types";
@@ -361,6 +361,8 @@ function LessonCard({
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
   // 業務の編集/削除は管理者のみ
   const canManageHourly = isHourly && isAdmin;
+  // 業務の完了/予定に戻すは、担当者本人と管理者
+  const canCompleteHourly = isHourly && (isAdmin || (!!currentMemberId && item.trainerId === currentMemberId));
   // 通常レッスンの編集可否（管理者 or 追加した本人）
   const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
   // 完了/予定に戻すは「担当トレーナー本人」のみ
@@ -394,6 +396,17 @@ function LessonCard({
         router.refresh();
       } catch (e) {
         alert(e instanceof Error ? e.message : "削除に失敗しました");
+      }
+    });
+  }
+
+  function handleSetHourlyStatus(status: "completed" | "scheduled") {
+    runStatus(async () => {
+      try {
+        assertActionOk(await setHourlyTaskStatusAction(item.id, status));
+        router.refresh();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "変更に失敗しました");
       }
     });
   }
@@ -580,6 +593,28 @@ function LessonCard({
                 <Trash2 size={13} /> {deleting ? "削除中…" : "削除"}
               </button>
             </div>
+          )}
+          {/* 業務の完了切り替え。押せる場所がないと「予定」のまま残り、支払いから漏れる */}
+          {canCompleteHourly && item.status !== "cancelled" && (
+            item.status === "completed" ? (
+              <button
+                type="button"
+                onClick={() => handleSetHourlyStatus("scheduled")}
+                disabled={settingStatus}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <RotateCcw size={13} /> {settingStatus ? "変更中…" : "予定に戻す"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSetHourlyStatus("completed")}
+                disabled={settingStatus}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <CheckCircle size={13} /> {settingStatus ? "変更中…" : "完了にする"}
+              </button>
+            )
           )}
           {canManageHourly && (
             <div className="mt-2 flex gap-2">

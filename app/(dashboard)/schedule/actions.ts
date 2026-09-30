@@ -266,6 +266,30 @@ export async function updateHourlyTaskAction(id: string, formData: FormData): Pr
   });
 }
 
+/**
+ * 業務のステータスだけを切り替える。
+ *
+ * 編集モーダルからしか変えられないと、担当者本人が実施後に「完了」にできず、
+ * 「予定」のまま残って支払いから漏れる。レッスンと同じ感覚で押せるよう、
+ * 管理者に加えて担当者本人にも許可する。
+ */
+export async function setHourlyTaskStatusAction(id: string, status: HourlyTaskStatus): Promise<ActionResult> {
+  return runAction(async () => {
+    const [member, task] = await Promise.all([getCurrentMember(), getHourlyTask(id)]);
+    if (!member) throw new ActionError("ログインが必要です");
+    if (!task) throw new ActionError("業務が見つかりません");
+    if (!member.isAdmin && task.memberId !== member.id) {
+      throw new ActionError("変更できるのは担当者本人または管理者のみです");
+    }
+
+    await updateHourlyTask(id, { status });
+    const label = status === "completed" ? "完了" : status === "cancelled" ? "キャンセル" : "予定";
+    await logActivity({ action: "update", entityType: "hourly_task", entityId: id, summary: `業務を${label}に変更: ${task.title}` });
+    revalidatePath("/schedule");
+    revalidatePath("/commissions");
+  });
+}
+
 export async function deleteHourlyTaskAction(id: string): Promise<ActionResult> {
   return runAction(async () => {
     await requireAdmin();
