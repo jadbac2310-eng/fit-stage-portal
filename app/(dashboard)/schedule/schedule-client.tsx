@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
-import { monthKey, tallyLessons, tallyTotal, tallyRowTotal, tallyForMember, pinTallyRow } from "@/lib/schedule-tally";
+import { tallyLessons, tallyTotal, tallyRowTotal, tallyForMember, pinTallyRow } from "@/lib/schedule-tally";
 import {
   createPersonalEventsAction, updatePersonalEventAction, deletePersonalEventAction,
   createHourlyTaskAction, updateHourlyTaskAction, deleteHourlyTaskAction, setHourlyTaskStatusAction,
@@ -141,14 +141,14 @@ const TALLY_PREVIEW = 8; // 折りたたみ時に見せる行数
  * 現場の担当者がまず知りたいのは自分の稼働なので、畳んだ状態でそれが出るようにする。
  * 全員の内訳は開けば見られる（担当者別では自分の行を先頭に固定する）。
  */
-function MonthlyLessonSummary({ items, isAdmin, currentMemberId }: {
+function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
   items: ScheduleItem[]; isAdmin: boolean; currentMemberId?: string;
+  /** 表示する月（YYYY-MM）。カレンダーで月を動かすとここも一緒に動く */
+  month: string;
 }) {
   const [open, setOpen] = useState(false);
   const [by, setBy] = useState<"trainer" | "customer">("trainer");
   const [expanded, setExpanded] = useState(false);
-  // 「今月」は初回だけ求めて固定する（描画のたびに現在時刻を読むと結果が不安定になるため）
-  const [month] = useState(() => monthKey(new Date().toISOString()));
 
   const showOwn = !isAdmin && !!currentMemberId;
 
@@ -736,7 +736,7 @@ function keyToYmd(key: string): string {
 
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
 function CalendarView({
-  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly, cursor, setCursor,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
@@ -747,11 +747,10 @@ function CalendarView({
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
   onAddHourly?: (ymd: string) => void;
+  /** 表示中の月（その月の1日）。件数サマリーと揃えるため親が持つ */
+  cursor: Date;
+  setCursor: Dispatch<SetStateAction<Date>>;
 }) {
-  const [cursor, setCursor] = useState(() => {
-    const t = new Date();
-    return new Date(t.getFullYear(), t.getMonth(), 1);
-  });
   const [selectedKey, setSelectedKey] = useState<string | null>(() => dayKey(startOfDay(new Date())));
   const [addOpen, setAddOpen] = useState(false);
 
@@ -1744,6 +1743,13 @@ export function ScheduleClient({
   hourlyTasks?: HourlyTask[];
 }) {
   const [view, setView] = useState<"list" | "calendar" | "timeline">("list");
+  // カレンダーで表示している月。レッスン件数サマリーもこの月に合わせる
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), 1);
+  });
+  // カレンダーの見出しと同じ基準（端末の暦）で月を決める
+  const summaryMonth = `${monthCursor.getFullYear()}-${pad2(monthCursor.getMonth() + 1)}`;
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   // 担当者で絞り込み（"all" = 全員）。初期は自分の予定。全員が全員分を閲覧可。
   const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
@@ -1956,10 +1962,10 @@ export function ScheduleClient({
       )}
 
       {/* 今月のレッスン件数（担当者別・顧客別） */}
-      <MonthlyLessonSummary items={items} isAdmin={isAdmin} currentMemberId={currentMemberId} />
+      <MonthlyLessonSummary items={items} isAdmin={isAdmin} currentMemberId={currentMemberId} month={summaryMonth} />
 
       {view === "calendar" ? (
-        <CalendarView items={visibleItems} isAdmin={isAdmin}
+        <CalendarView items={visibleItems} isAdmin={isAdmin} cursor={monthCursor} setCursor={setMonthCursor}
           currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly}
           onAddPersonal={(ymd) => openCreate(ymd)}
           onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined}
