@@ -86,13 +86,26 @@ export interface CommissionContext {
   customers:     Customer[];
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
-  members:       { id: string; name: string }[];
+  /** isOwner の担当者は歩合の対象外（売上がまるごと利益に残り、利益＝オーナーの取り分になる） */
+  members:       { id: string; name: string; isOwner?: boolean }[];
   /** 担当者×顧客の組み合わせごとのトレーナー歩合率（％）。未設定の組み合わせは既定50%。 */
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   /** プランマスタ由来のコース名→1回単価。未指定コースは固定単価表にフォールバック */
   lessonFees?:   Record<string, number>;
   /** 回数券標準金額マスタ { 人数: { 回数: 総額 } }。回数券に price 未設定時のフォールバック */
   sessionPassPriceMap?: Record<number, Record<number, number>>;
+}
+
+/**
+ * 運営者本人かどうか。
+ *
+ * オーナーは自分のレッスンの売上をそのまま受け取り、他トレーナーに歩合を払った残りも
+ * 受け取る。つまり「利益＝オーナーの取り分」なので、オーナー自身に歩合を払う形にすると
+ * 取り分を二重に数えることになる。トレーナー歩合・営業歩合・成約ボーナスのいずれも
+ * 対象外として扱い、その分を利益側に残す。
+ */
+export function isOwnerMember(memberId: string, ctx: Pick<CommissionContext, "members">): boolean {
+  return ctx.members.find((m) => m.id === memberId)?.isOwner === true;
 }
 
 export function isoToMonth(iso: string): string {
@@ -178,8 +191,11 @@ export function buildTrainerEntries(
   month: string,
   ctx: CommissionContext,
 ): TrainerEntry[] {
-  const filtered = lessons.filter((l) => isoToMonth(l.scheduledAt) === month && l.trainerMemberId);
-  const filteredTrials = trialLessons.filter((t) => isoToMonth(t.scheduledAt) === month && t.trainerMemberId);
+  // オーナーのレッスンは歩合を払わない（売上はそのまま利益に残す）
+  const filtered = lessons.filter((l) =>
+    isoToMonth(l.scheduledAt) === month && l.trainerMemberId && !isOwnerMember(l.trainerMemberId, ctx));
+  const filteredTrials = trialLessons.filter((t) =>
+    isoToMonth(t.scheduledAt) === month && t.trainerMemberId && !isOwnerMember(t.trainerMemberId, ctx));
   const map = new Map<string, TrainerEntry>();
 
   for (const l of filtered) {
@@ -268,6 +284,7 @@ export function buildSalesEntries(
   for (const l of lessons.filter((l) => isoToMonth(l.scheduledAt) === month)) {
     const sales = salesByCustomer[l.customerId];
     if (!sales) continue;
+    if (isOwnerMember(sales.memberId, ctx)) continue; // オーナーには歩合を払わない
 
     const cType = customerTypeMap[l.customerId] ?? "individual";
     // 歩合はレッスン料金そのものを対象とする（レンタルジム代は控除しない／利益計算側で差し引く）
@@ -286,6 +303,7 @@ export function buildSalesEntries(
   // 成約ボーナス（成約日が選択月のもの）
   for (const tl of trialLessons.filter((tl) => isoToMonth(tl.scheduledAt) === month)) {
     if (!tl.salesMemberId) continue; // 営業未割当の体験はボーナス対象外
+    if (isOwnerMember(tl.salesMemberId, ctx)) continue; // オーナーにはボーナスを払わない
     const cType = customerTypeMap[tl.customerId] ?? "individual";
     const bonus = CONTRACT_BONUS[cType];
 

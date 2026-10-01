@@ -50,7 +50,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
     }
   }
 
-  const created = await addMember({ name, email, role, note, invoiceNumber, avatarUrl, authUserId, isAdmin });
+  const created = await addMember({ name, email, role, note, invoiceNumber, avatarUrl, authUserId, isAdmin, isOwner: false });
   await logActivity({ action: "create", entityType: "member", entityId: created.id, summary: `担当者を追加: ${name}` });
   revalidatePath("/master/members");
 }
@@ -67,6 +67,8 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
   const isAdmin = callerIsAdmin ? formData.get("isAdmin") === "on" : existing?.isAdmin ?? false;
+  // オーナー（歩合の対象外）の切り替えは管理者のみ
+  const isOwner = callerIsAdmin ? formData.get("isOwner") === "on" : existing?.isOwner ?? false;
 
   if (newPassword && newPassword.length < 6) {
     return { error: "パスワードは6文字以上で入力してください" };
@@ -116,6 +118,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     note,
     invoiceNumber,
     isAdmin,
+    isOwner,
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),
   });

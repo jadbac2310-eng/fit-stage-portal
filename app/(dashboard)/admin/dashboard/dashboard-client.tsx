@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, ChevronRight, ChevronDown, X } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, Clock, Receipt, ChevronRight, ChevronDown, X } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
 import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
@@ -13,9 +13,11 @@ import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
 import type { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import {
-  buildTrainerEntries, buildSalesEntries, resolveLessonFee, resolveTrialFee, isoToMonth,
-  type CommissionContext, type TrainerEntry, type SalesEntry,
+  buildTrainerEntries, buildSalesEntries, buildHourlyEntries, resolveLessonFee, resolveTrialFee, isoToMonth,
+  type CommissionContext, type TrainerEntry, type SalesEntry, type HourlyEntry,
 } from "@/lib/commissions";
+import type { HourlyTask } from "@/lib/hourly-tasks-types";
+import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 
@@ -47,6 +49,8 @@ interface MonthFigures {
   trainerPayout: number;
   salesPayout:  number;
   rentalCost:   number;
+  hourlyPayout: number;
+  expenseTotal: number;
   profit:       number;
 }
 
@@ -56,6 +60,8 @@ function computeMonth(
   trialLessons: TrialLesson[],
   completedTrialLessons: TrialLesson[],
   ctx: CommissionContext,
+  hourlyTasks: HourlyTask[],
+  expenses: Expense[],
 ): MonthFigures {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
@@ -66,17 +72,26 @@ function computeMonth(
     + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0) + (t.fctStoreFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, completedTrialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
-  return { month, revenue, trainerPayout, salesPayout, rentalCost, profit: revenue - trainerPayout - salesPayout - rentalCost };
+  // 業務（時給）は完了したぶんだけ支払う。予定のままのものは含めない
+  const hourlyPayout = buildHourlyEntries(hourlyTasks, month).reduce((s, e) => s + e.total, 0);
+  const expenses_ = expenseTotal(expenses, month);
+  return {
+    month, revenue, trainerPayout, salesPayout, rentalCost,
+    hourlyPayout, expenseTotal: expenses_,
+    profit: revenue - trainerPayout - salesPayout - rentalCost - hourlyPayout - expenses_,
+  };
 }
 
 // ─── KPIカードの内訳（タップで表示） ─────────────────────
-type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "profit";
+type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "hourly" | "expense" | "profit";
 
 const BREAKDOWN_LABEL: Record<BreakdownKind, string> = {
   revenue: "売上",
   trainer: "トレーナー支払",
   sales:   "営業支払",
   rental:  "場所利用料",
+  hourly:  "業務（時給）",
+  expense: "経費",
   profit:  "利益",
 };
 
@@ -92,6 +107,8 @@ interface MonthBreakdown {
   trainers:        TrainerEntry[];
   sales:           SalesEntry[];
   rentalByGym:     BreakdownRow[];
+  hourly:          HourlyEntry[];
+  expenses:        Expense[];
 }
 
 // computeMonth と同じ計算（resolveLessonFee・buildTrainerEntries 等）で集計するので、合計はカードの金額と一致する
@@ -103,6 +120,8 @@ function computeBreakdown(
   ctx: CommissionContext,
   gymNames: Map<string, string>,
   fctStoreNames: Map<string, string>,
+  hourlyTasks: HourlyTask[],
+  expenses: Expense[],
 ): MonthBreakdown {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
@@ -145,6 +164,8 @@ function computeBreakdown(
     trainers:        buildTrainerEntries(lessons, completedTrialLessons, month, ctx),
     sales:           buildSalesEntries(lessons, trialLessons, month, ctx),
     rentalByGym:     sorted(byGym),
+    hourly:          buildHourlyEntries(hourlyTasks, month),
+    expenses:        expensesInMonth(expenses, month),
   };
 }
 
@@ -361,7 +382,9 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
   kind: BreakdownKind; monthLabel: string; figures: MonthFigures; breakdown: MonthBreakdown; margin: number; onClose: () => void;
 }) {
   const total: Record<BreakdownKind, number> = {
-    revenue: figures.revenue, trainer: figures.trainerPayout, sales: figures.salesPayout, rental: figures.rentalCost, profit: figures.profit,
+    revenue: figures.revenue, trainer: figures.trainerPayout, sales: figures.salesPayout,
+    rental: figures.rentalCost, hourly: figures.hourlyPayout, expense: figures.expenseTotal,
+    profit: figures.profit,
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
@@ -386,13 +409,31 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
         {kind === "rental" && (
           <GroupedRows rows={breakdown.rentalByGym} unit="回" note="レッスンに登録したレンタルジム代の合計です。" />
         )}
+        {kind === "hourly" && (
+          <GroupedRows
+            rows={breakdown.hourly.map((e) => ({ key: e.memberId, label: e.memberName, count: e.tasks.length, amount: e.total }))}
+            unit="件"
+            note="完了した業務の時給ぶんの合計です。「予定」のままの業務は含まれていません。" />
+        )}
+        {kind === "expense" && (
+          <GroupedRows
+            rows={breakdown.expenses.map((e) => ({ key: e.id, label: `${e.category}／${e.title}`, count: 1, amount: e.amount }))}
+            unit="件"
+            note="経費マスタに登録した、この月の支出です。場所利用料はここには含まれません。" />
+        )}
         {kind === "profit" && (
           <div>
             <BreakdownLine label="売上" amount={figures.revenue} />
             <BreakdownLine label="− トレーナー支払" amount={figures.trainerPayout} />
             <BreakdownLine label="− 営業支払" amount={figures.salesPayout} />
             <BreakdownLine label="− 場所利用料" amount={figures.rentalCost} />
+            <BreakdownLine label="− 業務（時給）" amount={figures.hourlyPayout} />
+            <BreakdownLine label="− 経費" amount={figures.expenseTotal} />
             <BreakdownLine label="＝ 利益" sub={`利益率 ${margin}%`} amount={figures.profit} strong />
+            <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+              オーナーのレッスンは歩合の対象外なので、その売上はまるごとこの利益に残ります。
+              つまりこの利益が、そのままオーナーの取り分です。
+            </p>
           </div>
         )}
       </div>
@@ -401,7 +442,7 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, rentalGyms, fctStores, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, rentalGyms, fctStores, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -411,8 +452,10 @@ export function RevenueDashboardClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:       { id: string; name: string }[];
+  members:       { id: string; name: string; isOwner?: boolean }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
+  hourlyTasks?:  HourlyTask[];
+  expenses?:     Expense[];
   rentalGyms?:   { id: string; name: string }[];
   fctStores?:    { id: string; name: string }[];
   analytics?:    AnalyticsData;
@@ -420,6 +463,8 @@ export function RevenueDashboardClient({
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
   const trialsCompleted = useMemo(() => completedTrialLessons ?? [], [completedTrialLessons]);
+  const tasks = useMemo(() => hourlyTasks ?? [], [hourlyTasks]);
+  const costs = useMemo(() => expenses ?? [], [expenses]);
 
   const ctx = useMemo((): CommissionContext => (
     { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
@@ -429,13 +474,13 @@ export function RevenueDashboardClient({
   const series = useMemo(() => {
     const months = [...monthOptions].reverse();
     return months.map((o) => {
-      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx);
+      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx, tasks, costs);
       const [, m] = o.value.split("-");
       return { ...f, label: `${Number(m)}月` };
     });
-  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx]);
+  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx, tasks, costs]);
 
-  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx), [month, lessons, trialLessons, trialsCompleted, ctx]);
+  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs), [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs]);
 
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
   const monthLabel = monthOptions.find((o) => o.value === month)?.label ?? month;
@@ -445,8 +490,8 @@ export function RevenueDashboardClient({
   const gymNames = useMemo(() => new Map((rentalGyms ?? []).map((g) => [g.id, g.name])), [rentalGyms]);
   const fctStoreNames = useMemo(() => new Map((fctStores ?? []).map((f) => [f.id, f.name])), [fctStores]);
   const breakdown = useMemo(
-    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames) : null,
-    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames],
+    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, tasks, costs) : null,
+    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, tasks, costs],
   );
 
   // 今月の実績（全体）
@@ -488,6 +533,8 @@ export function RevenueDashboardClient({
         <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" onClick={() => setOpenCard("trainer")} />
         <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" onClick={() => setOpenCard("sales")} />
         <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />
+        <KpiCard icon={<Clock size={12} />} label="業務（時給）" value={cur.hourlyPayout} accent="text-orange-600" sub="完了した業務の時給ぶん" onClick={() => setOpenCard("hourly")} />
+        <KpiCard icon={<Receipt size={12} />} label="経費" value={cur.expenseTotal} accent="text-slate-600" sub="家賃・広告費など" onClick={() => setOpenCard("expense")} />
       </div>
       <button
         type="button"
@@ -504,7 +551,7 @@ export function RevenueDashboardClient({
 
       {/* 内訳メモ */}
       <p className="text-[11px] text-gray-400 mb-4 px-1">
-        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料。カードをタップすると内訳を表示します。
+        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料 − 業務（時給） − 経費。カードをタップすると内訳を表示します。
       </p>
 
       {openCard && breakdown && (

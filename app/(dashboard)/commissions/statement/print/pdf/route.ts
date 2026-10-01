@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name })),
+    members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
     trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate })),
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),

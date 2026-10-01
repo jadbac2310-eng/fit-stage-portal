@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store, Landmark } from "lucide-react";
+import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store, Landmark, Receipt } from "lucide-react";
 import { getMembers } from "@/lib/members";
 import { getMaterialsCount } from "@/lib/materials";
 import { getKeywordsCount } from "@/lib/keywords";
@@ -146,6 +146,22 @@ export default async function MasterPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-gray-400">{fctStoresCount}件</span>
             <ArrowRight size={16} className="text-gray-400 group-hover:text-sky-500 transition" />
+          </div>
+        </Link>
+
+        <Link
+          href="/master/expenses"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Receipt size={20} className="text-slate-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">経費マスタ</p>
+            <p className="text-xs text-gray-500 mt-0.5">家賃・広告費など、利益から差し引く支出</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <ArrowRight size={16} className="text-gray-400 group-hover:text-slate-500 transition" />
           </div>
         </Link>
 

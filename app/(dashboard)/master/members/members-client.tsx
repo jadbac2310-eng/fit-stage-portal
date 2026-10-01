@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -286,6 +286,26 @@ function MemberForm({
         </div>
       )}
 
+      {isAdmin && (
+        <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+              <Crown size={12} /> オーナー（歩合の対象外）
+            </span>
+            <input
+              type="checkbox"
+              name="isOwner"
+              defaultChecked={defaultValues?.isOwner ?? false}
+              className="w-4 h-4 accent-amber-600"
+            />
+          </label>
+          <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+            運営者本人に付けます。トレーナー歩合・営業歩合・成約ボーナスのいずれも支払わず、
+            その売上はまるごと利益に残ります（利益＝オーナーの取り分）。
+          </p>
+        </div>
+      )}
+
       {/* パスワード */}
       <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
         <PasswordSection isEdit={isEdit} hasPassword={!!defaultValues?.authUserId} />
@@ -371,6 +391,11 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
           {member.isAdmin && (
             <span className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-full font-medium">
               <ShieldCheck size={11} /> 管理者
+            </span>
+          )}
+          {member.isOwner && (
+            <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full font-medium">
+              <Crown size={11} /> オーナー
             </span>
           )}
         </div>
