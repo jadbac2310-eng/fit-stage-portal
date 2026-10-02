@@ -497,6 +497,13 @@ function LessonCard({
               </span>
             )}
             <StatusPill status={status} />
+            {/* 見た目は先に変えてしまうので、保存が済んだかどうかの目印を出す。
+                これが消えるまではアプリを閉じないでもらう。 */}
+            {settingStatus && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">
+                <Spinner size={9} /> 保存中
+              </span>
+            )}
           </div>
           <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
           <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap">
