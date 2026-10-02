@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useState, useMemo, useEffect, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -355,8 +355,15 @@ function LessonCard({
   const isTrial = item.type === "trial";
   const isPersonal = item.type === "personal";
   const isHourly = item.type === "hourly";
-  const cancelled = item.status === "cancelled";
-  const sameDayCancel = item.status === "cancelled_same_day";
+  // 押した瞬間に見た目を切り替える。スケジュール画面はデータを11種類読み直すため、
+  // サーバーの応答を待っていると数秒固まって「効いてない」ように見えるため。
+  const [pendingStatus, setPendingStatus] = useState<ScheduleItem["status"] | null>(null);
+  // サーバーの値が届いたら、先に当てていた見た目を解除する
+  useEffect(() => { setPendingStatus(null); }, [item.status]);
+  const status = pendingStatus ?? item.status;
+
+  const cancelled = status === "cancelled";
+  const sameDayCancel = status === "cancelled_same_day";
   const color = item.color ?? "blue";
   const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
   // 業務の編集/削除は管理者のみ
@@ -400,39 +407,43 @@ function LessonCard({
     });
   }
 
-  function handleSetHourlyStatus(status: "completed" | "scheduled") {
+  /** 先に見た目を変え、保存は裏で進める。失敗したら元に戻す */
+  function applyStatus(
+    next: ScheduleItem["status"],
+    save: () => Promise<void>,
+    failMessage: string,
+  ) {
+    const previous = pendingStatus;
+    setPendingStatus(next);
     runStatus(async () => {
       try {
-        assertActionOk(await setHourlyTaskStatusAction(item.id, status));
+        await save();
         router.refresh();
       } catch (e) {
-        alert(e instanceof Error ? e.message : "変更に失敗しました");
+        setPendingStatus(previous);
+        alert(e instanceof Error ? e.message : failMessage);
       }
     });
   }
 
-  function handleSetStatus(status: "completed" | "scheduled") {
-    runStatus(async () => {
-      try {
-        assertActionOk(await setLessonStatusAction(item.id, status));
-        router.refresh();
-      } catch (e) {
-        alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
-      }
-    });
+  function handleSetHourlyStatus(next: "completed" | "scheduled") {
+    applyStatus(next, async () => {
+      assertActionOk(await setHourlyTaskStatusAction(item.id, next));
+    }, "変更に失敗しました");
   }
 
-  function handleCancel(status: "cancelled" | "cancelled_same_day") {
-    const label = status === "cancelled_same_day" ? "当日キャンセル" : "キャンセル";
+  function handleSetStatus(next: "completed" | "scheduled") {
+    applyStatus(next, async () => {
+      assertActionOk(await setLessonStatusAction(item.id, next));
+    }, "状態の変更に失敗しました");
+  }
+
+  function handleCancel(next: "cancelled" | "cancelled_same_day") {
+    const label = next === "cancelled_same_day" ? "当日キャンセル" : "キャンセル";
     if (!confirm(`このレッスンを${label}にしますか？`)) return;
-    runStatus(async () => {
-      try {
-        assertActionOk(await setLessonStatusAction(item.id, status));
-        router.refresh();
-      } catch (e) {
-        alert(e instanceof Error ? e.message : "状態の変更に失敗しました");
-      }
-    });
+    applyStatus(next, async () => {
+      assertActionOk(await setLessonStatusAction(item.id, next));
+    }, "状態の変更に失敗しました");
   }
 
   return (
@@ -485,7 +496,7 @@ function LessonCard({
                 <Lock size={9} /> 非公開
               </span>
             )}
-            <StatusPill status={item.status} />
+            <StatusPill status={status} />
           </div>
           <p className="text-sm font-semibold text-gray-900 mt-1 truncate">{item.customerName}</p>
           <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap">
@@ -595,15 +606,15 @@ function LessonCard({
             </div>
           )}
           {/* 業務の完了切り替え。押せる場所がないと「予定」のまま残り、支払いから漏れる */}
-          {canCompleteHourly && item.status !== "cancelled" && (
-            item.status === "completed" ? (
+          {canCompleteHourly && status !== "cancelled" && (
+            status === "completed" ? (
               <button
                 type="button"
                 onClick={() => handleSetHourlyStatus("scheduled")}
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <RotateCcw size={13} /> {settingStatus ? "変更中…" : "予定に戻す"}
+                <RotateCcw size={13} /> 予定に戻す
               </button>
             ) : (
               <button
@@ -612,7 +623,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <CheckCircle size={13} /> {settingStatus ? "変更中…" : "完了にする"}
+                <CheckCircle size={13} /> 完了にする
               </button>
             )
           )}
@@ -636,14 +647,14 @@ function LessonCard({
             </div>
           )}
           {canCompleteLesson && !cancelled && (
-            item.status === "completed" ? (
+            status === "completed" ? (
               <button
                 type="button"
                 onClick={() => handleSetStatus("scheduled")}
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <RotateCcw size={13} /> {settingStatus ? "変更中…" : "予定に戻す"}
+                <RotateCcw size={13} /> 予定に戻す
               </button>
             ) : (
               <button
@@ -652,7 +663,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <CheckCircle size={13} /> {settingStatus ? "変更中…" : "完了にする"}
+                <CheckCircle size={13} /> 完了にする
               </button>
             )
           )}
@@ -664,7 +675,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                {settingStatus ? <Spinner size={13} /> : <XCircle size={13} />} {settingStatus ? "変更中…" : "当日キャンセル"}
+                <XCircle size={13} /> 当日キャンセル
               </button>
               <button
                 type="button"
@@ -672,7 +683,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                {settingStatus ? <Spinner size={13} /> : <XCircle size={13} />} {settingStatus ? "変更中…" : "キャンセル"}
+                <XCircle size={13} /> キャンセル
               </button>
             </div>
           )}
