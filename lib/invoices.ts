@@ -1,4 +1,4 @@
-import type { Customer, CustomerType } from "./customers-types";
+import type { Customer, CustomerType, PaymentDueMonth } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
@@ -68,22 +68,39 @@ export function monthLabel(month: string): string {
   const [y, m] = month.split("-");
   return `${y}年${parseInt(m, 10)}月`;
 }
-// 支払期限の既定 = 対象月の翌月末日（例: 6月分 → 7月31日）。戻り値は YYYY-MM-DD。
-export function defaultDueDate(month: string): string {
+/** 顧客ごとの支払期限ルール。未指定なら「翌月末」 */
+export interface PaymentDueRule {
+  paymentDueMonth?: PaymentDueMonth;
+  paymentDueDay?: number;
+}
+
+/**
+ * 支払期限を求める。戻り値は YYYY-MM-DD。
+ *
+ * 既定は対象月の翌月末日（例: 6月分 → 7月31日）。
+ * 顧客に「当月末」「翌月25日」などのルールが設定されていればそれに従う。
+ * 指定日がその月に無いとき（2月の31日など）は、その月の末日に寄せる。
+ */
+export function defaultDueDate(month: string, rule?: PaymentDueRule): string {
   const [y, m] = month.split("-").map((x) => parseInt(x, 10));
-  const year = m === 12 ? y + 1 : y;
-  const mon = m === 12 ? 1 : m + 1;
+  const sameMonth = rule?.paymentDueMonth === "same";
+  const year = sameMonth ? y : (m === 12 ? y + 1 : y);
+  const mon  = sameMonth ? m : (m === 12 ? 1 : m + 1);
   const lastDay = new Date(year, mon, 0).getDate(); // new Date(年, mon, 0) = mon月（1始まり）の末日
-  return `${year}-${String(mon).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  const day = rule?.paymentDueDay == null ? lastDay : Math.min(rule.paymentDueDay, lastDay);
+  return `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 /** YYYY-MM-DD → 「2026年8月10日」 */
 export function formatDueDate(iso: string): string {
   const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
   return `${y}年${m}月${d}日`;
 }
-/** 請求書に表示する支払期限。個別設定(override)があればそれを、無ければ既定を使う。 */
-export function dueDateLabel(month: string, override?: string | null): string {
-  return formatDueDate(override || defaultDueDate(month));
+/**
+ * 請求書に表示する支払期限。
+ * その月だけの個別設定(override) → 顧客のルール → 既定（翌月末）の順に使う。
+ */
+export function dueDateLabel(month: string, override?: string | null, rule?: PaymentDueRule): string {
+  return formatDueDate(override || defaultDueDate(month, rule));
 }
 export function invoiceNumber(month: string, customerId: string): string {
   return `INV-${month.replace("-", "")}-${customerId.slice(0, 6).toUpperCase()}`;

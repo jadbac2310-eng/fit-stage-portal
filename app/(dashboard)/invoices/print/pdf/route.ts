@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       bank: BANK_INFO,
       invoiceNo: invoiceNumber(month, biller.id),
       monthLabel: monthLabel(month),
-      dueDateLabel: dueDateLabel(month, dueOverride),
+      dueDateLabel: dueDateLabel(month, dueOverride, biller),
       addresseeSuffix: addresseeSuffix(biller.customerType),
       tax: taxBreakdown(invoice.total),
     }),

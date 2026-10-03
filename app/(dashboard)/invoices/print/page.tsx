@@ -158,9 +158,9 @@ export default async function InvoicePrintPage({
           <EditableDueDate
             billerId={customer.id}
             month={month}
-            label={dueDateLabel(month, dueOverride)}
+            label={dueDateLabel(month, dueOverride, customer)}
             value={dueOverride}
-            defaultValue={defaultDueDate(month)}
+            defaultValue={defaultDueDate(month, customer)}
           />
         </div>
       </div>

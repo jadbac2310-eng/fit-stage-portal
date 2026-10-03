@@ -1,7 +1,7 @@
 import { createAdminClient } from "./supabase";
 export type { CustomerPlan, CustomerStatus, CustomerType, Customer } from "./customers-types";
 export { STATUS_LABEL, CUSTOMER_TYPE_LABEL } from "./customers-types";
-import type { Customer, CustomerStatus, CustomerType } from "./customers-types";
+import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth } from "./customers-types";
 
 type DbRow = {
   id: string;
@@ -15,6 +15,8 @@ type DbRow = {
   sales_member_id: string | null;
   billing_name: string | null;
   billing_to_customer_id: string | null;
+  payment_due_month?: string | null;
+  payment_due_day?: number | null;
   agreed_to_terms: boolean;
   electronic_signature: string | null;
   status: CustomerStatus;
@@ -37,6 +39,8 @@ function fromDb(row: DbRow): Customer {
     salesMemberId:    row.sales_member_id ?? undefined,
     billingName:      row.billing_name ?? undefined,
     billingToCustomerId: row.billing_to_customer_id ?? undefined,
+    paymentDueMonth:  row.payment_due_month === "same" ? "same" : "next",
+    paymentDueDay:    row.payment_due_day ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
     customerType:     row.customer_type ?? "individual",
@@ -66,11 +70,15 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 }
 
 export async function addCustomer(
-  input: Omit<Customer, "id" | "createdAt" | "updatedAt">
+  // 支払期限ルールは省略可。省略時はDBの既定（翌月末）になる
+  input: Omit<Customer, "id" | "createdAt" | "updatedAt" | "paymentDueMonth" | "paymentDueDay">
+    & Partial<Pick<Customer, "paymentDueMonth" | "paymentDueDay">>
 ): Promise<Customer> {
   const { data, error } = await createAdminClient()
     .from("customers")
     .insert({
+      ...(input.paymentDueMonth !== undefined && { payment_due_month: input.paymentDueMonth }),
+      ...(input.paymentDueDay   !== undefined && { payment_due_day:   input.paymentDueDay }),
       email:              input.email,
       full_name:          input.fullName,
       date_of_birth:      input.dateOfBirth,
@@ -103,6 +111,8 @@ export async function updateCustomer(
     salesMemberId: string | null;
     billingName: string | null;
     billingToCustomerId: string | null;
+    paymentDueMonth: PaymentDueMonth;
+    paymentDueDay: number | null;
     agreedToTerms: boolean;
     status: CustomerStatus;
     customerType: CustomerType;
@@ -120,6 +130,8 @@ export async function updateCustomer(
   if (input.salesMemberId    !== undefined) patch.sales_member_id    = input.salesMemberId ?? null;
   if (input.billingName      !== undefined) patch.billing_name       = input.billingName ?? null;
   if (input.billingToCustomerId !== undefined) patch.billing_to_customer_id = input.billingToCustomerId ?? null;
+  if (input.paymentDueMonth  !== undefined) patch.payment_due_month = input.paymentDueMonth;
+  if (input.paymentDueDay    !== undefined) patch.payment_due_day   = input.paymentDueDay ?? null;
   if (input.agreedToTerms    !== undefined) patch.agreed_to_terms    = input.agreedToTerms;
   if (input.status           !== undefined) patch.status             = input.status;
   if (input.customerType     !== undefined) patch.customer_type      = input.customerType;
@@ -131,6 +143,12 @@ export async function updateCustomer(
   if (error && /billing_(name|to_customer_id)/i.test(error.message ?? "")) {
     const { billing_name, billing_to_customer_id, ...rest } = patch;
     void billing_name; void billing_to_customer_id;
+    ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
+  }
+  // 支払期限ルール（payment_due_*）が未適用の環境でも同じく外して再試行
+  if (error && /payment_due_(month|day)/i.test(error.message ?? "")) {
+    const { payment_due_month, payment_due_day, ...rest } = patch;
+    void payment_due_month; void payment_due_day;
     ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
   }
   if (error) throw error;

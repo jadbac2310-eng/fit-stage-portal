@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCustomers, updateCustomer } from "@/lib/customers";
+import { getCustomer, getCustomers, updateCustomer } from "@/lib/customers";
 import { requireAdmin } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
@@ -36,9 +36,11 @@ export async function updateInvoiceDueDateAction(
   if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) return { ok: false, error: "日付の形式が不正です" };
 
   await setInvoiceDueDate(billerId, month, value);
+  // 既定に戻したときのログは、その顧客のルールで計算した日付を書く
+  const biller = value ? null : await getCustomer(billerId);
   await logActivity({
     action: "update", entityType: "invoice", entityId: billerId,
-    summary: `支払期限を変更: ${month} → ${value ? formatDueDate(value) : `既定（${dueDateLabel(month)}）`}`,
+    summary: `支払期限を変更: ${month} → ${value ? formatDueDate(value) : `既定（${dueDateLabel(month, null, biller ?? undefined)}）`}`,
   });
   revalidatePath("/invoices");
   revalidatePath("/invoices/print");
@@ -95,7 +97,7 @@ export async function createInvoiceShareAction(
   lines.push("【お振込先】");
   lines.push(`${BANK_INFO.bankName}　${BANK_INFO.accountType}　${BANK_INFO.accountNumber}`);
   lines.push(`口座名義：${BANK_INFO.accountHolder}`);
-  lines.push(`お支払期限：${dueDateLabel(month, dueOverride)}（振込手数料はご負担ください）`);
+  lines.push(`お支払期限：${dueDateLabel(month, dueOverride, biller)}（振込手数料はご負担ください）`);
   lines.push("");
   lines.push("ご不明点はこのトークにご返信ください。");
   lines.push("FIT STAGE");

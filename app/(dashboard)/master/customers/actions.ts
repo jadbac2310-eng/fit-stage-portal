@@ -63,12 +63,17 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
     const salesMemberId    = (formData.get("salesMemberId")   as string)?.trim() || null;
     const billingName      = (formData.get("billingName")    as string)?.trim() || null;
     const billingToCustomerId = (formData.get("billingToCustomerId") as string)?.trim() || null;
+    // 支払期限ルール（例: 翌月末 / 当月末 / 翌月25日）
+    const paymentDueMonth = (formData.get("paymentDueMonth") as string) === "same" ? "same" as const : "next" as const;
+    const dueDayRaw = (formData.get("paymentDueDay") as string)?.trim();
+    const dueDay = dueDayRaw ? parseInt(dueDayRaw, 10) : NaN;
+    const paymentDueDay = Number.isFinite(dueDay) && dueDay >= 1 && dueDay <= 31 ? dueDay : null;
 
     if (!fullName || !email || !dateOfBirth) {
       return { ok: false, error: "氏名・メール・生年月日は必須です" };
     }
 
-    await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, billingName, billingToCustomerId });
+    await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, billingName, billingToCustomerId, paymentDueMonth, paymentDueDay });
     await logActivity({ action: "update", entityType: "customer", entityId: id, summary: `顧客を編集: ${fullName}` });
     revalidatePath("/invoices");
     return { ok: true };

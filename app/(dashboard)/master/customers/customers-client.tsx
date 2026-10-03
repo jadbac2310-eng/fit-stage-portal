@@ -296,6 +296,32 @@ function CustomerForm({
           </select>
           <p className="text-xs text-gray-400 mt-1">この顧客の請求を別の顧客の請求書に合算します</p>
         </div>
+        <div>
+          <label className={labelClass}>支払期限</label>
+          <div className="flex gap-2">
+            <select
+              name="paymentDueMonth"
+              defaultValue={defaultValues?.paymentDueMonth ?? "next"}
+              className={inputClass}
+            >
+              <option value="next">翌月</option>
+              <option value="same">当月</option>
+            </select>
+            <select
+              name="paymentDueDay"
+              defaultValue={defaultValues?.paymentDueDay?.toString() ?? ""}
+              className={inputClass}
+            >
+              <option value="">末日</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>{d}日</option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            請求書の支払期限に使います（既定は翌月末）。月ごとに違う期限にしたいときは、請求書の画面で個別に変えられます。
+          </p>
+        </div>
       </div>
 
       {/* メモ */}
