@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -305,6 +305,23 @@ function MemberForm({
           </p>
         </div>
       )}
+
+      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+        <label className="flex items-center justify-between cursor-pointer">
+          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+            <BellRing size={12} /> レッスンのリマインドを受け取る
+          </span>
+          <input
+            type="checkbox"
+            name="lessonReminder"
+            defaultChecked={defaultValues?.lessonReminder ?? true}
+            className="w-4 h-4 accent-blue-600"
+          />
+        </label>
+        <p className="text-xs text-gray-400 mt-1.5">
+          自分が担当する予定の開始前に、LINEでお知らせします。オフにするとこの人には届きません。
+        </p>
+      </div>
 
       {/* パスワード */}
       <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">

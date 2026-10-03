@@ -12,6 +12,8 @@ export interface Member {
   isAdmin: boolean;
   /** 運営者本人。歩合の対象外にし、売上はまるごと利益に残す（利益＝オーナーの取り分） */
   isOwner: boolean;
+  /** レッスン開始前のLINEリマインドを受け取るか（既定true） */
+  lessonReminder: boolean;
   commissionRate?: number; // トレーナー歩合率（％）。未設定は既定50%
   invoiceNumber?: string;  // インボイス登録番号（コミッション明細に表示）
   lineUserId?: string;
@@ -29,6 +31,7 @@ type DbRow = {
   auth_user_id: string | null;
   is_admin: boolean;
   is_owner?: boolean | null;
+  lesson_reminder?: boolean | null;
   commission_rate?: number | null;
   invoice_number?: string | null;
   line_user_id?: string | null;
@@ -47,6 +50,7 @@ function fromDb(row: DbRow): Member {
     authUserId: row.auth_user_id ?? undefined,
     isAdmin:    row.is_admin,
     isOwner:    row.is_owner ?? false,
+    lessonReminder: row.lesson_reminder ?? true,
     commissionRate: row.commission_rate ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
@@ -129,6 +133,7 @@ export async function updateMember(
   if (data.authUserId !== undefined) patch.auth_user_id = data.authUserId ?? null;
   if (data.isAdmin    !== undefined) patch.is_admin     = data.isAdmin;
   if (data.isOwner    !== undefined) patch.is_owner     = data.isOwner;
+  if (data.lessonReminder !== undefined) patch.lesson_reminder = data.lessonReminder;
   if (data.commissionRate !== undefined) patch.commission_rate = data.commissionRate ?? null;
   if (data.invoiceNumber  !== undefined) patch.invoice_number  = data.invoiceNumber  ?? null;
 

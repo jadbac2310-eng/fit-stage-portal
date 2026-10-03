@@ -43,7 +43,8 @@ export async function GET(req: NextRequest) {
     const body = `⏰ まもなく予定です（あと約${mins}分）\n${it.title}\n${jstDateLabel(it.startAt)} ${jstTimeStr(it.startAt)}${it.location ? `\n＠${it.location}` : ""}`;
     for (const mid of new Set(it.recipientIds)) {
       const member = memberById.get(mid);
-      if (!member?.lineUserId || sent.has(`${it.ref}__${mid}`)) continue;
+      // レッスンのリマインドを切っている担当者には送らない
+      if (!member?.lineUserId || !member.lessonReminder || sent.has(`${it.ref}__${mid}`)) continue;
       const r = await pushLineMessage(member.lineUserId, body + scheduleLink(member));
       if (r.ok) { await markSent("reminder", it.ref, mid); count++; }
     }

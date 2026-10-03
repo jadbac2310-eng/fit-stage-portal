@@ -34,11 +34,12 @@ export function jstDateLabel(iso: string): string {
 //   LINE_NOTIFY_REMINDER … 開始30分前のリマインド（月100通強）
 //   LINE_NOTIFY_INSTANT  … 予定の追加/変更/削除/参加者追加の即時通知
 // ※ webhookの応答メッセージ(reply)は無料枠の対象外なので、この設定の影響を受けない。
-export type StaffNotifyKind = "reminder" | "instant";
+export type StaffNotifyKind = "reminder" | "instant" | "daily";
 
 const STAFF_NOTIFY_ENV: Record<StaffNotifyKind, string> = {
   reminder: "LINE_NOTIFY_REMINDER",
   instant:  "LINE_NOTIFY_INSTANT",
+  daily:    "LINE_NOTIFY_DAILY",
 };
 
 export function staffNotifyEnabled(kind: StaffNotifyKind): boolean {

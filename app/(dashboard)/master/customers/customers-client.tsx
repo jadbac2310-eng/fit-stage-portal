@@ -297,6 +297,20 @@ function CustomerForm({
           <p className="text-xs text-gray-400 mt-1">この顧客の請求を別の顧客の請求書に合算します</p>
         </div>
         <div>
+          <label className={labelClass}>請求書の送付日</label>
+          <select
+            name="invoiceSendDay"
+            defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""}
+            className={inputClass}
+          >
+            <option value="">決まりなし（リマインドしない）</option>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>毎月{d}日</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">設定すると、その日の朝にLINEで「送付日です」とお知らせします</p>
+        </div>
+        <div>
           <label className={labelClass}>支払期限</label>
           <div className="flex gap-2">
             <select
