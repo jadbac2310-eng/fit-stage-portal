@@ -9,7 +9,7 @@ import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
-  monthLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
+  monthLabel, billingPeriodLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { InvoiceDocument } from "@/lib/invoice-pdf";
@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
       bank: BANK_INFO,
       invoiceNo: invoiceNumber(month, biller.id),
       monthLabel: monthLabel(month),
+      periodLabel: billingPeriodLabel(month, biller.billingCutoffDay),
       dueDateLabel: dueDateLabel(month, dueOverride, biller),
       addresseeSuffix: addresseeSuffix(biller.customerType),
       tax: taxBreakdown(invoice.total),

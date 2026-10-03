@@ -297,6 +297,22 @@ function CustomerForm({
           <p className="text-xs text-gray-400 mt-1">この顧客の請求を別の顧客の請求書に合算します</p>
         </div>
         <div>
+          <label className={labelClass}>請求の締日</label>
+          <select
+            name="billingCutoffDay"
+            defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""}
+            className={inputClass}
+          >
+            <option value="">月末締め（暦の月どおり）</option>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>毎月{d}日締め</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            例：20日締めにすると、10月分の請求は 9/21〜10/20 のレッスンが対象になります
+          </p>
+        </div>
+        <div>
           <label className={labelClass}>請求書の送付日</label>
           <select
             name="invoiceSendDay"

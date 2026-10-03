@@ -17,6 +17,7 @@ export interface Customer {
   salesMemberId?: string;       // 担当営業（members.id）
   billingName?: string;         // 請求書の宛名（上書き。未設定なら fullName）
   billingToCustomerId?: string; // 請求のまとめ先（この顧客分を別顧客に請求する）
+  billingCutoffDay?: number;        // 請求の締日。未設定なら月末締め（暦の月）
   invoiceSendDay?: number;          // 請求書を送る日（毎月）。未設定なら決まりなし
   paymentDueMonth: PaymentDueMonth; // 支払期限が当月か翌月か
   paymentDueDay?: number;           // 支払期限の日。未設定は末日

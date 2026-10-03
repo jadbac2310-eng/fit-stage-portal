@@ -10,7 +10,7 @@ import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
-  monthLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown,
+  monthLabel, billingPeriodLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { EditableBillingName } from "./editable-name";
@@ -96,6 +96,10 @@ export default async function InvoicePrintPage({
         <div className="flex justify-between text-xs text-gray-500 mb-4">
           <span>請求書番号: {invoiceNo}</span>
           <span>対象月: {monthLabel(month)}</span>
+          {/* 締日を設けている取引先には、どの期間ぶんかを明記する */}
+          {billingPeriodLabel(month, customer.billingCutoffDay) && (
+            <span>対象期間: {billingPeriodLabel(month, customer.billingCutoffDay)}</span>
+          )}
         </div>
 
         {/* 合計 */}

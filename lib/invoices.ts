@@ -59,8 +59,59 @@ export interface CustomerInvoice {
   total: number;
 }
 
-function inMonth(iso: string | undefined, month: string): boolean {
-  return !!iso && iso.slice(0, 7) === month;
+/** 請求の対象期間（両端を含む・YYYY-MM-DD） */
+export interface BillingPeriod {
+  from: string;
+  to:   string;
+}
+
+function lastDayOf(year: number, month: number): number {
+  return new Date(year, month, 0).getDate(); // new Date(年, month, 0) = month月（1始まり）の末日
+}
+
+function ymd(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * 対象月の請求期間を求める。
+ *
+ * 締日が未設定なら、これまでどおり暦の月（1日〜末日）。
+ * 締日が20なら 2026年10月分 = 2026/09/21 〜 2026/10/20 のように、前月から当月の締日まで。
+ * 締日がその月に無いとき（2月の31日など）は、その月の末日として扱う。
+ */
+export function billingPeriod(month: string, cutoffDay?: number | null): BillingPeriod {
+  const [y, m] = month.split("-").map((x) => parseInt(x, 10));
+  if (cutoffDay == null) return { from: ymd(y, m, 1), to: ymd(y, m, lastDayOf(y, m)) };
+
+  const to = Math.min(cutoffDay, lastDayOf(y, m));
+  const prevY = m === 1 ? y - 1 : y;
+  const prevM = m === 1 ? 12 : m - 1;
+  const prevCutoff = Math.min(cutoffDay, lastDayOf(prevY, prevM));
+
+  // 前月の締日の翌日から。前月の末日が締日なら、当月1日から
+  const from = prevCutoff >= lastDayOf(prevY, prevM)
+    ? ymd(y, m, 1)
+    : ymd(prevY, prevM, prevCutoff + 1);
+
+  return { from, to: ymd(y, m, to) };
+}
+
+/** 「2026/9/21〜10/20」のような期間ラベル。暦の月のときは null（月表示で足りるため） */
+export function billingPeriodLabel(month: string, cutoffDay?: number | null): string | null {
+  if (cutoffDay == null) return null;
+  const p = billingPeriod(month, cutoffDay);
+  const [fy, fm, fd] = p.from.split("-").map((x) => parseInt(x, 10));
+  const [ty, tm, td] = p.to.split("-").map((x) => parseInt(x, 10));
+  const fromLabel = `${fy}年${fm}月${fd}日`;
+  const toLabel = fy === ty ? `${tm}月${td}日` : `${ty}年${tm}月${td}日`;
+  return `${fromLabel}〜${toLabel}`;
+}
+
+function inPeriod(iso: string | undefined, period: BillingPeriod): boolean {
+  if (!iso) return false;
+  const d = iso.slice(0, 10);
+  return d >= period.from && d <= period.to;
 }
 
 // ─── 表示・採番ヘルパー（請求書プレビューとPDFで共通利用） ───
@@ -150,6 +201,8 @@ export function buildInvoice(
   month: string,
   data: InvoiceData,
   fees: InvoiceFees = { single: 0, lessonFees: {} },
+  /** まとめ請求では請求先の締日に揃えるため、期間を外から渡せるようにしている */
+  period: BillingPeriod = billingPeriod(month, customer.billingCutoffDay),
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
 
@@ -157,14 +210,14 @@ export function buildInvoice(
   for (const p of data.plans) {
     if (p.customerId !== customer.id || p.price == null) continue;
     const date = p.purchasedAt ?? p.startedAt;
-    if (!inMonth(date, month)) continue;
+    if (!inPeriod(date, period)) continue;
     lines.push({ date, label: `${PROGRAM_LABEL}（${p.plan}）`, amount: p.price });
   }
 
   // 回数券（購入月で計上）
   for (const pass of data.passes) {
     if (pass.customerId !== customer.id || pass.price == null) continue;
-    if (!inMonth(pass.purchasedAt, month)) continue;
+    if (!inPeriod(pass.purchasedAt, period)) continue;
     const persons = pass.personCount && pass.personCount > 1 ? `（${pass.personCount}名）` : "";
     lines.push({ date: pass.purchasedAt, label: `${PROGRAM_LABEL}（回数券 ${pass.totalCount}回${persons}）`, amount: pass.price });
   }
@@ -173,7 +226,7 @@ export function buildInvoice(
   for (const l of data.lessons) {
     if (l.customerId !== customer.id) continue;
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
-    if (!inMonth(l.scheduledAt, month)) continue;
+    if (!inPeriod(l.scheduledAt, period)) continue;
     const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? fees.single;
     const label = l.course === "オンラインパーソナル"
       ? `${PROGRAM_LABEL}（オンライン）`
@@ -184,7 +237,7 @@ export function buildInvoice(
   // 体験レッスン（その月に完了したもの）。料金区分が「都度」等なら、その単価で計上する。
   for (const t of data.trialLessons ?? []) {
     if (t.customerId !== customer.id || t.status !== "completed") continue;
-    if (!inMonth(t.scheduledAt, month)) continue;
+    if (!inPeriod(t.scheduledAt, period)) continue;
     lines.push({
       date: t.scheduledAt.slice(0, 10),
       label: `${PROGRAM_LABEL}（${trialCourseLabel(t.course)}）`,
@@ -235,9 +288,11 @@ export function buildGroupInvoice(
   data: InvoiceData,
   fees: InvoiceFees = { single: 0, lessonFees: {} },
 ): CustomerInvoice {
+  // 期間は請求先の締日に合わせる（まとめられる側がばらばらの締日でも1枚にそろう）
+  const period = billingPeriod(month, biller.billingCutoffDay);
   const lines: InvoiceLine[] = [];
   for (const c of members) {
-    lines.push(...buildInvoice(c, month, data, fees).lines);
+    lines.push(...buildInvoice(c, month, data, fees, period).lines);
   }
   lines.sort((a, b) => a.date.localeCompare(b.date));
   const total = lines.reduce((s, l) => s + l.amount, 0);

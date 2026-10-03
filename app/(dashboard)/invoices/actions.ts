@@ -9,7 +9,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getAllPlans } from "@/lib/plans-master";
-import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, billingPeriodLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
@@ -88,7 +88,9 @@ export async function createInvoiceShareAction(
   lines.push(`${billingName(biller)} 様`);
   lines.push("");
   lines.push("いつもありがとうございます。");
+  const periodLabel = billingPeriodLabel(month, biller.billingCutoffDay);
   lines.push(`${monthLabel(month)}分のご請求をお送りします。`);
+  if (periodLabel) lines.push(`対象期間：${periodLabel}`);
   lines.push("");
   lines.push("【ご請求の内訳】");
   for (const l of invoice.lines) lines.push(`${l.date}　${l.label}　${yen(l.amount)}`);

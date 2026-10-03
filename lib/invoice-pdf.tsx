@@ -73,12 +73,14 @@ export interface InvoicePdfData {
   bank: { bankName: string; accountType: string; accountNumber: string; accountHolder: string };
   invoiceNo: string;
   monthLabel: string;
+  /** 締日がある取引先のみ。「2026年9月21日〜10月20日」 */
+  periodLabel?: string | null;
   dueDateLabel: string;
   addresseeSuffix: string;
   tax: { rate: number; net: number; tax: number; gross: number };
 }
 
-export function InvoiceDocument({ invoice, address, issuer, bank, invoiceNo, monthLabel, dueDateLabel, addresseeSuffix, tax }: InvoicePdfData) {
+export function InvoiceDocument({ invoice, address, issuer, bank, invoiceNo, monthLabel, periodLabel, dueDateLabel, addresseeSuffix, tax }: InvoicePdfData) {
   return (
     <Document title={`請求書 ${invoice.customerName} ${monthLabel}`}>
       <Page size="A4" style={s.page}>
@@ -104,6 +106,7 @@ export function InvoiceDocument({ invoice, address, issuer, bank, invoiceNo, mon
         <View style={s.metaRow}>
           <Text>請求書番号: {invoiceNo}</Text>
           <Text>対象月: {monthLabel}</Text>
+          {periodLabel && <Text>対象期間: {periodLabel}</Text>}
         </View>
 
         <View style={s.totalBox}>

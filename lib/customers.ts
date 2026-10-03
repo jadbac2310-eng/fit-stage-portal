@@ -15,6 +15,7 @@ type DbRow = {
   sales_member_id: string | null;
   billing_name: string | null;
   billing_to_customer_id: string | null;
+  billing_cutoff_day?: number | null;
   invoice_send_day?: number | null;
   payment_due_month?: string | null;
   payment_due_day?: number | null;
@@ -40,6 +41,7 @@ function fromDb(row: DbRow): Customer {
     salesMemberId:    row.sales_member_id ?? undefined,
     billingName:      row.billing_name ?? undefined,
     billingToCustomerId: row.billing_to_customer_id ?? undefined,
+    billingCutoffDay: row.billing_cutoff_day ?? undefined,
     invoiceSendDay:   row.invoice_send_day ?? undefined,
     paymentDueMonth:  row.payment_due_month === "same" ? "same" : "next",
     paymentDueDay:    row.payment_due_day ?? undefined,
@@ -74,11 +76,12 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 export async function addCustomer(
   // 支払期限ルールは省略可。省略時はDBの既定（翌月末）になる
   input: Omit<Customer, "id" | "createdAt" | "updatedAt" | "paymentDueMonth" | "paymentDueDay">
-    & Partial<Pick<Customer, "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay">>
+    & Partial<Pick<Customer, "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay" | "billingCutoffDay">>
 ): Promise<Customer> {
   const { data, error } = await createAdminClient()
     .from("customers")
     .insert({
+      ...(input.billingCutoffDay !== undefined && { billing_cutoff_day: input.billingCutoffDay }),
       ...(input.invoiceSendDay  !== undefined && { invoice_send_day:  input.invoiceSendDay }),
       ...(input.paymentDueMonth !== undefined && { payment_due_month: input.paymentDueMonth }),
       ...(input.paymentDueDay   !== undefined && { payment_due_day:   input.paymentDueDay }),
@@ -114,6 +117,7 @@ export async function updateCustomer(
     salesMemberId: string | null;
     billingName: string | null;
     billingToCustomerId: string | null;
+    billingCutoffDay: number | null;
     invoiceSendDay: number | null;
     paymentDueMonth: PaymentDueMonth;
     paymentDueDay: number | null;
@@ -134,6 +138,7 @@ export async function updateCustomer(
   if (input.salesMemberId    !== undefined) patch.sales_member_id    = input.salesMemberId ?? null;
   if (input.billingName      !== undefined) patch.billing_name       = input.billingName ?? null;
   if (input.billingToCustomerId !== undefined) patch.billing_to_customer_id = input.billingToCustomerId ?? null;
+  if (input.billingCutoffDay !== undefined) patch.billing_cutoff_day = input.billingCutoffDay ?? null;
   if (input.invoiceSendDay   !== undefined) patch.invoice_send_day  = input.invoiceSendDay ?? null;
   if (input.paymentDueMonth  !== undefined) patch.payment_due_month = input.paymentDueMonth;
   if (input.paymentDueDay    !== undefined) patch.payment_due_day   = input.paymentDueDay ?? null;
@@ -151,9 +156,9 @@ export async function updateCustomer(
     ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
   }
   // 支払期限ルール（payment_due_*）が未適用の環境でも同じく外して再試行
-  if (error && /payment_due_(month|day)|invoice_send_day/i.test(error.message ?? "")) {
-    const { payment_due_month, payment_due_day, invoice_send_day, ...rest } = patch;
-    void payment_due_month; void payment_due_day; void invoice_send_day;
+  if (error && /payment_due_(month|day)|invoice_send_day|billing_cutoff_day/i.test(error.message ?? "")) {
+    const { payment_due_month, payment_due_day, invoice_send_day, billing_cutoff_day, ...rest } = patch;
+    void payment_due_month; void payment_due_day; void invoice_send_day; void billing_cutoff_day;
     ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
   }
   if (error) throw error;
