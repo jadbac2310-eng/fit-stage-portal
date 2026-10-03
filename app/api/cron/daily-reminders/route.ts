@@ -31,8 +31,12 @@ export async function GET(req: NextRequest) {
   if (!staffNotifyEnabled("daily")) return NextResponse.json({ ok: true, sent: 0, disabled: true });
 
   const now = new Date();
-  // 早朝に送らないよう、指定時刻より前は何もしない
-  if (jstParts(now).hour < SEND_HOUR) return NextResponse.json({ ok: true, sent: 0, waiting: true });
+  // Vercelのスケジュールから呼ばれたときは、その時刻が指定どおりなので時刻判定はしない。
+  // （Vercelは指定時刻の1時間の中のどこかで呼ぶため、ここで弾くとその日のぶんが丸ごと飛ぶ）
+  const fromVercelCron = req.headers.get("x-vercel-cron-schedule") !== null;
+  if (!fromVercelCron && jstParts(now).hour < SEND_HOUR) {
+    return NextResponse.json({ ok: true, sent: 0, waiting: true });
+  }
 
   const [members, customers, hourlyTasks, trialLessons] = await Promise.all([
     getMembers(), getCustomers(), getHourlyTasks(), getTrialLessons(),
