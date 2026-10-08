@@ -1760,7 +1760,8 @@ export function ScheduleClient({
   stores?: Store[];
   hourlyTasks?: HourlyTask[];
 }) {
-  const [view, setView] = useState<"list" | "calendar" | "timeline">("list");
+  // 開いたときは全体を見渡せるカレンダーから始める
+  const [view, setView] = useState<"list" | "calendar" | "timeline">("calendar");
   // カレンダーで表示している月。レッスン件数サマリーもこの月に合わせる
   const [monthCursor, setMonthCursor] = useState(() => {
     const t = new Date();
