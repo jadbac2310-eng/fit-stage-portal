@@ -8,6 +8,7 @@ import { addSessionPass, deleteSessionPass, reserveSessionPass, releaseSessionPa
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
+import { notifyLessonAdded } from "@/lib/lesson-notify";
 import type { Lesson, LessonStatus } from "@/lib/lessons-types";
 import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 
@@ -67,6 +68,13 @@ export async function createLessonAction(formData: FormData): Promise<ActionResu
     }
 
     await logActivity({ action: "create", entityType: "lesson", entityId: created.id, summary: `通常レッスンを追加: ${created.customerName}`, memberId: member.id, memberName: member.name });
+    await notifyLessonAdded(member, "レッスン", [{
+      customerName: created.customerName,
+      scheduledAt:  created.scheduledAt,
+      course:       created.course,
+      trainerName:  created.trainerMemberName,
+      location:     created.location,
+    }]);
     revalidatePath("/lessons/regular");
     revalidatePath("/schedule");
   });
@@ -114,9 +122,10 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
     if (usesPass) await reserveSessionPass(sessionPassId!, slots.length);
 
     let count = 0;
+    const created: Lesson[] = [];
     try {
       for (const s of slots) {
-        await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, deliveryMode });
+        created.push(await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, deliveryMode }));
         count++;
       }
     } catch (e) {
@@ -124,6 +133,14 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
       throw e;
     }
     await logActivity({ action: "create", entityType: "lesson", entityId: customerId, summary: `通常レッスンを${count}件追加`, memberId: member.id, memberName: member.name });
+    // 何件入れても1通にまとめる（無料枠を一括登録で食い潰さないため）
+    await notifyLessonAdded(member, "レッスン", created.map((l) => ({
+      customerName: l.customerName,
+      scheduledAt:  l.scheduledAt,
+      course:       l.course,
+      trainerName:  l.trainerMemberName,
+      location:     l.location,
+    })));
     revalidatePath("/lessons/regular");
     revalidatePath("/schedule");
   });

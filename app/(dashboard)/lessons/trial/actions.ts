@@ -8,6 +8,7 @@ import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
+import { notifyLessonAdded } from "@/lib/lesson-notify";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 
@@ -52,6 +53,16 @@ export async function createTrialLessonAction(formData: FormData): Promise<Actio
       rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, course, amount,
     });
     await logActivity({ action: "create", entityType: "trial_lesson", entityId: created.id, summary: `体験レッスンを追加: ${created.customerName}` });
+    const member = await getCurrentMember();
+    if (member) {
+      await notifyLessonAdded(member, "体験レッスン", [{
+        customerName: created.customerName,
+        scheduledAt:  created.scheduledAt,
+        course:       created.course,
+        trainerName:  created.trainerMemberName,
+        location:     created.location,
+      }]);
+    }
     revalidatePath("/lessons/trial");
   });
 }

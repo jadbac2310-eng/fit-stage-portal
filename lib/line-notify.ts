@@ -33,13 +33,15 @@ export function jstDateLabel(iso: string): string {
 // ポータルを開けば見られる情報だったため）。残りは既定ON、止めたい種類だけ "off" にする。
 //   LINE_NOTIFY_REMINDER … 開始30分前のリマインド（月100通強）
 //   LINE_NOTIFY_INSTANT  … 予定の追加/変更/削除/参加者追加の即時通知
+//   LINE_NOTIFY_LESSON   … 他の人がレッスン/体験を登録したときの管理者への通知
 // ※ webhookの応答メッセージ(reply)は無料枠の対象外なので、この設定の影響を受けない。
-export type StaffNotifyKind = "reminder" | "instant" | "daily";
+export type StaffNotifyKind = "reminder" | "instant" | "daily" | "lesson";
 
 const STAFF_NOTIFY_ENV: Record<StaffNotifyKind, string> = {
   reminder: "LINE_NOTIFY_REMINDER",
   instant:  "LINE_NOTIFY_INSTANT",
   daily:    "LINE_NOTIFY_DAILY",
+  lesson:   "LINE_NOTIFY_LESSON",
 };
 
 export function staffNotifyEnabled(kind: StaffNotifyKind): boolean {
@@ -54,13 +56,15 @@ export function anyStaffNotifyEnabled(): boolean {
 /**
  * memberIds のうち LINE連携済みの人へテキストを送信（best-effort・例外を投げない）。
  * text に関数を渡すと担当者ごとに本文を生成できる（自動ログインリンクの埋め込み等に使う）。
+ * kind を分けておくと、通数が気になる種類だけ環境変数で止められる。
  */
 export async function notifyMembersByLine(
   memberIds: string[],
   text: string | ((m: Member) => string),
   membersCache?: Member[],
+  kind: StaffNotifyKind = "instant",
 ): Promise<void> {
-  if (!staffNotifyEnabled("instant")) return;
+  if (!staffNotifyEnabled(kind)) return;
   try {
     const ids = Array.from(new Set(memberIds.filter(Boolean)));
     if (ids.length === 0) return;
@@ -69,6 +73,28 @@ export async function notifyMembersByLine(
     await Promise.all(targets.map((m) => pushLineMessage(m.lineUserId!, typeof text === "function" ? text(m) : text)));
   } catch (e) {
     console.error("[line] notifyMembersByLine 失敗", e);
+  }
+}
+
+/**
+ * 管理者へ送る即時通知（best-effort）。
+ *
+ * 宛先は「LINE連携済みの管理者」。管理者を増やしたらそのまま届くようにしたいので、
+ * 送信先は環境変数で固定せず is_admin を見る。
+ * きっかけを作った本人（exceptMemberId）には送らない（自分の操作が自分に返ってこないように）。
+ */
+export async function notifyAdminsByLine(
+  text: string | ((m: Member) => string),
+  opts: { exceptMemberId?: string; kind?: StaffNotifyKind } = {},
+): Promise<void> {
+  const kind = opts.kind ?? "instant";
+  if (!staffNotifyEnabled(kind)) return;
+  try {
+    const members = await getMembers();
+    const ids = members.filter((m) => m.isAdmin && m.id !== opts.exceptMemberId).map((m) => m.id);
+    await notifyMembersByLine(ids, text, members, kind);
+  } catch (e) {
+    console.error("[line] notifyAdminsByLine 失敗", e);
   }
 }
 
