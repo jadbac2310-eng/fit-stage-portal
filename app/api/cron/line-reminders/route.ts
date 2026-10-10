@@ -19,7 +19,8 @@ function authorized(req: NextRequest): boolean {
 // 予定の開始 REMINDER_MIN 分前にリマインドを送る。数分おきに叩かれる前提（重複は送信済みログで防止）。
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  // 無料枠(月200通)を使い切らないよう既定では停止。LINE_NOTIFY_REMINDER=on で再開。
+  // 既定は有効。無料枠(月200通)が苦しいときは LINE_NOTIFY_REMINDER=off で全員ぶん止められる。
+  // 担当者ごとに止めたいときは、担当者マスタの「レッスンのリマインドを受け取る」を外す（下のループで見る）。
   if (!staffNotifyEnabled("reminder")) return NextResponse.json({ ok: true, sent: 0, disabled: true });
 
   const now = Date.now();
