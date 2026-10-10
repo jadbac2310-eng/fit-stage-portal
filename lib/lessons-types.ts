@@ -96,3 +96,30 @@ export function resolveSingleLessonAmount(
   if (customerSinglePrice != null) return customerSinglePrice;
   return null;
 }
+
+// ─── 会場の種類（入力画面用） ──────────────────────────
+// 店舗・レンタルジム・FCT店舗は同じ回に2つ使うことがない。
+// 全部を1つのプルダウンに並べると数十件になって選びにくいので、
+// まず種類を選び、その種類のぶんだけ出す。
+export type VenueKind = "none" | "store" | "gym" | "fct";
+
+export function venueKindOf(
+  v?: { storeId?: string; rentalGymId?: string; fctStoreId?: string } | null,
+): VenueKind {
+  if (v?.rentalGymId) return "gym";
+  if (v?.fctStoreId)  return "fct";
+  if (v?.storeId)     return "store";
+  return "none";
+}
+
+/** マスタが1件も無い種類はボタンを出さない */
+export function venueKindOptions(
+  storeCount: number, gymCount: number, fctCount: number,
+): { value: VenueKind; label: string }[] {
+  return ([
+    { value: "none"  as const, label: "なし",         show: true },
+    { value: "store" as const, label: "店舗",         show: storeCount > 0 },
+    { value: "gym"   as const, label: "レンタルジム", show: gymCount   > 0 },
+    { value: "fct"   as const, label: "FCT店舗",      show: fctCount   > 0 },
+  ]).filter((o) => o.show).map(({ value, label }) => ({ value, label }));
+}

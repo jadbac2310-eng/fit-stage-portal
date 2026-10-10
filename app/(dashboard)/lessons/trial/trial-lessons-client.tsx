@@ -22,7 +22,7 @@ import {
   saveContractResultAction,
   deleteTrialLessonAction,
 } from "./actions";
-import { DELIVERY_MODE_OPTIONS, type DeliveryMode } from "@/lib/lessons-types";
+import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -225,17 +225,14 @@ function LessonForm({
     }
   }
 
-  // 会場は上の3つのどれか1つ。プルダウンを並べると同時に選べるように見えるので1つにまとめる
-  const venue = rentalGymId ? `gym:${rentalGymId}`
-    : fctStoreId ? `fct:${fctStoreId}`
-    : storeId ? `store:${storeId}` : "";
+  // 会場は上の3つのどれか1つ。全部を1つのプルダウンに並べると数十件が一気に出るので、
+  // まず種類を選び、その種類のぶんだけ出す。
+  const [venueKind, setVenueKind] = useState<VenueKind>(venueKindOf(defaultValues));
+  const venueKinds = venueKindOptions(stores.length, rentalGyms.length, fctStores.length);
 
-  function onVenueChange(value: string) {
-    const [kind, id] = value.split(":");
-    if (kind === "gym")        onRentalGymChange(id);
-    else if (kind === "fct")   onFctStoreChange(id);
-    else if (kind === "store") onStoreChange(id);
-    else clearPlaces();        // 「なし」。場所の手入力はそのまま残す
+  function onVenueKindChange(kind: VenueKind) {
+    setVenueKind(kind);
+    clearPlaces();  // 種類を変えたら選び直し。場所の手入力はそのまま残す
   }
 
   const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId;
@@ -335,33 +332,45 @@ function LessonForm({
           料金は選んだあとに下の入力欄で見せる。 */}
       <div>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
-        <select value={venue} onChange={(e) => onVenueChange(e.target.value)} className={inputClass}>
-          <option value="">なし（自社・その他）</option>
-          {stores.length > 0 && (
-            <optgroup label="店舗">
-              {stores.map((s) => <option key={s.id} value={`store:${s.id}`}>{s.name}</option>)}
-            </optgroup>
-          )}
-          {rentalGyms.length > 0 && (
-            <optgroup label="レンタルジム">
-              {rentalGyms.map((g) => (
-                <option key={g.id} value={`gym:${g.id}`}>{g.name}</option>
-              ))}
-            </optgroup>
-          )}
-          {fctStores.length > 0 && (
-            <optgroup label="FCT店舗">
-              {fctStores.map((f) => (
-                <option key={f.id} value={`fct:${f.id}`}>{f.name}</option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+        <div className="flex gap-1.5">
+          {venueKinds.map((k) => (
+            <button
+              key={k.value}
+              type="button"
+              onClick={() => onVenueKindChange(k.value)}
+              className={cn(
+                "flex-1 py-2 rounded-xl border text-xs font-medium transition",
+                venueKind === k.value
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
+              )}
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+        {venueKind === "store" && (
+          <select value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
+            <option value="">店舗を選択</option>
+            {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        )}
+        {venueKind === "gym" && (
+          <select value={rentalGymId} onChange={(e) => onRentalGymChange(e.target.value)} className={cn(inputClass, "mt-2")}>
+            <option value="">レンタルジムを選択</option>
+            {rentalGyms.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        )}
+        {venueKind === "fct" && (
+          <select value={fctStoreId} onChange={(e) => onFctStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
+            <option value="">FCT店舗を選択</option>
+            {fctStores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+        )}
         {/* 保存する形はこれまでどおり3つに分かれている */}
         <input type="hidden" name="storeId"     value={storeId} />
         <input type="hidden" name="rentalGymId" value={rentalGymId} />
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
-        <p className="text-xs text-gray-400 mt-1">1回のレッスンで選べるのは1か所だけ。利用料は選ぶと下に出ます</p>
         {rentalGymId && (
           <div className="mt-2">
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>
