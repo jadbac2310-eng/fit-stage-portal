@@ -123,3 +123,56 @@ export function venueKindOptions(
     { value: "fct"   as const, label: "FCT店舗",      show: fctCount   > 0 },
   ]).filter((o) => o.show).map(({ value, label }) => ({ value, label }));
 }
+
+export interface VenueRef { kind: VenueKind; id: string; name: string }
+
+/** 会場のid（種類ごとに別のマスタなので、種類とセットで1つの鍵にする） */
+export function venueKey(kind: VenueKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
+export function venueIdOf(
+  v: { storeId?: string; rentalGymId?: string; fctStoreId?: string }, kind: VenueKind,
+): string {
+  return kind === "gym" ? v.rentalGymId! : kind === "fct" ? v.fctStoreId! : v.storeId!;
+}
+
+/**
+ * その顧客が前に使った会場を、直近に使った順で返す。
+ *
+ * 会場は顧客ごとにだいたい決まっているので、これをタップできるようにしておけば
+ * 種類を選んで一覧から探す手間がいらない。
+ * マスタから消えた会場は名前が引けないので出さない。
+ */
+export function recentVenues(
+  lessons: {
+    customerId: string; scheduledAt: string;
+    storeId?: string; rentalGymId?: string; fctStoreId?: string;
+  }[],
+  customerId: string,
+  masters: {
+    stores:     { id: string; name: string }[];
+    rentalGyms: { id: string; name: string }[];
+    fctStores:  { id: string; name: string }[];
+  },
+  limit = 4,
+): VenueRef[] {
+  if (!customerId) return [];
+  const found = new Map<string, VenueRef>();
+  const mine = lessons
+    .filter((l) => l.customerId === customerId)
+    .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
+  for (const l of mine) {
+    const kind = venueKindOf(l);
+    if (kind === "none") continue;
+    const id = venueIdOf(l, kind);
+    const key = venueKey(kind, id);
+    if (found.has(key)) continue;
+    const list = kind === "gym" ? masters.rentalGyms : kind === "fct" ? masters.fctStores : masters.stores;
+    const name = list.find((m) => m.id === id)?.name;
+    if (!name) continue;
+    found.set(key, { kind, id, name });
+    if (found.size >= limit) break;
+  }
+  return Array.from(found.values());
+}

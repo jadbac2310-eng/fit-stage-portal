@@ -7,7 +7,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
@@ -331,13 +331,35 @@ export function LessonForm({
     clearPlaces();  // 種類を変えたら選び直し。場所の手入力はそのまま残す
   }
 
-  // 場所の入力候補: 選択中の顧客が過去に使った場所のみ。手入力も可。
+  const currentVenueKey =
+    rentalGymId ? venueKey("gym", rentalGymId) :
+    fctStoreId  ? venueKey("fct", fctStoreId)  :
+    storeId     ? venueKey("store", storeId)   : "";
+
+  // その顧客が前に使った会場（直近順）。タップで一発選択できるようにする
+  const venueHistory = useMemo(
+    () => recentVenues(allLessons, selectedCustomerId, { stores, rentalGyms, fctStores }),
+    [allLessons, selectedCustomerId, rentalGyms, stores, fctStores],
+  );
+
+  function applyVenue(kind: VenueKind, id: string) {
+    setVenueKind(kind);
+    if (kind === "gym")      onRentalGymChange(id);
+    else if (kind === "fct") onFctStoreChange(id);
+    else                     onStoreChange(id);
+  }
+
+  // 場所の入力候補: 選択中の顧客が過去に手入力した場所のみ。
+  // 会場（店舗・レンタルジム・FCT店舗）から自動入力されたぶんは「よく使う会場」に出るので、
+  // ここに出すと同じ名前が2か所に並んでしまう。
   const locationListId = useId();
   const locationHistory = useMemo(() => {
     if (!selectedCustomerId) return [];
     const set = new Set<string>();
     for (const l of allLessons) {
-      if (l.customerId === selectedCustomerId && l.location) set.add(l.location);
+      if (l.customerId !== selectedCustomerId || !l.location) continue;
+      if (venueKindOf(l) !== "none") continue;
+      set.add(l.location);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ja"));
   }, [allLessons, selectedCustomerId]);
@@ -621,6 +643,28 @@ export function LessonForm({
           料金は選んだあとに下の入力欄で見せる。 */}
       <div>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
+        {venueHistory.length > 0 && (
+          <div className="mb-2">
+            <p className="text-[11px] text-gray-400 mb-1">よく使う会場（タップで選択）</p>
+            <div className="flex flex-wrap gap-1.5">
+              {venueHistory.map((v) => (
+                <button
+                  key={venueKey(v.kind, v.id)}
+                  type="button"
+                  onClick={() => applyVenue(v.kind, v.id)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs border transition",
+                    currentVenueKey === venueKey(v.kind, v.id)
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
+                  )}
+                >
+                  {v.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex gap-1.5">
           {venueKinds.map((k) => (
             <button
