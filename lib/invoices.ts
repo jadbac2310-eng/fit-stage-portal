@@ -3,7 +3,6 @@ import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
-import { trialCourseLabel } from "./trial-lessons-types";
 import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
 import { TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 import { resolveTrialFee } from "./commissions";
@@ -240,7 +239,9 @@ export function buildInvoice(
     if (!inPeriod(t.scheduledAt, period)) continue;
     lines.push({
       date: t.scheduledAt.slice(0, 10),
-      label: `${PROGRAM_LABEL}（${trialCourseLabel(t.course)}）`,
+      // 請求書には体験であることを書かない（通常のレッスンと同じ見え方にする）。
+      // 料金区分が入っていればそれを、無ければ通常の店舗レッスンと同じ表記にする。
+      label: `${PROGRAM_LABEL}（${t.course && t.course !== TRIAL_LESSON_COURSE_NAME ? t.course : "店舗"}）`,
       amount: resolveTrialFee(t, { lessonFees: fees.lessonFees }),
     });
   }
