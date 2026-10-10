@@ -227,9 +227,10 @@ export function buildInvoice(
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inPeriod(l.scheduledAt, period)) continue;
     const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? fees.single;
+    // カッコに入れるのは実施形態だけにする。「都度」などの支払い方法は金額で分かるので書かない
     const label = l.course === "オンラインパーソナル"
       ? `${PROGRAM_LABEL}（オンライン）`
-      : `${PROGRAM_LABEL}（店舗）`;
+      : PROGRAM_LABEL;
     lines.push({ date: l.scheduledAt.slice(0, 10), label, amount });
   }
 
@@ -239,9 +240,8 @@ export function buildInvoice(
     if (!inPeriod(t.scheduledAt, period)) continue;
     lines.push({
       date: t.scheduledAt.slice(0, 10),
-      // 請求書には体験であることを書かない（通常のレッスンと同じ見え方にする）。
-      // 料金区分が入っていればそれを、無ければ通常の店舗レッスンと同じ表記にする。
-      label: `${PROGRAM_LABEL}（${t.course && t.course !== TRIAL_LESSON_COURSE_NAME ? t.course : "店舗"}）`,
+      // 請求書には体験であることも、支払い方法（都度など）も書かない。通常のレッスンと同じ表記にする
+      label: PROGRAM_LABEL,
       amount: resolveTrialFee(t, { lessonFees: fees.lessonFees }),
     });
   }
