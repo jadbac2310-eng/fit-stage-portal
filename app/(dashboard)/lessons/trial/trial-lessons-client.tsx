@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
-  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins, ChevronDown, Landmark,
+  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins, ChevronDown,
 } from "lucide-react";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
@@ -225,6 +225,19 @@ function LessonForm({
     }
   }
 
+  // 会場は上の3つのどれか1つ。プルダウンを並べると同時に選べるように見えるので1つにまとめる
+  const venue = rentalGymId ? `gym:${rentalGymId}`
+    : fctStoreId ? `fct:${fctStoreId}`
+    : storeId ? `store:${storeId}` : "";
+
+  function onVenueChange(value: string) {
+    const [kind, id] = value.split(":");
+    if (kind === "gym")        onRentalGymChange(id);
+    else if (kind === "fct")   onFctStoreChange(id);
+    else if (kind === "store") onStoreChange(id);
+    else clearPlaces();        // 「なし」。場所の手入力はそのまま残す
+  }
+
   const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId;
 
   async function handleSubmit(fd: FormData) {
@@ -317,15 +330,36 @@ function LessonForm({
         </p>
       </div>
 
-      {/* レンタルジム（利益計算で利用料を差し引く） */}
+      {/* 会場（店舗・レンタルジム・FCT店舗のどれか1つ） */}
       <div>
-        <label className={labelClass}><MapPin size={12} /> レンタルジム</label>
-        <select name="rentalGymId" value={rentalGymId} onChange={(e) => onRentalGymChange(e.target.value)} className={inputClass}>
+        <label className={labelClass}><Building2 size={12} /> 会場</label>
+        <select value={venue} onChange={(e) => onVenueChange(e.target.value)} className={inputClass}>
           <option value="">なし（自社・その他）</option>
-          {rentalGyms.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}（¥{g.fee.toLocaleString("ja-JP")}）</option>
-          ))}
+          {stores.length > 0 && (
+            <optgroup label="店舗">
+              {stores.map((s) => <option key={s.id} value={`store:${s.id}`}>{s.name}</option>)}
+            </optgroup>
+          )}
+          {rentalGyms.length > 0 && (
+            <optgroup label="レンタルジム">
+              {rentalGyms.map((g) => (
+                <option key={g.id} value={`gym:${g.id}`}>{g.name}（¥{g.fee.toLocaleString("ja-JP")}）</option>
+              ))}
+            </optgroup>
+          )}
+          {fctStores.length > 0 && (
+            <optgroup label="FCT店舗">
+              {fctStores.map((f) => (
+                <option key={f.id} value={`fct:${f.id}`}>{f.name}（¥{f.fee.toLocaleString("ja-JP")}）</option>
+              ))}
+            </optgroup>
+          )}
         </select>
+        {/* 保存する形はこれまでどおり3つに分かれている */}
+        <input type="hidden" name="storeId"     value={storeId} />
+        <input type="hidden" name="rentalGymId" value={rentalGymId} />
+        <input type="hidden" name="fctStoreId"  value={fctStoreId} />
+        <p className="text-xs text-gray-400 mt-1">1回のレッスンで選べるのは1か所だけです</p>
         {rentalGymId && (
           <div className="mt-2">
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>
@@ -334,26 +368,6 @@ function LessonForm({
             <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
           </div>
         )}
-      </div>
-
-      {/* 店舗（レンタルジムとは別概念・利用料は無い） */}
-      <div>
-        <label className={labelClass}><Building2 size={12} /> 店舗</label>
-        <select name="storeId" value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={inputClass}>
-          <option value="">なし</option>
-          {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </div>
-
-      {/* FCT店舗（レンタルジムと同じく利用料を利益計算で差し引く） */}
-      <div>
-        <label className={labelClass}><Landmark size={12} /> FCT店舗</label>
-        <select name="fctStoreId" value={fctStoreId} onChange={(e) => onFctStoreChange(e.target.value)} className={inputClass}>
-          <option value="">なし</option>
-          {fctStores.map((f) => (
-            <option key={f.id} value={f.id}>{f.name}（¥{f.fee.toLocaleString("ja-JP")}）</option>
-          ))}
-        </select>
         {fctStoreId && (
           <div className="mt-2">
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">FCT店舗の利用料（税込）</label>
