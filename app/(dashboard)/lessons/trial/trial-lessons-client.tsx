@@ -22,6 +22,7 @@ import {
   saveContractResultAction,
   deleteTrialLessonAction,
 } from "./actions";
+import { DELIVERY_MODE_OPTIONS, type DeliveryMode } from "@/lib/lessons-types";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -164,6 +165,7 @@ function LessonForm({
   // 場所（通常レッスンと同じ挙動）: レンタルジム/店舗を選ぶと場所名を自動入力し、手入力は不可にする。
   // レンタルジムと店舗は排他（どちらか一方だけ）。
   const [location, setLocation] = useState(defaultValues?.location ?? "");
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(defaultValues?.deliveryMode ?? "store");
   const [rentalGymId, setRentalGymId] = useState(defaultValues?.rentalGymId ?? "");
   const [rentalGymFee, setRentalGymFee] = useState(
     defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
@@ -287,6 +289,32 @@ function LessonForm({
             {rentalGymId ? "レンタルジム" : fctStoreId ? "FCT店舗" : "店舗"}に合わせて自動設定されます
           </p>
         )}
+      </div>
+
+      {/* 実施形態（どこでやるか）。請求書の品目にも出るので、推測ではなく明示的に選ぶ */}
+      <div>
+        <label className={labelClass}><MapPin size={12} /> 実施形態</label>
+        <div className="flex gap-2">
+          {DELIVERY_MODE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setDeliveryMode(o.value)}
+              className={cn(
+                "flex-1 py-2 rounded-xl border text-sm font-medium transition",
+                deliveryMode === o.value
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="deliveryMode" value={deliveryMode} />
+        <p className="text-xs text-gray-400 mt-1">
+          出張・オンラインは請求書の品目に「（出張）」「（オンライン）」と出ます。店舗は無印です。
+        </p>
       </div>
 
       {/* レンタルジム（利益計算で利用料を差し引く） */}

@@ -1,5 +1,7 @@
 "use server";
 
+import { toDeliveryMode } from "@/lib/lessons-types";
+
 import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
 import { updateCustomer } from "@/lib/customers";
@@ -24,6 +26,7 @@ function readPlaceAndCourse(formData: FormData) {
     rentalGymId,
     rentalGymFee: rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null,
     storeId:      (formData.get("storeId") as string)?.trim() || null,
+    deliveryMode: toDeliveryMode(formData.get("deliveryMode") as string),
     fctStoreId,
     fctStoreFee:  fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null,
     course:       courseRaw && courseRaw !== TRIAL_LESSON_COURSE_NAME ? courseRaw : null,

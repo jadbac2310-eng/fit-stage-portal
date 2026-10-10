@@ -3,7 +3,7 @@ import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
-import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount, DELIVERY_MODE_LABEL, type DeliveryMode } from "./lessons-types";
 import { TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 import { resolveTrialFee } from "./commissions";
 import type { PlanMaster } from "./plans-master-types";
@@ -23,6 +23,17 @@ export const ISSUER = {
 export const TAX_RATE = 10;
 
 // 請求書の品名（サービス名）。種別ごとに内容を併記する。
+/**
+ * 明細の品目名。
+ *
+ * カッコに入れるのは実施形態（どこでやったか）だけにする。
+ * 「都度」「月4回」などの支払い方法は金額で分かるため書かない。
+ * 店舗はいちばん多く、わざわざ断る必要がないので無印にする。
+ */
+function deliveryLabel(mode: DeliveryMode): string {
+  return mode === "store" ? PROGRAM_LABEL : `${PROGRAM_LABEL}（${DELIVERY_MODE_LABEL[mode]}）`;
+}
+
 export const PROGRAM_LABEL = "健康増進プログラム利用料";
 
 /** 宛名の敬称（法人=御中／個人=様） */
@@ -227,11 +238,7 @@ export function buildInvoice(
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inPeriod(l.scheduledAt, period)) continue;
     const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? fees.single;
-    // カッコに入れるのは実施形態だけにする。「都度」などの支払い方法は金額で分かるので書かない
-    const label = l.course === "オンラインパーソナル"
-      ? `${PROGRAM_LABEL}（オンライン）`
-      : PROGRAM_LABEL;
-    lines.push({ date: l.scheduledAt.slice(0, 10), label, amount });
+    lines.push({ date: l.scheduledAt.slice(0, 10), label: deliveryLabel(l.deliveryMode), amount });
   }
 
   // 体験レッスン（その月に完了したもの）。料金区分が「都度」等なら、その単価で計上する。
@@ -240,8 +247,8 @@ export function buildInvoice(
     if (!inPeriod(t.scheduledAt, period)) continue;
     lines.push({
       date: t.scheduledAt.slice(0, 10),
-      // 請求書には体験であることも、支払い方法（都度など）も書かない。通常のレッスンと同じ表記にする
-      label: PROGRAM_LABEL,
+      // 請求書には体験であることも、支払い方法（都度など）も書かない
+      label: deliveryLabel(t.deliveryMode),
       amount: resolveTrialFee(t, { lessonFees: fees.lessonFees }),
     });
   }

@@ -3,6 +3,26 @@ import type { Exercise } from "./exercise-types";
 export type LessonPaymentType = "monthly" | "session_pass" | "single";
 export type LessonStatus = "scheduled" | "completed" | "cancelled" | "cancelled_same_day";
 
+/** 実施形態。どこでレッスンを行ったか（支払い方法とは別の軸） */
+export type DeliveryMode = "store" | "onsite" | "online";
+
+export const DELIVERY_MODE_LABEL: Record<DeliveryMode, string> = {
+  store:  "店舗",
+  onsite: "出張",
+  online: "オンライン",
+};
+
+export const DELIVERY_MODE_OPTIONS: { value: DeliveryMode; label: string }[] = [
+  { value: "store",  label: "店舗" },
+  { value: "onsite", label: "出張" },
+  { value: "online", label: "オンライン" },
+];
+
+/** 不明な値が入っていても落ちないように、既定（店舗）へ寄せる */
+export function toDeliveryMode(value?: string | null): DeliveryMode {
+  return value === "onsite" || value === "online" ? value : "store";
+}
+
 export interface Lesson {
   id: string;
   customerId: string;
@@ -15,6 +35,7 @@ export interface Lesson {
   course?: string;
   paymentType?: LessonPaymentType;
   status: LessonStatus;
+  deliveryMode: DeliveryMode;  // 実施形態（店舗／出張／オンライン）
   sessionPassId?: string;
   amount?: number;          // 都度払いの金額（円）。未設定はコース単価を使用
   trainingContent?: string;    // 旧レポート自由記述（互換用・現在は未使用）

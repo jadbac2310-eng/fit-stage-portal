@@ -7,7 +7,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2, Landmark,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, type DeliveryMode } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
@@ -273,6 +273,7 @@ export function LessonForm({
   }
   // レンタルジム（選択で場所を自動入力。代金はマスタ値がデフォルト・変更可）
   const [location, setLocation] = useState(defaultValues?.location ?? "");
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(defaultValues?.deliveryMode ?? "store");
   const [rentalGymId, setRentalGymId] = useState(defaultValues?.rentalGymId ?? "");
   const [rentalGymFee, setRentalGymFee] = useState(
     defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
@@ -576,6 +577,32 @@ export function LessonForm({
             </div>
           </div>
         )}
+      </div>
+
+      {/* 実施形態（どこでやるか）。請求書の品目にも出るので、推測ではなく明示的に選ぶ */}
+      <div>
+        <label className={labelClass}><MapPin size={12} /> 実施形態</label>
+        <div className="flex gap-2">
+          {DELIVERY_MODE_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setDeliveryMode(o.value)}
+              className={cn(
+                "flex-1 py-2 rounded-xl border text-sm font-medium transition",
+                deliveryMode === o.value
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="deliveryMode" value={deliveryMode} />
+        <p className="text-xs text-gray-400 mt-1">
+          出張・オンラインは請求書の品目に「（出張）」「（オンライン）」と出ます。店舗は無印です。
+        </p>
       </div>
 
       {/* レンタルジム */}

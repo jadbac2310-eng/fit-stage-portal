@@ -1,7 +1,8 @@
 import { createAdminClient } from "./supabase";
 export type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
 export { LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "./lessons-types";
-import type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
+import type { LessonPaymentType, LessonStatus, Lesson, DeliveryMode } from "./lessons-types";
+import { toDeliveryMode } from "./lessons-types";
 import { parseExercises, type Exercise } from "./exercise-types";
 import { currentMemberId } from "./audit";
 
@@ -15,6 +16,7 @@ type DbRow = {
   course: string | null;
   payment_type: LessonPaymentType | null;
   status: LessonStatus;
+  delivery_mode?: string | null;
   session_pass_id: string | null;
   amount: number | null;
   training_content: string | null;
@@ -48,6 +50,7 @@ function fromDb(row: DbRow): Lesson {
     course:            row.course ?? undefined,
     paymentType:       row.payment_type ?? undefined,
     status:            row.status,
+    deliveryMode:      toDeliveryMode(row.delivery_mode),
     sessionPassId:     row.session_pass_id ?? undefined,
     amount:            row.amount ?? undefined,
     trainingContent:   row.training_content ?? undefined,
@@ -82,7 +85,7 @@ const SELECTS = [
 // ※ 書き込み(addLesson/updateLesson)は JOIN を含めないため、この判定で列を落とすことはない。
 function isMissingOptionalColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return /created_by|updated_by|rental_gym|store|amount|end_at/i.test(err.message ?? "")
+  return /created_by|updated_by|rental_gym|store|amount|end_at|delivery_mode/i.test(err.message ?? "")
     || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
@@ -125,6 +128,7 @@ export async function addLesson(input: {
   fctStoreId?: string | null;
   fctStoreFee?: number | null;
   storeId?: string | null;
+  deliveryMode?: DeliveryMode;
 }): Promise<Lesson> {
   const client = createAdminClient();
   const row = {
@@ -148,6 +152,7 @@ export async function addLesson(input: {
   const fctRow = {
     fct_store_id:      input.fctStoreId ?? null,
     fct_store_fee:     input.fctStoreFee ?? null,
+    delivery_mode:     input.deliveryMode ?? "store",
   };
   // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
   // 表示用のJOIN済みデータは getLesson で別途取得する。
@@ -183,6 +188,7 @@ export async function updateLesson(
     fctStoreId: string | null;
     fctStoreFee: number | null;
     storeId: string | null;
+    deliveryMode: DeliveryMode;
   }>
 ): Promise<Lesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -209,6 +215,7 @@ export async function updateLesson(
   const fctKeys: string[] = [];
   if (input.fctStoreId  !== undefined) { patch.fct_store_id  = input.fctStoreId;  fctKeys.push("fct_store_id"); }
   if (input.fctStoreFee !== undefined) { patch.fct_store_fee = input.fctStoreFee; fctKeys.push("fct_store_fee"); }
+  if (input.deliveryMode !== undefined) { patch.delivery_mode = input.deliveryMode; fctKeys.push("delivery_mode"); }
 
   const client = createAdminClient();
   // 書き込みは JOIN を含めず実行する（members への関連取得が壊れても end_at 等の列を落とさないため）。

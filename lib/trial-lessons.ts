@@ -3,6 +3,7 @@ import type { CustomerPlan } from "./customers-types";
 export type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 export { STATUS_LABEL, CONTRACT_LABEL } from "./trial-lessons-types";
 import type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
+import { toDeliveryMode, type DeliveryMode } from "./lessons-types";
 import { parseExercises, type Exercise } from "./exercise-types";
 import { currentMemberId, isMissingAuthorColumn } from "./audit";
 
@@ -21,6 +22,7 @@ type DbRow = {
   course: string | null;
   amount: number | null;
   status: TrialLessonStatus;
+  delivery_mode?: string | null;
   contracted: boolean | null;
   contract_plan: CustomerPlan | null;
   training_content: string | null;
@@ -55,6 +57,7 @@ function fromDb(row: DbRow): TrialLesson {
     course:              row.course ?? undefined,
     amount:              row.amount ?? undefined,
     status:              row.status,
+    deliveryMode:        toDeliveryMode(row.delivery_mode),
     contracted:          row.contracted,
     contractPlan:        row.contract_plan ?? undefined,
     trainingContent:     row.training_content ?? undefined,
@@ -105,6 +108,7 @@ export async function addTrialLesson(input: {
   rentalGymFee?: number | null;
   storeId?: string | null;
   fctStoreId?: string | null;
+  deliveryMode?: DeliveryMode;
   fctStoreFee?: number | null;
   course?: string | null;
   amount?: number | null;
@@ -127,6 +131,7 @@ export async function addTrialLesson(input: {
     rental_gym_fee: input.rentalGymFee ?? null,
     store_id:       input.storeId ?? null,
     fct_store_id:   input.fctStoreId ?? null,
+    delivery_mode:  input.deliveryMode ?? "store",
     fct_store_fee:  input.fctStoreFee ?? null,
     course:         input.course ?? null,
     amount:         input.amount ?? null,
@@ -155,6 +160,7 @@ export async function updateTrialLesson(
     rentalGymFee: number | null;
     storeId: string | null;
     fctStoreId: string | null;
+    deliveryMode: DeliveryMode;
     fctStoreFee: number | null;
     course: string | null;
     amount: number | null;
@@ -182,6 +188,7 @@ export async function updateTrialLesson(
   if (input.storeId             !== undefined) setExtra("store_id",       input.storeId);
   if (input.fctStoreId          !== undefined) setExtra("fct_store_id",   input.fctStoreId);
   if (input.fctStoreFee         !== undefined) setExtra("fct_store_fee",  input.fctStoreFee);
+  if (input.deliveryMode        !== undefined) setExtra("delivery_mode",  input.deliveryMode);
   if (input.course              !== undefined) setExtra("course",         input.course);
   if (input.amount              !== undefined) setExtra("amount",         input.amount);
   if (input.contracted          !== undefined) patch.contracted           = input.contracted;

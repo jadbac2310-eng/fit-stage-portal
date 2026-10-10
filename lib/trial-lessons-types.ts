@@ -1,6 +1,6 @@
 import type { CustomerPlan } from "./customers-types";
 import type { Exercise } from "./exercise-types";
-import { COURSE_OPTIONS } from "./lessons-types";
+import { COURSE_OPTIONS, type DeliveryMode } from "./lessons-types";
 import { TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 
 export type TrialLessonStatus = "scheduled" | "completed" | "cancelled";
@@ -39,6 +39,7 @@ export interface TrialLesson {
   course?: string;             // 料金区分。未設定は「体験レッスン」
   amount?: number;             // この回だけの金額。未設定はコース単価
   status: TrialLessonStatus;
+  deliveryMode: DeliveryMode;  // 実施形態（店舗／出張／オンライン）
   contracted: boolean | null;
   contractPlan?: CustomerPlan;
   trainingContent?: string;    // 旧レポート自由記述（互換用・現在は未使用）
