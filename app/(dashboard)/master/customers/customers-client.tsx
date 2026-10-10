@@ -116,6 +116,10 @@ function CustomerForm({
   const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
+  // まとめ先を選ぶと、その顧客あての請求書は作られない（まとめ先の請求書に合算される）。
+  // 宛名・締日・送付日・支払期限はすべてまとめ先のものが使われるので、入力欄ごと隠す。
+  const [billingTo, setBillingTo] = useState(defaultValues?.billingToCustomerId ?? "");
+  const billerName = allCustomers.find((c) => c.id === billingTo)?.fullName ?? "まとめ先の顧客";
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -278,17 +282,13 @@ function CustomerForm({
       <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3 space-y-3">
         <p className="text-xs font-bold text-gray-500">請求設定</p>
         <div>
-          <label className={labelClass}>請求宛名（任意）</label>
-          <input
-            name="billingName"
-            defaultValue={defaultValues?.billingName ?? ""}
-            placeholder="未設定なら氏名を使用"
-            className={inputClass}
-          />
-        </div>
-        <div>
           <label className={labelClass}>請求まとめ先（任意）</label>
-          <select name="billingToCustomerId" defaultValue={defaultValues?.billingToCustomerId ?? ""} className={inputClass}>
+          <select
+            name="billingToCustomerId"
+            value={billingTo}
+            onChange={(e) => setBillingTo(e.target.value)}
+            className={inputClass}
+          >
             <option value="">まとめない（この顧客に請求）</option>
             {allCustomers
               .filter((c) => c.id !== defaultValues?.id)
@@ -296,62 +296,89 @@ function CustomerForm({
           </select>
           <p className="text-xs text-gray-400 mt-1">この顧客の請求を別の顧客の請求書に合算します</p>
         </div>
-        <div>
-          <label className={labelClass}>請求の締日</label>
-          <select
-            name="billingCutoffDay"
-            defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""}
-            className={inputClass}
-          >
-            <option value="">月末締め（暦の月どおり）</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>毎月{d}日締め</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-400 mt-1">
-            例：20日締めにすると、10月分の請求は 9/21〜10/20 のレッスンが対象になります
-          </p>
-        </div>
-        <div>
-          <label className={labelClass}>請求書の送付日</label>
-          <select
-            name="invoiceSendDay"
-            defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""}
-            className={inputClass}
-          >
-            <option value="">決まりなし（リマインドしない）</option>
-            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>毎月{d}日</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-400 mt-1">設定すると、その日の朝にLINEで「送付日です」とお知らせします</p>
-        </div>
-        <div>
-          <label className={labelClass}>支払期限</label>
-          <div className="flex gap-2">
+
+        {billingTo ? (
+          <>
+            <p className="text-xs text-blue-700 bg-blue-50 rounded-lg p-2.5 leading-relaxed">
+              請求は <span className="font-semibold">{billerName}</span> の請求書にまとめられます。
+              宛名・締日・送付日・支払期限は {billerName} の設定を使うので、ここでの入力は要りません。
+            </p>
+            {/* まとめをやめたときに元の設定が消えないよう、値はそのまま持っておく */}
+            <input type="hidden" name="billingName"      defaultValue={defaultValues?.billingName ?? ""} />
+            <input type="hidden" name="billingCutoffDay" defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""} />
+            <input type="hidden" name="invoiceSendDay"   defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""} />
+            <input type="hidden" name="paymentDueMonth"  defaultValue={defaultValues?.paymentDueMonth ?? "next"} />
+            <input type="hidden" name="paymentDueDay"    defaultValue={defaultValues?.paymentDueDay?.toString() ?? ""} />
+          </>
+        ) : (
+          <>
+          <div>
+            <label className={labelClass}>請求宛名（任意）</label>
+            <input
+              name="billingName"
+              defaultValue={defaultValues?.billingName ?? ""}
+              placeholder="未設定なら氏名を使用"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>請求の締日</label>
             <select
-              name="paymentDueMonth"
-              defaultValue={defaultValues?.paymentDueMonth ?? "next"}
+              name="billingCutoffDay"
+              defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""}
               className={inputClass}
             >
-              <option value="next">翌月</option>
-              <option value="same">当月</option>
-            </select>
-            <select
-              name="paymentDueDay"
-              defaultValue={defaultValues?.paymentDueDay?.toString() ?? ""}
-              className={inputClass}
-            >
-              <option value="">末日</option>
+              <option value="">月末締め（暦の月どおり）</option>
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={d}>{d}日</option>
+                <option key={d} value={d}>毎月{d}日締め</option>
               ))}
             </select>
+            <p className="text-xs text-gray-400 mt-1">
+              例：20日締めにすると、10月分の請求は 9/21〜10/20 のレッスンが対象になります
+            </p>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            請求書の支払期限に使います（既定は翌月末）。月ごとに違う期限にしたいときは、請求書の画面で個別に変えられます。
-          </p>
-        </div>
+          <div>
+            <label className={labelClass}>請求書の送付日</label>
+            <select
+              name="invoiceSendDay"
+              defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""}
+              className={inputClass}
+            >
+              <option value="">決まりなし（リマインドしない）</option>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>毎月{d}日</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">設定すると、その日の朝にLINEで「送付日です」とお知らせします</p>
+          </div>
+          <div>
+            <label className={labelClass}>支払期限</label>
+            <div className="flex gap-2">
+              <select
+                name="paymentDueMonth"
+                defaultValue={defaultValues?.paymentDueMonth ?? "next"}
+                className={inputClass}
+              >
+                <option value="next">翌月</option>
+                <option value="same">当月</option>
+              </select>
+              <select
+                name="paymentDueDay"
+                defaultValue={defaultValues?.paymentDueDay?.toString() ?? ""}
+                className={inputClass}
+              >
+                <option value="">末日</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>{d}日</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              請求書の支払期限に使います（既定は翌月末）。月ごとに違う期限にしたいときは、請求書の画面で個別に変えられます。
+            </p>
+          </div>
+          </>
+        )}
       </div>
 
       {/* メモ */}
