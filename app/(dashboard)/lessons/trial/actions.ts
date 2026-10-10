@@ -4,6 +4,7 @@ import { toDeliveryMode } from "@/lib/lessons-types";
 
 import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
+import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
@@ -108,6 +109,43 @@ export async function saveContractResultAction(id: string, formData: FormData): 
     await logActivity({ action: "report", entityType: "trial_lesson", entityId: id, summary: `体験の契約結果を記録: ${lesson.customerName}${contracted === true ? "（成約）" : ""}`, memberId: member.id, memberName: member.name });
     revalidatePath("/lessons/trial");
     revalidatePath("/master/customers");
+  });
+}
+
+/**
+ * 体験レッスンのステータスだけを切り替える。
+ *
+ * これまでは「契約結果を記録」したときだけ完了になったため、実施直後に
+ * スケジュールから完了にできなかった。完了にならないと
+ *  - 体験の売上が請求書・コミッションに乗らない
+ *  - 追客のリマインド（結果が未入力のものを知らせる）も動かない
+ * ため、通常レッスンや業務と同じようにその場で押せるようにする。
+ *
+ * 契約結果（成約・未成約）は触らない。完了にしただけなら未入力のままなので、
+ * 数日後に追客のリマインドが届く。
+ */
+export async function setTrialLessonStatusAction(id: string, status: TrialLessonStatus): Promise<ActionResult> {
+  return runAction(async () => {
+    const [lesson, member] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
+    if (!member) throw new ActionError("ログインが必要です");
+    if (!lesson) throw new ActionError("体験レッスンが見つかりません");
+    const allowed = member.isAdmin
+      || (!!lesson.trainerMemberId && lesson.trainerMemberId === member.id)
+      || (!!lesson.salesMemberId   && lesson.salesMemberId   === member.id);
+    if (!allowed) {
+      throw new ActionError("変更できるのは担当トレーナー・担当営業または管理者のみです");
+    }
+
+    await updateTrialLesson(id, { status });
+    const label = status === "completed" ? "完了" : status === "cancelled" ? "キャンセル" : "予定";
+    await logActivity({
+      action: "update", entityType: "trial_lesson", entityId: id,
+      summary: `体験レッスンを${label}に変更: ${lesson.customerName}`,
+      memberId: member.id, memberName: member.name,
+    });
+    revalidatePath("/lessons/trial");
+    revalidatePath("/schedule");
+    revalidatePath("/commissions");
   });
 }
 

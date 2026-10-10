@@ -32,6 +32,7 @@ import type { FctStore } from "@/lib/fct-stores";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
+import { setTrialLessonStatusAction } from "../lessons/trial/actions";
 import { assertActionOk } from "@/lib/action-result";
 
 export type ScheduleItem = {
@@ -376,6 +377,10 @@ function LessonCard({
   const canCompleteLesson = item.type === "regular" && !!currentMemberId && item.trainerId === currentMemberId;
   // キャンセル・当日キャンセルへの変更も担当トレーナー本人のみ（すでにキャンセル系のときは表示しない）
   const canCancelLesson = canCompleteLesson && !cancelled && !sameDayCancel;
+  // 体験の完了/予定に戻すは、担当トレーナー・担当営業・管理者。
+  // 完了にしないと売上にもコミッションにも乗らず、追客のリマインドも動かない
+  const canCompleteTrial = isTrial && (isAdmin
+    || (!!currentMemberId && (item.trainerId === currentMemberId || item.salesId === currentMemberId)));
 
   const hasStaff = isPersonal ? !!item.ownerName : (!!item.trainerName || (isTrial && !!item.salesName));
 
@@ -429,6 +434,12 @@ function LessonCard({
   function handleSetHourlyStatus(next: "completed" | "scheduled") {
     applyStatus(next, async () => {
       assertActionOk(await setHourlyTaskStatusAction(item.id, next));
+    }, "変更に失敗しました");
+  }
+
+  function handleSetTrialStatus(next: "completed" | "scheduled") {
+    applyStatus(next, async () => {
+      assertActionOk(await setTrialLessonStatusAction(item.id, next));
     }, "変更に失敗しました");
   }
 
@@ -702,6 +713,28 @@ function LessonCard({
             >
               <Pencil size={13} /> レッスンを編集
             </button>
+          )}
+          {/* 体験の完了切り替え。契約結果の記録まで待つと売上・追客が止まるため、その場で押せるようにする */}
+          {canCompleteTrial && !cancelled && (
+            status === "completed" ? (
+              <button
+                type="button"
+                onClick={() => handleSetTrialStatus("scheduled")}
+                disabled={settingStatus}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <RotateCcw size={13} /> 予定に戻す
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSetTrialStatus("completed")}
+                disabled={settingStatus}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
+              >
+                <CheckCircle size={13} /> 完了にする
+              </button>
+            )
           )}
           {isTrial && isAdmin && (
             <Link
