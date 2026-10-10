@@ -330,7 +330,9 @@ function LessonForm({
         </p>
       </div>
 
-      {/* 会場（店舗・レンタルジム・FCT店舗のどれか1つ） */}
+      {/* 会場（店舗・レンタルジム・FCT店舗のどれか1つ）。
+          選択肢に料金は入れない。スマホだと1件が2行に折り返して一覧がとても縦長になるため、
+          料金は選んだあとに下の入力欄で見せる。 */}
       <div>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
         <select value={venue} onChange={(e) => onVenueChange(e.target.value)} className={inputClass}>
@@ -343,14 +345,14 @@ function LessonForm({
           {rentalGyms.length > 0 && (
             <optgroup label="レンタルジム">
               {rentalGyms.map((g) => (
-                <option key={g.id} value={`gym:${g.id}`}>{g.name}（¥{g.fee.toLocaleString("ja-JP")}）</option>
+                <option key={g.id} value={`gym:${g.id}`}>{g.name}</option>
               ))}
             </optgroup>
           )}
           {fctStores.length > 0 && (
             <optgroup label="FCT店舗">
               {fctStores.map((f) => (
-                <option key={f.id} value={`fct:${f.id}`}>{f.name}（¥{f.fee.toLocaleString("ja-JP")}）</option>
+                <option key={f.id} value={`fct:${f.id}`}>{f.name}</option>
               ))}
             </optgroup>
           )}
@@ -359,7 +361,7 @@ function LessonForm({
         <input type="hidden" name="storeId"     value={storeId} />
         <input type="hidden" name="rentalGymId" value={rentalGymId} />
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
-        <p className="text-xs text-gray-400 mt-1">1回のレッスンで選べるのは1か所だけです</p>
+        <p className="text-xs text-gray-400 mt-1">1回のレッスンで選べるのは1か所だけ。利用料は選ぶと下に出ます</p>
         {rentalGymId && (
           <div className="mt-2">
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>
