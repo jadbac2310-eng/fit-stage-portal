@@ -121,7 +121,7 @@ export function venueKindOptions(
 ): { value: VenueKind; label: string }[] {
   return ([
     { value: "none"   as const, label: "なし",       show: true },
-    { value: "store"  as const, label: "店舗",       show: storeCount  > 0 },
+    { value: "store"  as const, label: "FIT STAGE", show: storeCount  > 0 },
     { value: "gym"    as const, label: "レンタル",   show: gymCount    > 0 },
     { value: "fct"    as const, label: "FCT",        show: fctCount    > 0 },
     { value: "avenir" as const, label: "アヴニール", show: avenirCount > 0 },

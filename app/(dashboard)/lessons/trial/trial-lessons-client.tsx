@@ -349,14 +349,14 @@ function LessonForm({
           料金は選んだあとに下の入力欄で見せる。 */}
       <div>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {venueKinds.map((k) => (
             <button
               key={k.value}
               type="button"
               onClick={() => onVenueKindChange(k.value)}
               className={cn(
-                "flex-1 py-2 rounded-xl border text-xs font-medium transition",
+                "py-2 rounded-xl border text-xs font-medium transition",
                 venueKind === k.value
                   ? "bg-blue-600 text-white border-blue-600"
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
@@ -368,7 +368,7 @@ function LessonForm({
         </div>
         {venueKind === "store" && (
           <select value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">店舗を選択</option>
+            <option value="">FIT STAGEの店舗を選択</option>
             {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         )}
