@@ -47,6 +47,8 @@ export interface Lesson {
   storeId?: string;            // 利用店舗（stores.id）。レンタルジムとは別概念で利用料は無い
   fctStoreId?: string;         // 利用FCT店舗（fct_stores.id）
   fctStoreFee?: number;        // この回のFCT店舗利用料（マスタ値がデフォルト・変更可）
+  avenirStoreId?: string;      // 利用アヴニール店舗（avenir_stores.id）
+  avenirStoreFee?: number;     // この回のアヴニール店舗利用料（マスタ値がデフォルト・変更可）
   createdById?: string;        // レッスンを追加したメンバー
   createdByName?: string;
   updatedById?: string;        // 最後に編集したメンバー
@@ -101,26 +103,28 @@ export function resolveSingleLessonAmount(
 // 店舗・レンタルジム・FCT店舗は同じ回に2つ使うことがない。
 // 全部を1つのプルダウンに並べると数十件になって選びにくいので、
 // まず種類を選び、その種類のぶんだけ出す。
-export type VenueKind = "none" | "store" | "gym" | "fct";
+export type VenueKind = "none" | "store" | "gym" | "fct" | "avenir";
 
 export function venueKindOf(
-  v?: { storeId?: string; rentalGymId?: string; fctStoreId?: string } | null,
+  v?: { storeId?: string; rentalGymId?: string; fctStoreId?: string; avenirStoreId?: string } | null,
 ): VenueKind {
-  if (v?.rentalGymId) return "gym";
-  if (v?.fctStoreId)  return "fct";
-  if (v?.storeId)     return "store";
+  if (v?.rentalGymId)   return "gym";
+  if (v?.fctStoreId)    return "fct";
+  if (v?.avenirStoreId) return "avenir";
+  if (v?.storeId)       return "store";
   return "none";
 }
 
 /** マスタが1件も無い種類はボタンを出さない */
 export function venueKindOptions(
-  storeCount: number, gymCount: number, fctCount: number,
+  storeCount: number, gymCount: number, fctCount: number, avenirCount = 0,
 ): { value: VenueKind; label: string }[] {
   return ([
-    { value: "none"  as const, label: "なし",         show: true },
-    { value: "store" as const, label: "店舗",         show: storeCount > 0 },
-    { value: "gym"   as const, label: "レンタルジム", show: gymCount   > 0 },
-    { value: "fct"   as const, label: "FCT店舗",      show: fctCount   > 0 },
+    { value: "none"   as const, label: "なし",       show: true },
+    { value: "store"  as const, label: "店舗",       show: storeCount  > 0 },
+    { value: "gym"    as const, label: "レンタル",   show: gymCount    > 0 },
+    { value: "fct"    as const, label: "FCT",        show: fctCount    > 0 },
+    { value: "avenir" as const, label: "アヴニール", show: avenirCount > 0 },
   ]).filter((o) => o.show).map(({ value, label }) => ({ value, label }));
 }
 
@@ -132,9 +136,13 @@ export function venueKey(kind: VenueKind, id: string): string {
 }
 
 export function venueIdOf(
-  v: { storeId?: string; rentalGymId?: string; fctStoreId?: string }, kind: VenueKind,
+  v: { storeId?: string; rentalGymId?: string; fctStoreId?: string; avenirStoreId?: string },
+  kind: VenueKind,
 ): string {
-  return kind === "gym" ? v.rentalGymId! : kind === "fct" ? v.fctStoreId! : v.storeId!;
+  return kind === "gym"    ? v.rentalGymId!
+    :    kind === "fct"    ? v.fctStoreId!
+    :    kind === "avenir" ? v.avenirStoreId!
+    :                        v.storeId!;
 }
 
 /**
@@ -147,13 +155,14 @@ export function venueIdOf(
 export function recentVenues(
   lessons: {
     customerId: string; scheduledAt: string;
-    storeId?: string; rentalGymId?: string; fctStoreId?: string;
+    storeId?: string; rentalGymId?: string; fctStoreId?: string; avenirStoreId?: string;
   }[],
   customerId: string,
   masters: {
-    stores:     { id: string; name: string }[];
-    rentalGyms: { id: string; name: string }[];
-    fctStores:  { id: string; name: string }[];
+    stores:        { id: string; name: string }[];
+    rentalGyms:    { id: string; name: string }[];
+    fctStores:     { id: string; name: string }[];
+    avenirStores?: { id: string; name: string }[];
   },
   limit = 4,
 ): VenueRef[] {
@@ -168,7 +177,10 @@ export function recentVenues(
     const id = venueIdOf(l, kind);
     const key = venueKey(kind, id);
     if (found.has(key)) continue;
-    const list = kind === "gym" ? masters.rentalGyms : kind === "fct" ? masters.fctStores : masters.stores;
+    const list = kind === "gym" ? masters.rentalGyms
+      : kind === "fct"    ? masters.fctStores
+      : kind === "avenir" ? (masters.avenirStores ?? [])
+      : masters.stores;
     const name = list.find((m) => m.id === id)?.name;
     if (!name) continue;
     found.set(key, { kind, id, name });

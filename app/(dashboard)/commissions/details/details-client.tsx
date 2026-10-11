@@ -63,6 +63,7 @@ interface DetailRow {
   rentalGymNote?: string;
   storeNote?:    string;
   fctStoreNote?: string;
+  avenirStoreNote?: string;
 }
 
 interface TrainerGroup {
@@ -87,6 +88,7 @@ export function DetailsClient({
   rentalGyms,
   stores,
   fctStores = [],
+  avenirStores = [],
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -100,6 +102,7 @@ export function DetailsClient({
   rentalGyms:    { id: string; name: string; fee: number }[];
   stores:        { id: string; name: string }[];
   fctStores?:    { id: string; name: string; fee?: number }[];
+  avenirStores?: { id: string; name: string; fee?: number }[];
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
@@ -117,6 +120,7 @@ export function DetailsClient({
   const rentalGymMap = useMemo(() => new Map(rentalGyms.map((g) => [g.id, g])), [rentalGyms]);
   const storeMap     = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
   const fctStoreMap  = useMemo(() => new Map(fctStores.map((f) => [f.id, f])), [fctStores]);
+  const avenirStoreMap = useMemo(() => new Map(avenirStores.map((a) => [a.id, a])), [avenirStores]);
 
   const groups = useMemo((): TrainerGroup[] => {
     const filtered = lessons
@@ -173,6 +177,12 @@ export function DetailsClient({
         const fee = l.fctStoreFee ?? fct?.fee;
         fctStoreNote = `${fct?.name ?? "不明なFCT店舗"}${fee != null ? `・${yen(fee)}` : ""}`;
       }
+      let avenirStoreNote: string | undefined;
+      if (l.avenirStoreId || l.avenirStoreFee != null) {
+        const av = l.avenirStoreId ? avenirStoreMap.get(l.avenirStoreId) : undefined;
+        const fee = l.avenirStoreFee ?? av?.fee;
+        avenirStoreNote = `${av?.name ?? "不明なアヴニール店舗"}${fee != null ? `・${yen(fee)}` : ""}`;
+      }
 
       const ensureGroup = (id: string, name: string, avatarUrl?: string) => {
         if (!map.has(id)) map.set(id, { memberId: id, memberName: name, avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
@@ -187,7 +197,7 @@ export function DetailsClient({
         customerType: customerTypeMap.get(l.customerId) ?? "個人",
         course, fee, ratePercent: Math.round(rate * 100), commission,
         sameDayCancel: l.status === "cancelled_same_day",
-        planNote, sessionPassNote, rentalGymNote, storeNote, fctStoreNote,
+        planNote, sessionPassNote, rentalGymNote, storeNote, fctStoreNote, avenirStoreNote,
       });
       group.feeTotal += fee;
       group.commissionTotal += commission;
@@ -219,6 +229,12 @@ export function DetailsClient({
         const fee = t.fctStoreFee ?? fct?.fee;
         trialFctNote = `${fct?.name ?? "不明なFCT店舗"}${fee != null ? `・${yen(fee)}` : ""}`;
       }
+      let trialAvenirNote: string | undefined;
+      if (t.avenirStoreId || t.avenirStoreFee != null) {
+        const av = t.avenirStoreId ? avenirStoreMap.get(t.avenirStoreId) : undefined;
+        const fee = t.avenirStoreFee ?? av?.fee;
+        trialAvenirNote = `${av?.name ?? "不明なアヴニール店舗"}${fee != null ? `・${yen(fee)}` : ""}`;
+      }
 
       if (!map.has(tid)) {
         map.set(tid, { memberId: tid, memberName: member?.name ?? t.trainerMemberName ?? tid, avatarUrl: member?.avatarUrl, rows: [], feeTotal: 0, commissionTotal: 0 });
@@ -230,7 +246,7 @@ export function DetailsClient({
         customerName: t.customerName,
         customerType: customerTypeMap.get(t.customerId) ?? "個人",
         course: trialCourseLabel(t.course), fee, ratePercent: Math.round(rate * 100), commission,
-        rentalGymNote: trialGymNote, storeNote: trialStoreNote, fctStoreNote: trialFctNote,
+        rentalGymNote: trialGymNote, storeNote: trialStoreNote, fctStoreNote: trialFctNote, avenirStoreNote: trialAvenirNote,
       });
       group.feeTotal += fee;
       group.commissionTotal += commission;
@@ -238,7 +254,7 @@ export function DetailsClient({
 
     for (const g of map.values()) g.rows.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     return Array.from(map.values()).sort((a, b) => b.commissionTotal - a.commissionTotal);
-  }, [lessons, trialLessons, month, ctx, members, sessionPasses, customerPlans, customerTypeMap, rentalGymMap, storeMap, fctStoreMap]);
+  }, [lessons, trialLessons, month, ctx, members, sessionPasses, customerPlans, customerTypeMap, rentalGymMap, storeMap, fctStoreMap, avenirStoreMap]);
 
   const grandTotalCommission = groups.reduce((s, g) => s + g.commissionTotal, 0);
   const grandTotalLessons    = groups.reduce((s, g) => s + g.rows.length, 0);
@@ -333,7 +349,10 @@ export function DetailsClient({
                         {row.fctStoreNote && (
                           <p className="flex items-center gap-1 whitespace-nowrap mt-0.5"><Building2 size={11} className="text-gray-400 flex-shrink-0" />{row.fctStoreNote}</p>
                         )}
-                        {!row.rentalGymNote && !row.storeNote && !row.fctStoreNote && "—"}
+                        {row.avenirStoreNote && (
+                          <p className="flex items-center gap-1 whitespace-nowrap mt-0.5"><Building2 size={11} className="text-gray-400 flex-shrink-0" />{row.avenirStoreNote}</p>
+                        )}
+                        {!row.rentalGymNote && !row.storeNote && !row.fctStoreNote && !row.avenirStoreNote && "—"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-600 whitespace-nowrap">{yen(row.fee)}</td>
                       <td className="py-2 px-3 text-right text-gray-500 whitespace-nowrap">{row.ratePercent}%</td>

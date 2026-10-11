@@ -15,6 +15,7 @@ import { Member } from "@/lib/members";
 import { RentalGym } from "@/lib/rental-gyms";
 import { Store } from "@/lib/stores";
 import { FctStore } from "@/lib/fct-stores";
+import type { AvenirStore } from "@/lib/avenir-stores";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -65,7 +66,7 @@ function monthLabel(iso: string): string {
 
 // ─── 月ごとのアコーディオン（顧客アコーディオンの中に入れ子で表示） ───
 function LessonMonthGroup({
-  label, lessons, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, stores, fctStores, isAdmin, currentMemberId, defaultOpen,
+  label, lessons, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, stores, fctStores, avenirStores, isAdmin, currentMemberId, defaultOpen,
 }: {
   label: string;
   lessons: Lesson[];
@@ -76,6 +77,7 @@ function LessonMonthGroup({
   allLessons: Lesson[];
   rentalGyms: RentalGym[];
   fctStores: FctStore[];
+  avenirStores: AvenirStore[];
   stores: Store[];
   isAdmin: boolean;
   currentMemberId?: string;
@@ -102,7 +104,7 @@ function LessonMonthGroup({
         <div className="pb-1">
           {lessons.map((l) => (
             <LessonItem key={l.id} lesson={l} customers={customers} members={members}
-              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores}
+              sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
               isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
         </div>
@@ -194,7 +196,7 @@ function addMonthsLocal(local: string, n: number): string {
 // ─── レッスンフォーム ─────────────────────────────────
 export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
-  rentalGyms = [], stores = [], fctStores = [], fixedCustomerId, onClose, action, multiAction, onDelete, submitLabel,
+  rentalGyms = [], stores = [], fctStores = [], avenirStores = [], fixedCustomerId, onClose, action, multiAction, onDelete, submitLabel,
 }: {
   defaultValues?: Partial<Lesson>;
   customers: Customer[];
@@ -204,6 +206,7 @@ export function LessonForm({
   allLessons: Lesson[];
   rentalGyms?: RentalGym[];
   fctStores?: FctStore[];
+  avenirStores?: AvenirStore[];
   stores?: Store[];
   fixedCustomerId?: string;
   onClose: () => void;
@@ -285,12 +288,17 @@ export function LessonForm({
   const [fctStoreFee, setFctStoreFee] = useState(
     defaultValues?.fctStoreFee != null ? String(defaultValues.fctStoreFee) : ""
   );
+  const [avenirStoreId, setAvenirStoreId] = useState(defaultValues?.avenirStoreId ?? "");
+  const [avenirStoreFee, setAvenirStoreFee] = useState(
+    defaultValues?.avenirStoreFee != null ? String(defaultValues.avenirStoreFee) : ""
+  );
 
   // 場所はレンタルジム／店舗／FCT店舗のいずれか1つ（同じ回に2つの場所は無いため排他）
   function clearPlaces() {
     setRentalGymId(""); setRentalGymFee("");
     setStoreId("");
     setFctStoreId(""); setFctStoreFee("");
+    setAvenirStoreId(""); setAvenirStoreFee("");
   }
 
   function onRentalGymChange(id: string) {
@@ -320,11 +328,21 @@ export function LessonForm({
     }
   }
 
+  function onAvenirStoreChange(id: string) {
+    clearPlaces();
+    setAvenirStoreId(id);
+    const av = avenirStores.find((a) => a.id === id);
+    if (av) {
+      setAvenirStoreFee(String(av.fee));
+      setLocation(av.name); // 場所を自動入力（編集可）
+    }
+  }
+
   // 会場は「店舗 / レンタルジム / FCT店舗」のどれか1つ。
   // 全部を1つのプルダウンに並べると数十件が一気に出て選びにくいので、
   // まず種類を選び、その種類のぶんだけ出す。
   const [venueKind, setVenueKind] = useState<VenueKind>(venueKindOf(defaultValues));
-  const venueKinds = venueKindOptions(stores.length, rentalGyms.length, fctStores.length);
+  const venueKinds = venueKindOptions(stores.length, rentalGyms.length, fctStores.length, avenirStores.length);
 
   function onVenueKindChange(kind: VenueKind) {
     setVenueKind(kind);
@@ -334,12 +352,13 @@ export function LessonForm({
   const currentVenueKey =
     rentalGymId ? venueKey("gym", rentalGymId) :
     fctStoreId  ? venueKey("fct", fctStoreId)  :
+    avenirStoreId ? venueKey("avenir", avenirStoreId) :
     storeId     ? venueKey("store", storeId)   : "";
 
   // その顧客が前に使った会場（直近順）。タップで一発選択できるようにする
   const venueHistory = useMemo(
-    () => recentVenues(allLessons, selectedCustomerId, { stores, rentalGyms, fctStores }),
-    [allLessons, selectedCustomerId, rentalGyms, stores, fctStores],
+    () => recentVenues(allLessons, selectedCustomerId, { stores, rentalGyms, fctStores, avenirStores }),
+    [allLessons, selectedCustomerId, rentalGyms, stores, fctStores, avenirStores],
   );
 
   function applyVenue(kind: VenueKind, id: string) {
@@ -410,7 +429,7 @@ export function LessonForm({
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
-  const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId; // レンタルジム/店舗/FCT店舗のときは場所を自動設定
+  const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId || !!avenirStoreId; // レンタルジム/店舗/FCT店舗のときは場所を自動設定
 
   const isSessionPassCourse = selectedCourse.startsWith("回数券");
   const availablePasses = sessionPasses.filter(
@@ -700,10 +719,17 @@ export function LessonForm({
             {fctStores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         )}
+        {venueKind === "avenir" && (
+          <select value={avenirStoreId} onChange={(e) => onAvenirStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
+            <option value="">アヴニール店舗を選択</option>
+            {avenirStores.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        )}
         {/* 保存する形はこれまでどおり3つに分かれている */}
         <input type="hidden" name="storeId"     value={storeId} />
         <input type="hidden" name="rentalGymId" value={rentalGymId} />
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
+        <input type="hidden" name="avenirStoreId" value={avenirStoreId} />
         {rentalGymId && (
           <div className="mt-2">
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>
@@ -731,6 +757,14 @@ export function LessonForm({
               onChange={(e) => setFctStoreFee(e.target.value)}
               className={inputClass}
             />
+            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
+          </div>
+        )}
+        {avenirStoreId && (
+          <div className="mt-2">
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">アヴニール店舗の利用料（税込）</label>
+            <input name="avenirStoreFee" type="number" min="0" step="1" value={avenirStoreFee}
+              onChange={(e) => setAvenirStoreFee(e.target.value)} className={inputClass} />
             <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
           </div>
         )}
@@ -894,9 +928,10 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
 }
 
 // ─── レッスン1件 ──────────────────────────────────────
-function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, stores, fctStores, isAdmin, currentMemberId }: {
+function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, allLessons, rentalGyms, stores, fctStores, avenirStores, isAdmin, currentMemberId }: {
   lesson: Lesson; customers: Customer[]; members: Member[]; sessionPasses: SessionPass[];
-  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; stores: Store[]; fctStores: FctStore[]; isAdmin: boolean; currentMemberId?: string;
+  customerPlans: CustomerPlanRecord[]; allLessons: Lesson[]; rentalGyms: RentalGym[]; stores: Store[]; fctStores: FctStore[];
+  avenirStores: AvenirStore[]; isAdmin: boolean; currentMemberId?: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -930,7 +965,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
       <LessonForm defaultValues={lesson} customers={customers} members={members} sessionPasses={sessionPasses}
-        customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores}
+        customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
         action={boundUpdate} submitLabel="保存する" />
     </div>
@@ -1004,7 +1039,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, stores, fctStores, isAdmin, currentMemberId }: {
+function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, stores, fctStores, avenirStores, isAdmin, currentMemberId }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -1014,6 +1049,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   members: Member[];
   rentalGyms: RentalGym[];
   fctStores: FctStore[];
+  avenirStores: AvenirStore[];
   stores: Store[];
   isAdmin: boolean;
   currentMemberId?: string;
@@ -1077,14 +1113,14 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           {monthGroups.map((g, i) => (
             <LessonMonthGroup key={g.label} label={g.label} lessons={g.lessons} defaultOpen={i === 0}
               customers={customers} members={members} sessionPasses={sessionPasses}
-              customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores}
+              customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
               isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
 
           {showAdd ? (
             <div className="py-3">
               <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
-                customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores}
+                customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
                 fixedCustomerId={customer.id} onClose={() => setShowAdd(false)}
                 action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
             </div>
@@ -1106,9 +1142,10 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], stores = [], fctStores = [], isAdmin, currentMemberId, initialSearch = "" }: {
+export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], isAdmin, currentMemberId, initialSearch = "" }: {
   lessons: Lesson[]; customers: Customer[]; members: Member[];
-  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; rentalGyms?: RentalGym[]; stores?: Store[]; fctStores?: FctStore[]; isAdmin: boolean; currentMemberId?: string;
+  sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; rentalGyms?: RentalGym[]; stores?: Store[]; fctStores?: FctStore[];
+  avenirStores?: AvenirStore[]; isAdmin: boolean; currentMemberId?: string;
   initialSearch?: string;
 }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -1180,7 +1217,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
-            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores}
+            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
             onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
         </div>
       )}
@@ -1203,7 +1240,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
           {filtered.map(({ customer, lessons: ls }) => (
             <CustomerGroup key={customer.id} customer={customer} lessons={ls}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
-              customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} isAdmin={isAdmin} currentMemberId={currentMemberId} />
+              customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
         </div>
       )}
@@ -1217,7 +1254,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
       {showAdd && (
         <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
           <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
-            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores}
+            customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
             onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
         </BottomSheet>
       )}

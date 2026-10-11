@@ -27,6 +27,8 @@ type DbRow = {
   rental_gym_fee: number | null;
   fct_store_id: string | null;
   fct_store_fee: number | null;
+  avenir_store_id?: string | null;
+  avenir_store_fee?: number | null;
   store_id: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -61,6 +63,8 @@ function fromDb(row: DbRow): Lesson {
     rentalGymFee:      row.rental_gym_fee ?? undefined,
     fctStoreId:        row.fct_store_id ?? undefined,
     fctStoreFee:       row.fct_store_fee ?? undefined,
+    avenirStoreId:     row.avenir_store_id ?? undefined,
+    avenirStoreFee:    row.avenir_store_fee ?? undefined,
     storeId:           row.store_id ?? undefined,
     createdById:       row.created_by ?? undefined,
     createdByName:     row.created_by_member?.name ?? undefined,
@@ -127,6 +131,8 @@ export async function addLesson(input: {
   rentalGymFee?: number | null;
   fctStoreId?: string | null;
   fctStoreFee?: number | null;
+  avenirStoreId?: string | null;
+  avenirStoreFee?: number | null;
   storeId?: string | null;
   deliveryMode?: DeliveryMode;
 }): Promise<Lesson> {
@@ -147,11 +153,14 @@ export async function addLesson(input: {
     rental_gym_fee:    input.rentalGymFee ?? null,
     store_id:          input.storeId ?? null,
   };
-  // FCT店舗の列（マイグレーション 20260922000001）。未適用の環境では列ごと落として再試行する。
+  // あとから足した列（FCT店舗 20260922000001・実施形態 20261010000001・アヴニール店舗 20261011000002）。
+  // 未適用の環境では列ごと落として再試行する。
   // 列が無いだけでレッスンの登録自体が失敗すると、業務が止まってしまうため。
   const fctRow = {
     fct_store_id:      input.fctStoreId ?? null,
     fct_store_fee:     input.fctStoreFee ?? null,
+    avenir_store_id:   input.avenirStoreId ?? null,
+    avenir_store_fee:  input.avenirStoreFee ?? null,
     delivery_mode:     input.deliveryMode ?? "store",
   };
   // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
@@ -187,6 +196,8 @@ export async function updateLesson(
     rentalGymFee: number | null;
     fctStoreId: string | null;
     fctStoreFee: number | null;
+    avenirStoreId: string | null;
+    avenirStoreFee: number | null;
     storeId: string | null;
     deliveryMode: DeliveryMode;
   }>
@@ -215,6 +226,8 @@ export async function updateLesson(
   const fctKeys: string[] = [];
   if (input.fctStoreId  !== undefined) { patch.fct_store_id  = input.fctStoreId;  fctKeys.push("fct_store_id"); }
   if (input.fctStoreFee !== undefined) { patch.fct_store_fee = input.fctStoreFee; fctKeys.push("fct_store_fee"); }
+  if (input.avenirStoreId  !== undefined) { patch.avenir_store_id  = input.avenirStoreId;  fctKeys.push("avenir_store_id"); }
+  if (input.avenirStoreFee !== undefined) { patch.avenir_store_fee = input.avenirStoreFee; fctKeys.push("avenir_store_fee"); }
   if (input.deliveryMode !== undefined) { patch.delivery_mode = input.deliveryMode; fctKeys.push("delivery_mode"); }
 
   const client = createAdminClient();

@@ -9,6 +9,7 @@ import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
+import { getAvenirStores } from "@/lib/avenir-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { DetailsClient } from "./details-client";
 
@@ -26,7 +27,7 @@ export default async function CommissionDetailsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, trainerRates, rentalGyms, stores, fctStores] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, trainerRates, rentalGyms, stores, fctStores, avenirStores] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -39,6 +40,7 @@ export default async function CommissionDetailsPage() {
     getRentalGyms(),
     getStores(),
     getFctStores(),
+    getAvenirStores(),
   ]);
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
@@ -58,6 +60,7 @@ export default async function CommissionDetailsPage() {
       rentalGyms={rentalGyms.map((g) => ({ id: g.id, name: g.name, fee: g.fee }))}
       stores={stores.map((s) => ({ id: s.id, name: s.name }))}
       fctStores={fctStores.map((f) => ({ id: f.id, name: f.name, fee: f.fee }))}
+      avenirStores={avenirStores.map((a) => ({ id: a.id, name: a.name, fee: a.fee }))}
     />
   );
 }

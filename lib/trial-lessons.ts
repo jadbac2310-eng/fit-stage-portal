@@ -19,6 +19,8 @@ type DbRow = {
   store_id: string | null;
   fct_store_id: string | null;
   fct_store_fee: number | null;
+  avenir_store_id?: string | null;
+  avenir_store_fee?: number | null;
   course: string | null;
   amount: number | null;
   status: TrialLessonStatus;
@@ -54,6 +56,8 @@ function fromDb(row: DbRow): TrialLesson {
     storeId:             row.store_id ?? undefined,
     fctStoreId:          row.fct_store_id ?? undefined,
     fctStoreFee:         row.fct_store_fee ?? undefined,
+    avenirStoreId:       row.avenir_store_id ?? undefined,
+    avenirStoreFee:      row.avenir_store_fee ?? undefined,
     course:              row.course ?? undefined,
     amount:              row.amount ?? undefined,
     status:              row.status,
@@ -108,8 +112,10 @@ export async function addTrialLesson(input: {
   rentalGymFee?: number | null;
   storeId?: string | null;
   fctStoreId?: string | null;
+  avenirStoreId?: string | null;
   deliveryMode?: DeliveryMode;
   fctStoreFee?: number | null;
+  avenirStoreFee?: number | null;
   course?: string | null;
   amount?: number | null;
   note?: string;
@@ -131,8 +137,10 @@ export async function addTrialLesson(input: {
     rental_gym_fee: input.rentalGymFee ?? null,
     store_id:       input.storeId ?? null,
     fct_store_id:   input.fctStoreId ?? null,
+    avenir_store_id:  input.avenirStoreId ?? null,
     delivery_mode:  input.deliveryMode ?? "store",
     fct_store_fee:  input.fctStoreFee ?? null,
+    avenir_store_fee: input.avenirStoreFee ?? null,
     course:         input.course ?? null,
     amount:         input.amount ?? null,
   };
@@ -160,8 +168,10 @@ export async function updateTrialLesson(
     rentalGymFee: number | null;
     storeId: string | null;
     fctStoreId: string | null;
+    avenirStoreId: string | null;
     deliveryMode: DeliveryMode;
     fctStoreFee: number | null;
+    avenirStoreFee: number | null;
     course: string | null;
     amount: number | null;
     status: TrialLessonStatus;
@@ -188,6 +198,8 @@ export async function updateTrialLesson(
   if (input.storeId             !== undefined) setExtra("store_id",       input.storeId);
   if (input.fctStoreId          !== undefined) setExtra("fct_store_id",   input.fctStoreId);
   if (input.fctStoreFee         !== undefined) setExtra("fct_store_fee",  input.fctStoreFee);
+  if (input.avenirStoreId       !== undefined) setExtra("avenir_store_id",  input.avenirStoreId);
+  if (input.avenirStoreFee      !== undefined) setExtra("avenir_store_fee", input.avenirStoreFee);
   if (input.deliveryMode        !== undefined) setExtra("delivery_mode",  input.deliveryMode);
   if (input.course              !== undefined) setExtra("course",         input.course);
   if (input.amount              !== undefined) setExtra("amount",         input.amount);

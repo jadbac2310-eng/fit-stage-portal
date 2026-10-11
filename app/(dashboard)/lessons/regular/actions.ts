@@ -45,6 +45,9 @@ export async function createLessonAction(formData: FormData): Promise<ActionResu
     const fctStoreId      = (formData.get("fctStoreId")      as string)?.trim() || null;
     const fsfRaw          = (formData.get("fctStoreFee")     as string)?.trim();
     const fctStoreFee     = fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null;
+    const avenirStoreId   = (formData.get("avenirStoreId")   as string)?.trim() || null;
+    const asfRaw          = (formData.get("avenirStoreFee")  as string)?.trim();
+    const avenirStoreFee  = avenirStoreId && asfRaw ? parseInt(asfRaw, 10) : null;
     const amtRaw          = (formData.get("amount")          as string)?.trim();
     const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -61,7 +64,7 @@ export async function createLessonAction(formData: FormData): Promise<ActionResu
 
     let created;
     try {
-      created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, deliveryMode });
+      created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode });
     } catch (e) {
       if (usesPass) await releaseSessionPass(sessionPassId!, 1); // 作成に失敗したぶんは戻す
       throw e;
@@ -101,6 +104,9 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
     const fctStoreId      = (formData.get("fctStoreId")      as string)?.trim() || null;
     const fsfRaw          = (formData.get("fctStoreFee")     as string)?.trim();
     const fctStoreFee     = fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null;
+    const avenirStoreId   = (formData.get("avenirStoreId")   as string)?.trim() || null;
+    const asfRaw          = (formData.get("avenirStoreFee")  as string)?.trim();
+    const avenirStoreFee  = avenirStoreId && asfRaw ? parseInt(asfRaw, 10) : null;
     const amtRaw          = (formData.get("amount")          as string)?.trim();
     const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -125,7 +131,7 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
     const created: Lesson[] = [];
     try {
       for (const s of slots) {
-        created.push(await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, deliveryMode }));
+        created.push(await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode }));
         count++;
       }
     } catch (e) {
@@ -165,6 +171,9 @@ export async function updateLessonAction(id: string, formData: FormData): Promis
     const fctStoreId      = (formData.get("fctStoreId")      as string)?.trim() || null;
     const fsfRaw          = (formData.get("fctStoreFee")     as string)?.trim();
     const fctStoreFee     = fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null;
+    const avenirStoreId   = (formData.get("avenirStoreId")   as string)?.trim() || null;
+    const asfRaw          = (formData.get("avenirStoreFee")  as string)?.trim();
+    const avenirStoreFee  = avenirStoreId && asfRaw ? parseInt(asfRaw, 10) : null;
     const amtRaw          = (formData.get("amount")          as string)?.trim();
     const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
 
@@ -181,7 +190,7 @@ export async function updateLessonAction(id: string, formData: FormData): Promis
       if (oldPassId) await releaseSessionPass(oldPassId, 1);
     }
 
-    await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, deliveryMode });
+    await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode });
     await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `通常レッスンを編集: ${existing.customerName}` });
     revalidatePath("/lessons/regular");
     revalidatePath("/schedule");
