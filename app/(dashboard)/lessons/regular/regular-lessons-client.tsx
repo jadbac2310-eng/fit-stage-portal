@@ -7,7 +7,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
@@ -349,6 +349,14 @@ export function LessonForm({
     clearPlaces();  // 種類を変えたら選び直し。場所の手入力はそのまま残す
   }
 
+  // 出張はお客さんのところへ行くので会場（店舗・レンタルジム等）を選ばない。
+  // 訪問先は場所欄に住所を手で書く（任意）。
+  const onsite = deliveryMode === "onsite";
+  function onDeliveryModeChange(mode: DeliveryMode) {
+    setDeliveryMode(mode);
+    if (mode === "onsite") { clearPlaces(); setVenueKind("none"); }
+  }
+
   const currentVenueKey =
     rentalGymId ? venueKey("gym", rentalGymId) :
     fctStoreId  ? venueKey("fct", fctStoreId)  :
@@ -590,18 +598,21 @@ export function LessonForm({
       )}
 
       <div>
-        <label className={labelClass}><MapPin size={12} /> 場所</label>
+        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
         <input
           name="location"
           list={locationLocked ? undefined : locationListId}
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           readOnly={locationLocked}
-          placeholder="場所を入力（または下から選択）"
+          placeholder={onsite ? "住所や施設名（任意）" : "場所を入力（または下から選択）"}
           className={cn(inputClass, locationLocked && "bg-gray-100 text-gray-500 cursor-not-allowed")}
         />
+        {onsite && (
+          <p className="text-[11px] text-gray-400 mt-1">出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でも保存できます）</p>
+        )}
         {locationLocked ? (
-          <p className="text-[11px] text-gray-400 mt-1">{rentalGymId ? "レンタルジム" : fctStoreId ? "FCT店舗" : "店舗"}に合わせて自動設定されます</p>
+          <p className="text-[11px] text-gray-400 mt-1">{venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}に合わせて自動設定されます</p>
         ) : (
           <datalist id={locationListId}>
             {locationHistory.map((loc) => <option key={loc} value={loc} />)}
@@ -639,7 +650,7 @@ export function LessonForm({
             <button
               key={o.value}
               type="button"
-              onClick={() => setDeliveryMode(o.value)}
+              onClick={() => onDeliveryModeChange(o.value)}
               className={cn(
                 "flex-1 py-2 rounded-xl border text-sm font-medium transition",
                 deliveryMode === o.value
@@ -660,7 +671,7 @@ export function LessonForm({
       {/* 会場（店舗・レンタルジム・FCT店舗のどれか1つ）。
           選択肢に料金は入れない。スマホだと1件が2行に折り返して一覧がとても縦長になるため、
           料金は選んだあとに下の入力欄で見せる。 */}
-      <div>
+      <div className={cn(onsite && "hidden")}>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
         {venueHistory.length > 0 && (
           <div className="mb-2">

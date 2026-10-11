@@ -188,3 +188,13 @@ export function recentVenues(
   }
   return Array.from(found.values());
 }
+
+/** 場所が自動入力される元になった会場の種類名（画面の説明文で使う） */
+export function venueKindLabel(
+  rentalGymId?: string, fctStoreId?: string, avenirStoreId?: string,
+): string {
+  return rentalGymId ? "レンタルジム"
+    : fctStoreId    ? "FCT店舗"
+    : avenirStoreId ? "アヴニール店舗"
+    : "FIT STAGEの店舗";
+}

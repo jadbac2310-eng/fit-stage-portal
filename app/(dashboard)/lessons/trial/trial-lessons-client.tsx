@@ -23,7 +23,7 @@ import {
   saveContractResultAction,
   deleteTrialLessonAction,
 } from "./actions";
-import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKindLabel, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -252,6 +252,14 @@ function LessonForm({
     clearPlaces();  // 種類を変えたら選び直し。場所の手入力はそのまま残す
   }
 
+  // 出張はお客さんのところへ行くので会場（店舗・レンタルジム等）を選ばない。
+  // 訪問先は場所欄に住所を手で書く（任意）。
+  const onsite = deliveryMode === "onsite";
+  function onDeliveryModeChange(mode: DeliveryMode) {
+    setDeliveryMode(mode);
+    if (mode === "onsite") { clearPlaces(); setVenueKind("none"); }
+  }
+
   const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId || !!avenirStoreId;
 
   async function handleSubmit(fd: FormData) {
@@ -302,18 +310,21 @@ function LessonForm({
       </div>
 
       <div>
-        <label className={labelClass}><MapPin size={12} /> 場所</label>
+        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
         <input
           name="location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           readOnly={locationLocked}
-          placeholder="FIT STAGE 渋谷店 など"
+          placeholder={onsite ? "住所や施設名（任意）" : "FIT STAGE 渋谷店 など"}
           className={cn(inputClass, locationLocked && "bg-gray-100 text-gray-500 cursor-not-allowed")}
         />
+        {onsite && (
+          <p className="text-[11px] text-gray-400 mt-1">出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でも保存できます）</p>
+        )}
         {locationLocked && (
           <p className="text-[11px] text-gray-400 mt-1">
-            {rentalGymId ? "レンタルジム" : fctStoreId ? "FCT店舗" : "店舗"}に合わせて自動設定されます
+            {venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}に合わせて自動設定されます
           </p>
         )}
       </div>
@@ -326,7 +337,7 @@ function LessonForm({
             <button
               key={o.value}
               type="button"
-              onClick={() => setDeliveryMode(o.value)}
+              onClick={() => onDeliveryModeChange(o.value)}
               className={cn(
                 "flex-1 py-2 rounded-xl border text-sm font-medium transition",
                 deliveryMode === o.value
@@ -347,7 +358,7 @@ function LessonForm({
       {/* 会場（店舗・レンタルジム・FCT店舗のどれか1つ）。
           選択肢に料金は入れない。スマホだと1件が2行に折り返して一覧がとても縦長になるため、
           料金は選んだあとに下の入力欄で見せる。 */}
-      <div>
+      <div className={cn(onsite && "hidden")}>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
         <div className="grid grid-cols-3 gap-1.5">
           {venueKinds.map((k) => (
