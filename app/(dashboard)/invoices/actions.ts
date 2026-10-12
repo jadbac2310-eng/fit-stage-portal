@@ -94,7 +94,7 @@ export async function createInvoiceShareAction(
   if (periodLabel) lines.push(`対象期間：${periodLabel}`);
   lines.push("");
   lines.push("【ご請求の内訳】");
-  for (const l of invoice.lines) lines.push(`${l.date}　${l.label}　${yen(l.amount)}`);
+  for (const l of invoice.lines) lines.push(l.noDate ? `${l.label}　${yen(l.amount)}` : `${l.date}　${l.label}　${yen(l.amount)}`);
   lines.push(`合計　${yen(invoice.total)}`);
   lines.push("");
   lines.push("【お振込先】");

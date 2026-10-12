@@ -122,7 +122,7 @@ export function InvoiceDocument({ invoice, address, issuer, bank, invoiceNo, mon
         </View>
         {invoice.lines.map((l, i) => (
           <View key={i} style={s.tr} wrap={false}>
-            <Text style={s.cDate}>{l.date}</Text>
+            <Text style={s.cDate}>{l.noDate ? "" : l.date}</Text>
             <Text style={s.cLabel}>{l.label}</Text>
             <Text style={s.cAmount}>{yen(l.amount)}</Text>
           </View>

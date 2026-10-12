@@ -122,7 +122,7 @@ export default async function InvoicePrintPage({
           <tbody>
             {invoice.lines.map((l, i) => (
               <tr key={i} className="border-b border-gray-100">
-                <td className="py-2 text-gray-500">{l.date}</td>
+                <td className="py-2 text-gray-500">{l.noDate ? "" : l.date}</td>
                 <td className="py-2 text-gray-800">{l.label}</td>
                 <td className="py-2 text-right text-gray-800 tabular-nums">{yen(l.amount)}</td>
               </tr>

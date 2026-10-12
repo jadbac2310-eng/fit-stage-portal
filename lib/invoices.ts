@@ -61,6 +61,13 @@ export interface InvoiceLine {
   date: string;   // 日付（YYYY-MM-DD）
   label: string;  // 品目
   amount: number; // 金額（円）
+  /**
+   * 請求書に日付を出さない行。
+   * 毎月の固定項目（ホームページ運用代行など）は「その月ぶん」であって
+   * 特定の日に発生したものではないため、日付欄は空にする。
+   * date は並び順のためだけに持つ。
+   */
+  noDate?: boolean;
 }
 
 export interface CustomerInvoice {
@@ -262,7 +269,7 @@ export function buildInvoice(
   for (const item of data.monthlyItems ?? []) {
     if (item.customerId !== customer.id) continue;
     if (!isMonthlyItemActive(item, period)) continue;
-    lines.push({ date: period.to, label: item.name, amount: item.amount });
+    lines.push({ date: period.to, label: item.name, amount: item.amount, noDate: true });
   }
 
   lines.sort((a, b) => a.date.localeCompare(b.date));
