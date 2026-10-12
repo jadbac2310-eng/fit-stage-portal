@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
@@ -25,7 +25,7 @@ import {
   saveContractResultAction,
   deleteTrialLessonAction,
 } from "./actions";
-import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKindLabel, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -285,6 +285,22 @@ function LessonForm({
 
   const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId || !!avenirStoreId;
 
+  /** 会場を選ばずに場所へ会場名を打っていないか（利用料の付け忘れ防止） */
+  const venueHint = useMemo(
+    () => (locationLocked || deliveryMode === "onsite")
+      ? null
+      : matchVenueByText(location, { stores, rentalGyms, fctStores, avenirStores }),
+    [locationLocked, deliveryMode, location, stores, rentalGyms, fctStores, avenirStores],
+  );
+
+  function applyVenue(kind: VenueKind, id: string) {
+    setVenueKind(kind);
+    if (kind === "gym")         onRentalGymChange(id);
+    else if (kind === "fct")    onFctStoreChange(id);
+    else if (kind === "avenir") onAvenirStoreChange(id);
+    else                        onStoreChange(id);
+  }
+
   async function handleSubmit(fd: FormData) {
     setError("");
     // datetime-local はローカル時刻を返すので、UTC ISO に変換してから送信
@@ -332,26 +348,6 @@ function LessonForm({
       <div>
         <label className={labelClass}><Calendar size={12} /> 予定日時 <span className="text-red-500">*</span></label>
         <input name="scheduledAt" type="datetime-local" required defaultValue={defaultScheduledAt} className={inputClass} />
-      </div>
-
-      <div>
-        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
-        <input
-          name="location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          readOnly={locationLocked}
-          placeholder={onsite ? "住所や施設名（任意）" : "FIT STAGE 渋谷店 など"}
-          className={cn(inputClass, locationLocked && "bg-gray-100 text-gray-500 cursor-not-allowed")}
-        />
-        {onsite && (
-          <p className="text-[11px] text-gray-400 mt-1">出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でも保存できます）</p>
-        )}
-        {locationLocked && (
-          <p className="text-[11px] text-gray-400 mt-1">
-            {venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}に合わせて自動設定されます
-          </p>
-        )}
       </div>
 
       {/* 実施形態（どこでやるか）。請求書の品目にも出るので、推測ではなく明示的に選ぶ */}
@@ -454,6 +450,48 @@ function LessonForm({
               onChange={(e) => setAvenirStoreFee(e.target.value)} className={inputClass} />
             <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
           </div>
+        )}
+      </div>
+
+      {/* 場所。会場を選んだらその名前で決まるので入力欄は出さない（会場と二重に見えて、
+          会場を選ばずに場所へ会場名を打ってしまう＝利用料が引かれない事故を防ぐ）。 */}
+      <div>
+        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
+        {locationLocked ? (
+          <>
+            <p className="px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">{location || "—"}</p>
+            <input type="hidden" name="location" value={location} />
+            <p className="text-[11px] text-gray-400 mt-1">
+              上で選んだ{venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}の名前が入ります
+            </p>
+          </>
+        ) : (
+          <>
+            <input
+              name="location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={onsite ? "住所や施設名（任意）" : "会場マスタに無い場所だけ入力（任意）"}
+              className={inputClass}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              {onsite
+                ? "出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でOK）"
+                : "上で会場を選んだときは入力不要です。分からなければ空欄でかまいません。"}
+            </p>
+            {venueHint && (
+              <button
+                type="button"
+                onClick={() => applyVenue(venueHint.kind, venueHint.id)}
+                className="mt-2 w-full text-left rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 hover:bg-amber-100 transition"
+              >
+                <p className="text-xs font-semibold text-amber-800">「{venueHint.name}」は会場に登録されています</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  タップして会場に設定してください。いまのままだと利用料が引かれません。
+                </p>
+              </button>
+            )}
+          </>
         )}
       </div>
 

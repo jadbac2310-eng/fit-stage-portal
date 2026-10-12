@@ -7,7 +7,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer } from "@/lib/customers-types";
@@ -462,6 +462,15 @@ export function LessonForm({
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
   const locationLocked = !!rentalGymId || !!storeId || !!fctStoreId || !!avenirStoreId; // レンタルジム/店舗/FCT店舗のときは場所を自動設定
 
+  /** 会場を選ばずに場所へ会場名を打っていないか（利用料の付け忘れ防止） */
+  const venueHint = useMemo(
+    () => (locationLocked || onsite)
+      ? null
+      : matchVenueByText(location, { stores, rentalGyms, fctStores, avenirStores }),
+    [locationLocked, onsite, location, stores, rentalGyms, fctStores, avenirStores],
+  );
+
+
   const isSessionPassCourse = selectedCourse.startsWith("回数券");
   const availablePasses = sessionPasses.filter(
     (p) => p.customerId === selectedCustomerId && (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId)
@@ -620,51 +629,6 @@ export function LessonForm({
         </div>
       )}
 
-      <div>
-        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
-        <input
-          name="location"
-          list={locationLocked ? undefined : locationListId}
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          readOnly={locationLocked}
-          placeholder={onsite ? "住所や施設名（任意）" : "場所を入力（または下から選択）"}
-          className={cn(inputClass, locationLocked && "bg-gray-100 text-gray-500 cursor-not-allowed")}
-        />
-        {onsite && (
-          <p className="text-[11px] text-gray-400 mt-1">出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でも保存できます）</p>
-        )}
-        {locationLocked ? (
-          <p className="text-[11px] text-gray-400 mt-1">{venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}に合わせて自動設定されます</p>
-        ) : (
-          <datalist id={locationListId}>
-            {locationHistory.map((loc) => <option key={loc} value={loc} />)}
-          </datalist>
-        )}
-        {!locationLocked && locationHistory.length > 0 && (
-          <div className="mt-2">
-            <p className="text-[11px] text-gray-400 mb-1">よく使う場所（タップで入力）</p>
-            <div className="flex flex-wrap gap-1.5">
-              {locationHistory.slice(0, 12).map((loc) => (
-                <button
-                  key={loc}
-                  type="button"
-                  onClick={() => setLocation(loc)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs border transition",
-                    location === loc
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
-                  )}
-                >
-                  {loc}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* 実施形態（どこでやるか）。請求書の品目にも出るので、推測ではなく明示的に選ぶ */}
       <div>
         <label className={labelClass}><MapPin size={12} /> 実施形態</label>
@@ -801,6 +765,75 @@ export function LessonForm({
               onChange={(e) => setAvenirStoreFee(e.target.value)} className={inputClass} />
             <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。</p>
           </div>
+        )}
+      </div>
+
+      {/* 場所。会場を選んだらその名前で決まるので入力欄は出さない（会場と二重に見えて、
+          会場を選ばずに場所へ会場名を打ってしまう＝利用料が引かれない事故が起きていた）。
+          会場マスタに無いところでやるときだけ手で書く。 */}
+      <div>
+        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
+        {locationLocked ? (
+          <>
+            <p className="px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">{location || "—"}</p>
+            <input type="hidden" name="location" value={location} />
+            <p className="text-[11px] text-gray-400 mt-1">
+              上で選んだ{venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}の名前が入ります
+            </p>
+          </>
+        ) : (
+          <>
+            <input
+              name="location"
+              list={locationListId}
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={onsite ? "住所や施設名（任意）" : "会場マスタに無い場所だけ入力（任意）"}
+              className={inputClass}
+            />
+            <datalist id={locationListId}>
+              {locationHistory.map((loc) => <option key={loc} value={loc} />)}
+            </datalist>
+            <p className="text-[11px] text-gray-400 mt-1">
+              {onsite
+                ? "出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でOK）"
+                : "上で会場を選んだときは入力不要です。分からなければ空欄でかまいません。"}
+            </p>
+            {venueHint && (
+              <button
+                type="button"
+                onClick={() => applyVenue(venueHint.kind, venueHint.id)}
+                className="mt-2 w-full text-left rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 hover:bg-amber-100 transition"
+              >
+                <p className="text-xs font-semibold text-amber-800">「{venueHint.name}」は会場に登録されています</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  タップして会場に設定してください。いまのままだと利用料が引かれません。
+                </p>
+              </button>
+            )}
+            {locationHistory.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[11px] text-gray-400 mb-1">よく使う場所（タップで入力）</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {locationHistory.slice(0, 12).map((loc) => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => setLocation(loc)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs border transition",
+                        location === loc
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
+                      )}
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

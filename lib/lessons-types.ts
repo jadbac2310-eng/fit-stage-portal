@@ -198,3 +198,45 @@ export function venueKindLabel(
     : avenirStoreId ? "アヴニール店舗"
     : "FIT STAGEの店舗";
 }
+
+/** 会場名の表記ゆれを吸収する（全角→半角、空白・カッコを落とす） */
+function normalizeVenueText(s: string): string {
+  return (s ?? "")
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[（）()「」【】[\]]/g, "")
+    .replace(/[\s　]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * 手入力された場所の文字が、会場マスタのどれかを指していないか探す。
+ *
+ * 「会場」を選ばずに「場所」へ会場名を打ってしまうと、利用料が引かれないまま
+ * 保存されてしまう。入力中に気付けるよう、似た名前の会場を返して案内に使う。
+ * 料金のある会場（レンタルジム・FCT・アヴニール）を先に見る。
+ */
+export function matchVenueByText(
+  text: string,
+  masters: {
+    stores?:       { id: string; name: string }[];
+    rentalGyms?:   { id: string; name: string }[];
+    fctStores?:    { id: string; name: string }[];
+    avenirStores?: { id: string; name: string }[];
+  },
+): VenueRef | null {
+  const t = normalizeVenueText(text);
+  if (t.length < 2) return null;
+
+  const all: VenueRef[] = [
+    ...(masters.rentalGyms   ?? []).map((v) => ({ kind: "gym"    as const, id: v.id, name: v.name })),
+    ...(masters.fctStores    ?? []).map((v) => ({ kind: "fct"    as const, id: v.id, name: v.name })),
+    ...(masters.avenirStores ?? []).map((v) => ({ kind: "avenir" as const, id: v.id, name: v.name })),
+    ...(masters.stores       ?? []).map((v) => ({ kind: "store"  as const, id: v.id, name: v.name })),
+  ];
+  for (const v of all) {
+    const n = normalizeVenueText(v.name);
+    if (!n) continue;
+    if (n === t || n.includes(t) || t.includes(n)) return v;
+  }
+  return null;
+}
