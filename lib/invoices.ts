@@ -1,6 +1,8 @@
 import type { Customer, CustomerType, PaymentDueMonth } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
+import type { CustomerMonthlyItem } from "./customer-monthly-items-types";
+import { isMonthlyItemActive } from "./customer-monthly-items-types";
 import type { Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount, DELIVERY_MODE_LABEL, type DeliveryMode } from "./lessons-types";
@@ -197,6 +199,8 @@ export interface InvoiceData {
   passes: SessionPass[];
   lessons: Lesson[];
   trialLessons?: TrialLesson[];
+  /** 毎月かかる固定の請求項目（ホームページ運用代行など） */
+  monthlyItems?: CustomerMonthlyItem[];
 }
 
 /**
@@ -205,6 +209,7 @@ export interface InvoiceData {
  * - 回数券: 購入日(purchasedAt)がその月のもの → 総額を計上
  * - 都度: その月に「完了」した都度レッスン → 1回ごとに計上
  * - 体験: その月に「完了」した体験レッスン → 1回ごとに計上
+ * - 毎月の固定項目: 期間にかかっていれば1件ずつ計上（期間の最終日づけ）
  */
 export function buildInvoice(
   customer: Customer,
@@ -251,6 +256,13 @@ export function buildInvoice(
       label: deliveryLabel(t.deliveryMode),
       amount: resolveTrialFee(t, { lessonFees: fees.lessonFees }),
     });
+  }
+
+  // 毎月の固定項目（ホームページ運用代行など）。レッスンの後に並ぶよう期間の最終日づけで入れる
+  for (const item of data.monthlyItems ?? []) {
+    if (item.customerId !== customer.id) continue;
+    if (!isMonthlyItemActive(item, period)) continue;
+    lines.push({ date: period.to, label: item.name, amount: item.amount });
   }
 
   lines.sort((a, b) => a.date.localeCompare(b.date));

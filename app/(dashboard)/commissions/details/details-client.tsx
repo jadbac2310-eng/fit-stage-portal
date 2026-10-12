@@ -13,6 +13,7 @@ import {
   isoToMonth,
   resolveLessonFee,
   resolveTrainerRate,
+  resolveTrainerPay,
   resolveTrialFee,
   type CommissionContext,
 } from "@/lib/commissions";
@@ -56,6 +57,8 @@ interface DetailRow {
   course:        string;
   fee:           number;
   ratePercent:   number;
+  /** 歩合率ではなく「1レッスンにつき○円」の固定払い */
+  fixedPay?:     boolean;
   commission:    number;
   sameDayCancel?: boolean;
   planNote?:     string;
@@ -134,7 +137,8 @@ export function DetailsClient({
       const member = members.find((m) => m.id === tid);
       const fee = resolveLessonFee(l, ctx);
       const rate = resolveTrainerRate(tid, l.customerId, ctx);
-      const commission = Math.round(fee * rate);
+      const pay = resolveTrainerPay(tid, l.customerId, fee, ctx);
+      const commission = pay.amount;
 
       // 回数券の内訳
       let sessionPassNote: string | undefined;
@@ -195,7 +199,7 @@ export function DetailsClient({
         scheduledAt: l.scheduledAt,
         customerName: l.customerName,
         customerType: customerTypeMap.get(l.customerId) ?? "個人",
-        course, fee, ratePercent: Math.round(rate * 100), commission,
+        course, fee, ratePercent: Math.round(rate * 100), commission, fixedPay: pay.fixed,
         sameDayCancel: l.status === "cancelled_same_day",
         planNote, sessionPassNote, rentalGymNote, storeNote, fctStoreNote, avenirStoreNote,
       });
@@ -213,7 +217,8 @@ export function DetailsClient({
       const member = members.find((m) => m.id === tid);
       const rate = resolveTrainerRate(tid, t.customerId, ctx);
       const fee = resolveTrialFee(t, ctx);
-      const commission = Math.round(fee * rate);
+      const pay = resolveTrainerPay(tid, t.customerId, fee, ctx);
+      const commission = pay.amount;
 
       // 体験レッスンのレンタルジム・店舗の内訳（通常レッスンと同じ見せ方）
       let trialGymNote: string | undefined;
@@ -245,7 +250,7 @@ export function DetailsClient({
         scheduledAt: t.scheduledAt,
         customerName: t.customerName,
         customerType: customerTypeMap.get(t.customerId) ?? "個人",
-        course: trialCourseLabel(t.course), fee, ratePercent: Math.round(rate * 100), commission,
+        course: trialCourseLabel(t.course), fee, ratePercent: Math.round(rate * 100), commission, fixedPay: pay.fixed,
         rentalGymNote: trialGymNote, storeNote: trialStoreNote, fctStoreNote: trialFctNote, avenirStoreNote: trialAvenirNote,
       });
       group.feeTotal += fee;
@@ -355,7 +360,7 @@ export function DetailsClient({
                         {!row.rentalGymNote && !row.storeNote && !row.fctStoreNote && !row.avenirStoreNote && "—"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-600 whitespace-nowrap">{yen(row.fee)}</td>
-                      <td className="py-2 px-3 text-right text-gray-500 whitespace-nowrap">{row.ratePercent}%</td>
+                      <td className="py-2 px-3 text-right text-gray-500 whitespace-nowrap">{row.fixedPay ? "固定" : `${row.ratePercent}%`}</td>
                       <td className="py-2 px-3 text-right font-semibold text-blue-600 whitespace-nowrap">{yen(row.commission)}</td>
                     </tr>
                   ))}

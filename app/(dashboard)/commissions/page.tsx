@@ -45,7 +45,7 @@ export default async function CommissionsPage() {
   // 歩合率は他人ぶんを渡さない（管理者は全件、それ以外は自分ぶんのみ）
   const trainerRates = allRates
     .filter((r) => member.isAdmin || r.memberId === member.id)
-    .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }));
+    .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount }));
 
   // 業務は時給が入っているので、歩合率と同じく他人ぶんは渡さない
   const hourlyTasks = allHourlyTasks.filter((t) => member.isAdmin || t.memberId === member.id);

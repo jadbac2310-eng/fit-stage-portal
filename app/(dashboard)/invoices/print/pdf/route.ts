@@ -5,6 +5,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
 import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
@@ -25,13 +26,14 @@ export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   if (!customerId || !month) return new Response("パラメータが不正です", { status: 400 });
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
     getLessons(),
     getTrialLessons(),
     getAllPlans(),
+    getCustomerMonthlyItems(),
   ]);
 
   // まとめ先(biller)のグループを解決
@@ -43,7 +45,7 @@ export async function GET(req: NextRequest) {
 
   const invoice = buildGroupInvoice(
     biller, group.members, month,
-    { plans, passes, lessons, trialLessons }, invoiceFeesFromPlans(plansMaster),
+    { plans, passes, lessons, trialLessons, monthlyItems }, invoiceFeesFromPlans(plansMaster),
   );
   const dueOverride = await getInvoiceDueDate(biller.id, month);
 

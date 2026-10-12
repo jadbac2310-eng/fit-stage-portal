@@ -27,7 +27,7 @@ export default async function CommissionRatesPage() {
     <RatesClient
       members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl }))}
       customers={customers.map((c) => ({ id: c.id, name: c.fullName }))}
-      rates={rates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate }))}
+      rates={rates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount }))}
     />
   );
 }

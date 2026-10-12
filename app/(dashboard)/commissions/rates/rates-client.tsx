@@ -12,7 +12,7 @@ import { assertActionOk } from "@/lib/action-result";
 
 type Member   = { id: string; name: string; avatarUrl?: string };
 type Customer = { id: string; name: string };
-type Rate     = { memberId: string; customerId: string; rate: number };
+type Rate     = { memberId: string; customerId: string; rate: number; fixedAmount?: number };
 
 const DEFAULT_RATE = 50;
 
@@ -30,6 +30,9 @@ export function RatesClient({
   const [memberId, setMemberId]     = useState("");
   const [customerId, setCustomerId] = useState("");
   const [rateInput, setRateInput]   = useState("");
+  // 「歩合率（％）」か「1レッスンあたりの固定額（円）」か
+  const [payKind, setPayKind]       = useState<"rate" | "fixed">("rate");
+  const [fixedInput, setFixedInput] = useState("");
   const { locked: saving, run: runSave }     = useSubmitLock();
   const { locked: removing, run: runRemove } = useSubmitLock();
   const [saved, setSaved]           = useState(false);
@@ -51,6 +54,8 @@ export function RatesClient({
     if (mId && cId) {
       const ex = rates.find((r) => r.memberId === mId && r.customerId === cId);
       setRateInput(ex ? String(ex.rate) : "");
+      setFixedInput(ex?.fixedAmount != null ? String(ex.fixedAmount) : "");
+      setPayKind(ex?.fixedAmount != null ? "fixed" : "rate");
     }
   }
   function pickMember(id: string)   { setMemberId(id);   syncRate(id, customerId); }
@@ -59,6 +64,8 @@ export function RatesClient({
     setMemberId(r.memberId);
     setCustomerId(r.customerId);
     setRateInput(String(r.rate));
+    setFixedInput(r.fixedAmount != null ? String(r.fixedAmount) : "");
+    setPayKind(r.fixedAmount != null ? "fixed" : "rate");
     setSaved(false);
     setError(null);
   }
@@ -66,12 +73,20 @@ export function RatesClient({
   async function save() {
     setError(null);
     if (!memberId || !customerId) { setError("担当者と顧客を選択してください"); return; }
-    const n = parseInt(rateInput, 10);
-    if (rateInput.trim() === "" || Number.isNaN(n)) { setError("歩合率（％）を入力してください"); return; }
+    let n = parseInt(rateInput, 10);
+    let fixed: number | null = null;
+    if (payKind === "fixed") {
+      const f = parseInt(fixedInput, 10);
+      if (fixedInput.trim() === "" || Number.isNaN(f)) { setError("1レッスンあたりの金額を入力してください"); return; }
+      fixed = f;
+      if (Number.isNaN(n)) n = DEFAULT_RATE;  // 固定額のときは使わないが、列は埋めておく
+    } else {
+      if (rateInput.trim() === "" || Number.isNaN(n)) { setError("歩合率（％）を入力してください"); return; }
+    }
     setSaved(false);
     await runSave(async () => {
       try {
-        assertActionOk(await setMemberCustomerRateAction(memberId, customerId, n));
+        assertActionOk(await setMemberCustomerRateAction(memberId, customerId, n, fixed));
         setSaved(true);
         router.refresh();
       } catch (e) {
@@ -112,10 +127,10 @@ export function RatesClient({
           <ArrowLeft size={14} /> 歩合管理に戻る
         </Link>
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Percent size={20} className="text-blue-600" /> 歩合率設定
+          <Percent size={20} className="text-blue-600" /> 支払い条件設定
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          担当者と顧客の組み合わせごとにトレーナー歩合率を設定します。設定が無い組み合わせは既定の{DEFAULT_RATE}%です。
+          担当者と顧客の組み合わせごとに支払い条件を設定します。歩合率（％）のほか、1レッスンあたりの固定額も選べます。設定が無い組み合わせは既定の{DEFAULT_RATE}%です。
         </p>
       </div>
 
@@ -150,20 +165,61 @@ export function RatesClient({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">歩合率（％）</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number" min="0" max="100" step="1"
-              value={rateInput}
-              onChange={(e) => { setRateInput(e.target.value); setSaved(false); }}
-              placeholder={String(DEFAULT_RATE)}
-              className="w-28 px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-400">%</span>
-            {existing && (
-              <span className="text-xs text-gray-400 ml-1">現在: {existing.rate}%</span>
-            )}
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">支払い方法</label>
+          <div className="flex gap-2 mb-3">
+            {([
+              { value: "rate"  as const, label: "歩合率（％）" },
+              { value: "fixed" as const, label: "1レッスン固定額" },
+            ]).map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => { setPayKind(o.value); setSaved(false); }}
+                className={
+                  "flex-1 py-2 rounded-xl border text-xs font-medium transition " +
+                  (payKind === o.value
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300")
+                }
+              >
+                {o.label}
+              </button>
+            ))}
           </div>
+
+          {payKind === "rate" ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number" min="0" max="100" step="1"
+                value={rateInput}
+                onChange={(e) => { setRateInput(e.target.value); setSaved(false); }}
+                placeholder={String(DEFAULT_RATE)}
+                className="w-28 px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-400">%</span>
+              {existing && existing.fixedAmount == null && (
+                <span className="text-xs text-gray-400 ml-1">現在: {existing.rate}%</span>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">¥</span>
+                <input
+                  type="number" min="0" step="1"
+                  value={fixedInput}
+                  onChange={(e) => { setFixedInput(e.target.value); setSaved(false); }}
+                  placeholder="例: 5400"
+                  className="w-32 px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-400">／レッスン</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                こちらの請求額に関係なく、1レッスンにつきこの金額を払います。
+                コミッション明細にはこの金額だけが載り、請求額は出ません。
+              </p>
+            </>
+          )}
         </div>
 
         {error && <p className="text-xs text-red-500">{error}</p>}
@@ -203,7 +259,9 @@ export function RatesClient({
                     <MemberLabel name={m?.name ?? "（削除済み）"} avatarUrl={m?.avatarUrl} size="sm" textClassName="text-sm font-semibold text-gray-900" />
                     <p className="text-xs text-gray-500 mt-0.5 truncate">顧客: {c?.name ?? "（削除済み）"}</p>
                   </button>
-                  <span className="text-base font-bold text-blue-600">{r.rate}%</span>
+                  <span className="text-base font-bold text-blue-600 whitespace-nowrap">
+                    {r.fixedAmount != null ? `¥${r.fixedAmount.toLocaleString("ja-JP")}／回` : `${r.rate}%`}
+                  </span>
                   <button
                     onClick={() => remove(r)}
                     disabled={removing}

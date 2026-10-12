@@ -1,32 +1,40 @@
 import { createAdminClient } from "./supabase";
 
-/** 担当者×顧客の組み合わせごとのトレーナー歩合率（％）。設定が無い組み合わせは既定50%。 */
+/**
+ * 担当者×顧客の組み合わせごとの支払い条件。設定が無い組み合わせは既定50%。
+ *
+ * fixedAmount が入っているときは「1レッスンにつき○円」の固定払い。
+ * こちらの請求額と切り離して払う契約（京阪総合サービスなど）で使う。
+ */
 export interface MemberCustomerRate {
-  id:         string;
-  memberId:   string;
-  customerId: string;
-  rate:       number; // ％（0〜100）
-  createdAt:  string;
-  updatedAt:  string;
+  id:          string;
+  memberId:    string;
+  customerId:  string;
+  rate:        number;  // ％（0〜100）。fixedAmount があるときは使わない
+  fixedAmount?: number; // 1レッスンあたりの固定額（円）
+  createdAt:   string;
+  updatedAt:   string;
 }
 
 type DbRow = {
-  id:          string;
-  member_id:   string;
-  customer_id: string;
-  rate:        number;
-  created_at:  string;
-  updated_at:  string;
+  id:           string;
+  member_id:    string;
+  customer_id:  string;
+  rate:         number;
+  fixed_amount?: number | null;
+  created_at:   string;
+  updated_at:   string;
 };
 
 function fromDb(row: DbRow): MemberCustomerRate {
   return {
-    id:         row.id,
-    memberId:   row.member_id,
-    customerId: row.customer_id,
-    rate:       row.rate,
-    createdAt:  row.created_at,
-    updatedAt:  row.updated_at,
+    id:          row.id,
+    memberId:    row.member_id,
+    customerId:  row.customer_id,
+    rate:        row.rate,
+    fixedAmount: row.fixed_amount ?? undefined,
+    createdAt:   row.created_at,
+    updatedAt:   row.updated_at,
   };
 }
 
@@ -49,20 +57,35 @@ export async function getMemberCustomerRates(): Promise<MemberCustomerRate[]> {
   return (data as DbRow[]).map(fromDb);
 }
 
-/** 担当者×顧客の歩合率を設定（既存の組み合わせは上書き） */
+/**
+ * 担当者×顧客の支払い条件を設定（既存の組み合わせは上書き）。
+ * fixedAmount を渡すと「1レッスンにつき○円」の固定払いになり、歩合率は使われない。
+ */
 export async function setMemberCustomerRate(
   memberId: string,
   customerId: string,
   rate: number,
+  fixedAmount?: number | null,
 ): Promise<void> {
   const value = Math.max(0, Math.min(100, Math.round(rate)));
-  const { error } = await createAdminClient()
+  const fixed = fixedAmount == null ? null : Math.max(0, Math.round(fixedAmount));
+  const row = { member_id: memberId, customer_id: customerId, rate: value, updated_at: new Date().toISOString() };
+  const client = createAdminClient();
+  let { error } = await client
     .from("member_customer_commission_rates")
-    .upsert(
-      { member_id: memberId, customer_id: customerId, rate: value, updated_at: new Date().toISOString() },
-      { onConflict: "member_id,customer_id" },
-    );
+    .upsert({ ...row, fixed_amount: fixed }, { onConflict: "member_id,customer_id" });
+  // fixed_amount 列（マイグレーション 20261012000001）が未適用の環境では、列を落として従来どおり保存する
+  if (error && isMissingFixedAmount(error)) {
+    ({ error } = await client
+      .from("member_customer_commission_rates")
+      .upsert(row, { onConflict: "member_id,customer_id" }));
+  }
   if (error) throw error;
+}
+
+function isMissingFixedAmount(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42703" || err.code === "PGRST204" || /fixed_amount/i.test(err.message ?? "");
 }
 
 /** 担当者×顧客の歩合率設定を削除（既定50%に戻す） */

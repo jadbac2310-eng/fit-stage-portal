@@ -8,6 +8,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
 import { getAllPlans } from "@/lib/plans-master";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, billingPeriodLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
@@ -63,8 +64,8 @@ export async function createInvoiceShareAction(
   await requireAdmin();
   if (!billerId || !month) return { ok: false, error: "対象が不正です" };
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
-    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getTrialLessons(), getAllPlans(),
+  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
+    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getTrialLessons(), getAllPlans(), getCustomerMonthlyItems(),
   ]);
 
   // まとめ先(biller)のグループを解決
@@ -77,7 +78,7 @@ export async function createInvoiceShareAction(
   // 請求書の内訳（全明細）
   const invoice = buildGroupInvoice(
     biller, group.members, month,
-    { plans, passes, lessons, trialLessons }, invoiceFeesFromPlans(plansMaster),
+    { plans, passes, lessons, trialLessons, monthlyItems }, invoiceFeesFromPlans(plansMaster),
   );
   if (invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
 

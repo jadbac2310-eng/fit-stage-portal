@@ -17,6 +17,8 @@ export interface TrainerLessonRow {
   scheduledAt:  string;
   fee:          number;
   commission:   number;
+  /** 歩合率ではなく「1レッスンにつき○円」の固定払いで計算した行 */
+  fixedPay?:    boolean;
 }
 
 export interface TrainerEntry {
@@ -88,8 +90,11 @@ export interface CommissionContext {
   customerPlans: CustomerPlanRecord[];
   /** isOwner の担当者は歩合の対象外（売上がまるごと利益に残り、利益＝オーナーの取り分になる） */
   members:       { id: string; name: string; isOwner?: boolean }[];
-  /** 担当者×顧客の組み合わせごとのトレーナー歩合率（％）。未設定の組み合わせは既定50%。 */
-  trainerRates?: { memberId: string; customerId: string; rate: number }[];
+  /**
+   * 担当者×顧客の組み合わせごとの支払い条件。未設定の組み合わせは既定50%。
+   * fixedAmount があるときは歩合率ではなく「1レッスンにつき○円」を払う。
+   */
+  trainerRates?: { memberId: string; customerId: string; rate: number; fixedAmount?: number }[];
   /** プランマスタ由来のコース名→1回単価。未指定コースは固定単価表にフォールバック */
   lessonFees?:   Record<string, number>;
   /** 回数券標準金額マスタ { 人数: { 回数: 総額 } }。回数券に price 未設定時のフォールバック */
@@ -158,6 +163,21 @@ export function resolveTrainerRate(memberId: string, customerId: string, ctx: Co
   return r != null ? r.rate / 100 : TRAINER_RATE;
 }
 
+/**
+ * 1レッスンぶんのトレーナーへの支払額。
+ *
+ * 「1レッスンにつき○円」の固定額が設定されていればそれを払う。
+ * 請求額と切り離して払う契約（こちらの請求額をトレーナーに知らせない形）で使う。
+ * 設定が無ければ従来どおり 単価 × 歩合率。
+ */
+export function resolveTrainerPay(
+  memberId: string, customerId: string, fee: number, ctx: CommissionContext,
+): { amount: number; fixed: boolean } {
+  const r = ctx.trainerRates?.find((x) => x.memberId === memberId && x.customerId === customerId);
+  if (r?.fixedAmount != null) return { amount: Math.round(r.fixedAmount), fixed: true };
+  return { amount: Math.round(fee * resolveTrainerRate(memberId, customerId, ctx)), fixed: false };
+}
+
 /** 体験レッスン1件あたりの標準単価（プランマスタの「体験レッスン」行を優先、無ければ固定単価表） */
 export function resolveTrialLessonFee(ctx: Pick<CommissionContext, "lessonFees">): number {
   return ctx.lessonFees?.[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME);
@@ -202,7 +222,7 @@ export function buildTrainerEntries(
     const tid  = l.trainerMemberId!;
     // 歩合はレッスン料金そのものを対象とする(レンタルジム代は控除しない／利益計算側で差し引く)
     const fee  = resolveLessonFee(l, ctx);
-    const comm = Math.round(fee * resolveTrainerRate(tid, l.customerId, ctx));
+    const pay  = resolveTrainerPay(tid, l.customerId, fee, ctx);
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: l.trainerMemberName ?? tid, lessons: [], total: 0 });
@@ -211,15 +231,15 @@ export function buildTrainerEntries(
     entry.lessons.push({
       lessonId: l.id, customerName: l.customerName,
       course: l.course ?? "", scheduledAt: l.scheduledAt,
-      fee, commission: comm,
+      fee, commission: pay.amount, fixedPay: pay.fixed,
     });
-    entry.total += comm;
+    entry.total += pay.amount;
   }
 
   for (const tl of filteredTrials) {
     const tid  = tl.trainerMemberId!;
     const fee  = resolveTrialFee(tl, ctx);
-    const comm = Math.round(fee * resolveTrainerRate(tid, tl.customerId, ctx));
+    const pay  = resolveTrainerPay(tid, tl.customerId, fee, ctx);
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: tl.trainerMemberName ?? tid, lessons: [], total: 0 });
@@ -228,9 +248,9 @@ export function buildTrainerEntries(
     entry.lessons.push({
       lessonId: `trial-${tl.id}`, customerName: tl.customerName,
       course: trialCourseLabel(tl.course), scheduledAt: tl.scheduledAt,
-      fee, commission: comm,
+      fee, commission: pay.amount, fixedPay: pay.fixed,
     });
-    entry.total += comm;
+    entry.total += pay.amount;
   }
 
   return Array.from(map.values()).sort((a, b) => b.total - a.total);

@@ -3,6 +3,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
+import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
 import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans } from "@/lib/invoices";
@@ -35,19 +36,20 @@ export default async function InvoicesPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
     getLessons(),
     getTrialLessons(),
     getAllPlans(),
+    getCustomerMonthlyItems(),
   ]);
 
   const fees = invoiceFeesFromPlans(plansMaster);
 
   const invoices = billingGroups(customers)
-    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons, trialLessons }, fees))
+    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons, trialLessons, monthlyItems }, fees))
     .filter((inv) => inv.lines.length > 0) // 明細があれば出す（合計0円でも隠さない）
     .sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
 

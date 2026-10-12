@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     // 歩合率は他人ぶんを渡さない（本人または管理者のみ）
     trainerRates: allRates
       .filter((r) => currentMember?.isAdmin || r.memberId === currentMember?.id)
-      .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate })),
+      .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
   };
 
