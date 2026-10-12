@@ -5,6 +5,7 @@ import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
 import { getAvenirStores } from "@/lib/avenir-stores";
+import { getCustomerVenueFees } from "@/lib/customer-venue-fees";
 import { TrialLessonsClient } from "./trial-lessons-client";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function TrialLessonsPage({
 }: {
   searchParams: Promise<{ q?: string; report?: string }>;
 }) {
-  const [{ q, report }, lessons, customers, members, rentalGyms, stores, fctStores, avenirStores, currentMember] = await Promise.all([
+  const [{ q, report }, lessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, currentMember] = await Promise.all([
     searchParams,
     getTrialLessons(),
     getCustomers(),
@@ -23,6 +24,7 @@ export default async function TrialLessonsPage({
     getStores(),
     getFctStores(),
     getAvenirStores(),
+    getCustomerVenueFees(),
     getCurrentMember(),
   ]);
   return (
@@ -34,6 +36,7 @@ export default async function TrialLessonsPage({
       stores={stores}
       fctStores={fctStores}
       avenirStores={avenirStores}
+      venueFees={venueFees}
       isAdmin={currentMember?.isAdmin ?? false}
       currentMemberId={currentMember?.id}
       initialSearch={q ?? ""}

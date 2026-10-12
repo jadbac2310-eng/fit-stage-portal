@@ -30,6 +30,7 @@ import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
 import type { FctStore } from "@/lib/fct-stores";
 import type { AvenirStore } from "@/lib/avenir-stores";
+import type { CustomerVenueFee } from "@/lib/customer-venue-fees-types";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
@@ -1363,7 +1364,7 @@ function PersonalEventModal({
 
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, avenirStores, isAdmin, defaultDate, editLesson, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, defaultDate, editLesson, onClose,
 }: {
   customers: Customer[];
   members: Member[];
@@ -1374,6 +1375,7 @@ function LessonModal({
   fctStores: FctStore[];
   avenirStores: AvenirStore[];
   stores: Store[];
+  venueFees?: CustomerVenueFee[];
   isAdmin?: boolean;
   defaultDate?: string;
   editLesson?: Lesson;   // 指定時は編集モード
@@ -1395,6 +1397,7 @@ function LessonModal({
         <div className="p-5">
           <LessonForm
             isAdmin={isAdmin}
+            venueFees={venueFees}
             customers={customers}
             members={members}
             sessionPasses={sessionPasses}
@@ -1781,7 +1784,7 @@ function TimelineView({
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, members = [],
-  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], fctStores = [], avenirStores = [], hourlyTasks = [],
+  customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], hourlyTasks = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
@@ -1795,6 +1798,7 @@ export function ScheduleClient({
   rentalGyms?: RentalGym[];
   fctStores?: FctStore[];
   avenirStores?: AvenirStore[];
+  venueFees?: CustomerVenueFee[];
   stores?: Store[];
   hourlyTasks?: HourlyTask[];
 }) {
@@ -2111,6 +2115,7 @@ export function ScheduleClient({
       {lessonModalOpen && (
         <LessonModal
           isAdmin={isAdmin}
+          venueFees={venueFees}
           customers={customers}
           members={members}
           sessionPasses={sessionPasses}
