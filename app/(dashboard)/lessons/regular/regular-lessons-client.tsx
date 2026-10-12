@@ -196,7 +196,7 @@ function addMonthsLocal(local: string, n: number): string {
 // ─── レッスンフォーム ─────────────────────────────────
 export function LessonForm({
   defaultValues, customers, members, sessionPasses, customerPlans, allLessons,
-  rentalGyms = [], stores = [], fctStores = [], avenirStores = [], fixedCustomerId, onClose, action, multiAction, onDelete, submitLabel,
+  rentalGyms = [], stores = [], fctStores = [], avenirStores = [], fixedCustomerId, isAdmin = false, onClose, action, multiAction, onDelete, submitLabel,
 }: {
   defaultValues?: Partial<Lesson>;
   customers: Customer[];
@@ -209,6 +209,8 @@ export function LessonForm({
   avenirStores?: AvenirStore[];
   stores?: Store[];
   fixedCustomerId?: string;
+  /** 金額（単価）は管理者だけが入力できる。トレーナーには出さない */
+  isAdmin?: boolean;
   onClose: () => void;
   action: (fd: FormData) => Promise<ActionResult | void>;
   multiAction?: (fd: FormData) => Promise<ActionResult | void>; // 作成時の複数日時・繰り返し用
@@ -813,6 +815,8 @@ export function LessonForm({
           既定は空欄にして、顧客マスタの単価は下に案内だけ出す。 */}
       {courseToPaymentType(selectedCourse) === "single" && (() => {
         const customerPrice = customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice;
+        // 金額はトレーナーには触らせない。編集で消えないよう、今の値はそのまま持っておく
+        if (!isAdmin) return <input type="hidden" name="amount" defaultValue={defaultValues?.amount ?? ""} />;
         return (
           <div>
             <label className={labelClass}>金額（単価）</label>
@@ -985,7 +989,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
         <p className="text-xs font-bold text-gray-700">レッスンを編集</p>
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
-      <LessonForm defaultValues={lesson} customers={customers} members={members} sessionPasses={sessionPasses}
+      <LessonForm isAdmin={isAdmin} defaultValues={lesson} customers={customers} members={members} sessionPasses={sessionPasses}
         customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
         action={boundUpdate} submitLabel="保存する" />
@@ -1140,7 +1144,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 
           {showAdd ? (
             <div className="py-3">
-              <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
+              <LessonForm isAdmin={isAdmin} customers={customers} members={members} sessionPasses={sessionPasses}
                 customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
                 fixedCustomerId={customer.id} onClose={() => setShowAdd(false)}
                 action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
@@ -1237,7 +1241,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
             <p className="text-sm font-bold text-gray-900">レッスンを追加</p>
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
+          <LessonForm isAdmin={isAdmin} customers={customers} members={members} sessionPasses={sessionPasses}
             customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
             onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
         </div>
@@ -1274,7 +1278,7 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
 
       {showAdd && (
         <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
-          <LessonForm customers={customers} members={members} sessionPasses={sessionPasses}
+          <LessonForm isAdmin={isAdmin} customers={customers} members={members} sessionPasses={sessionPasses}
             customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
             onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
         </BottomSheet>

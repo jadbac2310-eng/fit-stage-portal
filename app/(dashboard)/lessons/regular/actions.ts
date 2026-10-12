@@ -49,7 +49,8 @@ export async function createLessonAction(formData: FormData): Promise<ActionResu
     const asfRaw          = (formData.get("avenirStoreFee")  as string)?.trim();
     const avenirStoreFee  = avenirStoreId && asfRaw ? parseInt(asfRaw, 10) : null;
     const amtRaw          = (formData.get("amount")          as string)?.trim();
-    const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
+    // 金額を決められるのは管理者だけ。トレーナーが入れても無視して顧客の都度単価に従わせる
+    const amount          = member.isAdmin && amtRaw ? parseInt(amtRaw, 10) : null;
 
     if (!customerId || !scheduledAt) return;
     // コース未設定のレッスンは請求書の明細に載らない（請求漏れになる）ため受け付けない
@@ -108,7 +109,8 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
     const asfRaw          = (formData.get("avenirStoreFee")  as string)?.trim();
     const avenirStoreFee  = avenirStoreId && asfRaw ? parseInt(asfRaw, 10) : null;
     const amtRaw          = (formData.get("amount")          as string)?.trim();
-    const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
+    // 金額を決められるのは管理者だけ。トレーナーが入れても無視して顧客の都度単価に従わせる
+    const amount          = member.isAdmin && amtRaw ? parseInt(amtRaw, 10) : null;
 
     if (!customerId) return;
     if (!course) throw new ActionError("コースを選択してください");
@@ -154,7 +156,7 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
 
 export async function updateLessonAction(id: string, formData: FormData): Promise<ActionResult> {
   return runAction(async () => {
-    const { lesson: existing } = await assertCanEditLesson(id);
+    const { lesson: existing, isAdmin } = await assertCanEditLesson(id);
     const trainerMemberId = (formData.get("trainerMemberId") as string)?.trim() || null;
     const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
     const endAt           = (formData.get("endAt")           as string)?.trim() || null;
@@ -175,7 +177,8 @@ export async function updateLessonAction(id: string, formData: FormData): Promis
     const asfRaw          = (formData.get("avenirStoreFee")  as string)?.trim();
     const avenirStoreFee  = avenirStoreId && asfRaw ? parseInt(asfRaw, 10) : null;
     const amtRaw          = (formData.get("amount")          as string)?.trim();
-    const amount          = amtRaw ? parseInt(amtRaw, 10) : null;
+    // 金額を変えられるのは管理者だけ。トレーナーの編集では今の金額を据え置く
+    const amount          = isAdmin ? (amtRaw ? parseInt(amtRaw, 10) : null) : (existing.amount ?? null);
 
     if (!scheduledAt) return;
     if (!course) throw new ActionError("コースを選択してください");

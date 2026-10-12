@@ -1363,7 +1363,7 @@ function PersonalEventModal({
 
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, avenirStores, defaultDate, editLesson, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, avenirStores, isAdmin, defaultDate, editLesson, onClose,
 }: {
   customers: Customer[];
   members: Member[];
@@ -1374,6 +1374,7 @@ function LessonModal({
   fctStores: FctStore[];
   avenirStores: AvenirStore[];
   stores: Store[];
+  isAdmin?: boolean;
   defaultDate?: string;
   editLesson?: Lesson;   // 指定時は編集モード
   onClose: () => void;
@@ -1393,6 +1394,7 @@ function LessonModal({
         </div>
         <div className="p-5">
           <LessonForm
+            isAdmin={isAdmin}
             customers={customers}
             members={members}
             sessionPasses={sessionPasses}
@@ -2108,6 +2110,7 @@ export function ScheduleClient({
 
       {lessonModalOpen && (
         <LessonModal
+          isAdmin={isAdmin}
           customers={customers}
           members={members}
           sessionPasses={sessionPasses}

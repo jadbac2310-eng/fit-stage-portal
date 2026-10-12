@@ -147,7 +147,7 @@ function isoToLocalInput(iso: string): string {
 
 // ─── 体験レッスン作成・編集フォーム ──────────────────
 function LessonForm({
-  defaultValues, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], onClose, action, submitLabel,
+  defaultValues, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], isAdmin = false, onClose, action, submitLabel,
 }: {
   defaultValues?: Partial<TrialLesson>;
   customers: Customer[];
@@ -156,6 +156,8 @@ function LessonForm({
   stores?: Store[];
   fctStores?: FctStore[];
   avenirStores?: AvenirStore[];
+  /** 金額は管理者だけが入力できる。トレーナーには出さない */
+  isAdmin?: boolean;
   onClose: () => void;
   action: (fd: FormData) => Promise<ActionResult | void>;
   submitLabel: string;
@@ -445,13 +447,18 @@ function LessonForm({
         </p>
       </div>
 
-      <div>
-        <label className={labelClass}><Coins size={12} /> 金額（この回だけ）</label>
-        <input name="amount" type="number" min="0" inputMode="numeric"
-          defaultValue={defaultValues?.amount ?? ""} placeholder="空欄なら料金区分の単価"
-          className={inputClass} />
-        <p className="text-xs text-gray-400 mt-1">いつもと違う金額のときだけ入力してください。</p>
-      </div>
+      {/* 金額はトレーナーには触らせない。編集で消えないよう、今の値はそのまま持っておく */}
+      {isAdmin ? (
+        <div>
+          <label className={labelClass}><Coins size={12} /> 金額（この回だけ）</label>
+          <input name="amount" type="number" min="0" inputMode="numeric"
+            defaultValue={defaultValues?.amount ?? ""} placeholder="空欄なら料金区分の単価"
+            className={inputClass} />
+          <p className="text-xs text-gray-400 mt-1">いつもと違う金額のときだけ入力してください。</p>
+        </div>
+      ) : (
+        <input type="hidden" name="amount" defaultValue={defaultValues?.amount ?? ""} />
+      )}
 
       {/* 申込フォームの回答（読み取り専用）。編集できるのは下のメモだけ */}
       {isApplication && (
@@ -568,7 +575,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
           <p className="text-sm font-bold text-gray-900">体験レッスンを編集</p>
           <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
-        <LessonForm defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
+        <LessonForm isAdmin={isAdmin} defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
           onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
       </div>
     </td></tr>
@@ -687,7 +694,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
         <p className="text-sm font-bold text-gray-900">体験レッスンを編集</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <LessonForm defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
+      <LessonForm isAdmin={isAdmin} defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
         onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
@@ -823,7 +830,7 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
             <p className="text-sm font-bold text-gray-900">体験レッスンを追加</p>
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <LessonForm customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
+          <LessonForm isAdmin={isAdmin} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
             onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel="追加する" />
         </div>
       )}
@@ -880,7 +887,7 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
 
       {showAdd && (
         <BottomSheet title="体験レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
-          <LessonForm customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
+          <LessonForm isAdmin={isAdmin} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores}
             onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel="追加する" />
         </BottomSheet>
       )}

@@ -52,12 +52,14 @@ export async function createTrialLessonAction(formData: FormData): Promise<Actio
 
     if (!customerId || !salesMemberId || !scheduledAt) return;
 
+    // 金額を決められるのは管理者だけ。トレーナーが入れても無視して料金区分の単価に従わせる
+    const member = await getCurrentMember();
     const created = await addTrialLesson({
       customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
-      rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount,
+      rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course,
+      amount: member?.isAdmin ? amount : null,
     });
     await logActivity({ action: "create", entityType: "trial_lesson", entityId: created.id, summary: `体験レッスンを追加: ${created.customerName}` });
-    const member = await getCurrentMember();
     if (member) {
       await notifyLessonAdded(member, "体験レッスン", [{
         customerName: created.customerName,
