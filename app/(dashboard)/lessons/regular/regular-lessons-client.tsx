@@ -807,22 +807,32 @@ export function LessonForm({
         )}
       </div>
 
-      {/* 単発（都度・オンライン）の金額。店舗とオンラインで単価が違う場合に入力 */}
-      {courseToPaymentType(selectedCourse) === "single" && (
-        <div>
-          <label className={labelClass}>金額（単価）</label>
-          <input
-            name="amount"
-            type="number"
-            min="0"
-            inputMode="numeric"
-            defaultValue={defaultValues?.amount ?? customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice ?? ""}
-            placeholder="例: 8000"
-            className={inputClass}
-          />
-          <p className="text-xs text-gray-400 mt-1">この回の金額。空欄なら顧客の都度単価を使用します。</p>
-        </div>
-      )}
+      {/* 単発（都度・オンライン）の金額。この回だけ単価が違うときに入力する。
+          以前は顧客の都度単価を初期値として入れていたが、そうするとレッスン1件ごとに
+          そのときの単価が焼き付き、あとから顧客マスタを変えても請求書に反映されなかった。
+          既定は空欄にして、顧客マスタの単価は下に案内だけ出す。 */}
+      {courseToPaymentType(selectedCourse) === "single" && (() => {
+        const customerPrice = customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice;
+        return (
+          <div>
+            <label className={labelClass}>金額（単価）</label>
+            <input
+              name="amount"
+              type="number"
+              min="0"
+              inputMode="numeric"
+              defaultValue={defaultValues?.amount ?? ""}
+              placeholder={customerPrice != null ? `空欄なら ¥${customerPrice.toLocaleString("ja-JP")}` : "例: 8000"}
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              {customerPrice != null
+                ? `空欄のままなら顧客の都度単価（¥${customerPrice.toLocaleString("ja-JP")}）を使います。この回だけ違う金額のときに入力してください。`
+                : "この回の金額。空欄なら顧客の都度単価を使用します。"}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* 回数券選択（回数券コースの場合のみ） */}
       {isSessionPassCourse && (
