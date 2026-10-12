@@ -265,11 +265,18 @@ export function buildInvoice(
     });
   }
 
-  // 毎月の固定項目（ホームページ運用代行など）。レッスンの後に並ぶよう期間の最終日づけで入れる
+  // 毎月の固定項目（ホームページ運用代行など）。レッスンの後に並ぶよう期間の最終日づけで入れる。
+  // 日付のかわりに「（10月分）」と付けて、1か月ぶんの料金だと分かるようにする。
+  const [, mm] = month.split("-");
   for (const item of data.monthlyItems ?? []) {
     if (item.customerId !== customer.id) continue;
     if (!isMonthlyItemActive(item, period)) continue;
-    lines.push({ date: period.to, label: item.name, amount: item.amount, noDate: true });
+    lines.push({
+      date: period.to,
+      label: `${item.name}（${parseInt(mm, 10)}月分）`,
+      amount: item.amount,
+      noDate: true,
+    });
   }
 
   lines.sort((a, b) => a.date.localeCompare(b.date));
