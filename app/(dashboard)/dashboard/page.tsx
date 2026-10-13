@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cn } from "@/lib/cn";
 import {
   Dumbbell, TrendingUp,
   ChevronRight, MapPin,
@@ -16,6 +17,11 @@ import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { buildTrainerEntries, buildSalesEntries, type CommissionContext } from "@/lib/commissions";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
+import {
+  pendingTrainerLessons, trainerCommissionInRange, trainerMonthProjection,
+  trialConversion, lastMonthSameDayRange, monthToDateRange,
+} from "@/lib/trainer-stats";
+import { PendingLessonsCard } from "./pending-lessons-card";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +97,23 @@ export default async function DashboardPage() {
     .find((e) => e.memberId === myId)?.total ?? 0;
   const myCommissionThisMonth = myTrainerCommission + mySalesCommission;
 
+  // ─── やる気が出る数字（すべて「自分に払われる歩合」。売上ではない） ───
+  const now = new Date();
+  // 終わったのに「予定」のままのレッスン。完了にすると歩合になる
+  const pendingRows = myId ? pendingTrainerLessons(lessons, trialLessons, myId, now, ctx) : [];
+  // 先月の同じ日までと比べる（月の途中でも同じ条件で比べられる）
+  const mtd  = monthToDateRange(now);
+  const last = lastMonthSameDayRange(now);
+  const myThisMtd = myId ? trainerCommissionInRange(lessons, trialLessons, myId, mtd.from, mtd.to, ctx) : 0;
+  const myLastMtd = myId ? trainerCommissionInRange(lessons, trialLessons, myId, last.from, last.to, ctx) : 0;
+  const diffPercent = myLastMtd > 0 ? Math.round(((myThisMtd - myLastMtd) / myLastMtd) * 100) : null;
+  // 着地見込み: 今の確定 ＋ 完了待ち ＋ これからの予定
+  const pendingTotal = pendingRows.reduce((s, r) => s + r.amount, 0);
+  const projection = myId ? trainerMonthProjection(lessons, trialLessons, myId, mon, now, ctx) : { remaining: 0, count: 0 };
+  const forecast = myCommissionThisMonth + pendingTotal + projection.remaining;
+  // 体験の成約率（担当トレーナーまたは担当営業として関わったぶん）
+  const conv = myId ? trialConversion(trialLessons, myId, mon) : null;
+
   // 自分の今後の予定（通常＝担当トレーナー、体験＝担当トレーナー/営業、未来かつ予定中、直近5件）
   const myUpcoming = [
     ...lessons
@@ -115,6 +138,9 @@ export default async function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
 
+      {/* 完了にしていないレッスン（完了＝歩合になる） */}
+      {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
+
       {/* 今月の自分 */}
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
         今月の自分
@@ -126,7 +152,13 @@ export default async function DashboardPage() {
             <p className="text-xs font-semibold text-blue-600">今月の自分の歩合</p>
           </div>
           <p className="text-2xl font-bold text-blue-700">{yen(myCommissionThisMonth)}</p>
-          <p className="text-xs text-blue-400 mt-0.5">見込み・タップで内訳</p>
+          {diffPercent === null ? (
+            <p className="text-xs text-blue-400 mt-0.5">タップで内訳</p>
+          ) : (
+            <p className={cn("text-xs mt-0.5 font-semibold", diffPercent >= 0 ? "text-green-600" : "text-gray-400")}>
+              先月の同じ日まで {yen(myLastMtd)}（{diffPercent >= 0 ? "+" : ""}{diffPercent}%）
+            </p>
+          )}
         </Link>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-1.5 mb-1">
@@ -137,6 +169,36 @@ export default async function DashboardPage() {
           <p className="text-xs text-gray-400 mt-0.5">完了・予定 {myScheduledThisMonth.length}件</p>
         </div>
       </div>
+
+      {/* 着地見込みと成約率 */}
+      {(projection.count > 0 || pendingTotal > 0 || (conv && conv.held > 0)) && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6 space-y-3">
+          {(projection.count > 0 || pendingTotal > 0) && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500">今月の着地見込み</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">{yen(forecast)}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                いまの確定 {yen(myCommissionThisMonth)}
+                {pendingTotal > 0 && ` ＋ 完了待ち ${yen(pendingTotal)}`}
+                {projection.count > 0 && ` ＋ これからの予定${projection.count}件 ${yen(projection.remaining)}`}
+              </p>
+            </div>
+          )}
+          {conv && conv.held > 0 && (
+            <div className={cn(projection.count > 0 || pendingTotal > 0 ? "pt-3 border-t border-gray-100" : "")}>
+              <p className="text-xs font-semibold text-gray-500">今月の体験の成約率</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5">
+                {conv.rate}% <span className="text-sm font-medium text-gray-500">（{conv.held}件中 {conv.contracted}件）</span>
+              </p>
+              {conv.unknown > 0 && (
+                <Link href="/lessons/trial" className="text-[11px] text-amber-700 mt-0.5 inline-block hover:underline">
+                  結果が未入力の体験が{conv.unknown}件あります →
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 自分の予定 */}
       <div className="flex items-center justify-between mb-3">
