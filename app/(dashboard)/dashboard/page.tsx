@@ -156,17 +156,17 @@ export default async function DashboardPage() {
             <p className="text-xs text-blue-400 mt-0.5">タップで内訳</p>
           ) : (
             <p className={cn("text-xs mt-0.5 font-semibold", diffPercent >= 0 ? "text-green-600" : "text-gray-400")}>
-              先月の同じ日まで {yen(myLastMtd)}（{diffPercent >= 0 ? "+" : ""}{diffPercent}%）
+              先月の同日 {yen(myLastMtd)} と比べて {diffPercent >= 0 ? "+" : ""}{diffPercent}%
             </p>
           )}
         </Link>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-1.5 mb-1">
             <Dumbbell size={13} className="text-gray-400" />
-            <p className="text-xs font-semibold text-gray-500">自分のレッスン</p>
+            <p className="text-xs font-semibold text-gray-500">今月の完了レッスン</p>
           </div>
           <p className="text-2xl font-bold text-gray-900">{myCompletedThisMonth.length}</p>
-          <p className="text-xs text-gray-400 mt-0.5">完了・予定 {myScheduledThisMonth.length}件</p>
+          <p className="text-xs text-gray-400 mt-0.5">このあとの予定 {myScheduledThisMonth.length}件</p>
         </div>
       </div>
 
