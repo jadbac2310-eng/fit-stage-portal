@@ -8,7 +8,7 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock, Wallet,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock, Wallet, CopyPlus,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -342,13 +342,15 @@ function personalTimeLabel(item: ScheduleItem): string {
 
 // ─── 1件のカード（クリックでその場で展開） ───────────────
 function LessonCard({
-  item, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly,
+  item, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onDuplicateLesson, onEditHourly,
 }: {
   item: ScheduleItem;
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  /** 同じ内容で新しいレッスンを作る（日時だけ変えて登録する用） */
+  onDuplicateLesson?: (lessonId: string) => void;
   onEditHourly?: (hourlyId: string) => void;
 }) {
   const router = useRouter();
@@ -707,14 +709,27 @@ function LessonCard({
               </button>
             </div>
           )}
-          {canEditLesson && (
-            <button
-              type="button"
-              onClick={() => onEditLesson?.(item.id)}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
-            >
-              <Pencil size={13} /> レッスンを編集
-            </button>
+          {(canEditLesson || (item.type === "regular" && onDuplicateLesson)) && (
+            <div className="mt-2 flex gap-2">
+              {canEditLesson && (
+                <button
+                  type="button"
+                  onClick={() => onEditLesson?.(item.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
+                >
+                  <Pencil size={13} /> 編集
+                </button>
+              )}
+              {item.type === "regular" && onDuplicateLesson && (
+                <button
+                  type="button"
+                  onClick={() => onDuplicateLesson(item.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl py-2 transition"
+                >
+                  <CopyPlus size={13} /> 複製
+                </button>
+              )}
+            </div>
           )}
           {/* 体験の完了切り替え。契約結果の記録まで待つと売上・追客が止まるため、その場で押せるようにする */}
           {canCompleteTrial && !cancelled && (
@@ -754,7 +769,7 @@ function LessonCard({
 
 // ─── 日付グループ ─────────────────────────────────────
 function DayGroup({
-  date, items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly,
+  date, items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onDuplicateLesson, onEditHourly,
 }: {
   date: Date;
   items: ScheduleItem[];
@@ -762,6 +777,7 @@ function DayGroup({
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onDuplicateLesson?: (lessonId: string) => void;
   onEditHourly?: (hourlyId: string) => void;
 }) {
   const { main, sub, accent } = dayLabel(date);
@@ -775,7 +791,7 @@ function DayGroup({
       <div className="space-y-2">
         {items.map((it) => (
           <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
-            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} onEditHourly={onEditHourly} />
+            currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} onDuplicateLesson={onDuplicateLesson} onEditHourly={onEditHourly} />
         ))}
       </div>
     </div>
@@ -789,13 +805,14 @@ function keyToYmd(key: string): string {
 
 // ─── 月グリッドカレンダー（サイボウズ風） ─────────────────
 function CalendarView({
-  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly, cursor, setCursor,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onDuplicateLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly, cursor, setCursor,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onDuplicateLesson?: (lessonId: string) => void;
   onEditHourly?: (hourlyId: string) => void;
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
@@ -993,7 +1010,7 @@ function CalendarView({
           <div className="space-y-2">
             {selectedItems.map((it) => (
               <LessonCard key={`${it.type}-${it.id}`} item={it} isAdmin={isAdmin}
-                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} onEditHourly={onEditHourly} />
+                currentMemberId={currentMemberId} onEditPersonal={onEditPersonal} onEditLesson={onEditLesson} onDuplicateLesson={onDuplicateLesson} onEditHourly={onEditHourly} />
             ))}
           </div>
         )}
@@ -1362,9 +1379,14 @@ function PersonalEventModal({
   );
 }
 
+/** ISO文字列を n 日ずらす（複製の初期日時に使う） */
+function plusDaysIso(iso: string, days: number): string {
+  return new Date(new Date(iso).getTime() + days * 86_400_000).toISOString();
+}
+
 // ─── 通常レッスンの追加モーダル（既存の LessonForm を再利用） ───
 function LessonModal({
-  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, defaultDate, editLesson, onClose,
+  customers, members, sessionPasses, customerPlans, lessons, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, defaultDate, editLesson, duplicateLesson, onClose,
 }: {
   customers: Customer[];
   members: Member[];
@@ -1378,20 +1400,29 @@ function LessonModal({
   venueFees?: CustomerVenueFee[];
   isAdmin?: boolean;
   defaultDate?: string;
-  editLesson?: Lesson;   // 指定時は編集モード
+  editLesson?: Lesson;        // 指定時は編集モード
+  duplicateLesson?: Lesson;   // 指定時は「同じ内容で新規作成」
   onClose: () => void;
 }) {
   const router = useRouter();
   const close = () => { router.refresh(); onClose(); };
   const isEdit = !!editLesson;
-  const defaultValues = editLesson ?? (defaultDate ? { scheduledAt: `${defaultDate}T10:00:00+09:00` } : undefined);
+  // 複製は「同じ内容の新しいレッスン」。日時は1週間後の同じ時刻を初期値にする（毎週の人が多いため）
+  const duplicated: Partial<Lesson> | undefined = duplicateLesson && {
+    ...duplicateLesson,
+    id: undefined,
+    status: "scheduled",
+    scheduledAt: plusDaysIso(duplicateLesson.scheduledAt, 7),
+    endAt: duplicateLesson.endAt ? plusDaysIso(duplicateLesson.endAt, 7) : undefined,
+  };
+  const defaultValues = editLesson ?? duplicated ?? (defaultDate ? { scheduledAt: `${defaultDate}T10:00:00+09:00` } : undefined);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="text-base font-bold text-gray-900">{isEdit ? "通常レッスンを編集" : "通常レッスンを追加"}</p>
+          <p className="text-base font-bold text-gray-900">{isEdit ? "通常レッスンを編集" : duplicateLesson ? "通常レッスンを複製" : "通常レッスンを追加"}</p>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
         <div className="p-5">
@@ -1585,13 +1616,14 @@ function HourlyTaskModal({
 
 // ─── 時間軸（縦タイムライン・Outlook風） ─────────────────
 function TimelineView({
-  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly,
+  items, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onDuplicateLesson, onEditHourly, onAddPersonal, onAddLesson, onAddHourly,
 }: {
   items: ScheduleItem[];
   isAdmin?: boolean;
   currentMemberId?: string;
   onEditPersonal?: (item: ScheduleItem) => void;
   onEditLesson?: (lessonId: string) => void;
+  onDuplicateLesson?: (lessonId: string) => void;
   onEditHourly?: (hourlyId: string) => void;
   onAddPersonal?: (ymd: string) => void;
   onAddLesson?: (ymd: string) => void;
@@ -1825,10 +1857,16 @@ export function ScheduleClient({
   const [lessonDate, setLessonDate] = useState<string | undefined>(undefined);
   // 通常レッスンの編集モーダル（スケジュールからその場で編集）
   const [editLesson, setEditLesson] = useState<Lesson | null>(null);
-  const openLesson = (defaultDate?: string) => { setEditLesson(null); setLessonDate(defaultDate); setLessonModalOpen(true); };
+  const openLesson = (defaultDate?: string) => { setEditLesson(null); setDuplicateLesson(null); setLessonDate(defaultDate); setLessonModalOpen(true); };
   const openEditLesson = (lessonId: string) => {
     const l = lessons.find((x) => x.id === lessonId);
-    if (l) { setEditLesson(l); setLessonDate(undefined); setLessonModalOpen(true); }
+    if (l) { setDuplicateLesson(null); setEditLesson(l); setLessonDate(undefined); setLessonModalOpen(true); }
+  };
+  // 同じ内容で新しいレッスンを作る（会場・コース・担当はそのまま、日時だけ変える）
+  const [duplicateLesson, setDuplicateLesson] = useState<Lesson | null>(null);
+  const openDuplicateLesson = (lessonId: string) => {
+    const l = lessons.find((x) => x.id === lessonId);
+    if (l) { setEditLesson(null); setDuplicateLesson(l); setLessonDate(undefined); setLessonModalOpen(true); }
   };
   // 業務の追加/編集モーダル（管理者のみ）
   const [hourlyModalOpen, setHourlyModalOpen] = useState(false);
@@ -2027,13 +2065,13 @@ export function ScheduleClient({
 
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin} cursor={monthCursor} setCursor={setMonthCursor}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onDuplicateLesson={canAddLesson ? openDuplicateLesson : undefined} onEditHourly={openEditHourly}
           onAddPersonal={(ymd) => openCreate(ymd)}
           onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined}
           onAddHourly={isAdmin ? (ymd) => openHourly(ymd) : undefined} />
       ) : view === "timeline" ? (
         <TimelineView items={visibleItems} isAdmin={isAdmin}
-          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly}
+          currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onDuplicateLesson={canAddLesson ? openDuplicateLesson : undefined} onEditHourly={openEditHourly}
           onAddPersonal={(ymd) => openCreate(ymd)}
           onAddLesson={canAddLesson ? (ymd) => openLesson(ymd) : undefined}
           onAddHourly={isAdmin ? (ymd) => openHourly(ymd) : undefined} />
@@ -2094,7 +2132,7 @@ export function ScheduleClient({
         <div className="space-y-5">
           {groups.map((g) => (
             <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin}
-              currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onEditHourly={openEditHourly} />
+              currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onDuplicateLesson={canAddLesson ? openDuplicateLesson : undefined} onEditHourly={openEditHourly} />
           ))}
         </div>
       )}
@@ -2126,7 +2164,8 @@ export function ScheduleClient({
           stores={stores}
           defaultDate={lessonDate}
           editLesson={editLesson ?? undefined}
-          onClose={() => { setLessonModalOpen(false); setEditLesson(null); }}
+          duplicateLesson={duplicateLesson ?? undefined}
+          onClose={() => { setLessonModalOpen(false); setEditLesson(null); setDuplicateLesson(null); }}
         />
       )}
 
