@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
-  CheckCircle, Clock, XCircle, Ticket, Building2,
+  CheckCircle, Clock, XCircle, Ticket, Building2, FlaskConical,
 } from "lucide-react";
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
@@ -14,6 +14,8 @@ import { Customer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import { RentalGym } from "@/lib/rental-gyms";
 import { Store } from "@/lib/stores";
+import Link from "next/link";
+import type { TrialLesson } from "@/lib/trial-lessons-types";
 import { FctStore } from "@/lib/fct-stores";
 import type { AvenirStore } from "@/lib/avenir-stores";
 import type { CustomerVenueFee } from "@/lib/customer-venue-fees-types";
@@ -1119,7 +1121,47 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 }
 
 // ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId }: {
+/** その顧客の体験レッスン。編集は体験レッスン管理で行うので、ここは見るだけ。 */
+function TrialSection({ trials }: { trials: TrialLesson[] }) {
+  if (trials.length === 0) return null;
+  const sorted = [...trials].sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
+  return (
+    <div className="py-3 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+          <FlaskConical size={12} className="text-purple-500" /> 体験レッスン
+        </p>
+        <Link href="/lessons/trial" className="text-xs text-blue-600 hover:underline">体験レッスン管理 →</Link>
+      </div>
+      <div className="space-y-1.5">
+        {sorted.map((t) => (
+          <div key={t.id} className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 w-20 flex-shrink-0">{t.scheduledAt.slice(0, 10).replace(/-/g, "/")}</span>
+            <span className={cn(
+              "px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0",
+              t.status === "completed" ? "bg-green-100 text-green-700" :
+              t.status === "cancelled" ? "bg-gray-100 text-gray-500" : "bg-blue-100 text-blue-700",
+            )}>
+              {t.status === "completed" ? "完了" : t.status === "cancelled" ? "キャンセル" : "予定"}
+            </span>
+            {t.status === "completed" && (
+              <span className={cn(
+                "px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0",
+                t.contracted === true ? "bg-blue-50 text-blue-700" :
+                t.contracted === false ? "bg-gray-50 text-gray-500" : "bg-amber-50 text-amber-700",
+              )}>
+                {t.contracted === true ? "成約" : t.contracted === false ? "不成立" : "結果未入力"}
+              </span>
+            )}
+            <span className="text-gray-400 truncate">{t.trainerMemberName ?? ""}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CustomerGroup({ customer, lessons, trialLessons, sessionPasses, customerPlans, allLessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId }: {
   customer: Customer;
   lessons: Lesson[];
   sessionPasses: SessionPass[];
@@ -1130,6 +1172,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
   rentalGyms: RentalGym[];
   fctStores: FctStore[];
   avenirStores: AvenirStore[];
+  trialLessons: TrialLesson[];
   venueFees: CustomerVenueFee[];
   stores: Store[];
   isAdmin: boolean;
@@ -1180,6 +1223,7 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
           </div>
           <p className="text-xs text-gray-400 mt-0.5">
             {lessons.length}件{scheduledCount > 0 && `（予定 ${scheduledCount}件）`}
+            {trialLessons.length > 0 && `　体験 ${trialLessons.length}件`}
             {customerPasses.length > 0 && `　回数券: ${customerPasses.reduce((s, p) => s + p.remainingCount, 0)}回残`}
           </p>
         </div>
@@ -1214,6 +1258,9 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
             </div>
           )}
 
+          {/* 体験レッスン（閲覧のみ。編集は体験レッスン管理で） */}
+          <TrialSection trials={trialLessons} />
+
           {/* 回数券セクション（閲覧のみ） */}
           <SessionPassSection passes={customerPasses} />
         </div>
@@ -1223,8 +1270,8 @@ function CustomerGroup({ customer, lessons, sessionPasses, customerPlans, allLes
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function RegularLessonsClient({ lessons, customers, members, sessionPasses, customerPlans, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin, currentMemberId, initialSearch = "" }: {
-  lessons: Lesson[]; customers: Customer[]; members: Member[];
+export function RegularLessonsClient({ lessons, trialLessons = [], customers, members, sessionPasses, customerPlans, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin, currentMemberId, initialSearch = "" }: {
+  lessons: Lesson[]; trialLessons?: TrialLesson[]; customers: Customer[]; members: Member[];
   sessionPasses: SessionPass[]; customerPlans: CustomerPlanRecord[]; rentalGyms?: RentalGym[]; stores?: Store[]; fctStores?: FctStore[];
   avenirStores?: AvenirStore[];
   venueFees?: CustomerVenueFee[]; isAdmin: boolean; currentMemberId?: string;
@@ -1233,19 +1280,27 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
 
+  // 顧客ごとにまとめる。体験しか無い顧客（初回のお客さん）も出す
   const grouped = useMemo(() => {
-    const map = new Map<string, { customer: Customer; lessons: Lesson[] }>();
-    lessons.forEach((l) => {
-      if (!map.has(l.customerId)) {
-        const customer = customers.find((c) => c.id === l.customerId);
-        if (customer) map.set(l.customerId, { customer, lessons: [] });
+    const map = new Map<string, { customer: Customer; lessons: Lesson[]; trials: TrialLesson[] }>();
+    const ensure = (customerId: string) => {
+      if (!map.has(customerId)) {
+        const customer = customers.find((c) => c.id === customerId);
+        if (customer) map.set(customerId, { customer, lessons: [], trials: [] });
       }
-      map.get(l.customerId)?.lessons.push(l);
+      return map.get(customerId);
+    };
+    lessons.forEach((l) => { ensure(l.customerId)?.lessons.push(l); });
+    trialLessons.forEach((t) => { ensure(t.customerId)?.trials.push(t); });
+    map.forEach((g) => {
+      g.lessons.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
+      g.trials.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
     });
-    map.forEach((g) => g.lessons.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)));
-    // 直近のレッスンがある顧客ほど上に来るよう並べる（各グループは既に新しい順にソート済み）
-    return Array.from(map.values()).sort((a, b) => b.lessons[0].scheduledAt.localeCompare(a.lessons[0].scheduledAt));
-  }, [lessons, customers]);
+    // 直近のレッスン（体験も含む）がある顧客ほど上に来るよう並べる
+    const latest = (g: { lessons: Lesson[]; trials: TrialLesson[] }) =>
+      [g.lessons[0]?.scheduledAt, g.trials[0]?.scheduledAt].filter(Boolean).sort().reverse()[0] ?? "";
+    return Array.from(map.values()).sort((a, b) => latest(b).localeCompare(latest(a)));
+  }, [lessons, trialLessons, customers]);
 
   const filtered = grouped.filter(({ customer }) => {
     const q = search.toLowerCase();
@@ -1319,8 +1374,8 @@ export function RegularLessonsClient({ lessons, customers, members, sessionPasse
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(({ customer, lessons: ls }) => (
-            <CustomerGroup key={customer.id} customer={customer} lessons={ls}
+          {filtered.map(({ customer, lessons: ls, trials }) => (
+            <CustomerGroup key={customer.id} customer={customer} lessons={ls} trialLessons={trials}
               sessionPasses={sessionPasses} customerPlans={customerPlans} allLessons={lessons}
               customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} />
           ))}
