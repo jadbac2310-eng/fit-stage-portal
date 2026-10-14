@@ -7,7 +7,7 @@ import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 import { setCustomerVenueFee, deleteCustomerVenueFee } from "@/lib/customer-venue-fees";
 import type { VenueKind } from "@/lib/lessons-types";
 
-const KINDS: VenueKind[] = ["gym", "fct", "avenir"];
+const KINDS: VenueKind[] = ["gym", "fct", "avenir", "store"];
 
 export async function setVenueFeeAction(formData: FormData): Promise<ActionResult> {
   return runAction(async () => {

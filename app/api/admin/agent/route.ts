@@ -169,7 +169,7 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
         const inMonth = completed.filter((l) => isoToMonth(l.scheduledAt) === month);
         const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
         // 会場の利用料（レンタルジム・FCT店舗・アヴニール店舗）はすべて利益から引く
-        const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0), 0);
+        const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0) + (l.storeFee ?? 0), 0);
         const trainerPayout = buildTrainerEntries(completed, completedTrials, month, ctx).reduce((s, e) => s + e.total, 0);
         const contractedTrials = trialLessons.filter((t) => t.contracted === true);
         const salesPayout = buildSalesEntries(completed, contractedTrials, month, ctx).reduce((s, e) => s + e.total, 0);

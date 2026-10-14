@@ -180,6 +180,9 @@ function LessonForm({
     defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
   );
   const [storeId, setStoreId] = useState(defaultValues?.storeId ?? "");
+  const [storeFee, setStoreFee] = useState(
+    defaultValues?.storeFee != null ? String(defaultValues.storeFee) : ""
+  );
   const [fctStoreId, setFctStoreId] = useState(defaultValues?.fctStoreId ?? "");
   const [fctStoreFee, setFctStoreFee] = useState(
     defaultValues?.fctStoreFee != null ? String(defaultValues.fctStoreFee) : ""
@@ -207,7 +210,7 @@ function LessonForm({
   // 場所はレンタルジム／店舗／FCT店舗のいずれか1つ（同じ回に2つの場所は無いため排他）
   function clearPlaces() {
     setRentalGymId(""); setRentalGymFee("");
-    setStoreId("");
+    setStoreId(""); setStoreFee("");
     setFctStoreId(""); setFctStoreFee("");
     setAvenirStoreId(""); setAvenirStoreFee("");
   }
@@ -226,7 +229,10 @@ function LessonForm({
     clearPlaces();
     setStoreId(id);
     const store = stores.find((s) => s.id === id);
-    if (store) setLocation(store.name);
+    if (store) {
+      setStoreFee(String(resolveVenueFee(customerId, "store", id, store.fee, venueFees)));
+      setLocation(store.name);
+    }
   }
 
   function onFctStoreChange(id: string) {
@@ -251,6 +257,10 @@ function LessonForm({
 
   /** 顧客を選び直したとき、すでに選んでいる会場の料金を引き直す */
   function syncVenueFeeFor(cid: string) {
+    if (storeId) {
+      const st = stores.find((x) => x.id === storeId);
+      if (st) setStoreFee(String(resolveVenueFee(customerId, "store", st.id, st.fee, venueFees)));
+    }
     if (rentalGymId) {
       const gym = rentalGyms.find((g) => g.id === rentalGymId);
       if (gym) setRentalGymFee(String(resolveVenueFee(cid, "gym", gym.id, gym.fee, venueFees)));
@@ -427,6 +437,14 @@ function LessonForm({
         <input type="hidden" name="rentalGymId" value={rentalGymId} />
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
         <input type="hidden" name="avenirStoreId" value={avenirStoreId} />
+        {storeId && (
+          <div className="mt-2">
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">店舗の利用料（税込）</label>
+            <input name="storeFee" type="number" min="0" step="1" value={storeFee}
+              onChange={(e) => setStoreFee(e.target.value)} className={inputClass} />
+            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
+          </div>
+        )}
         {rentalGymId && (
           <div className="mt-2">
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>

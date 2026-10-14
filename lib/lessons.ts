@@ -29,6 +29,7 @@ type DbRow = {
   fct_store_fee: number | null;
   avenir_store_id?: string | null;
   avenir_store_fee?: number | null;
+  store_fee?: number | null;
   store_id: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -66,6 +67,7 @@ function fromDb(row: DbRow): Lesson {
     avenirStoreId:     row.avenir_store_id ?? undefined,
     avenirStoreFee:    row.avenir_store_fee ?? undefined,
     storeId:           row.store_id ?? undefined,
+    storeFee:          row.store_fee ?? undefined,
     createdById:       row.created_by ?? undefined,
     createdByName:     row.created_by_member?.name ?? undefined,
     updatedById:       row.updated_by ?? undefined,
@@ -133,6 +135,7 @@ export async function addLesson(input: {
   fctStoreFee?: number | null;
   avenirStoreId?: string | null;
   avenirStoreFee?: number | null;
+  storeFee?: number | null;
   storeId?: string | null;
   deliveryMode?: DeliveryMode;
 }): Promise<Lesson> {
@@ -161,6 +164,7 @@ export async function addLesson(input: {
     fct_store_fee:     input.fctStoreFee ?? null,
     avenir_store_id:   input.avenirStoreId ?? null,
     avenir_store_fee:  input.avenirStoreFee ?? null,
+    store_fee:         input.storeFee ?? null,
     delivery_mode:     input.deliveryMode ?? "store",
   };
   // 書き込みは JOIN を含めず id だけ返す（members への関連取得が壊れても end_at 等を落とさないため）。
@@ -198,6 +202,7 @@ export async function updateLesson(
     fctStoreFee: number | null;
     avenirStoreId: string | null;
     avenirStoreFee: number | null;
+    storeFee: number | null;
     storeId: string | null;
     deliveryMode: DeliveryMode;
   }>
@@ -228,6 +233,7 @@ export async function updateLesson(
   if (input.fctStoreFee !== undefined) { patch.fct_store_fee = input.fctStoreFee; fctKeys.push("fct_store_fee"); }
   if (input.avenirStoreId  !== undefined) { patch.avenir_store_id  = input.avenirStoreId;  fctKeys.push("avenir_store_id"); }
   if (input.avenirStoreFee !== undefined) { patch.avenir_store_fee = input.avenirStoreFee; fctKeys.push("avenir_store_fee"); }
+  if (input.storeFee       !== undefined) { patch.store_fee        = input.storeFee;        fctKeys.push("store_fee"); }
   if (input.deliveryMode !== undefined) { patch.delivery_mode = input.deliveryMode; fctKeys.push("delivery_mode"); }
 
   const client = createAdminClient();

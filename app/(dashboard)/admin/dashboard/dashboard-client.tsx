@@ -68,8 +68,8 @@ function computeMonth(
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
     + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx), 0);
   // 場所利用料はレンタルジム代とFCT店舗の利用料。体験レッスン分も差し引く
-  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0), 0)
-    + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0) + (t.fctStoreFee ?? 0) + (t.avenirStoreFee ?? 0), 0);
+  const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0) + (l.storeFee ?? 0), 0)
+    + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0) + (t.fctStoreFee ?? 0) + (t.avenirStoreFee ?? 0) + (t.storeFee ?? 0), 0);
   const trainerPayout = buildTrainerEntries(lessons, completedTrialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   const salesPayout = buildSalesEntries(lessons, trialLessons, month, ctx).reduce((s, e) => s + e.total, 0);
   // 業務（時給）は完了したぶんだけ支払う。予定のままのものは含めない
@@ -121,6 +121,7 @@ function computeBreakdown(
   gymNames: Map<string, string>,
   fctStoreNames: Map<string, string>,
   avenirStoreNames: Map<string, string>,
+  storeNames: Map<string, string>,
   hourlyTasks: HourlyTask[],
   expenses: Expense[],
 ): MonthBreakdown {
@@ -161,6 +162,10 @@ function computeBreakdown(
     if (l.avenirStoreFee) {
       const name = (l.avenirStoreId && avenirStoreNames.get(l.avenirStoreId)) || l.location || "不明なアヴニール店舗";
       add(byGym, l.avenirStoreId ?? `avenir:${name}`, name, l.avenirStoreFee);
+    }
+    if (l.storeFee) {
+      const name = (l.storeId && storeNames.get(l.storeId)) || l.location || "不明な店舗";
+      add(byGym, l.storeId ?? `store:${name}`, name, l.storeFee);
     }
   }
 
@@ -447,7 +452,7 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, rentalGyms, fctStores, avenirStores, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, rentalGyms, fctStores, avenirStores, stores, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -464,6 +469,7 @@ export function RevenueDashboardClient({
   rentalGyms?:   { id: string; name: string }[];
   fctStores?:    { id: string; name: string }[];
   avenirStores?: { id: string; name: string }[];
+  stores?:       { id: string; name: string }[];
   analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
@@ -496,9 +502,10 @@ export function RevenueDashboardClient({
   const gymNames = useMemo(() => new Map((rentalGyms ?? []).map((g) => [g.id, g.name])), [rentalGyms]);
   const fctStoreNames = useMemo(() => new Map((fctStores ?? []).map((f) => [f.id, f.name])), [fctStores]);
   const avenirStoreNames = useMemo(() => new Map((avenirStores ?? []).map((a) => [a.id, a.name])), [avenirStores]);
+  const storeNames = useMemo(() => new Map((stores ?? []).map((v) => [v.id, v.name])), [stores]);
   const breakdown = useMemo(
-    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, tasks, costs) : null,
-    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, tasks, costs],
+    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs) : null,
+    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs],
   );
 
   // 今月の実績（全体）

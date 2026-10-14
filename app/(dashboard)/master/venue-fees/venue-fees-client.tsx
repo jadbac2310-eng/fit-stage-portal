@@ -21,13 +21,14 @@ function yen(n: number) {
 }
 
 export function VenueFeesClient({
-  fees, customers, rentalGyms, fctStores, avenirStores,
+  fees, customers, rentalGyms, fctStores, avenirStores, stores,
 }: {
   fees: FeeRow[];
   customers: Opt[];
   rentalGyms: (Opt & { fee: number })[];
   fctStores: (Opt & { fee: number })[];
   avenirStores: (Opt & { fee: number })[];
+  stores: (Opt & { fee: number })[];
 }) {
   const router = useRouter();
   const [customerId, setCustomerId] = useState("");
@@ -40,10 +41,11 @@ export function VenueFeesClient({
 
   // 料金のある会場（店舗は利用料が無いので出さない）
   const venues: Venue[] = useMemo(() => [
+    ...stores.map((v)    => ({ key: venueKey("store", v.id),   kind: "store"  as const, id: v.id, name: v.name, fee: v.fee, group: "FIT STAGE店舗" })),
     ...rentalGyms.map((g) => ({ key: venueKey("gym", g.id),    kind: "gym"    as const, id: g.id, name: g.name, fee: g.fee, group: "レンタルジム" })),
     ...fctStores.map((f)  => ({ key: venueKey("fct", f.id),    kind: "fct"    as const, id: f.id, name: f.name, fee: f.fee, group: "FCT店舗" })),
     ...avenirStores.map((a) => ({ key: venueKey("avenir", a.id), kind: "avenir" as const, id: a.id, name: a.name, fee: a.fee, group: "アヴニール店舗" })),
-  ], [rentalGyms, fctStores, avenirStores]);
+  ], [stores, rentalGyms, fctStores, avenirStores]);
 
   const venueMap    = useMemo(() => new Map(venues.map((v) => [v.key, v])), [venues]);
   const customerMap = useMemo(() => new Map(customers.map((c) => [c.id, c.name])), [customers]);
@@ -95,7 +97,7 @@ export function VenueFeesClient({
           <Coins size={20} className="text-emerald-600" /> 顧客ごとの会場料金
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          同じ会場でもお客さんによって料金が違うときに設定します。レッスン追加時の初期値になり、毎回打ち直さなくて済みます。
+          同じ会場でもお客さんによって料金が違うときに設定します。レッスン追加時の初期値になり、毎回打ち直さなくて済みます。料金のかからない会場には設定不要です。
         </p>
       </div>
 
@@ -112,7 +114,7 @@ export function VenueFeesClient({
           <label className={labelClass}>会場</label>
           <select value={venue} onChange={(e) => { setVenue(e.target.value); syncFee(customerId, e.target.value); }} className={inputClass}>
             <option value="">選択してください</option>
-            {["レンタルジム", "FCT店舗", "アヴニール店舗"].map((g) => {
+            {["FIT STAGE店舗", "レンタルジム", "FCT店舗", "アヴニール店舗"].map((g) => {
               const list = venues.filter((v) => v.group === g);
               if (list.length === 0) return null;
               return (

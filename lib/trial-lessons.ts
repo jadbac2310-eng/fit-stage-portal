@@ -21,6 +21,7 @@ type DbRow = {
   fct_store_fee: number | null;
   avenir_store_id?: string | null;
   avenir_store_fee?: number | null;
+  store_fee?: number | null;
   course: string | null;
   amount: number | null;
   status: TrialLessonStatus;
@@ -56,6 +57,7 @@ function fromDb(row: DbRow): TrialLesson {
     storeId:             row.store_id ?? undefined,
     fctStoreId:          row.fct_store_id ?? undefined,
     fctStoreFee:         row.fct_store_fee ?? undefined,
+    storeFee:            row.store_fee ?? undefined,
     avenirStoreId:       row.avenir_store_id ?? undefined,
     avenirStoreFee:      row.avenir_store_fee ?? undefined,
     course:              row.course ?? undefined,
@@ -116,6 +118,7 @@ export async function addTrialLesson(input: {
   deliveryMode?: DeliveryMode;
   fctStoreFee?: number | null;
   avenirStoreFee?: number | null;
+  storeFee?: number | null;
   course?: string | null;
   amount?: number | null;
   note?: string;
@@ -141,6 +144,7 @@ export async function addTrialLesson(input: {
     delivery_mode:  input.deliveryMode ?? "store",
     fct_store_fee:  input.fctStoreFee ?? null,
     avenir_store_fee: input.avenirStoreFee ?? null,
+    store_fee:        input.storeFee ?? null,
     course:         input.course ?? null,
     amount:         input.amount ?? null,
   };
@@ -172,6 +176,7 @@ export async function updateTrialLesson(
     deliveryMode: DeliveryMode;
     fctStoreFee: number | null;
     avenirStoreFee: number | null;
+    storeFee: number | null;
     course: string | null;
     amount: number | null;
     status: TrialLessonStatus;
@@ -200,6 +205,7 @@ export async function updateTrialLesson(
   if (input.fctStoreFee         !== undefined) setExtra("fct_store_fee",  input.fctStoreFee);
   if (input.avenirStoreId       !== undefined) setExtra("avenir_store_id",  input.avenirStoreId);
   if (input.avenirStoreFee      !== undefined) setExtra("avenir_store_fee", input.avenirStoreFee);
+  if (input.storeFee            !== undefined) setExtra("store_fee",        input.storeFee);
   if (input.deliveryMode        !== undefined) setExtra("delivery_mode",  input.deliveryMode);
   if (input.course              !== undefined) setExtra("course",         input.course);
   if (input.amount              !== undefined) setExtra("amount",         input.amount);

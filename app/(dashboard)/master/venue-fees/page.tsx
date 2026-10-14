@@ -1,6 +1,7 @@
 import { getCustomerVenueFees } from "@/lib/customer-venue-fees";
 import { getCustomers } from "@/lib/customers";
 import { getRentalGyms } from "@/lib/rental-gyms";
+import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
 import { getAvenirStores } from "@/lib/avenir-stores";
 import { getCurrentIsAdmin } from "@/lib/members";
@@ -20,12 +21,13 @@ export default async function VenueFeesPage() {
     );
   }
 
-  const [fees, customers, rentalGyms, fctStores, avenirStores] = await Promise.all([
+  const [fees, customers, rentalGyms, fctStores, avenirStores, stores] = await Promise.all([
     getCustomerVenueFees(),
     getCustomers(),
     getRentalGyms(),
     getFctStores(),
     getAvenirStores(),
+    getStores(),
   ]);
 
   const opt = (v: { id: string; name: string; fee: number }) => ({ id: v.id, name: v.name, fee: v.fee });
@@ -39,6 +41,7 @@ export default async function VenueFeesPage() {
       rentalGyms={rentalGyms.map(opt)}
       fctStores={fctStores.map(opt)}
       avenirStores={avenirStores.map(opt)}
+      stores={stores.map(opt)}
     />
   );
 }

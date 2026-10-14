@@ -22,6 +22,7 @@ function readPlaceAndCourse(formData: FormData) {
   const rgfRaw      = (formData.get("rentalGymFee") as string)?.trim();
   const courseRaw   = (formData.get("course") as string)?.trim();
   const amtRaw      = (formData.get("amount") as string)?.trim();
+  const storeFeeRaw = (formData.get("storeFee") as string)?.trim();
   const fctStoreId = (formData.get("fctStoreId") as string)?.trim() || null;
   const fsfRaw     = (formData.get("fctStoreFee") as string)?.trim();
   const avenirStoreId = (formData.get("avenirStoreId") as string)?.trim() || null;
@@ -30,6 +31,7 @@ function readPlaceAndCourse(formData: FormData) {
     rentalGymId,
     rentalGymFee: rentalGymId && rgfRaw ? parseInt(rgfRaw, 10) : null,
     storeId:      (formData.get("storeId") as string)?.trim() || null,
+    storeFee:     (formData.get("storeId") as string)?.trim() && storeFeeRaw ? parseInt(storeFeeRaw, 10) : null,
     deliveryMode: toDeliveryMode(formData.get("deliveryMode") as string),
     fctStoreId,
     fctStoreFee:  fctStoreId && fsfRaw ? parseInt(fsfRaw, 10) : null,
@@ -48,7 +50,7 @@ export async function createTrialLessonAction(formData: FormData): Promise<Actio
     const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
     const location        = (formData.get("location")        as string)?.trim() || undefined;
     const note            = (formData.get("note")            as string)?.trim() || undefined;
-    const { rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount } = readPlaceAndCourse(formData);
+    const { rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount } = readPlaceAndCourse(formData);
 
     if (!customerId || !salesMemberId || !scheduledAt) return;
 
@@ -56,7 +58,7 @@ export async function createTrialLessonAction(formData: FormData): Promise<Actio
     const member = await getCurrentMember();
     const created = await addTrialLesson({
       customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
-      rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course,
+      rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course,
       amount: member?.isAdmin ? amount : null,
     });
     await logActivity({ action: "create", entityType: "trial_lesson", entityId: created.id, summary: `体験レッスンを追加: ${created.customerName}` });
@@ -82,13 +84,13 @@ export async function updateTrialLessonAction(id: string, formData: FormData): P
     const scheduledAt     = (formData.get("scheduledAt")     as string)?.trim();
     const location        = (formData.get("location")        as string)?.trim() || null;
     const note            = (formData.get("note")            as string)?.trim() || null;
-    const { rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount } = readPlaceAndCourse(formData);
+    const { rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount } = readPlaceAndCourse(formData);
 
     if (!customerId || !salesMemberId || !scheduledAt) return;
 
     await updateTrialLesson(id, {
       customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
-      rentalGymId, rentalGymFee, storeId, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount,
+      rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount,
     });
     await logActivity({ action: "update", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを編集" });
     revalidatePath("/lessons/trial");

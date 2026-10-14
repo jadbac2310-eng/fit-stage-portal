@@ -41,6 +41,11 @@ function StoreForm({
         <label className={labelClass}>住所</label>
         <input name="address" defaultValue={defaultValues?.address} placeholder="大阪府..." className={inputClass} />
       </div>
+      <div>
+        <label className={labelClass}>料金（税込・1回あたり）</label>
+        <input name="fee" type="number" min="0" step="1" defaultValue={defaultValues?.fee ?? ""} placeholder="かからない店舗は0" className={inputClass} />
+        <p className="text-xs text-gray-400 mt-1">レッスン追加時の初期値になります（その場で変更可）。利益の計算でこの額を差し引きます。</p>
+      </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
@@ -90,6 +95,9 @@ function StoreRow({ store, isAdmin }: { store: Store; isAdmin: boolean }) {
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><MapPin size={11} className="flex-shrink-0" />{store.address}</p>
         )}
       </div>
+      <span className="text-sm font-bold text-teal-700 whitespace-nowrap">
+        {store.fee > 0 ? `¥${store.fee.toLocaleString("ja-JP")}` : "無料"}
+      </span>
       {isAdmin && (
         <div className="flex items-center gap-1 flex-shrink-0">
           <button onClick={() => setMode("edit")} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Pencil size={13} /></button>

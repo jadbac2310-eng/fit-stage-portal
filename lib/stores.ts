@@ -1,10 +1,11 @@
 import { createAdminClient } from "./supabase";
 
-// 店舗（自社/提携の店舗）。利用料は無い（レンタルジムとは別概念）
+// 店舗（自社/提携の店舗）。店舗によっては1回あたりの利用料がかかる（江坂店は0円、庄内店・曽根城山店は2,500円など）
 export interface Store {
   id:        string;
   name:      string;
   address?:  string;
+  fee:       number;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -14,6 +15,7 @@ type DbRow = {
   id:         string;
   name:       string;
   address:    string | null;
+  fee?:       number | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -24,6 +26,7 @@ function fromDb(row: DbRow): Store {
     id:        row.id,
     name:      row.name,
     address:   row.address ?? undefined,
+    fee:       row.fee ?? 0,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -43,30 +46,38 @@ export async function getStores(): Promise<Store[]> {
   return (data as DbRow[]).map(fromDb);
 }
 
-export async function addStore(input: { name: string; address?: string }): Promise<Store> {
-  const { data, error } = await createAdminClient()
-    .from("stores")
-    .insert({ name: input.name, address: input.address ?? null })
-    .select()
-    .single();
+export async function addStore(input: { name: string; address?: string; fee?: number }): Promise<Store> {
+  const client = createAdminClient();
+  const row = { name: input.name, address: input.address ?? null };
+  // fee 列（マイグレーション 20261014000001）。未適用の環境では列を落として再試行する
+  let { data, error } = await client.from("stores").insert({ ...row, fee: input.fee ?? 0 }).select().single();
+  if (error && isMissingFee(error)) {
+    ({ data, error } = await client.from("stores").insert(row).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }
 
+function isMissingFee(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42703" || err.code === "PGRST204" || /fee/i.test(err.message ?? "");
+}
+
 export async function updateStore(
   id: string,
-  input: Partial<{ name: string; address: string | null }>,
+  input: Partial<{ name: string; address: string | null; fee: number }>,
 ): Promise<Store> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (input.name    !== undefined) patch.name    = input.name;
   if (input.address !== undefined) patch.address = input.address;
 
-  const { data, error } = await createAdminClient()
-    .from("stores")
-    .update(patch)
-    .eq("id", id)
-    .select()
-    .single();
+  const client = createAdminClient();
+  let { data, error } = await client.from("stores")
+    .update(input.fee !== undefined ? { ...patch, fee: input.fee } : patch)
+    .eq("id", id).select().single();
+  if (error && isMissingFee(error)) {
+    ({ data, error } = await client.from("stores").update(patch).eq("id", id).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
 }

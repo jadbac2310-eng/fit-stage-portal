@@ -9,9 +9,11 @@ export async function createStoreAction(formData: FormData) {
   await requireAdmin();
   const name    = (formData.get("name")    as string)?.trim();
   const address = (formData.get("address") as string)?.trim() || undefined;
+  const feeRaw  = (formData.get("fee")     as string)?.trim();
+  const fee     = feeRaw ? parseInt(feeRaw, 10) : 0;
   if (!name) return;
 
-  const created = await addStore({ name, address });
+  const created = await addStore({ name, address, fee: Number.isFinite(fee) ? fee : 0 });
   await logActivity({ action: "create", entityType: "store", entityId: created.id, summary: `店舗を追加: ${name}` });
   revalidatePath("/master/stores");
 }
@@ -20,9 +22,11 @@ export async function updateStoreAction(id: string, formData: FormData) {
   await requireAdmin();
   const name    = (formData.get("name")    as string)?.trim();
   const address = (formData.get("address") as string)?.trim() || null;
+  const feeRaw  = (formData.get("fee")     as string)?.trim();
+  const fee     = feeRaw ? parseInt(feeRaw, 10) : 0;
   if (!name) return;
 
-  await updateStore(id, { name, address });
+  await updateStore(id, { name, address, fee: Number.isFinite(fee) ? fee : 0 });
   await logActivity({ action: "update", entityType: "store", entityId: id, summary: `店舗を編集: ${name}` });
   revalidatePath("/master/stores");
 }

@@ -44,7 +44,8 @@ export interface Lesson {
   note?: string;
   rentalGymId?: string;        // 利用レンタルジム（rental_gyms.id）
   rentalGymFee?: number;       // この回のレンタルジム代（マスタ値がデフォルト・変更可）
-  storeId?: string;            // 利用店舗（stores.id）。レンタルジムとは別概念で利用料は無い
+  storeId?: string;            // 利用店舗（stores.id）
+  storeFee?: number;           // この回の店舗利用料（マスタ値がデフォルト・変更可。0円の店舗もある）
   fctStoreId?: string;         // 利用FCT店舗（fct_stores.id）
   fctStoreFee?: number;        // この回のFCT店舗利用料（マスタ値がデフォルト・変更可）
   avenirStoreId?: string;      // 利用アヴニール店舗（avenir_stores.id）
