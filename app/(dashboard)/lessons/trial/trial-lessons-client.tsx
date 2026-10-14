@@ -147,6 +147,46 @@ function isoToLocalInput(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * 会場の利用料。
+ *
+ * 金額を決められるのは管理者だけ。トレーナーには読むだけで見せる
+ * （どの会場がいくらかは分かった方がいいが、勝手に変えられると利益がズレる）。
+ * この金額はトレーナーの歩合からは引かれない（利益の計算でだけ差し引く）。
+ */
+function VenueFeeField({
+  label, name, value, onChange, isAdmin, note,
+}: {
+  label: string; name: string; value: string;
+  onChange: (v: string) => void; isAdmin: boolean; note: string;
+}) {
+  return (
+    <div className="mt-2">
+      <label className="text-xs font-semibold text-gray-600 mb-1.5 block">{label}</label>
+      {isAdmin ? (
+        <>
+          <input
+            name={name} type="number" min="0" step="1" value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-400 mt-1">{note}</p>
+        </>
+      ) : (
+        <>
+          <p className="px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">
+            {value !== "" ? `¥${Number(value).toLocaleString("ja-JP")}` : "—"}
+          </p>
+          <input type="hidden" name={name} value={value} />
+          <p className="text-xs text-gray-400 mt-1">
+            会場の料金です（変更できるのは管理者のみ）。あなたの歩合からは引かれません。
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── 体験レッスン作成・編集フォーム ──────────────────
 function LessonForm({
   defaultValues, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin = false, onClose, action, submitLabel,
@@ -438,36 +478,20 @@ function LessonForm({
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
         <input type="hidden" name="avenirStoreId" value={avenirStoreId} />
         {storeId && (
-          <div className="mt-2">
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">店舗の利用料（税込）</label>
-            <input name="storeFee" type="number" min="0" step="1" value={storeFee}
-              onChange={(e) => setStoreFee(e.target.value)} className={inputClass} />
-            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
-          </div>
+          <VenueFeeField label="店舗の利用料（税込）" name="storeFee" value={storeFee}
+            onChange={setStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
         {rentalGymId && (
-          <div className="mt-2">
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">レンタルジム代（税込）</label>
-            <input name="rentalGymFee" type="number" min="0" step="1" value={rentalGymFee}
-              onChange={(e) => setRentalGymFee(e.target.value)} className={inputClass} />
-            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
-          </div>
+          <VenueFeeField label="レンタルジム代（税込）" name="rentalGymFee" value={rentalGymFee}
+            onChange={setRentalGymFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
         {fctStoreId && (
-          <div className="mt-2">
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">FCT店舗の利用料（税込）</label>
-            <input name="fctStoreFee" type="number" min="0" step="1" value={fctStoreFee}
-              onChange={(e) => setFctStoreFee(e.target.value)} className={inputClass} />
-            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
-          </div>
+          <VenueFeeField label="FCT店舗の利用料（税込）" name="fctStoreFee" value={fctStoreFee}
+            onChange={setFctStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
         {avenirStoreId && (
-          <div className="mt-2">
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">アヴニール店舗の利用料（税込）</label>
-            <input name="avenirStoreFee" type="number" min="0" step="1" value={avenirStoreFee}
-              onChange={(e) => setAvenirStoreFee(e.target.value)} className={inputClass} />
-            <p className="text-xs text-gray-400 mt-1">マスタの料金が初期値です。利益の計算でこの額を差し引きます。</p>
-          </div>
+          <VenueFeeField label="アヴニール店舗の利用料（税込）" name="avenirStoreFee" value={avenirStoreFee}
+            onChange={setAvenirStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
       </div>
 
