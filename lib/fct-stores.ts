@@ -1,5 +1,6 @@
 import { createAdminClient } from "./supabase";
 import { FCT_DEFAULT_RATE } from "./fct-types";
+import { ActionError } from "./action-result";
 export { FCT_DEFAULT_RATE } from "./fct-types";
 
 // FCT店舗。レンタルジムと同じく1回あたりの利用料を持ち、利益計算で差し引く。
@@ -60,16 +61,20 @@ export async function addFctStore(input: { name: string; address?: string; fee: 
     name: input.name, address: input.address ?? null, fee: input.fee,
     rate: input.rate ?? FCT_DEFAULT_RATE,
   };
-  let { data, error } = await client.from("fct_stores").insert(row).select().single();
-  // rate 列が未適用の環境では、その列を外して再試行
-  if (error && isMissingRate(error)) {
-    const { rate, ...rest } = row;
-    void rate;
-    ({ data, error } = await client.from("fct_stores").insert(rest).select().single());
-  }
+  const { data, error } = await client.from("fct_stores").insert(row).select().single();
+  if (error && isMissingRate(error)) throw new ActionError(MISSING_RATE_MESSAGE);
   if (error) throw error;
   return fromDb(data as DbRow);
 }
+
+/**
+ * 歩合率の列がまだ無いときに出すメッセージ。
+ *
+ * 以前はこの列を黙って外して保存していたが、歩合率を50%に直しても何も言われずに
+ * 45%のままになり、原因が分からなくなった。保存できないことをはっきり伝える。
+ */
+const MISSING_RATE_MESSAGE =
+  "歩合率を保存できませんでした。Supabaseで fct_stores に rate 列を追加するSQLを先に流してください。";
 
 /** rate 列がまだ無い環境か（マイグレーション未適用） */
 function isMissingRate(error: { message?: string; code?: string } | null): boolean {
@@ -89,12 +94,8 @@ export async function updateFctStore(
   if (input.rate    !== undefined) patch.rate    = input.rate;
 
   const client = createAdminClient();
-  let { data, error } = await client.from("fct_stores").update(patch).eq("id", id).select().single();
-  if (error && isMissingRate(error)) {
-    const { rate, ...rest } = patch;
-    void rate;
-    ({ data, error } = await client.from("fct_stores").update(rest).eq("id", id).select().single());
-  }
+  const { data, error } = await client.from("fct_stores").update(patch).eq("id", id).select().single();
+  if (error && isMissingRate(error)) throw new ActionError(MISSING_RATE_MESSAGE);
   if (error) throw error;
   return fromDb(data as DbRow);
 }

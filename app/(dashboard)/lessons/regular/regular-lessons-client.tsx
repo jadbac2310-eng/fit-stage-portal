@@ -411,6 +411,10 @@ export function LessonForm({
   const venueKinds = venueKindOptions(stores.length, rentalGyms.length, fctStores.length, avenirStores.length);
   /** FCT経由のお客さまか（FCT店舗でやる・会場代はかからない・請求書は出さない） */
   const fctCustomer = isFctCustomer(customers.find((c) => c.id === selectedCustomerId));
+  /** 選んだFCT店舗の歩合率（%）。店舗を選ぶまでは既定の45%で見込みを出す */
+  const fctRate = fctStores.find((f) => f.id === fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
+  /** FCTから入る額（お客さまの単価の税抜 × 歩合率） */
+  const fctPay  = fctLessonPay(customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice, fctRate);
 
   /** 顧客を選び直したとき、すでに選んでいる会場の料金を引き直す */
   function syncVenueFeeFor(customerId: string) {
@@ -737,11 +741,17 @@ export function LessonForm({
           料金は選んだあとに下の入力欄で見せる。 */}
       <div className={cn(onsite && "hidden")}>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
-        {fctCustomer && (
-          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
-            FCTのお客さまです。会場は <span className="font-semibold">FCT店舗</span> を選んでください（利用料は0円になります）。
+        {fctCustomer && (fctStoreId ? (
+          <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
+            FCTのお客さま。この会場の歩合は <span className="font-semibold">{fctRate}%</span> です（会場代は0円）。
+            {isAdmin && fctPay > 0 && <> FCTから入るのは <span className="font-semibold">¥{fctPay.toLocaleString("ja-JP")}</span> / 回。</>}
           </p>
-        )}
+        ) : (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
+            FCTのお客さまです。<span className="font-semibold">会場でFCT店舗を選んでください</span>。
+            選ばないと歩合率が決まらないので、{FCT_DEFAULT_RATE}%で計算されます。
+          </p>
+        ))}
         {venueHistory.length > 0 && (
           <div className="mb-2">
             <p className="text-[11px] text-gray-400 mb-1">よく使う会場（タップで選択）</p>
@@ -932,9 +942,6 @@ export function LessonForm({
           既定は空欄にして、顧客マスタの単価は下に案内だけ出す。 */}
       {courseToPaymentType(selectedCourse) === "single" && (() => {
         const customerPrice = customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice;
-        // FCTのお客さまは「単価の税抜 × 会場の歩合率」が売上になる
-        const fctRate = fctStores.find((f) => f.id === fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
-        const fctPay  = fctLessonPay(customerPrice, fctRate);
         // 金額はトレーナーには触らせない。編集で消えないよう、今の値はそのまま持っておく
         if (!isAdmin) return <input type="hidden" name="amount" defaultValue={defaultValues?.amount ?? ""} />;
         return (

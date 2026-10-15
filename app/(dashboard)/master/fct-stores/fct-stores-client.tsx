@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, X, MapPin, Landmark } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import type { FctStore } from "@/lib/fct-stores";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import { createFctStoreAction, updateFctStoreAction, deleteFctStoreAction } from "./actions";
@@ -18,7 +19,7 @@ function FctStoreForm({
 }: {
   defaultValues?: Partial<FctStore>;
   onClose: () => void;
-  action: (fd: FormData) => Promise<void>;
+  action: (fd: FormData) => Promise<ActionResult | void>;
   submitLabel: string;
 }) {
   const router = useRouter();
@@ -28,7 +29,7 @@ function FctStoreForm({
   async function handleSubmit(fd: FormData) {
     setError("");
     await run(async () => {
-      try { await action(fd); router.refresh(); onClose(); }
+      try { assertActionOk(await action(fd)); router.refresh(); onClose(); }
       catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
     });
   }
@@ -87,7 +88,7 @@ function FctStoreRow({ store, isAdmin }: { store: FctStore; isAdmin: boolean }) 
     if (deleting) return;
     if (!confirm(`「${store.name}」を削除しますか？`)) return;
     runDelete(async () => {
-      await deleteFctStoreAction(store.id);
+      assertActionOk(await deleteFctStoreAction(store.id));
       router.refresh();
     });
   }
