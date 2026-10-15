@@ -10,6 +10,7 @@ import {
   Customer, CustomerStatus, CustomerType, STATUS_LABEL, CUSTOMER_TYPE_LABEL,
   FCT_SALES_VALUE, FCT_SALES_LABEL, isFctCustomer,
 } from "@/lib/customers-types";
+import { fctLessonPay, FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import {
   createCustomerAction, updateCustomerAction, deleteCustomerAction,
   updateCustomerStatusAction,
@@ -137,6 +138,9 @@ function CustomerForm({
     isFctCustomer(defaultValues) ? FCT_SALES_VALUE : (defaultValues?.salesMemberId ?? "")
   );
   const isFct = sales === FCT_SALES_VALUE;
+  // FCTのお客さまは「お客さまの単価」を入れてもらい、FCTから入る額はこちらで計算して見せる
+  const [price, setPrice] = useState(defaultValues?.singleSessionPrice?.toString() ?? "");
+  const fctPay = isFct ? fctLessonPay(parseInt(price, 10) || null) : 0;
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -267,31 +271,45 @@ function CustomerForm({
             <ul className="list-disc pl-4 mt-1 space-y-0.5">
               <li>FCT店舗の利用料は <span className="font-semibold">0円</span>（レンタル代はかかりません）</li>
               <li>このお客さまへの<span className="font-semibold">請求書は作りません</span>（FCTから入るため）</li>
+              <li>売上は「単価の税抜 × FCT店舗の歩合率」で<span className="font-semibold">自動計算</span>します</li>
               <li>自社の営業歩合・成約ボーナスは付きません</li>
             </ul>
           </div>
         )}
       </div>
 
-      {/* 都度単価（FCTのお客さまは「FCTから入る1レッスンの額」をここに入れる） */}
+      {/* 都度単価。FCTのお客さまも「お客さまが払う単価」を入れる（売上はそこから自動計算） */}
       <div>
         <label className={labelClass}>
-          <StickyNote size={12} /> {isFct ? "FCTから入る1レッスンの金額（税込）" : "都度単価（税込）"}
+          <StickyNote size={12} /> {isFct ? "お客さまの1回の単価（税込）" : "都度単価（税込）"}
         </label>
         <input
           name="singleSessionPrice"
           type="number"
           min="0"
           step="1"
-          defaultValue={defaultValues?.singleSessionPrice ?? ""}
-          placeholder="例: 9900"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder={isFct ? "例: 8700" : "例: 9900"}
           className={inputClass}
         />
-        <p className="text-xs text-gray-400 mt-1">
-          {isFct
-            ? "FCTから1レッスンあたり支払われる固定額。これを売上として計上します（トレーナーには見えません）"
-            : "この顧客の「都度」レッスン1回あたりの単価（売上計算に使用）"}
-        </p>
+        {isFct ? (
+          <>
+            <p className="text-xs text-gray-400 mt-1">
+              このお客さまがFCTに払っている1回の単価。ここから自動で売上を計算します（割り算は不要です）。
+            </p>
+            {fctPay > 0 && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-2 mt-1.5">
+                FCTから入る額：<span className="font-bold">¥{fctPay.toLocaleString("ja-JP")}</span> / 回
+                <span className="text-emerald-600">（歩合{FCT_DEFAULT_RATE}%の直営店の場合）</span>
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-gray-400 mt-1">
+            この顧客の「都度」レッスン1回あたりの単価（売上計算に使用）
+          </p>
+        )}
       </div>
 
       {/* 個人/法人 */}

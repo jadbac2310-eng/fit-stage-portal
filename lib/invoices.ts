@@ -1,5 +1,6 @@
 import type { Customer, CustomerType, PaymentDueMonth } from "./customers-types";
 import { isFctCustomer } from "./customers-types";
+import { fctLessonPay, fctPayBreakdown, FCT_DEFAULT_RATE, type FctPayBreakdown } from "./fct-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerMonthlyItem } from "./customer-monthly-items-types";
@@ -302,31 +303,31 @@ export interface FctSummaryRow {
   amount:       number;
 }
 
-export interface FctSummary {
+export interface FctSummary extends FctPayBreakdown {
   rows:  FctSummaryRow[];
   count: number;
-  total: number;
 }
 
 /**
  * 対象月の「FCT分」をまとめる。
  *
- * FCT経由のお客さまには請求書を出さず、FCTから1レッスンあたり一定額が入る。
- * FCTから届く明細と突き合わせられるように、件数と合計だけを出す。
- * 1回あたりの額は レッスン個別金額 → 顧客の「FCTから入る1レッスンの金額」 の順に見る。
+ * FCT経由のお客さまには請求書を出さず、FCTから「お客さまの単価の税抜 × 店舗の歩合率」が入る。
+ * FCTから届く支払明細とそのまま突き合わせられるように、件数・合計と
+ * 税抜・消費税・源泉（10.21%）・振込予定額まで同じ形で出す。
  */
 export function fctLessonSummary(
   customers: Customer[],
   month: string,
   lessons: Lesson[],
-  fees: InvoiceFees = { single: 0, lessonFees: {} },
+  /** FCT店舗の歩合率（%）。渡さないときは既定の45% */
+  fctStores: { id: string; rate: number }[] = [],
 ): FctSummary {
   const rows: FctSummaryRow[] = [];
+  // FCTの支払いは暦の月どおりなので、顧客ごとの締日は見ない
+  const period = billingPeriod(month, null);
 
   for (const c of customers) {
     if (!isFctCustomer(c)) continue;
-    // FCTの支払いは暦の月どおりなので、締日の設定は見ない
-    const period = billingPeriod(month, null);
     let count = 0;
     let amount = 0;
     for (const l of lessons) {
@@ -334,8 +335,9 @@ export function fctLessonSummary(
       // コース未設定のレッスンは売上にも載らない（上の「請求に含まれていないレッスン」で気付ける）
       if (courseToPaymentType(l.course) !== "single") continue;
       if (!inPeriod(l.scheduledAt, period)) continue;
+      const rate = fctStores.find((f) => f.id === l.fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
       count  += 1;
-      amount += resolveSingleLessonAmount(l.amount, c.singleSessionPrice) ?? fees.single;
+      amount += l.amount ?? fctLessonPay(c.singleSessionPrice, rate);
     }
     if (count === 0) continue;
     rows.push({ customerId: c.id, customerName: c.fullName, count, amount });
@@ -345,7 +347,7 @@ export function fctLessonSummary(
   return {
     rows,
     count: rows.reduce((s, r) => s + r.count, 0),
-    total: rows.reduce((s, r) => s + r.amount, 0),
+    ...fctPayBreakdown(rows.reduce((s, r) => s + r.amount, 0)),
   };
 }
 

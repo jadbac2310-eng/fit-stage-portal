@@ -9,6 +9,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { getFctStores } from "@/lib/fct-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   if (!memberId || !month) return new Response("パラメータが不正です", { status: 400 });
 
-  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
     getAllPlans(),
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
+    getFctStores(),
   ]);
 
   const trainer = members.find((m) => m.id === memberId);
@@ -52,6 +54,7 @@ export async function GET(req: NextRequest) {
     trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),
+    fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
   };
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));

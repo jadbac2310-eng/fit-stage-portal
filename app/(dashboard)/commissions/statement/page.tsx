@@ -7,6 +7,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { getFctStores } from "@/lib/fct-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { buildHourlyEntries, type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
@@ -37,7 +38,7 @@ export default async function CommissionStatementPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -48,6 +49,7 @@ export default async function CommissionStatementPage({
     getAllPlans(),
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
+    getFctStores(),
   ]);
 
   const ctx: CommissionContext = {
@@ -56,6 +58,7 @@ export default async function CommissionStatementPage({
     trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),
+    fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
   };
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));

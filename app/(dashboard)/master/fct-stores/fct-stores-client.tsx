@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, X, MapPin, Landmark } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import type { FctStore } from "@/lib/fct-stores";
+import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import { createFctStoreAction, updateFctStoreAction, deleteFctStoreAction } from "./actions";
 
 function yen(n: number) {
@@ -46,9 +47,24 @@ function FctStoreForm({
         <input name="address" defaultValue={defaultValues?.address} placeholder="大阪府吹田市..." className={inputClass} />
       </div>
       <div>
-        <label className={labelClass}>料金（税込・1回あたり）</label>
-        <input name="fee" type="number" min="0" step="1" defaultValue={defaultValues?.fee ?? ""} placeholder="例: 3000" className={inputClass} />
-        <p className="text-xs text-gray-400 mt-1">レッスン追加時の初期値になります（その場で変更可）</p>
+        <label className={labelClass}>レンタル料（税込・1回あたり）</label>
+        <input name="fee" type="number" min="0" step="1" defaultValue={defaultValues?.fee ?? ""} placeholder="例: 3600" className={inputClass} />
+        <p className="text-xs text-gray-400 mt-1">
+          自分のお客さんでこの店舗を使ったときにかかる額。FCTのお客さんのレッスンは0円になります。
+        </p>
+      </div>
+      <div>
+        <label className={labelClass}>FCTの歩合率（%）</label>
+        <input
+          name="rate" type="number" min="0" max="100" step="1"
+          defaultValue={defaultValues?.rate ?? FCT_DEFAULT_RATE}
+          placeholder={String(FCT_DEFAULT_RATE)}
+          className={inputClass}
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          FCTのお客さん1レッスンでいくら入るかの率。直営店は{FCT_DEFAULT_RATE}%。
+          お客さんの単価（税込）の税抜にこの率をかけた額が売上になります。
+        </p>
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
@@ -98,7 +114,10 @@ function FctStoreRow({ store, isAdmin }: { store: FctStore; isAdmin: boolean }) 
         {store.address && (
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><MapPin size={11} className="flex-shrink-0" />{store.address}</p>
         )}
-        <p className="text-xs font-semibold text-rose-600 mt-1">{yen(store.fee)} / 回</p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-xs font-semibold text-rose-600">レンタル {yen(store.fee)} / 回</p>
+          <p className="text-xs font-semibold text-emerald-600">歩合 {store.rate}%</p>
+        </div>
       </div>
       {isAdmin && (
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -123,7 +142,7 @@ export function FctStoresClient({ stores, isAdmin }: { stores: FctStore[]; isAdm
             <Landmark size={20} className="text-sky-600" />
             <h1 className="text-xl font-bold text-gray-900">FCT店舗マスタ</h1>
           </div>
-          <p className="text-sm text-gray-500 mt-0.5">名前・住所・料金を管理（{stores.length}件）</p>
+          <p className="text-sm text-gray-500 mt-0.5">名前・レンタル料・FCTの歩合率を管理（{stores.length}件）</p>
         </div>
         {isAdmin && !showAdd && (
           <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">

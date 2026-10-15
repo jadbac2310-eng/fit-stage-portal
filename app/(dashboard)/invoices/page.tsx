@@ -4,6 +4,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
+import { getFctStores } from "@/lib/fct-stores";
 import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, fctLessonSummary } from "@/lib/invoices";
@@ -36,7 +37,7 @@ export default async function InvoicesPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems, fctStores] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
@@ -44,6 +45,7 @@ export default async function InvoicesPage({
     getTrialLessons(),
     getAllPlans(),
     getCustomerMonthlyItems(),
+    getFctStores(),
   ]);
 
   const fees = invoiceFeesFromPlans(plansMaster);
@@ -69,7 +71,7 @@ export default async function InvoicesPage({
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // FCT経由のお客さま。請求書は出さないので、月の件数と合計だけ別に出す
-  const fct = fctLessonSummary(customers, month, lessons, fees);
+  const fct = fctLessonSummary(customers, month, lessons, fctStores);
 
   return <InvoicesClient invoices={invoices} month={month} uncounted={uncounted} fct={fct} />;
 }

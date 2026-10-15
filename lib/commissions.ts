@@ -1,5 +1,6 @@
 import type { Customer, CustomerType } from "./customers-types";
 import { isFctCustomer } from "./customers-types";
+import { fctLessonPay, FCT_DEFAULT_RATE } from "./fct-types";
 import type { Lesson } from "./lessons-types";
 import { courseToPaymentType, resolveSingleLessonAmount } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
@@ -100,6 +101,11 @@ export interface CommissionContext {
   lessonFees?:   Record<string, number>;
   /** 回数券標準金額マスタ { 人数: { 回数: 総額 } }。回数券に price 未設定時のフォールバック */
   sessionPassPriceMap?: Record<number, Record<number, number>>;
+  /**
+   * FCT店舗の歩合率（%）。FCT経由のお客さまの売上を出すのに使う。
+   * 渡されないときは既定の45%で計算する。
+   */
+  fctStores?: { id: string; rate: number }[];
 }
 
 /**
@@ -121,6 +127,15 @@ export function isoToMonth(iso: string): string {
 
 /** 1レッスンの単価（売上計上額）を算出する */
 export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number {
+  // FCT経由のお客さま: 売上は「お客さまが払う単価」ではなく「FCTから入る額」。
+  // FCTの明細と同じく お客さまの単価の税抜 × 店舗の歩合率 で出す。
+  const fctCust = ctx.customers.find((c) => c.id === lesson.customerId);
+  if (isFctCustomer(fctCust)) {
+    if (lesson.amount != null) return lesson.amount;   // この回だけ違う額を入れたとき
+    const rate = ctx.fctStores?.find((f) => f.id === lesson.fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
+    return fctLessonPay(fctCust?.singleSessionPrice, rate);
+  }
+
   // 回数券: 入金額 ÷ 回数
   if (lesson.sessionPassId) {
     const pass = ctx.sessionPasses.find((p) => p.id === lesson.sessionPassId);

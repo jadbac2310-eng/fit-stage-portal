@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
 import type { CustomerInvoice, FctSummary } from "@/lib/invoices";
+import { WITHHOLDING_RATE } from "@/lib/fct-types";
 
 /** コース未設定で請求書に載っていない実施済みレッスン */
 export interface UncountedLesson {
@@ -103,7 +104,7 @@ export function InvoicesClient({
             </span>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            FCT経由のお客さま。請求書は出さず、FCTから1レッスンあたりの固定額で入ります。会場代はかかりません。
+            FCT経由のお客さま。請求書は出さず、FCTからまとめて入ります。会場代はかかりません。
           </p>
           <div className="mt-2.5 space-y-1">
             {fct.rows.map((r) => (
@@ -114,6 +115,28 @@ export function InvoicesClient({
               </div>
             ))}
           </div>
+          {/* FCTの支払明細と同じ並び。通帳と突き合わせられるように振込予定額まで出す */}
+          <dl className="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
+            <div className="flex">
+              <dt className="text-gray-500">税抜</dt>
+              <dd className="ml-auto text-gray-700">{yen(fct.net)}</dd>
+            </div>
+            <div className="flex">
+              <dt className="text-gray-500">消費税 10%</dt>
+              <dd className="ml-auto text-gray-700">{yen(fct.tax)}</dd>
+            </div>
+            <div className="flex">
+              <dt className="text-gray-500">源泉＆復興税 {WITHHOLDING_RATE}%</dt>
+              <dd className="ml-auto text-gray-700">−{yen(fct.withholding)}</dd>
+            </div>
+            <div className="flex pt-1 border-t border-gray-100">
+              <dt className="font-bold text-gray-700">振込予定額</dt>
+              <dd className="ml-auto font-bold text-gray-900">{yen(fct.transfer)}</dd>
+            </div>
+          </dl>
+          <p className="text-[11px] text-gray-400 mt-2">
+            FCT直営店のレンタル代や日報遅延ペナルティは含みません（明細ではここからさらに引かれます）。
+          </p>
         </div>
       )}
 

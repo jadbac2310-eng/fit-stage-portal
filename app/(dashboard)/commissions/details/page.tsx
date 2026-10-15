@@ -59,7 +59,7 @@ export default async function CommissionDetailsPage() {
       trainerRates={trainerRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount }))}
       rentalGyms={rentalGyms.map((g) => ({ id: g.id, name: g.name, fee: g.fee }))}
       stores={stores.map((s) => ({ id: s.id, name: s.name }))}
-      fctStores={fctStores.map((f) => ({ id: f.id, name: f.name, fee: f.fee }))}
+      fctStores={fctStores.map((f) => ({ id: f.id, name: f.name, fee: f.fee, rate: f.rate }))}
       avenirStores={avenirStores.map((a) => ({ id: a.id, name: a.name, fee: a.fee }))}
     />
   );

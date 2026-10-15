@@ -15,6 +15,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { getFctStores } from "@/lib/fct-stores";
 import { buildTrainerEntries, buildSalesEntries, type CommissionContext } from "@/lib/commissions";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
@@ -55,12 +56,13 @@ export default async function DashboardPage() {
       getCustomers(),
     ]);
 
-  const [sessionPasses, customerPlans, members, plansMaster, allRates] = await Promise.all([
+  const [sessionPasses, customerPlans, members, plansMaster, allRates, fctStores] = await Promise.all([
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
     getAllPlans(),
     getMemberCustomerRates(),
+    getFctStores(),
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
@@ -70,6 +72,7 @@ export default async function DashboardPage() {
       .filter((r) => currentMember?.isAdmin || r.memberId === currentMember?.id)
       .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
+    fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
   };
 
   // ─── 今月サマリー（個人向け） ──────────────────────────

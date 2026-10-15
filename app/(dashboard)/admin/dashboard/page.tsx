@@ -78,7 +78,7 @@ export default async function AdminDashboardPage() {
       hourlyTasks={hourlyTasks}
       expenses={expenses}
       rentalGyms={rentalGyms.map((g) => ({ id: g.id, name: g.name }))}
-      fctStores={fctStores.map((f) => ({ id: f.id, name: f.name }))}
+      fctStores={fctStores.map((f) => ({ id: f.id, name: f.name, rate: f.rate }))}
       avenirStores={avenirStores.map((a) => ({ id: a.id, name: a.name }))}
       stores={storesMaster.map((v) => ({ id: v.id, name: v.name }))}
       analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}

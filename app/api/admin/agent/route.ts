@@ -9,6 +9,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getMembers } from "@/lib/members";
 import { getAllPlans, getAllSessionPassPrices, buildLessonFeeMap, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
+import { getFctStores } from "@/lib/fct-stores";
 import { getActivityLogs } from "@/lib/activity-logs";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
@@ -142,9 +143,10 @@ async function buildCtx(): Promise<{
   lessons: Awaited<ReturnType<typeof getLessons>>;
   trialLessons: Awaited<ReturnType<typeof getTrialLessons>>;
 }> {
-  const [customers, lessons, trialLessons, passes, plans, members, plansMaster, sppPrices, rates] = await Promise.all([
+  const [customers, lessons, trialLessons, passes, plans, members, plansMaster, sppPrices, rates, fctStores] = await Promise.all([
     getCustomers(), getLessons(), getTrialLessons(), getAllSessionPasses(),
     getAllCustomerPlans(), getMembers(), getAllPlans(), getAllSessionPassPrices(), getMemberCustomerRates(),
+    getFctStores(),
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses: passes, customerPlans: plans,
@@ -152,6 +154,7 @@ async function buildCtx(): Promise<{
     trainerRates: rates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sppPrices),
+    fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
   };
   return { ctx, customers, lessons, trialLessons };
 }

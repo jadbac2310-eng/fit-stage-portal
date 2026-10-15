@@ -20,6 +20,7 @@ import {
   type CommissionContext,
 } from "@/lib/commissions";
 import { cn } from "@/lib/cn";
+import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
 function getMonthOptions(): { value: string; label: string }[] {
@@ -415,6 +416,7 @@ export function CommissionsClient({
   sessionPassPriceMap,
   members,
   trainerRates,
+  fctStores,
   isAdmin,
   currentMemberId,
 }: {
@@ -429,6 +431,8 @@ export function CommissionsClient({
   sessionPassPriceMap?: Record<number, Record<number, number>>;
   members:      { id: string; name: string; avatarUrl?: string }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
+  /** FCT店舗の歩合率（FCT経由のお客さまの売上計算に使う） */
+  fctStores?:   { id: string; rate?: number }[];
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {
@@ -436,9 +440,15 @@ export function CommissionsClient({
   const [month,    setMonth]    = useState(currentMonth);
   const [activeTab, setActiveTab] = useState<"trainer" | "sales" | "hourly">("trainer");
 
+  // FCT経由のお客さまの売上は「単価の税抜 × 店舗の歩合率」で出すので、歩合率を渡す
+  const fctRates = useMemo(
+    () => (fctStores ?? []).map((f) => ({ id: f.id, rate: f.rate ?? FCT_DEFAULT_RATE })),
+    [fctStores],
+  );
+
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
-  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap]);
+    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctStores: fctRates }
+  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctRates]);
 
   // 選択月のトレーナー集計（管理者は全員、それ以外は自分の分のみ）
   const trainerEntries = useMemo((): TrainerEntry[] => {

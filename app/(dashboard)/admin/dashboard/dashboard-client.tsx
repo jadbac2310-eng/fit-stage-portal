@@ -20,6 +20,7 @@ import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
+import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString("ja-JP")}`;
@@ -467,7 +468,7 @@ export function RevenueDashboardClient({
   hourlyTasks?:  HourlyTask[];
   expenses?:     Expense[];
   rentalGyms?:   { id: string; name: string }[];
-  fctStores?:    { id: string; name: string }[];
+  fctStores?:    { id: string; name: string; rate?: number }[];
   avenirStores?: { id: string; name: string }[];
   stores?:       { id: string; name: string }[];
   analytics?:    AnalyticsData;
@@ -478,9 +479,15 @@ export function RevenueDashboardClient({
   const tasks = useMemo(() => hourlyTasks ?? [], [hourlyTasks]);
   const costs = useMemo(() => expenses ?? [], [expenses]);
 
+  // FCT経由のお客さまの売上は「単価の税抜 × 店舗の歩合率」で出すので、歩合率を渡す
+  const fctRates = useMemo(
+    () => (fctStores ?? []).map((f) => ({ id: f.id, rate: f.rate ?? FCT_DEFAULT_RATE })),
+    [fctStores],
+  );
+
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap }
-  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap]);
+    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctStores: fctRates }
+  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctRates]);
 
   // 直近12か月（古い→新しい）
   const series = useMemo(() => {

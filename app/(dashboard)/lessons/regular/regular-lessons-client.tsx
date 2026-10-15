@@ -20,6 +20,7 @@ import { FctStore } from "@/lib/fct-stores";
 import type { AvenirStore } from "@/lib/avenir-stores";
 import type { CustomerVenueFee } from "@/lib/customer-venue-fees-types";
 import { resolveVenueFee } from "@/lib/customer-venue-fees-types";
+import { fctLessonPay, FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -931,6 +932,9 @@ export function LessonForm({
           既定は空欄にして、顧客マスタの単価は下に案内だけ出す。 */}
       {courseToPaymentType(selectedCourse) === "single" && (() => {
         const customerPrice = customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice;
+        // FCTのお客さまは「単価の税抜 × 会場の歩合率」が売上になる
+        const fctRate = fctStores.find((f) => f.id === fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
+        const fctPay  = fctLessonPay(customerPrice, fctRate);
         // 金額はトレーナーには触らせない。編集で消えないよう、今の値はそのまま持っておく
         if (!isAdmin) return <input type="hidden" name="amount" defaultValue={defaultValues?.amount ?? ""} />;
         return (
@@ -947,7 +951,8 @@ export function LessonForm({
             />
             <p className="text-xs text-gray-400 mt-1">
               {fctCustomer && customerPrice != null
-                ? `空欄のままならFCTから入る1レッスンの金額（¥${customerPrice.toLocaleString("ja-JP")}）を使います。`
+                ? `空欄のままならFCTから入る額（¥${fctPay.toLocaleString("ja-JP")}）を使います。`
+                  + `お客さまの単価¥${customerPrice.toLocaleString("ja-JP")}の税抜に歩合${fctRate}%をかけた額です。`
                 : customerPrice != null
                   ? `空欄のままなら顧客の都度単価（¥${customerPrice.toLocaleString("ja-JP")}）を使います。この回だけ違う金額のときに入力してください。`
                   : "この回の金額。空欄なら顧客の都度単価を使用します。"}

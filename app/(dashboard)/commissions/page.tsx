@@ -7,6 +7,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getHourlyTasks } from "@/lib/hourly-tasks";
+import { getFctStores } from "@/lib/fct-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { CommissionsClient } from "./commissions-client";
 
@@ -25,7 +26,7 @@ export default async function CommissionsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, allHourlyTasks] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, allHourlyTasks, fctStores] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -36,6 +37,7 @@ export default async function CommissionsPage() {
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
     getHourlyTasks(),
+    getFctStores(),
   ]);
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
@@ -63,6 +65,7 @@ export default async function CommissionsPage() {
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
       members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl, isOwner: m.isOwner }))}
       trainerRates={trainerRates}
+      fctStores={fctStores.map((f) => ({ id: f.id, rate: f.rate }))}
       isAdmin={member.isAdmin}
       currentMemberId={member.id}
     />
