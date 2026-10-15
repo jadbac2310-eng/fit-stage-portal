@@ -13,7 +13,8 @@ export type SalesChannel = "own" | "fct";
 
 export interface Customer {
   id: string;
-  email: string;
+  /** 任意。スポットのお客さまなど、聞いていないこともある */
+  email?: string;
   fullName: string;
   dateOfBirth?: string;
   address?: string;

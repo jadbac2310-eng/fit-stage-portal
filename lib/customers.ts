@@ -5,7 +5,7 @@ import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth, SalesChan
 
 type DbRow = {
   id: string;
-  email: string;
+  email: string | null;
   full_name: string;
   date_of_birth: string;
   address: string | null;
@@ -32,7 +32,7 @@ type DbRow = {
 function fromDb(row: DbRow): Customer {
   return {
     id:               row.id,
-    email:            row.email,
+    email:            row.email ?? undefined,
     fullName:         row.full_name,
     dateOfBirth:      row.date_of_birth,
     address:          row.address          ?? undefined,
@@ -62,7 +62,10 @@ export async function getCustomers(): Promise<Customer[]> {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data as DbRow[]).map(fromDb);
+  // 名前順（あいうえお順）で返す。人数が増えると登録順では目当ての人を探せないため、
+  // プルダウンも一覧もここで揃える（登録順で見たい画面は createdAt で並べ直す）。
+  return (data as DbRow[]).map(fromDb)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, "ja"));
 }
 
 export async function getCustomer(id: string): Promise<Customer | null> {
@@ -86,9 +89,9 @@ export async function addCustomer(
       ...(input.invoiceSendDay  !== undefined && { invoice_send_day:  input.invoiceSendDay }),
       ...(input.paymentDueMonth !== undefined && { payment_due_month: input.paymentDueMonth }),
       ...(input.paymentDueDay   !== undefined && { payment_due_day:   input.paymentDueDay }),
-      email:              input.email,
+      email:              input.email       ?? null,
       full_name:          input.fullName,
-      date_of_birth:      input.dateOfBirth,
+      date_of_birth:      input.dateOfBirth  ?? null,
       address:            input.address            ?? null,
       phone_number:       input.phoneNumber         ?? null,
       desired_start_date: input.desiredStartDate    ?? null,
@@ -122,9 +125,9 @@ function isMissingSalesChannel(error: { message?: string; code?: string } | null
 export async function updateCustomer(
   id: string,
   input: Partial<{
-    email: string;
+    email: string | null;
     fullName: string;
-    dateOfBirth: string;
+    dateOfBirth: string | null;
     address: string | null;
     phoneNumber: string | null;
     desiredStartDate: string | null;

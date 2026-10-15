@@ -34,8 +34,8 @@ export async function createCustomerAction(formData: FormData): Promise<Customer
   try {
     await requireAdmin();
     const fullName         = (formData.get("fullName")         as string)?.trim();
-    const email            = (formData.get("email")            as string)?.trim();
-    const dateOfBirth      = (formData.get("dateOfBirth")      as string)?.trim();
+    const email            = (formData.get("email")            as string)?.trim() || undefined;
+    const dateOfBirth      = (formData.get("dateOfBirth")      as string)?.trim() || undefined;
     const address          = (formData.get("address")          as string)?.trim() || undefined;
     const phoneNumber      = (formData.get("phoneNumber")      as string)?.trim() || undefined;
     const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim() || undefined;
@@ -45,9 +45,7 @@ export async function createCustomerAction(formData: FormData): Promise<Customer
     const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : undefined;
     const { salesMemberId, salesChannel } = readSales(formData);
 
-    if (!fullName || !email || !dateOfBirth) {
-      return { ok: false, error: "氏名・メール・生年月日は必須です" };
-    }
+    if (!fullName) return { ok: false, error: "氏名を入力してください" };
 
     const created = await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId: salesMemberId ?? undefined, salesChannel, agreedToTerms: false, status: "trial", customerType, note });
     await logActivity({ action: "create", entityType: "customer", entityId: created.id, summary: `顧客を追加: ${fullName}` });
@@ -61,8 +59,8 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
   try {
     await requireAdmin();
     const fullName         = (formData.get("fullName")         as string)?.trim();
-    const email            = (formData.get("email")            as string)?.trim();
-    const dateOfBirth      = (formData.get("dateOfBirth")      as string)?.trim();
+    const email            = (formData.get("email")            as string)?.trim() || null;
+    const dateOfBirth      = (formData.get("dateOfBirth")      as string)?.trim() || null;
     const address          = (formData.get("address")          as string)?.trim() || null;
     const phoneNumber      = (formData.get("phoneNumber")      as string)?.trim() || null;
     const desiredStartDate = (formData.get("desiredStartDate") as string)?.trim() || null;
@@ -85,9 +83,7 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
     const dueDay = dueDayRaw ? parseInt(dueDayRaw, 10) : NaN;
     const paymentDueDay = Number.isFinite(dueDay) && dueDay >= 1 && dueDay <= 31 ? dueDay : null;
 
-    if (!fullName || !email || !dateOfBirth) {
-      return { ok: false, error: "氏名・メール・生年月日は必須です" };
-    }
+    if (!fullName) return { ok: false, error: "氏名を入力してください" };
 
     await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, salesChannel, billingName, billingToCustomerId, billingCutoffDay, invoiceSendDay, paymentDueMonth, paymentDueDay });
     await logActivity({ action: "update", entityType: "customer", entityId: id, summary: `顧客を編集: ${fullName}` });

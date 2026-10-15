@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
@@ -189,12 +189,11 @@ function CustomerForm({
       {/* メールアドレス */}
       <div>
         <label className={labelClass}>
-          <Mail size={12} /> メールアドレス <span className="text-red-500">*</span>
+          <Mail size={12} /> メールアドレス
         </label>
         <input
           name="email"
           type="email"
-          required
           defaultValue={defaultValues?.email}
           placeholder="example@email.com"
           className={inputClass}
@@ -204,12 +203,11 @@ function CustomerForm({
       {/* 生年月日 */}
       <div>
         <label className={labelClass}>
-          <Calendar size={12} /> 生年月日 <span className="text-red-500">*</span>
+          <Calendar size={12} /> 生年月日
         </label>
         <input
           name="dateOfBirth"
           type="date"
-          required
           defaultValue={defaultValues?.dateOfBirth}
           className={inputClass}
         />
@@ -653,14 +651,33 @@ function CustomerCard({ customer, isAdmin, members, fctRates, allCustomers }: { 
 export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_DEFAULT_RATE] }: { customers: Customer[]; isAdmin: boolean; members: MemberOpt[]; fctRates?: number[] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<CustomerStatus | "">("");
+  // 既定は「退会をのぞく」。人数が増えると、辞めた人が混ざって探しにくいため
+  const [filterStatus, setFilterStatus] = useState<CustomerStatus | "" | "notInactive">("notInactive");
+  const [sortBy, setSortBy] = useState<"name" | "newest">("name");
 
-  const filtered = customers.filter((c) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || c.fullName.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phoneNumber ?? "").includes(q);
-    const matchStatus = !filterStatus || c.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const hit = (c: Customer) =>
+      !q ||
+      c.fullName.toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.phoneNumber ?? "").includes(q) ||
+      (c.billingName ?? "").toLowerCase().includes(q) ||
+      (c.note ?? "").toLowerCase().includes(q);
+
+    const rows = customers.filter((c) => {
+      const matchStatus =
+        filterStatus === ""           ? true :
+        filterStatus === "notInactive" ? c.status !== "inactive" :
+                                         c.status === filterStatus;
+      return hit(c) && matchStatus;
+    });
+
+    // 名前順（あいうえお順）が既定。登録順だと目で追えないため
+    return sortBy === "name"
+      ? [...rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "ja"))
+      : [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [customers, search, filterStatus, sortBy]);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -693,22 +710,35 @@ export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_D
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="氏名・メール・電話番号で検索..."
+            placeholder="氏名・メール・電話・メモで検索..."
             className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as CustomerStatus | "")}
+          onChange={(e) => setFilterStatus(e.target.value as CustomerStatus | "" | "notInactive")}
           className="px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
+          <option value="notInactive">退会をのぞく</option>
           <option value="">全ステータス</option>
           <option value="trial">体験申し込み</option>
           <option value="active">在籍中</option>
           <option value="pending">審査中</option>
           <option value="inactive">退会</option>
         </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as "name" | "newest")}
+          className="px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="name">名前順</option>
+          <option value="newest">新しい順</option>
+        </select>
       </div>
+
+      <p className="text-xs text-gray-400 mb-2 px-1">
+        {filtered.length}名を表示中（全{customers.length}名）
+      </p>
 
       {/* 追加フォーム（デスクトップ） */}
       {showAdd && (
