@@ -4,7 +4,7 @@ import { getCustomers } from "@/lib/customers";
 import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { pushLineMessage } from "@/lib/line";
-import { fetchSentKeys, markSent, staffNotifyEnabled } from "@/lib/line-notify";
+import { fetchSentKeys, markSent, staffNotifyEnabled, canNotifyByLine } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
 import { buildDailyReminders, jstParts } from "@/lib/daily-reminders";
 
@@ -56,8 +56,8 @@ export async function GET(req: NextRequest) {
   for (const r of reminders) {
     for (const mid of new Set(r.recipientIds)) {
       const member = memberById.get(mid);
-      if (!member?.lineUserId || sent.has(`${r.ref}__${mid}`)) continue;
-      const res = await pushLineMessage(member.lineUserId, r.text + scheduleLink(member));
+      if (!member || !canNotifyByLine(member) || sent.has(`${r.ref}__${mid}`)) continue;
+      const res = await pushLineMessage(member.lineUserId!, r.text + scheduleLink(member));
       if (res.ok) { await markSent("daily", r.ref, mid); count++; }
     }
   }

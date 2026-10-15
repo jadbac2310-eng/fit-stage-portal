@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMembers } from "@/lib/members";
 import { collectNotifyItems } from "@/lib/schedule-items";
 import { pushLineMessage } from "@/lib/line";
-import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr, staffNotifyEnabled } from "@/lib/line-notify";
+import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr, staffNotifyEnabled, canNotifyByLine } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
 
 export const runtime = "nodejs";
@@ -45,8 +45,8 @@ export async function GET(req: NextRequest) {
     for (const mid of new Set(it.recipientIds)) {
       const member = memberById.get(mid);
       // レッスンのリマインドを切っている担当者には送らない
-      if (!member?.lineUserId || !member.lessonReminder || sent.has(`${it.ref}__${mid}`)) continue;
-      const r = await pushLineMessage(member.lineUserId, body + scheduleLink(member));
+      if (!member || !canNotifyByLine(member) || !member.lessonReminder || sent.has(`${it.ref}__${mid}`)) continue;
+      const r = await pushLineMessage(member.lineUserId!, body + scheduleLink(member));
       if (r.ok) { await markSent("reminder", it.ref, mid); count++; }
     }
   }

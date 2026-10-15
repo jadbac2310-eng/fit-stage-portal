@@ -306,21 +306,41 @@ function MemberForm({
         </div>
       )}
 
-      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-        <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-            <BellRing size={12} /> レッスンのリマインドを受け取る
-          </span>
-          <input
-            type="checkbox"
-            name="lessonReminder"
-            defaultChecked={defaultValues?.lessonReminder ?? true}
-            className="w-4 h-4 accent-blue-600"
-          />
-        </label>
-        <p className="text-xs text-gray-400 mt-1.5">
-          自分が担当する予定の開始前に、LINEでお知らせします。オフにするとこの人には届きません。
-        </p>
+      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 space-y-3">
+        <div>
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+              <BellRing size={12} /> LINEの通知を送る
+            </span>
+            <input
+              type="checkbox"
+              name="lineNotify"
+              defaultChecked={defaultValues?.lineNotify ?? true}
+              className="w-4 h-4 accent-blue-600"
+            />
+          </label>
+          <p className="text-xs text-gray-400 mt-1.5">
+            この人へのLINE通知をまとめてオン／オフします。オフにすると、レッスンの登録・予定の変更・
+            開始前のリマインド・体験の申込、どれも届かなくなります（ポータルの権限はそのままです）。
+          </p>
+        </div>
+
+        <div className="pt-3 border-t border-gray-200">
+          <label className="flex items-center justify-between cursor-pointer">
+            <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+              <BellRing size={12} /> レッスンのリマインドを受け取る
+            </span>
+            <input
+              type="checkbox"
+              name="lessonReminder"
+              defaultChecked={defaultValues?.lessonReminder ?? true}
+              className="w-4 h-4 accent-blue-600"
+            />
+          </label>
+          <p className="text-xs text-gray-400 mt-1.5">
+            自分が担当する予定の開始前に、LINEでお知らせします。オフにするとこの人には届きません。
+          </p>
+        </div>
       </div>
 
       {/* パスワード */}

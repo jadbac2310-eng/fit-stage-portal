@@ -4,7 +4,7 @@ import { addTrialLesson } from "@/lib/trial-lessons";
 import { getStores } from "@/lib/stores";
 import { getMembers } from "@/lib/members";
 import { pushLineMessage } from "@/lib/line";
-import { portalUrl } from "@/lib/line-notify";
+import { portalUrl, canNotifyByLine } from "@/lib/line-notify";
 
 /**
  * HPの体験予約フォーム（/store/reserve/）からの申込を受け取る。
@@ -83,7 +83,7 @@ async function notifyAdmins(customerName: string, storeName: string | undefined,
     // 既定は管理者全員。RESERVE_NOTIFY_MEMBER_IDS で送信先を明示指定もできる。
     const explicit = (process.env.RESERVE_NOTIFY_MEMBER_IDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     const targets = members.filter((m) =>
-      m.lineUserId && (explicit.length > 0 ? explicit.includes(m.id) : m.isAdmin));
+      canNotifyByLine(m) && (explicit.length > 0 ? explicit.includes(m.id) : m.isAdmin));
     if (targets.length === 0) return;
 
     const text = [

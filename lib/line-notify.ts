@@ -54,6 +54,18 @@ export function anyStaffNotifyEnabled(): boolean {
 }
 
 /**
+ * その担当者にLINE通知を送ってよいか。
+ *
+ * 宛先の判定はここ1か所に集約する（通知の種類ごとに書くと、新しい通知を足したときに
+ * 「この人だけ止めたい」が効かなくなるため）。
+ *   ・LINE連携していない → 送れない
+ *   ・担当者マスタで「LINE通知を送る」をオフにしている → 送らない
+ */
+export function canNotifyByLine(m: Pick<Member, "lineUserId" | "lineNotify">): boolean {
+  return !!m.lineUserId && m.lineNotify !== false;
+}
+
+/**
  * memberIds のうち LINE連携済みの人へテキストを送信（best-effort・例外を投げない）。
  * text に関数を渡すと担当者ごとに本文を生成できる（自動ログインリンクの埋め込み等に使う）。
  * kind を分けておくと、通数が気になる種類だけ環境変数で止められる。
@@ -69,7 +81,7 @@ export async function notifyMembersByLine(
     const ids = Array.from(new Set(memberIds.filter(Boolean)));
     if (ids.length === 0) return;
     const members = membersCache ?? (await getMembers());
-    const targets = members.filter((m) => ids.includes(m.id) && m.lineUserId);
+    const targets = members.filter((m) => ids.includes(m.id) && canNotifyByLine(m));
     await Promise.all(targets.map((m) => pushLineMessage(m.lineUserId!, typeof text === "function" ? text(m) : text)));
   } catch (e) {
     console.error("[line] notifyMembersByLine 失敗", e);

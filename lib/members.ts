@@ -14,6 +14,8 @@ export interface Member {
   isOwner: boolean;
   /** レッスン開始前のLINEリマインドを受け取るか（既定true） */
   lessonReminder: boolean;
+  /** LINE通知そのものを受け取るか（既定true）。off にするとどの通知も送らない */
+  lineNotify: boolean;
   commissionRate?: number; // トレーナー歩合率（％）。未設定は既定50%
   invoiceNumber?: string;  // インボイス登録番号（コミッション明細に表示）
   lineUserId?: string;
@@ -32,6 +34,7 @@ type DbRow = {
   is_admin: boolean;
   is_owner?: boolean | null;
   lesson_reminder?: boolean | null;
+  line_notify?: boolean | null;
   commission_rate?: number | null;
   invoice_number?: string | null;
   line_user_id?: string | null;
@@ -51,6 +54,7 @@ function fromDb(row: DbRow): Member {
     isAdmin:    row.is_admin,
     isOwner:    row.is_owner ?? false,
     lessonReminder: row.lesson_reminder ?? true,
+    lineNotify:     row.line_notify ?? true,
     commissionRate: row.commission_rate ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
@@ -134,15 +138,18 @@ export async function updateMember(
   if (data.isAdmin    !== undefined) patch.is_admin     = data.isAdmin;
   if (data.isOwner    !== undefined) patch.is_owner     = data.isOwner;
   if (data.lessonReminder !== undefined) patch.lesson_reminder = data.lessonReminder;
+  if (data.lineNotify     !== undefined) patch.line_notify     = data.lineNotify;
   if (data.commissionRate !== undefined) patch.commission_rate = data.commissionRate ?? null;
   if (data.invoiceNumber  !== undefined) patch.invoice_number  = data.invoiceNumber  ?? null;
 
-  const { data: row, error } = await createAdminClient()
-    .from("members")
-    .update(patch)
-    .eq("id", id)
-    .select()
-    .single();
+  const client = createAdminClient();
+  let { data: row, error } = await client.from("members").update(patch).eq("id", id).select().single();
+  // line_notify 列が未適用の環境では、その列を外して再試行（担当者の編集自体は止めない）
+  if (error && /line_notify/i.test(error.message ?? "")) {
+    const { line_notify, ...rest } = patch;
+    void line_notify;
+    ({ data: row, error } = await client.from("members").update(rest).eq("id", id).select().single());
+  }
   if (error) throw error;
   return fromDb(row as DbRow);
 }

@@ -50,7 +50,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
     }
   }
 
-  const created = await addMember({ name, email, role, note, invoiceNumber, avatarUrl, authUserId, isAdmin, isOwner: false, lessonReminder: true });
+  const created = await addMember({ name, email, role, note, invoiceNumber, avatarUrl, authUserId, isAdmin, isOwner: false, lessonReminder: true, lineNotify: true });
   await logActivity({ action: "create", entityType: "member", entityId: created.id, summary: `担当者を追加: ${name}` });
   revalidatePath("/master/members");
 }
@@ -71,6 +71,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const isOwner = callerIsAdmin ? formData.get("isOwner") === "on" : existing?.isOwner ?? false;
   // レッスンのリマインドは本人も切り替えられる（自分宛の通知なので）
   const lessonReminder = formData.get("lessonReminder") === "on";
+  const lineNotify     = formData.get("lineNotify")     === "on";
 
   if (newPassword && newPassword.length < 6) {
     return { error: "パスワードは6文字以上で入力してください" };
@@ -122,6 +123,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     isAdmin,
     isOwner,
     lessonReminder,
+    lineNotify,
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),
   });
