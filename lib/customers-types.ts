@@ -4,6 +4,12 @@ export type CustomerStatus = "active" | "inactive" | "pending" | "trial";
 export type CustomerType = "individual" | "corporate";
 /** 支払期限を、対象月の当月で見るか翌月で見るか */
 export type PaymentDueMonth = "same" | "next";
+/**
+ * そのお客さまをどこから受けているか。
+ * - own: 自社のお客さま（これまでどおり。担当営業が付く）
+ * - fct: FCT（ファーストクラストレーナーズ）経由のお客さま
+ */
+export type SalesChannel = "own" | "fct";
 
 export interface Customer {
   id: string;
@@ -14,7 +20,8 @@ export interface Customer {
   phoneNumber?: string;
   desiredStartDate?: string;
   singleSessionPrice?: number;  // 都度プランの単価（顧客ごと・管理者入力）
-  salesMemberId?: string;       // 担当営業（members.id）
+  salesMemberId?: string;       // 担当営業（members.id）。FCT経由の場合は付かない
+  salesChannel?: SalesChannel;  // 自社 / FCT経由（未設定は自社あつかい）
   billingName?: string;         // 請求書の宛名（上書き。未設定なら fullName）
   billingToCustomerId?: string; // 請求のまとめ先（この顧客分を別顧客に請求する）
   billingCutoffDay?: number;        // 請求の締日。未設定なら月末締め（暦の月）
@@ -40,6 +47,22 @@ export const CUSTOMER_TYPE_LABEL: Record<CustomerType, string> = {
   individual: "個人",
   corporate:  "法人",
 };
+
+/** 担当営業のプルダウンで FCT を選んだときの値。members.id と混ざらない固定文字列 */
+export const FCT_SALES_VALUE = "fct";
+export const FCT_SALES_LABEL = "FCT（ファーストクラストレーナーズ）";
+
+/**
+ * FCT経由のお客さまか。
+ *
+ * これ1つで次の3つが決まる（設定をあちこちに増やさないための判定）。
+ *   ① FCT店舗の利用料は0円（FCTが場所を用意してくれる）
+ *   ② お客さまへの請求書は作らない（FCTから1レッスンあたり一定額が入る）
+ *   ③ 自社の営業歩合・成約ボーナスは発生しない
+ */
+export function isFctCustomer(c?: Pick<Customer, "salesChannel"> | null): boolean {
+  return c?.salesChannel === "fct";
+}
 
 export const PAYMENT_DUE_MONTH_LABEL: Record<PaymentDueMonth, string> = {
   same: "当月",

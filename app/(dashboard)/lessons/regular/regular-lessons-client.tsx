@@ -10,7 +10,7 @@ import {
 import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
-import { Customer } from "@/lib/customers-types";
+import { Customer, isFctCustomer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import { RentalGym } from "@/lib/rental-gyms";
 import { Store } from "@/lib/stores";
@@ -345,6 +345,16 @@ export function LessonForm({
     defaultValues?.avenirStoreFee != null ? String(defaultValues.avenirStoreFee) : ""
   );
 
+  /**
+   * その会場の利用料（初期値）。
+   * FCT経由のお客さまはFCTが場所を用意してくれるので、FCT店舗は0円になる。
+   */
+  function venueFeeFor(cid: string, kind: VenueKind, venueId: string, masterFee: number): number {
+    return resolveVenueFee(cid, kind, venueId, masterFee, venueFees, {
+      fctCustomer: isFctCustomer(customers.find((c) => c.id === cid)),
+    });
+  }
+
   // 場所はレンタルジム／店舗／FCT店舗のいずれか1つ（同じ回に2つの場所は無いため排他）
   function clearPlaces() {
     setRentalGymId(""); setRentalGymFee("");
@@ -358,7 +368,7 @@ export function LessonForm({
     setRentalGymId(id);
     const gym = rentalGyms.find((g) => g.id === id);
     if (gym) {
-      setRentalGymFee(String(resolveVenueFee(selectedCustomerId, "gym", id, gym.fee, venueFees)));
+      setRentalGymFee(String(venueFeeFor(selectedCustomerId, "gym", id, gym.fee)));
       setLocation(gym.name); // 場所を自動入力（編集可）
     }
   }
@@ -368,7 +378,7 @@ export function LessonForm({
     setStoreId(id);
     const store = stores.find((s) => s.id === id);
     if (store) {
-      setStoreFee(String(resolveVenueFee(selectedCustomerId, "store", id, store.fee, venueFees)));
+      setStoreFee(String(venueFeeFor(selectedCustomerId, "store", id, store.fee)));
       setLocation(store.name); // 場所を自動入力（編集可）
     }
   }
@@ -378,7 +388,7 @@ export function LessonForm({
     setFctStoreId(id);
     const fct = fctStores.find((f) => f.id === id);
     if (fct) {
-      setFctStoreFee(String(resolveVenueFee(selectedCustomerId, "fct", id, fct.fee, venueFees)));
+      setFctStoreFee(String(venueFeeFor(selectedCustomerId, "fct", id, fct.fee)));
       setLocation(fct.name); // 場所を自動入力（編集可）
     }
   }
@@ -388,7 +398,7 @@ export function LessonForm({
     setAvenirStoreId(id);
     const av = avenirStores.find((a) => a.id === id);
     if (av) {
-      setAvenirStoreFee(String(resolveVenueFee(selectedCustomerId, "avenir", id, av.fee, venueFees)));
+      setAvenirStoreFee(String(venueFeeFor(selectedCustomerId, "avenir", id, av.fee)));
       setLocation(av.name); // 場所を自動入力（編集可）
     }
   }
@@ -398,30 +408,44 @@ export function LessonForm({
   // まず種類を選び、その種類のぶんだけ出す。
   const [venueKind, setVenueKind] = useState<VenueKind>(venueKindOf(defaultValues));
   const venueKinds = venueKindOptions(stores.length, rentalGyms.length, fctStores.length, avenirStores.length);
+  /** FCT経由のお客さまか（FCT店舗でやる・会場代はかからない・請求書は出さない） */
+  const fctCustomer = isFctCustomer(customers.find((c) => c.id === selectedCustomerId));
 
   /** 顧客を選び直したとき、すでに選んでいる会場の料金を引き直す */
   function syncVenueFeeFor(customerId: string) {
     if (storeId) {
       const st = stores.find((x) => x.id === storeId);
-      if (st) setStoreFee(String(resolveVenueFee(customerId, "store", st.id, st.fee, venueFees)));
+      if (st) setStoreFee(String(venueFeeFor(customerId, "store", st.id, st.fee)));
     }
     if (rentalGymId) {
       const gym = rentalGyms.find((g) => g.id === rentalGymId);
-      if (gym) setRentalGymFee(String(resolveVenueFee(customerId, "gym", gym.id, gym.fee, venueFees)));
+      if (gym) setRentalGymFee(String(venueFeeFor(customerId, "gym", gym.id, gym.fee)));
     }
     if (fctStoreId) {
       const fct = fctStores.find((f) => f.id === fctStoreId);
-      if (fct) setFctStoreFee(String(resolveVenueFee(customerId, "fct", fct.id, fct.fee, venueFees)));
+      if (fct) setFctStoreFee(String(venueFeeFor(customerId, "fct", fct.id, fct.fee)));
     }
     if (avenirStoreId) {
       const av = avenirStores.find((a) => a.id === avenirStoreId);
-      if (av) setAvenirStoreFee(String(resolveVenueFee(customerId, "avenir", av.id, av.fee, venueFees)));
+      if (av) setAvenirStoreFee(String(venueFeeFor(customerId, "avenir", av.id, av.fee)));
     }
   }
 
   function onVenueKindChange(kind: VenueKind) {
     setVenueKind(kind);
     clearPlaces();  // 種類を変えたら選び直し。場所の手入力はそのまま残す
+  }
+
+  /**
+   * FCT経由のお客さまを選んだら、会場の種類を「FCT」に寄せる。
+   * FCTのお客さまはFCTの店舗でやる決まりなので、毎回選ぶ手間を省く。
+   * すでに別の会場を選んでいるときは触らない。
+   */
+  function applyFctVenue(cid: string) {
+    if (!isFctCustomer(customers.find((c) => c.id === cid))) return;
+    if (deliveryMode === "onsite") return;
+    if (storeId || rentalGymId || avenirStoreId) return;
+    setVenueKind("fct");
   }
 
   // 出張はお客さんのところへ行くので会場（店舗・レンタルジム等）を選ばない。
@@ -581,7 +605,7 @@ export function LessonForm({
         <div>
           <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
           <select name="customerId" required defaultValue={defaultValues?.customerId ?? ""}
-            onChange={(e) => { setSelectedCustomerId(e.target.value); setSelectedPassId(""); syncVenueFeeFor(e.target.value); revalidateCourse(e.target.value, refDate); applySuggestion(e.target.value, scheduledDate); }}
+            onChange={(e) => { setSelectedCustomerId(e.target.value); setSelectedPassId(""); syncVenueFeeFor(e.target.value); applyFctVenue(e.target.value); revalidateCourse(e.target.value, refDate); applySuggestion(e.target.value, scheduledDate); }}
             className={inputClass}>
             <option value="">顧客を選択...</option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
@@ -712,6 +736,11 @@ export function LessonForm({
           料金は選んだあとに下の入力欄で見せる。 */}
       <div className={cn(onsite && "hidden")}>
         <label className={labelClass}><Building2 size={12} /> 会場</label>
+        {fctCustomer && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
+            FCTのお客さまです。会場は <span className="font-semibold">FCT店舗</span> を選んでください（利用料は0円になります）。
+          </p>
+        )}
         {venueHistory.length > 0 && (
           <div className="mb-2">
             <p className="text-[11px] text-gray-400 mb-1">よく使う会場（タップで選択）</p>
@@ -790,7 +819,10 @@ export function LessonForm({
         )}
         {fctStoreId && (
           <VenueFeeField label="FCT店舗の利用料（税込）" name="fctStoreFee" value={fctStoreFee}
-            onChange={setFctStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。"} />
+            onChange={setFctStoreFee} isAdmin={isAdmin}
+            note={fctCustomer
+              ? "FCTのお客さまなので0円です（場所はFCTが用意してくれるため）。"
+              : "マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。"} />
         )}
         {avenirStoreId && (
           <VenueFeeField label="アヴニール店舗の利用料（税込）" name="avenirStoreFee" value={avenirStoreFee}
@@ -914,9 +946,11 @@ export function LessonForm({
               className={inputClass}
             />
             <p className="text-xs text-gray-400 mt-1">
-              {customerPrice != null
-                ? `空欄のままなら顧客の都度単価（¥${customerPrice.toLocaleString("ja-JP")}）を使います。この回だけ違う金額のときに入力してください。`
-                : "この回の金額。空欄なら顧客の都度単価を使用します。"}
+              {fctCustomer && customerPrice != null
+                ? `空欄のままならFCTから入る1レッスンの金額（¥${customerPrice.toLocaleString("ja-JP")}）を使います。`
+                : customerPrice != null
+                  ? `空欄のままなら顧客の都度単価（¥${customerPrice.toLocaleString("ja-JP")}）を使います。この回だけ違う金額のときに入力してください。`
+                  : "この回の金額。空欄なら顧客の都度単価を使用します。"}
             </p>
           </div>
         );

@@ -1,7 +1,7 @@
 import { createAdminClient } from "./supabase";
-export type { CustomerPlan, CustomerStatus, CustomerType, Customer } from "./customers-types";
-export { STATUS_LABEL, CUSTOMER_TYPE_LABEL } from "./customers-types";
-import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth } from "./customers-types";
+export type { CustomerPlan, CustomerStatus, CustomerType, SalesChannel, Customer } from "./customers-types";
+export { STATUS_LABEL, CUSTOMER_TYPE_LABEL, isFctCustomer } from "./customers-types";
+import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth, SalesChannel } from "./customers-types";
 
 type DbRow = {
   id: string;
@@ -13,6 +13,7 @@ type DbRow = {
   desired_start_date: string | null;
   single_session_price: number | null;
   sales_member_id: string | null;
+  sales_channel?: string | null;
   billing_name: string | null;
   billing_to_customer_id: string | null;
   billing_cutoff_day?: number | null;
@@ -39,6 +40,7 @@ function fromDb(row: DbRow): Customer {
     desiredStartDate: row.desired_start_date ?? undefined,
     singleSessionPrice: row.single_session_price ?? undefined,
     salesMemberId:    row.sales_member_id ?? undefined,
+    salesChannel:     row.sales_channel === "fct" ? "fct" : "own",
     billingName:      row.billing_name ?? undefined,
     billingToCustomerId: row.billing_to_customer_id ?? undefined,
     billingCutoffDay: row.billing_cutoff_day ?? undefined,
@@ -78,9 +80,8 @@ export async function addCustomer(
   input: Omit<Customer, "id" | "createdAt" | "updatedAt" | "paymentDueMonth" | "paymentDueDay">
     & Partial<Pick<Customer, "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay" | "billingCutoffDay">>
 ): Promise<Customer> {
-  const { data, error } = await createAdminClient()
-    .from("customers")
-    .insert({
+  const client = createAdminClient();
+  const row = {
       ...(input.billingCutoffDay !== undefined && { billing_cutoff_day: input.billingCutoffDay }),
       ...(input.invoiceSendDay  !== undefined && { invoice_send_day:  input.invoiceSendDay }),
       ...(input.paymentDueMonth !== undefined && { payment_due_month: input.paymentDueMonth }),
@@ -93,15 +94,29 @@ export async function addCustomer(
       desired_start_date: input.desiredStartDate    ?? null,
       single_session_price: input.singleSessionPrice ?? null,
       sales_member_id:    input.salesMemberId       ?? null,
+      sales_channel:      input.salesChannel        ?? "own",
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
       customer_type:      input.customerType        ?? "individual",
       note:               input.note ?? null,
-    })
-    .select()
-    .single();
+  };
+
+  let { data, error } = await client.from("customers").insert(row).select().single();
+  // sales_channel が未適用の環境では、その列を外して再試行（顧客登録自体は止めない）
+  if (error && isMissingSalesChannel(error)) {
+    const { sales_channel, ...rest } = row;
+    void sales_channel;
+    ({ data, error } = await client.from("customers").insert(rest).select().single());
+  }
   if (error) throw error;
   return fromDb(data as DbRow);
+}
+
+/** sales_channel 列がまだ無い環境か（マイグレーション未適用） */
+function isMissingSalesChannel(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  return /sales_channel/i.test(error.message ?? "") &&
+         (error.code === "42703" || error.code === "PGRST204" || /column/i.test(error.message ?? ""));
 }
 
 export async function updateCustomer(
@@ -115,6 +130,7 @@ export async function updateCustomer(
     desiredStartDate: string | null;
     singleSessionPrice: number | null;
     salesMemberId: string | null;
+    salesChannel: SalesChannel;
     billingName: string | null;
     billingToCustomerId: string | null;
     billingCutoffDay: number | null;
@@ -136,6 +152,7 @@ export async function updateCustomer(
   if (input.desiredStartDate !== undefined) patch.desired_start_date = input.desiredStartDate;
   if (input.singleSessionPrice !== undefined) patch.single_session_price = input.singleSessionPrice ?? null;
   if (input.salesMemberId    !== undefined) patch.sales_member_id    = input.salesMemberId ?? null;
+  if (input.salesChannel     !== undefined) patch.sales_channel       = input.salesChannel;
   if (input.billingName      !== undefined) patch.billing_name       = input.billingName ?? null;
   if (input.billingToCustomerId !== undefined) patch.billing_to_customer_id = input.billingToCustomerId ?? null;
   if (input.billingCutoffDay !== undefined) patch.billing_cutoff_day = input.billingCutoffDay ?? null;
@@ -149,6 +166,12 @@ export async function updateCustomer(
 
   const client = createAdminClient();
   let { data, error } = await client.from("customers").update(patch).eq("id", id).select().single();
+  // sales_channel が未適用の環境では、その列を外して再試行
+  if (error && isMissingSalesChannel(error)) {
+    const { sales_channel, ...rest } = patch;
+    void sales_channel;
+    ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
+  }
   // 請求カラム（billing_*）が未適用の環境では、それらを外して再試行
   if (error && /billing_(name|to_customer_id)/i.test(error.message ?? "")) {
     const { billing_name, billing_to_customer_id, ...rest } = patch;

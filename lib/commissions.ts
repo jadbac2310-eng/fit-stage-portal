@@ -1,4 +1,5 @@
 import type { Customer, CustomerType } from "./customers-types";
+import { isFctCustomer } from "./customers-types";
 import type { Lesson } from "./lessons-types";
 import { courseToPaymentType, resolveSingleLessonAmount } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
@@ -273,16 +274,20 @@ export function buildSalesEntries(
 
   const memberName = new Map(ctx.members.map((m) => [m.id, m.name]));
 
+  // FCT経由のお客さまは自社の営業が付いていないので、営業歩合も成約ボーナスも発生しない
+  const fctCustomerIds = new Set(ctx.customers.filter(isFctCustomer).map((c) => c.id));
+
   // 顧客ID → 営業担当
   const salesByCustomer: Record<string, { memberId: string; memberName: string }> = {};
   // ① 顧客マスタの担当営業を優先
   for (const c of ctx.customers) {
-    if (c.salesMemberId) {
+    if (c.salesMemberId && !fctCustomerIds.has(c.id)) {
       salesByCustomer[c.id] = { memberId: c.salesMemberId, memberName: memberName.get(c.salesMemberId) ?? c.salesMemberId };
     }
   }
   // ② 未設定の顧客は最初の成約体験レッスンの営業担当でフォールバック（営業未割当の体験は除く）
   for (const tl of trialLessons) {
+    if (fctCustomerIds.has(tl.customerId)) continue;
     if (tl.salesMemberId && !salesByCustomer[tl.customerId]) {
       salesByCustomer[tl.customerId] = { memberId: tl.salesMemberId, memberName: tl.salesMemberName };
     }
@@ -323,6 +328,7 @@ export function buildSalesEntries(
   // 成約ボーナス（成約日が選択月のもの）
   for (const tl of trialLessons.filter((tl) => isoToMonth(tl.scheduledAt) === month)) {
     if (!tl.salesMemberId) continue; // 営業未割当の体験はボーナス対象外
+    if (fctCustomerIds.has(tl.customerId)) continue; // FCT経由のお客さまは成約ボーナスなし
     if (isOwnerMember(tl.salesMemberId, ctx)) continue; // オーナーにはボーナスを払わない
     const cType = customerTypeMap[tl.customerId] ?? "individual";
     const bonus = CONTRACT_BONUS[cType];

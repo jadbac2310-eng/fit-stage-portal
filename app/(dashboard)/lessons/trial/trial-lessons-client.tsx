@@ -11,7 +11,7 @@ import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } fr
 import type { TrialNoteItem } from "@/lib/trial-note";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { parseTrialNote, isShortNote, looksLikeApplication, joinTrialNote } from "@/lib/trial-note";
-import { Customer } from "@/lib/customers-types";
+import { Customer, isFctCustomer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
 import type { RentalGym } from "@/lib/rental-gyms";
 import type { Store } from "@/lib/stores";
@@ -247,6 +247,16 @@ function LessonForm({
       ? originalNote
       : joinTrialNote(parsedNote.structuredText, memo);
 
+  /**
+   * その会場の利用料（初期値）。
+   * FCT経由のお客さまはFCTが場所を用意してくれるので、FCT店舗は0円になる。
+   */
+  function venueFeeFor(cid: string, kind: VenueKind, venueId: string, masterFee: number): number {
+    return resolveVenueFee(cid, kind, venueId, masterFee, venueFees, {
+      fctCustomer: isFctCustomer(customers.find((c) => c.id === cid)),
+    });
+  }
+
   // 場所はレンタルジム／店舗／FCT店舗のいずれか1つ（同じ回に2つの場所は無いため排他）
   function clearPlaces() {
     setRentalGymId(""); setRentalGymFee("");
@@ -260,7 +270,7 @@ function LessonForm({
     setRentalGymId(id);
     const gym = rentalGyms.find((g) => g.id === id);
     if (gym) {
-      setRentalGymFee(String(resolveVenueFee(customerId, "gym", id, gym.fee, venueFees)));
+      setRentalGymFee(String(venueFeeFor(customerId, "gym", id, gym.fee)));
       setLocation(gym.name);
     }
   }
@@ -270,7 +280,7 @@ function LessonForm({
     setStoreId(id);
     const store = stores.find((s) => s.id === id);
     if (store) {
-      setStoreFee(String(resolveVenueFee(customerId, "store", id, store.fee, venueFees)));
+      setStoreFee(String(venueFeeFor(customerId, "store", id, store.fee)));
       setLocation(store.name);
     }
   }
@@ -280,7 +290,7 @@ function LessonForm({
     setFctStoreId(id);
     const fct = fctStores.find((f) => f.id === id);
     if (fct) {
-      setFctStoreFee(String(resolveVenueFee(customerId, "fct", id, fct.fee, venueFees)));
+      setFctStoreFee(String(venueFeeFor(customerId, "fct", id, fct.fee)));
       setLocation(fct.name);
     }
   }
@@ -290,7 +300,7 @@ function LessonForm({
     setAvenirStoreId(id);
     const av = avenirStores.find((a) => a.id === id);
     if (av) {
-      setAvenirStoreFee(String(resolveVenueFee(customerId, "avenir", id, av.fee, venueFees)));
+      setAvenirStoreFee(String(venueFeeFor(customerId, "avenir", id, av.fee)));
       setLocation(av.name);
     }
   }
@@ -299,19 +309,19 @@ function LessonForm({
   function syncVenueFeeFor(cid: string) {
     if (storeId) {
       const st = stores.find((x) => x.id === storeId);
-      if (st) setStoreFee(String(resolveVenueFee(customerId, "store", st.id, st.fee, venueFees)));
+      if (st) setStoreFee(String(venueFeeFor(cid, "store", st.id, st.fee)));
     }
     if (rentalGymId) {
       const gym = rentalGyms.find((g) => g.id === rentalGymId);
-      if (gym) setRentalGymFee(String(resolveVenueFee(cid, "gym", gym.id, gym.fee, venueFees)));
+      if (gym) setRentalGymFee(String(venueFeeFor(cid, "gym", gym.id, gym.fee)));
     }
     if (fctStoreId) {
       const fct = fctStores.find((f) => f.id === fctStoreId);
-      if (fct) setFctStoreFee(String(resolveVenueFee(cid, "fct", fct.id, fct.fee, venueFees)));
+      if (fct) setFctStoreFee(String(venueFeeFor(cid, "fct", fct.id, fct.fee)));
     }
     if (avenirStoreId) {
       const av = avenirStores.find((a) => a.id === avenirStoreId);
-      if (av) setAvenirStoreFee(String(resolveVenueFee(cid, "avenir", av.id, av.fee, venueFees)));
+      if (av) setAvenirStoreFee(String(venueFeeFor(cid, "avenir", av.id, av.fee)));
     }
   }
 

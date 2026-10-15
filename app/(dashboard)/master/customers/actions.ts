@@ -4,7 +4,17 @@ import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { requireAdmin } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
-import { STATUS_LABEL, type CustomerStatus, type CustomerType } from "@/lib/customers-types";
+import { STATUS_LABEL, FCT_SALES_VALUE, type CustomerStatus, type CustomerType, type SalesChannel } from "@/lib/customers-types";
+
+/**
+ * 担当営業のプルダウンは「自社の営業」と「FCT」を1つの欄にまとめている。
+ * FCT を選んだときは自社の担当営業は付かない（FCTが連れてきてくれたお客さま）。
+ */
+function readSales(formData: FormData): { salesMemberId: string | null; salesChannel: SalesChannel } {
+  const raw = (formData.get("salesMemberId") as string)?.trim() || "";
+  if (raw === FCT_SALES_VALUE) return { salesMemberId: null, salesChannel: "fct" };
+  return { salesMemberId: raw || null, salesChannel: "own" };
+}
 
 export type CustomerActionResult = { ok: true } | { ok: false; error: string };
 
@@ -33,13 +43,13 @@ export async function createCustomerAction(formData: FormData): Promise<Customer
     const note             = (formData.get("note")             as string)?.trim() || undefined;
     const sspRaw           = (formData.get("singleSessionPrice") as string)?.trim();
     const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : undefined;
-    const salesMemberId    = (formData.get("salesMemberId")   as string)?.trim() || undefined;
+    const { salesMemberId, salesChannel } = readSales(formData);
 
     if (!fullName || !email || !dateOfBirth) {
       return { ok: false, error: "氏名・メール・生年月日は必須です" };
     }
 
-    const created = await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId, agreedToTerms: false, status: "trial", customerType, note });
+    const created = await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId: salesMemberId ?? undefined, salesChannel, agreedToTerms: false, status: "trial", customerType, note });
     await logActivity({ action: "create", entityType: "customer", entityId: created.id, summary: `顧客を追加: ${fullName}` });
     return { ok: true };
   } catch (e) {
@@ -60,7 +70,7 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
     const note             = (formData.get("note")             as string)?.trim() || null;
     const sspRaw           = (formData.get("singleSessionPrice") as string)?.trim();
     const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : null;
-    const salesMemberId    = (formData.get("salesMemberId")   as string)?.trim() || null;
+    const { salesMemberId, salesChannel } = readSales(formData);
     const billingName      = (formData.get("billingName")    as string)?.trim() || null;
     const billingToCustomerId = (formData.get("billingToCustomerId") as string)?.trim() || null;
     const cutoffRaw = (formData.get("billingCutoffDay") as string)?.trim();
@@ -79,7 +89,7 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
       return { ok: false, error: "氏名・メール・生年月日は必須です" };
     }
 
-    await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, billingName, billingToCustomerId, billingCutoffDay, invoiceSendDay, paymentDueMonth, paymentDueDay });
+    await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, salesChannel, billingName, billingToCustomerId, billingCutoffDay, invoiceSendDay, paymentDueMonth, paymentDueDay });
     await logActivity({ action: "update", entityType: "customer", entityId: id, summary: `顧客を編集: ${fullName}` });
     revalidatePath("/invoices");
     return { ok: true };

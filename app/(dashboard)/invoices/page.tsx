@@ -6,7 +6,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
 import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
-import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, fctLessonSummary } from "@/lib/invoices";
 import { courseToPaymentType, isBillableLessonStatus } from "@/lib/lessons-types";
 import { InvoicesClient } from "./invoices-client";
 
@@ -68,5 +68,8 @@ export default async function InvoicesPage({
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  return <InvoicesClient invoices={invoices} month={month} uncounted={uncounted} />;
+  // FCT経由のお客さま。請求書は出さないので、月の件数と合計だけ別に出す
+  const fct = fctLessonSummary(customers, month, lessons, fees);
+
+  return <InvoicesClient invoices={invoices} month={month} uncounted={uncounted} fct={fct} />;
 }

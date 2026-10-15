@@ -19,7 +19,7 @@ export interface CustomerVenueFee {
 
 /**
  * この顧客・この会場で使う利用料。
- * 顧客ごとの上書きがあればそれ、無ければマスタの料金。
+ * FCT経由のお客さま（FCT店舗）→ 0円、顧客ごとの上書きがあればそれ、無ければマスタの料金。
  */
 export function resolveVenueFee(
   customerId: string | undefined,
@@ -27,7 +27,12 @@ export function resolveVenueFee(
   venueId: string,
   masterFee: number,
   overrides: Pick<CustomerVenueFee, "customerId" | "venueKind" | "venueId" | "fee">[] = [],
+  opts: {
+    /** FCT経由のお客さまか。FCTが場所を用意してくれるのでFCT店舗の利用料はかからない */
+    fctCustomer?: boolean;
+  } = {},
 ): number {
+  if (opts.fctCustomer && kind === "fct") return 0;
   if (!customerId) return masterFee;
   const hit = overrides.find(
     (o) => o.customerId === customerId && o.venueKind === kind && o.venueId === venueId,

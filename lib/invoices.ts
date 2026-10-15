@@ -1,4 +1,5 @@
 import type { Customer, CustomerType, PaymentDueMonth } from "./customers-types";
+import { isFctCustomer } from "./customers-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerMonthlyItem } from "./customer-monthly-items-types";
@@ -228,6 +229,13 @@ export function buildInvoice(
 ): CustomerInvoice {
   const lines: InvoiceLine[] = [];
 
+  // FCT経由のお客さまには、こちらから請求書を出さない。
+  // お金はお客さまではなくFCTから（1レッスンあたり一定額で）入るため。
+  // 月いくら入るかは fctLessonSummary（請求書画面の「FCT分」）で確認する。
+  if (isFctCustomer(customer)) {
+    return { customerId: customer.id, customerName: customer.fullName, month, lines, total: 0 };
+  }
+
   // 月額プラン（購入月で計上）。金額未設定(null)のみ除外し、0円は0円として明細に出す
   for (const p of data.plans) {
     if (p.customerId !== customer.id || p.price == null) continue;
@@ -282,6 +290,63 @@ export function buildInvoice(
   lines.sort((a, b) => a.date.localeCompare(b.date));
   const total = lines.reduce((s, l) => s + l.amount, 0);
   return { customerId: customer.id, customerName: customer.fullName, month, lines, total };
+}
+
+// ─── FCT分（請求書を出さないかわりの集計） ───────────────
+export interface FctSummaryRow {
+  customerId:   string;
+  customerName: string;
+  /** その月に実施したレッスン件数 */
+  count:        number;
+  /** FCTから入る合計（1レッスンの固定額 × 件数） */
+  amount:       number;
+}
+
+export interface FctSummary {
+  rows:  FctSummaryRow[];
+  count: number;
+  total: number;
+}
+
+/**
+ * 対象月の「FCT分」をまとめる。
+ *
+ * FCT経由のお客さまには請求書を出さず、FCTから1レッスンあたり一定額が入る。
+ * FCTから届く明細と突き合わせられるように、件数と合計だけを出す。
+ * 1回あたりの額は レッスン個別金額 → 顧客の「FCTから入る1レッスンの金額」 の順に見る。
+ */
+export function fctLessonSummary(
+  customers: Customer[],
+  month: string,
+  lessons: Lesson[],
+  fees: InvoiceFees = { single: 0, lessonFees: {} },
+): FctSummary {
+  const rows: FctSummaryRow[] = [];
+
+  for (const c of customers) {
+    if (!isFctCustomer(c)) continue;
+    // FCTの支払いは暦の月どおりなので、締日の設定は見ない
+    const period = billingPeriod(month, null);
+    let count = 0;
+    let amount = 0;
+    for (const l of lessons) {
+      if (l.customerId !== c.id || !isBillableLessonStatus(l.status)) continue;
+      // コース未設定のレッスンは売上にも載らない（上の「請求に含まれていないレッスン」で気付ける）
+      if (courseToPaymentType(l.course) !== "single") continue;
+      if (!inPeriod(l.scheduledAt, period)) continue;
+      count  += 1;
+      amount += resolveSingleLessonAmount(l.amount, c.singleSessionPrice) ?? fees.single;
+    }
+    if (count === 0) continue;
+    rows.push({ customerId: c.id, customerName: c.fullName, count, amount });
+  }
+
+  rows.sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
+  return {
+    rows,
+    count: rows.reduce((s, r) => s + r.count, 0),
+    total: rows.reduce((s, r) => s + r.amount, 0),
+  };
 }
 
 /**

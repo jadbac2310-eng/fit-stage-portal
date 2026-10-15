@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { getCurrentIsAdmin } from "@/lib/members";
-import { getCustomers } from "@/lib/customers";
+import { getCustomers, isFctCustomer } from "@/lib/customers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getAllSessionPasses } from "@/lib/session-passes";
@@ -197,7 +197,7 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
         const rows = customers
           .filter((c) => (!q || c.fullName.includes(q)) && (!status || c.status === status))
           .slice(0, limit)
-          .map((c) => ({ id: c.id, name: c.fullName, status: c.status, type: c.customerType, sales: nameOf(c.salesMemberId) }));
+          .map((c) => ({ id: c.id, name: c.fullName, status: c.status, type: c.customerType, sales: isFctCustomer(c) ? "FCT" : nameOf(c.salesMemberId) }));
         return JSON.stringify({ count: rows.length, customers: rows });
       }
       case "get_customer": {
@@ -218,7 +218,7 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
           .map((l) => ({ date: l.scheduledAt.slice(0, 10), course: l.course, status: l.status, trainer: l.trainerMemberName, location: l.location }));
         return JSON.stringify({
           id: c.id, name: c.fullName, status: c.status, type: c.customerType,
-          sales: members.find((m) => m.id === c.salesMemberId)?.name,
+          sales: isFctCustomer(c) ? "FCT（ファーストクラストレーナーズ）" : members.find((m) => m.id === c.salesMemberId)?.name,
           activePlan: activePlan ? { plan: activePlan.plan, price: activePlan.price } : null,
           sessionPassRemaining: remaining,
           totalLessons: myLessons.length,

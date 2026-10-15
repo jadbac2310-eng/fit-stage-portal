@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
-import type { CustomerInvoice } from "@/lib/invoices";
+import type { CustomerInvoice, FctSummary } from "@/lib/invoices";
 
 /** コース未設定で請求書に載っていない実施済みレッスン */
 export interface UncountedLesson {
@@ -29,11 +29,13 @@ function monthOptions(): { value: string; label: string }[] {
 }
 
 export function InvoicesClient({
-  invoices, month, uncounted = [],
+  invoices, month, uncounted = [], fct,
 }: {
   invoices: CustomerInvoice[];
   month: string;
   uncounted?: UncountedLesson[];
+  /** FCT経由のお客さま（請求書は出さず、FCTからまとめて入る分） */
+  fct?: FctSummary;
 }) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
@@ -85,6 +87,31 @@ export function InvoicesClient({
                 <span className="font-semibold truncate">{l.customerName}</span>
                 <ChevronRight size={12} className="ml-auto flex-shrink-0 text-amber-500" />
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* FCT分。請求書は出さないが、FCTから届く明細と突き合わせられるように件数と合計を出す */}
+      {fct && fct.rows.length > 0 && (
+        <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-gray-800">FCT分</p>
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">請求書なし</span>
+            <span className="ml-auto text-sm text-gray-500">
+              {fct.count}件 ・ <span className="font-bold text-gray-800">{yen(fct.total)}</span>
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            FCT経由のお客さま。請求書は出さず、FCTから1レッスンあたりの固定額で入ります。会場代はかかりません。
+          </p>
+          <div className="mt-2.5 space-y-1">
+            {fct.rows.map((r) => (
+              <div key={r.customerId} className="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-2.5 py-1.5">
+                <span className="font-semibold text-gray-700 truncate">{r.customerName}</span>
+                <span className="text-gray-400">{r.count}回</span>
+                <span className="ml-auto font-bold text-gray-700">{yen(r.amount)}</span>
+              </div>
             ))}
           </div>
         </div>

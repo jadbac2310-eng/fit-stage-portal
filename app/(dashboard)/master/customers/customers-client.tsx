@@ -6,7 +6,10 @@ import {
   Plus, Pencil, Trash2, X, Search, User, Mail, Phone,
   MapPin, Calendar, StickyNote, ChevronDown,
 } from "lucide-react";
-import { Customer, CustomerStatus, CustomerType, STATUS_LABEL, CUSTOMER_TYPE_LABEL } from "@/lib/customers-types";
+import {
+  Customer, CustomerStatus, CustomerType, STATUS_LABEL, CUSTOMER_TYPE_LABEL,
+  FCT_SALES_VALUE, FCT_SALES_LABEL, isFctCustomer,
+} from "@/lib/customers-types";
 import {
   createCustomerAction, updateCustomerAction, deleteCustomerAction,
   updateCustomerStatusAction,
@@ -24,6 +27,15 @@ function statusColor(status: CustomerStatus) {
          status === "active"  ? "bg-green-100 text-green-700"   :
          status === "pending" ? "bg-yellow-100 text-yellow-700" :
                                 "bg-gray-100 text-gray-500";
+}
+
+/** FCT経由のお客さま。請求書を出さない・会場代がかからないので、一覧でひと目で分かるようにする */
+function FctBadge() {
+  return (
+    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+      FCT
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: CustomerStatus }) {
@@ -120,6 +132,11 @@ function CustomerForm({
   // 宛名・締日・送付日・支払期限はすべてまとめ先のものが使われるので、入力欄ごと隠す。
   const [billingTo, setBillingTo] = useState(defaultValues?.billingToCustomerId ?? "");
   const billerName = allCustomers.find((c) => c.id === billingTo)?.fullName ?? "まとめ先の顧客";
+  // 担当営業は「自社の営業」か「FCT」のどちらか。FCTのお客さまは請求書を出さないので請求設定も要らない。
+  const [sales, setSales] = useState(
+    isFctCustomer(defaultValues) ? FCT_SALES_VALUE : (defaultValues?.salesMemberId ?? "")
+  );
+  const isFct = sales === FCT_SALES_VALUE;
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -232,18 +249,34 @@ function CustomerForm({
         <label className={labelClass}>
           <User size={12} /> 担当営業
         </label>
-        <select name="salesMemberId" defaultValue={defaultValues?.salesMemberId ?? ""} className={inputClass}>
+        <select
+          name="salesMemberId"
+          value={sales}
+          onChange={(e) => setSales(e.target.value)}
+          className={inputClass}
+        >
           <option value="">未設定</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>
           ))}
+          <option value={FCT_SALES_VALUE}>{FCT_SALES_LABEL}</option>
         </select>
+        {isFct && (
+          <div className="text-xs text-blue-700 bg-blue-50 rounded-lg p-2.5 mt-1.5 leading-relaxed">
+            FCT経由のお客さまとして扱います。
+            <ul className="list-disc pl-4 mt-1 space-y-0.5">
+              <li>FCT店舗の利用料は <span className="font-semibold">0円</span>（レンタル代はかかりません）</li>
+              <li>このお客さまへの<span className="font-semibold">請求書は作りません</span>（FCTから入るため）</li>
+              <li>自社の営業歩合・成約ボーナスは付きません</li>
+            </ul>
+          </div>
+        )}
       </div>
 
-      {/* 都度単価 */}
+      {/* 都度単価（FCTのお客さまは「FCTから入る1レッスンの額」をここに入れる） */}
       <div>
         <label className={labelClass}>
-          <StickyNote size={12} /> 都度単価（税込）
+          <StickyNote size={12} /> {isFct ? "FCTから入る1レッスンの金額（税込）" : "都度単価（税込）"}
         </label>
         <input
           name="singleSessionPrice"
@@ -254,7 +287,11 @@ function CustomerForm({
           placeholder="例: 9900"
           className={inputClass}
         />
-        <p className="text-xs text-gray-400 mt-1">この顧客の「都度」レッスン1回あたりの単価（売上計算に使用）</p>
+        <p className="text-xs text-gray-400 mt-1">
+          {isFct
+            ? "FCTから1レッスンあたり支払われる固定額。これを売上として計上します（トレーナーには見えません）"
+            : "この顧客の「都度」レッスン1回あたりの単価（売上計算に使用）"}
+        </p>
       </div>
 
       {/* 個人/法人 */}
@@ -278,7 +315,20 @@ function CustomerForm({
         </div>
       </div>
 
-      {/* 請求設定 */}
+      {/* 請求設定（FCTのお客さまは請求書を出さないので丸ごと隠す。設定値は消えないよう持っておく） */}
+      {isFct ? (
+        <>
+          <p className="text-xs text-gray-400">
+            FCTのお客さまなので請求設定は使いません（請求書はFCT分として作られません）。
+          </p>
+          <input type="hidden" name="billingToCustomerId" defaultValue={defaultValues?.billingToCustomerId ?? ""} />
+          <input type="hidden" name="billingName"      defaultValue={defaultValues?.billingName ?? ""} />
+          <input type="hidden" name="billingCutoffDay" defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""} />
+          <input type="hidden" name="invoiceSendDay"   defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""} />
+          <input type="hidden" name="paymentDueMonth"  defaultValue={defaultValues?.paymentDueMonth ?? "next"} />
+          <input type="hidden" name="paymentDueDay"    defaultValue={defaultValues?.paymentDueDay?.toString() ?? ""} />
+        </>
+      ) : (
       <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-3 space-y-3">
         <p className="text-xs font-bold text-gray-500">請求設定</p>
         <div>
@@ -380,6 +430,7 @@ function CustomerForm({
           </>
         )}
       </div>
+      )}
 
       {/* メモ */}
       <div>
@@ -461,6 +512,7 @@ function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: C
           )}>
             {CUSTOMER_TYPE_LABEL[customer.customerType]}
           </span>
+          {isFctCustomer(customer) && <FctBadge />}
         </div>
         <p className="text-xs text-gray-400 mt-0.5">{customer.email}</p>
       </td>
@@ -533,6 +585,7 @@ function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: 
             )}>
               {CUSTOMER_TYPE_LABEL[customer.customerType]}
             </span>
+            {isFctCustomer(customer) && <FctBadge />}
           </div>
           <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
             <Mail size={10} className="flex-shrink-0" />{customer.email}

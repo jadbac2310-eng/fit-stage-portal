@@ -1,4 +1,5 @@
 import type { Customer } from "./customers-types";
+import { isFctCustomer } from "./customers-types";
 import type { HourlyTask } from "./hourly-tasks-types";
 import { hourlyTaskAmount } from "./hourly-tasks-types";
 import type { TrialLesson } from "./trial-lessons-types";
@@ -72,6 +73,7 @@ function invoiceSendReminders(input: DailyReminderInput): DailyReminder[] {
   const due = input.customers.filter((c) => {
     if (c.invoiceSendDay == null) return false;
     if (c.billingToCustomerId) return false;          // 請求をまとめられる側は請求書が出ない
+    if (isFctCustomer(c)) return false;               // FCT経由のお客さまには請求書を出さない
     if (c.status === "inactive") return false;
     return Math.min(c.invoiceSendDay, last) === p.day; // 月に無い日は末日に寄せる
   });

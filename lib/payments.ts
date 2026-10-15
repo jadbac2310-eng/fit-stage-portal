@@ -1,6 +1,7 @@
 import { createAdminClient } from "./supabase";
 import { currentMemberId } from "./audit";
 import type { Customer } from "./customers-types";
+import { isFctCustomer } from "./customers-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { Lesson } from "./lessons-types";
@@ -139,6 +140,9 @@ export function buildReceivables(
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inMonth(l.scheduledAt, month)) continue;
     const cust = data.customers.find((c) => c.id === l.customerId);
+    // FCT経由のお客さまはお客さまから直接もらわない（FCTからまとめて入る）ので、
+    // 1回ごとの入金管理には出さない。月の合計は請求書画面の「FCT分」で見る。
+    if (isFctCustomer(cust)) continue;
     const amount = resolveSingleLessonAmount(l.amount, cust?.singleSessionPrice) ?? singleSessionFee;
     if (amount <= 0) continue; // 0円は請求も入金も発生しないので入金管理には出さない
     items.push({
