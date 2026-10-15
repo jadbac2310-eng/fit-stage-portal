@@ -1,4 +1,4 @@
-import { getCustomers } from "@/lib/customers";
+import { getCustomers, isFctCustomer } from "@/lib/customers";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
@@ -57,10 +57,13 @@ export default async function InvoicesPage({
 
   // 請求漏れの検知: 実施済み（完了・当日キャンセル）なのにコース未設定のレッスン。
   // コースが無いと請求書の明細にも回数券の消化にもならず、どこにも計上されない。
+  // FCT経由のお客さまはそもそも請求書を出さないので、この警告の対象外
+  const fctCustomerIds = new Set(customers.filter(isFctCustomer).map((c) => c.id));
   const uncounted = lessons
     .filter((l) =>
       l.scheduledAt.slice(0, 7) === month &&
       isBillableLessonStatus(l.status) &&
+      !fctCustomerIds.has(l.customerId) &&
       !courseToPaymentType(l.course) &&
       !l.sessionPassId)
     .map((l) => ({

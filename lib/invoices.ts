@@ -332,8 +332,8 @@ export function fctLessonSummary(
     let amount = 0;
     for (const l of lessons) {
       if (l.customerId !== c.id || !isBillableLessonStatus(l.status)) continue;
-      // コース未設定のレッスンは売上にも載らない（上の「請求に含まれていないレッスン」で気付ける）
-      if (courseToPaymentType(l.course) !== "single") continue;
+      // コース（都度・回数券・月プラン）は問わない。FCTのお客さまは、どの形で登録していても
+      // 「単価の税抜 × 歩合率」で入るため（売上の計算 resolveLessonFee と同じ扱いにする）
       if (!inPeriod(l.scheduledAt, period)) continue;
       const rate = fctStores.find((f) => f.id === l.fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
       count  += 1;
