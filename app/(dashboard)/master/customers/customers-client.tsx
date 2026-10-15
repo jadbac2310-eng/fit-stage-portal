@@ -113,6 +113,7 @@ function CustomerForm({
   defaultValues,
   isEdit = false,
   members,
+  fctRates = [FCT_DEFAULT_RATE],
   allCustomers = [],
   onClose,
   action,
@@ -121,6 +122,8 @@ function CustomerForm({
   defaultValues?: Partial<Customer>;
   isEdit?: boolean;
   members: MemberOpt[];
+  /** FCT店舗にある歩合率（%）。FCTのお客さまの見込み額を出すのに使う */
+  fctRates?: number[];
   allCustomers?: Customer[];
   onClose: () => void;
   action: (fd: FormData) => Promise<{ ok: boolean; error?: string } | void>;
@@ -140,7 +143,11 @@ function CustomerForm({
   const isFct = sales === FCT_SALES_VALUE;
   // FCTのお客さまは「お客さまの単価」を入れてもらい、FCTから入る額はこちらで計算して見せる
   const [price, setPrice] = useState(defaultValues?.singleSessionPrice?.toString() ?? "");
-  const fctPay = isFct ? fctLessonPay(parseInt(price, 10) || null) : 0;
+  // 歩合率は会場（FCT店舗）で決まるので、ある率ぶんだけ見込みを並べる
+  const fctPays = isFct
+    ? fctRates.map((rate) => ({ rate, pay: fctLessonPay(parseInt(price, 10) || null, rate) }))
+             .filter((x) => x.pay > 0)
+    : [];
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -298,11 +305,16 @@ function CustomerForm({
             <p className="text-xs text-gray-400 mt-1">
               このお客さまがFCTに払っている1回の単価。ここから自動で売上を計算します（割り算は不要です）。
             </p>
-            {fctPay > 0 && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-2 mt-1.5">
-                FCTから入る額：<span className="font-bold">¥{fctPay.toLocaleString("ja-JP")}</span> / 回
-                <span className="text-emerald-600">（歩合{FCT_DEFAULT_RATE}%の直営店の場合）</span>
-              </p>
+            {fctPays.length > 0 && (
+              <div className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-2 mt-1.5 space-y-0.5">
+                <p className="font-semibold">FCTから入る額（1回あたり）</p>
+                {fctPays.map(({ rate, pay }) => (
+                  <p key={rate}>
+                    歩合{rate}%の店舗 → <span className="font-bold">¥{pay.toLocaleString("ja-JP")}</span>
+                  </p>
+                ))}
+                <p className="text-emerald-600">どれになるかは、レッスンで選んだFCT店舗で決まります。</p>
+              </div>
             )}
           </>
         ) : (
@@ -488,7 +500,7 @@ function CustomerForm({
 }
 
 // ─── 顧客行（テーブル） ───────────────────────────────
-function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
+function CustomerRow({ customer, isAdmin, members, fctRates, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; fctRates: number[]; allCustomers: Customer[] }) {
   const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const { locked: deleting, run: runDelete } = useSubmitLock();
@@ -511,7 +523,7 @@ function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: C
             <p className="text-sm font-bold text-gray-900">顧客を編集</p>
             <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
-          <CustomerForm defaultValues={customer} isEdit members={members} allCustomers={allCustomers} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+          <CustomerForm defaultValues={customer} isEdit members={members} fctRates={fctRates} allCustomers={allCustomers} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
         </div>
       </td>
     </tr>
@@ -564,7 +576,7 @@ function CustomerRow({ customer, isAdmin, members, allCustomers }: { customer: C
 }
 
 // ─── 顧客カード（モバイル） ───────────────────────────
-function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; allCustomers: Customer[] }) {
+function CustomerCard({ customer, isAdmin, members, fctRates, allCustomers }: { customer: Customer; isAdmin: boolean; members: MemberOpt[]; fctRates: number[]; allCustomers: Customer[] }) {
   const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit">("view");
   const { locked: deleting, run: runDelete } = useSubmitLock();
@@ -585,7 +597,7 @@ function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: 
         <p className="text-sm font-bold text-gray-900">顧客を編集</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
-      <CustomerForm defaultValues={customer} isEdit members={members} allCustomers={allCustomers} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+      <CustomerForm defaultValues={customer} isEdit members={members} fctRates={fctRates} allCustomers={allCustomers} onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
 
@@ -638,7 +650,7 @@ function CustomerCard({ customer, isAdmin, members, allCustomers }: { customer: 
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function CustomersClient({ customers, isAdmin, members }: { customers: Customer[]; isAdmin: boolean; members: MemberOpt[] }) {
+export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_DEFAULT_RATE] }: { customers: Customer[]; isAdmin: boolean; members: MemberOpt[]; fctRates?: number[] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<CustomerStatus | "">("");
@@ -709,6 +721,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
           </div>
           <CustomerForm
             members={members}
+            fctRates={fctRates}
             allCustomers={customers}
             onClose={() => setShowAdd(false)}
             action={createCustomerAction}
@@ -752,7 +765,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} members={members} allCustomers={customers} />
+                  <CustomerRow key={c.id} customer={c} isAdmin={isAdmin} members={members} fctRates={fctRates} allCustomers={customers} />
                 ))}
               </tbody>
             </table>
@@ -761,7 +774,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
           {/* モバイル：カード */}
           <div className="md:hidden space-y-2">
             {filtered.map((c) => (
-              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} members={members} allCustomers={customers} />
+              <CustomerCard key={c.id} customer={c} isAdmin={isAdmin} members={members} fctRates={fctRates} allCustomers={customers} />
             ))}
           </div>
         </>
@@ -782,6 +795,7 @@ export function CustomersClient({ customers, isAdmin, members }: { customers: Cu
         <BottomSheet title="新しい顧客" onClose={() => setShowAdd(false)} scrollable>
           <CustomerForm
             members={members}
+            fctRates={fctRates}
             allCustomers={customers}
             onClose={() => setShowAdd(false)}
             action={createCustomerAction}
