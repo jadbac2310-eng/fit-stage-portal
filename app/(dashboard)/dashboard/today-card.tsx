@@ -13,9 +13,12 @@ import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
 export function TodayCard({
-  headline, milestones, quote, mission, tip, fortune, follows, unassignedFollows = 0,
+  headline, teamHeadline, milestones, quote, mission, tip, fortune, follows, unassignedFollows = 0,
 }: {
+  /** 自分の担当ぶん */
   headline: TodayHeadline;
+  /** FIT STAGE全体（全員が見られる） */
+  teamHeadline: TodayHeadline;
   milestones: Milestone[];
   quote: DailyQuote;
   mission: string;
@@ -26,7 +29,7 @@ export function TodayCard({
   /** 担当営業が未設定で、誰の画面にも出ていない人数（管理者のみ） */
   unassignedFollows?: number;
 }) {
-  const diff = headline.monthCount - headline.lastMonthCount;
+  const diff = teamHeadline.monthCount - teamHeadline.lastMonthCount;
   const topFollows = follows.slice(0, 5);
 
   return (
@@ -34,22 +37,32 @@ export function TodayCard({
       {/* 本日の格言（いちばん上。開いて最初に目に入るところ） */}
       <QuoteCard quote={quote} mission={mission} tip={tip} fortune={fortune} />
 
-      {/* 今日の動き */}
+      {/* 今日の動き（FIT STAGE全体＋自分の担当） */}
       <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 p-4 text-white shadow-sm">
-        <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のあなた</p>
-        {headline.lessonCount === 0 ? (
-          <p className="text-lg font-bold mt-1">今日の担当の予定はありません</p>
+        <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のFIT STAGE</p>
+        {teamHeadline.lessonCount === 0 ? (
+          <p className="text-lg font-bold mt-1">今日の予定は入っていません</p>
         ) : (
           <p className="text-lg font-bold mt-1">
-            今日は {headline.lessonCount}レッスン・{headline.customerCount}名を担当します
+            今日は {teamHeadline.lessonCount}レッスン・{teamHeadline.customerCount}名が来ます
           </p>
         )}
         <p className="text-xs text-blue-100 mt-1">
-          今月は{headline.monthCount}本目
-          {headline.lastMonthCount > 0 && (
-            <>（先月の今日は{headline.lastMonthCount}本{diff === 0 ? "・同じペース" : diff > 0 ? `・${diff}本ペースが速い` : `・${-diff}本ぶん遅い`}）</>
+          今月はチームで{teamHeadline.monthCount}本目
+          {teamHeadline.lastMonthCount > 0 && (
+            <>（先月の今日は{teamHeadline.lastMonthCount}本{diff === 0 ? "・同じペース" : diff > 0 ? `・${diff}本ペースが速い` : `・${-diff}本ぶん遅い`}）</>
           )}
         </p>
+
+        <div className="mt-3 pt-3 border-t border-white/25">
+          <p className="text-[11px] font-semibold text-blue-100">あなたの担当</p>
+          <p className="text-sm font-bold mt-0.5">
+            {headline.lessonCount === 0
+              ? "今日の予定はありません"
+              : `今日は ${headline.lessonCount}レッスン・${headline.customerCount}名`}
+            <span className="font-semibold text-blue-100"> ／ 今月{headline.monthCount}本</span>
+          </p>
+        </div>
       </div>
 
       {/* 今日の節目 */}

@@ -136,6 +136,8 @@ export default async function DashboardPage() {
   // 自分の担当（指導する回＋担当営業のお客さま）だけに絞る
   const mine = { memberId: myId, customerIds: myCustomerIds(customers, myId) };
   const headline   = todayHeadline(lessons, trialLessons, now, mine);
+  // FIT STAGE全体の数。これは全員が見られるようにする（チームの動きが見えるほうが気持ちが乗る）
+  const teamHeadline = todayHeadline(lessons, trialLessons, now);
   const milestones = todayMilestones(lessons, trialLessons, now, mine);
   // 声かけリストは「担当営業が自分のお客さま」だけ。自分の持ち場だけが出るようにする。
   const allFollows = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
@@ -184,7 +186,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* 日替わりの1枚・今日のひとこと・節目 */}
-      <TodayCard headline={headline} milestones={milestones} quote={quote}
+      <TodayCard headline={headline} teamHeadline={teamHeadline} milestones={milestones} quote={quote}
         mission={mission} tip={tip} fortune={fortune}
         follows={follows} unassignedFollows={unassignedFollows} />
 
