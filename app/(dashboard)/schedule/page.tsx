@@ -69,8 +69,13 @@ export default async function SchedulePage() {
     }
   }
 
+  // 顧客の担当営業。通常レッスンにも付けておくと、
+  // 営業担当の表示と「◯◯さんのスケジュール」（営業別カレンダー）の両方で使える。
+  const salesOf = new Map(customers.map((c) => [c.id, c.salesMemberId]));
+
   // 通常レッスン（全件）
   for (const l of lessons) {
+    const salesId = salesOf.get(l.customerId);
     items.push({
       id: l.id,
       type: "regular",
@@ -86,6 +91,9 @@ export default async function SchedulePage() {
       trainerId: l.trainerMemberId,
       trainerName: l.trainerMemberName,
       trainerAvatarUrl: avatarOf(l.trainerMemberId),
+      salesId,
+      salesName: nameOf(salesId),
+      salesAvatarUrl: avatarOf(salesId),
       storeId: l.storeId,
       createdById: l.createdById,
       createdByName: l.createdByName ?? nameOf(l.createdById),

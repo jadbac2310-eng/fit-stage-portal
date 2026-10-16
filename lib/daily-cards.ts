@@ -155,6 +155,41 @@ export function fortuneOfTheDay(now: Date | number = Date.now()): DailyFortune {
   return { ...f, item: pick(LUCKY_ITEMS, now, 5) };
 }
 
+// ─── 季節もの ──────────────────────────────────────────
+export interface Seasonal { emoji: string; text: string }
+
+/**
+ * その日ならではの一言。何でもない日は null。
+ * 年に数回しか出ないので、出た日は「お、変わってる」となる。
+ */
+export function seasonal(now: Date | number = Date.now()): Seasonal | null {
+  const t = typeof now === "number" ? now : now.getTime();
+  const d = new Date(t + JST);
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  const dow = d.getUTCDay();
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), m, 0)).getUTCDate();
+  const md = `${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  if (md === "01-01") return { emoji: "🎍", text: "あけましておめでとうございます。今年もよろしくお願いします" };
+  if (m === 1 && day <= 3)  return { emoji: "🎍", text: "お正月ですね。今年の目標、お客さんに聞いてみる絶好のタイミング" };
+  if (md === "12-31") return { emoji: "🎍", text: "1年おつかれさまでした。よいお年を" };
+  if (m === 12 && day >= 29) return { emoji: "🎍", text: "年末ですね。今年の変化を、ひとこと伝えてあげてください" };
+  if (md === "12-24" || md === "12-25") return { emoji: "🎄", text: "メリークリスマス。今日来てくれる人は本気の人です" };
+  if (md === "10-31") return { emoji: "🎃", text: "ハッピーハロウィン。お菓子の食べすぎに注意の日" };
+  if (md === "02-14") return { emoji: "🍫", text: "バレンタイン。チョコの分はスクワットで" };
+  if (m === 4 && day <= 10) return { emoji: "🌸", text: "新年度。「今年こそ」の人がいちばん多い季節です" };
+  if (m === 5 && day <= 6 && day >= 3) return { emoji: "🎏", text: "連休中。来てくれた人には特に手厚く" };
+  if (m === 8 && day >= 10 && day <= 16) return { emoji: "🌻", text: "お盆です。来月の予定だけ押さえておきましょう" };
+  if (m === 7 || m === 8) return { emoji: "☀️", text: "暑いです。水分補給の声かけをいつもより多めに" };
+  if (m === 1 && day >= 4 && day <= 15) return { emoji: "💪", text: "1月はジムがいちばん混む月。初めての人に優しく" };
+  if (day === 1)       return { emoji: "🚀", text: `${m}月が始まりました。今月の予定、埋まっていますか？` };
+  if (day === lastDay) return { emoji: "🏁", text: "今日で今月も終わり。完了のつけ忘れがないか確認を" };
+  if (dow === 5)       return { emoji: "🙌", text: "金曜日。今週もおつかれさまでした" };
+  if (dow === 1)       return { emoji: "☕️", text: "月曜日。今週の予定をざっと確認しておきましょう" };
+  return null;
+}
+
 // ─── 時間帯のあいさつ ──────────────────────────────────
 /** 日本時間の時刻で変える。名前を添えると、ぐっと自分ごとになる */
 export function greeting(now: Date | number = Date.now()): string {

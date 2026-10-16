@@ -27,7 +27,7 @@ import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/
 import { quoteOfTheDay } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
-import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting } from "@/lib/daily-cards";
+import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting, seasonal } from "@/lib/daily-cards";
 import { Confetti } from "./confetti";
 import { StreakBadges } from "./streak-badges";
 import { CountUp } from "./count-up";
@@ -153,6 +153,7 @@ export default async function DashboardPage() {
   const tip     = tipOfTheDay(now);
   const fortune = fortuneOfTheDay(now);
   const hello   = greeting(now);
+  const season  = seasonal(now);
 
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
   const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
@@ -170,10 +171,17 @@ export default async function DashboardPage() {
 
       {celebrate && <Confetti />}
 
-      {/* あいさつ */}
-      <p className="text-sm font-bold text-gray-800 mb-3">
-        {hello}{currentMember?.name ? `、${currentMember.name}さん` : ""}
-      </p>
+      {/* あいさつ・季節のひとこと */}
+      <div className="mb-3">
+        <p className="text-sm font-bold text-gray-800">
+          {hello}{currentMember?.name ? `、${currentMember.name}さん` : ""}
+        </p>
+        {season && (
+          <p className="text-xs text-gray-500 mt-0.5">
+            <span className="mr-1">{season.emoji}</span>{season.text}
+          </p>
+        )}
+      </div>
 
       {/* 日替わりの1枚・今日のひとこと・節目 */}
       <TodayCard headline={headline} milestones={milestones} quote={quote}

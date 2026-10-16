@@ -580,9 +580,16 @@ function LessonCard({
               {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
             </DetailRow>
           ) : (
-            <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">
-              {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
-            </DetailRow>
+            <>
+              <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">
+                {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+              </DetailRow>
+              {item.type === "regular" && (
+                <DetailRow icon={<UserRound size={13} />} label="担当営業">
+                  {item.salesName ? <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} size="sm" /> : "未設定"}
+                </DetailRow>
+              )}
+            </>
           )}
           {item.type === "regular" && item.createdByName && (
             <DetailRow icon={<CalendarPlus size={13} />} label="追加者">{item.createdByName}</DetailRow>
