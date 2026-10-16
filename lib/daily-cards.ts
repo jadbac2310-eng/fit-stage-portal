@@ -15,6 +15,13 @@ function pick<T>(list: T[], now: Date | number, offset: number): T {
   return list[(jstDayNumber(now) + offset) % list.length];
 }
 
+/** 文字列から数をつくる（担当者ごとに別のものを出すため。毎回おなじ結果になる） */
+function hashOf(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
 // ─── 今日のお題 ────────────────────────────────────────
 // 精神論で終わらせず、今日の行動を1個だけ決める。
 export const DAILY_MISSIONS: string[] = [
@@ -150,9 +157,18 @@ const LUCKY_ITEMS: string[] = [
   "ストレッチ多め", "有酸素20分", "柔軟と呼吸", "体幹トレ", "散歩",
 ];
 
-export function fortuneOfTheDay(now: Date | number = Date.now()): DailyFortune {
-  const f = pick(FORTUNE_LEVELS, now, 11);
-  return { ...f, item: pick(LUCKY_ITEMS, now, 5) };
+/**
+ * 今日の運勢。
+ *
+ * 格言やお題は全員おなじ（共通の話題になるため）だが、運勢は人ごとに変える。
+ * 同じ人・同じ日なら必ずおなじものが出る（引き直しはできない）。
+ */
+export function fortuneOfTheDay(now: Date | number = Date.now(), memberId?: string): DailyFortune {
+  const seed = jstDayNumber(now) + (memberId ? hashOf(memberId) : 0);
+  return {
+    ...FORTUNE_LEVELS[(seed + 11) % FORTUNE_LEVELS.length],
+    item: LUCKY_ITEMS[(seed + 5) % LUCKY_ITEMS.length],
+  };
 }
 
 // ─── 季節もの ──────────────────────────────────────────

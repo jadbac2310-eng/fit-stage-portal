@@ -155,7 +155,7 @@ export default async function DashboardPage() {
   const celebrate = earnedToday(badges, now);
   const mission = missionOfTheDay(now);
   const tip     = tipOfTheDay(now);
-  const fortune = fortuneOfTheDay(now);
+  const fortune = fortuneOfTheDay(now, myId);   // 運勢だけは人ごとに変える
   const hello   = greeting(now);
   const season  = seasonal(now);
 
