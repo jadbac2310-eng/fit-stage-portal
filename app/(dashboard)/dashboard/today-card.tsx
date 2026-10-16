@@ -11,12 +11,15 @@ import type { DailyQuote } from "@/lib/daily-quote";
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
 export function TodayCard({
-  headline, milestones, quote, follows,
+  headline, milestones, quote, follows, unassignedFollows = 0,
 }: {
   headline: TodayHeadline;
   milestones: Milestone[];
   quote: DailyQuote;
+  /** 担当営業が自分のお客さまだけ（画面側で絞り込み済み） */
   follows: FollowUp[];
+  /** 担当営業が未設定で、誰の画面にも出ていない人数（管理者のみ） */
+  unassignedFollows?: number;
 }) {
   const diff = headline.monthCount - headline.lastMonthCount;
   const topFollows = follows.slice(0, 5);
@@ -57,14 +60,17 @@ export function TodayCard({
         </div>
       )}
 
-      {/* 声かけリスト */}
-      {topFollows.length > 0 && (
+      {/* 声かけリスト（担当営業が自分のお客さまだけ） */}
+      {(topFollows.length > 0 || unassignedFollows > 0) && (
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex items-center gap-1.5 mb-2">
             <PhoneCall size={13} className="text-rose-500" />
             <p className="text-xs font-bold text-gray-700">声をかけたほうがいい人（{follows.length}名）</p>
           </div>
           <div className="space-y-1">
+            {topFollows.length === 0 && (
+              <p className="text-xs text-gray-400 py-1">自分が担当のお客さまで、声をかけたほうがいい人はいません。</p>
+            )}
             {topFollows.map((f) => (
               <Link
                 key={f.customerId}
@@ -79,6 +85,11 @@ export function TodayCard({
           </div>
           {follows.length > topFollows.length && (
             <p className="text-[11px] text-gray-400 mt-1.5">ほか {follows.length - topFollows.length}名</p>
+          )}
+          {unassignedFollows > 0 && (
+            <Link href="/master/customers" className="block text-[11px] text-amber-700 mt-2 hover:underline">
+              担当営業が未設定のお客さまが{unassignedFollows}名います（誰の画面にも出ません）→
+            </Link>
           )}
         </div>
       )}

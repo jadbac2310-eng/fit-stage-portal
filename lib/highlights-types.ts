@@ -146,6 +146,8 @@ export type FollowUpKind = "away" | "passLow" | "noNext" | "planUnused";
 export interface FollowUp {
   customerId:   string;
   customerName: string;
+  /** そのお客さまの担当営業（members.id）。未設定なら undefined */
+  salesMemberId?: string;
   kind:         FollowUpKind;
   /** 画面に出す理由 */
   reason:       string;
@@ -166,6 +168,7 @@ const PASS_LOW = 2;
  * ・月プランなのに今月まだ来ていない
  * ・次の予定が入っていない
  * 退会した人は出さない。1人につき理由は1つ（いちばん重いもの）だけ出す。
+ * 誰に見せるかは画面側で決める（担当営業が自分のお客さまだけ出す、など）。
  */
 export function followUps(
   customers: Customer[],
@@ -215,7 +218,7 @@ export function followUps(
     // ① しばらく来ていない（いちばん重い）
     if (away != null && away >= AWAY_DAYS && !hasNext.has(c.id)) {
       out.push({
-        customerId: c.id, customerName: c.fullName, kind: "away", priority: 1,
+        customerId: c.id, customerName: c.fullName, salesMemberId: c.salesMemberId, kind: "away", priority: 1,
         reason: `前回から${Math.floor(away / 7)}週間、次の予定もありません`,
       });
       continue;
@@ -223,7 +226,7 @@ export function followUps(
     // ② 月プランなのに今月まだ来ていない
     if (activePlan.has(c.id) && !cameThisMonth.has(c.id) && !hasNext.has(c.id)) {
       out.push({
-        customerId: c.id, customerName: c.fullName, kind: "planUnused", priority: 2,
+        customerId: c.id, customerName: c.fullName, salesMemberId: c.salesMemberId, kind: "planUnused", priority: 2,
         reason: "月プランですが、今月まだ予定がありません",
       });
       continue;
@@ -231,7 +234,7 @@ export function followUps(
     // ③ 回数券の残りが少ない
     if (left != null && left <= PASS_LOW) {
       out.push({
-        customerId: c.id, customerName: c.fullName, kind: "passLow", priority: 3,
+        customerId: c.id, customerName: c.fullName, salesMemberId: c.salesMemberId, kind: "passLow", priority: 3,
         reason: `回数券の残りが${left}回です`,
       });
       continue;
@@ -239,7 +242,7 @@ export function followUps(
     // ④ 次の予定が入っていない
     if (!hasNext.has(c.id) && last) {
       out.push({
-        customerId: c.id, customerName: c.fullName, kind: "noNext", priority: 4,
+        customerId: c.id, customerName: c.fullName, salesMemberId: c.salesMemberId, kind: "noNext", priority: 4,
         reason: "次の予定が入っていません",
       });
     }

@@ -130,7 +130,13 @@ export default async function DashboardPage() {
   // ─── 今日のひとこと・節目・声かけリスト（追加の読み込みなし） ───
   const headline   = todayHeadline(lessons, trialLessons, now);
   const milestones = todayMilestones(lessons, trialLessons, now);
-  const follows    = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
+  // 声かけリストは「担当営業が自分のお客さま」だけ。自分の持ち場だけが出るようにする。
+  const allFollows = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
+  const follows    = allFollows.filter((f) => f.salesMemberId && f.salesMemberId === myId);
+  // 担当営業が未設定だと誰の画面にも出ない。管理者にだけ件数を知らせて、取りこぼしを防ぐ。
+  const unassignedFollows = currentMember?.isAdmin
+    ? allFollows.filter((f) => !f.salesMemberId).length
+    : 0;
   const quote      = quoteOfTheDay(now);
 
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
@@ -148,7 +154,8 @@ export default async function DashboardPage() {
       </div>
 
       {/* 今日のひとこと・節目・格言 */}
-      <TodayCard headline={headline} milestones={milestones} quote={quote} follows={follows} />
+      <TodayCard headline={headline} milestones={milestones} quote={quote}
+        follows={follows} unassignedFollows={unassignedFollows} />
 
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
