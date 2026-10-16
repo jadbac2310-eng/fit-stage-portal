@@ -26,7 +26,9 @@ import { PendingLessonsCard } from "./pending-lessons-card";
 import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
 import { quoteOfTheDay } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
-import { weeklyStreak, earnedBadges } from "@/lib/badges-types";
+import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
+import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting } from "@/lib/daily-cards";
+import { Confetti } from "./confetti";
 import { StreakBadges } from "./streak-badges";
 import { CountUp } from "./count-up";
 
@@ -146,6 +148,11 @@ export default async function DashboardPage() {
   // 連続記録と称号（自分の担当ぶんだけ）
   const streak = weeklyStreak(lessons, trialLessons, myId, now);
   const badges = earnedBadges(lessons, trialLessons, myId, streak, now);
+  const celebrate = earnedToday(badges, now);
+  const mission = missionOfTheDay(now);
+  const tip     = tipOfTheDay(now);
+  const fortune = fortuneOfTheDay(now);
+  const hello   = greeting(now);
 
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
   const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
@@ -161,8 +168,16 @@ export default async function DashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
 
-      {/* 今日のひとこと・節目・格言 */}
+      {celebrate && <Confetti />}
+
+      {/* あいさつ */}
+      <p className="text-sm font-bold text-gray-800 mb-3">
+        {hello}{currentMember?.name ? `、${currentMember.name}さん` : ""}
+      </p>
+
+      {/* 日替わりの1枚・今日のひとこと・節目 */}
       <TodayCard headline={headline} milestones={milestones} quote={quote}
+        mission={mission} tip={tip} fortune={fortune}
         follows={follows} unassignedFollows={unassignedFollows} />
 
       {/* 連続記録と称号 */}

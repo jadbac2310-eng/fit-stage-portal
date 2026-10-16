@@ -3,6 +3,7 @@ import { ChevronRight, PhoneCall } from "lucide-react";
 import { QuoteCard } from "./quote-card";
 import type { TodayHeadline, Milestone, FollowUp } from "@/lib/highlights-types";
 import type { DailyQuote } from "@/lib/daily-quote";
+import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
 
 /**
  * 開いていちばん最初に目に入るところ。
@@ -12,11 +13,14 @@ import type { DailyQuote } from "@/lib/daily-quote";
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
 export function TodayCard({
-  headline, milestones, quote, follows, unassignedFollows = 0,
+  headline, milestones, quote, mission, tip, fortune, follows, unassignedFollows = 0,
 }: {
   headline: TodayHeadline;
   milestones: Milestone[];
   quote: DailyQuote;
+  mission: string;
+  tip: DailyTip;
+  fortune: DailyFortune;
   /** 担当営業が自分のお客さまだけ（画面側で絞り込み済み） */
   follows: FollowUp[];
   /** 担当営業が未設定で、誰の画面にも出ていない人数（管理者のみ） */
@@ -28,7 +32,7 @@ export function TodayCard({
   return (
     <div className="mb-6 space-y-3">
       {/* 本日の格言（いちばん上。開いて最初に目に入るところ） */}
-      <QuoteCard quote={quote} />
+      <QuoteCard quote={quote} mission={mission} tip={tip} fortune={fortune} />
 
       {/* 今日の動き */}
       <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 p-4 text-white shadow-sm">

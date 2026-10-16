@@ -95,6 +95,8 @@ export interface Badge {
   note?: string;
   /** 今月とれたばかりなら true（画面で NEW を付ける） */
   isNew?: boolean;
+  /** その称号に到達した日（YYYY-MM-DD）。今日なら紙吹雪を出す */
+  earnedOn?: string;
 }
 
 const TOTAL_STEPS  = [10, 50, 100, 200, 300, 500, 1000];
@@ -106,6 +108,12 @@ function topStep(steps: number[], value: number): number | null {
   let hit: number | null = null;
   for (const s of steps) if (value >= s) hit = s;
   return hit;
+}
+
+/** 今日とった称号があるか（紙吹雪を出すかの判定） */
+export function earnedToday(badges: Badge[], now: Date | number = Date.now()): boolean {
+  const today = jstDay(now);
+  return badges.some((b) => b.earnedOn === today);
 }
 
 /**
@@ -130,13 +138,20 @@ export function earnedBadges(
     out.push({
       id: `total-${t}`, emoji: "🏅", label: `通算${t}レッスン`,
       note: `いまの通算は${total}本`, isNew: reachedAt?.slice(0, 7) === month,
+      earnedOn: reachedAt,
     });
   }
 
   // ② 今月の本数
   const inMonth = past.filter((d) => d.slice(0, 7) === month).length;
   const m = topStep(MONTH_STEPS, inMonth);
-  if (m) out.push({ id: `month-${m}`, emoji: "🌟", label: `今月${m}本`, note: `今月は${inMonth}本`, isNew: true });
+  if (m) {
+    const monthDays = past.filter((d) => d.slice(0, 7) === month);
+    out.push({
+      id: `month-${m}`, emoji: "🌟", label: `今月${m}本`, note: `今月は${inMonth}本`,
+      isNew: true, earnedOn: monthDays[m - 1],
+    });
+  }
 
   // ③ 連続記録
   const s = topStep(STREAK_STEPS, streak.weeks);
