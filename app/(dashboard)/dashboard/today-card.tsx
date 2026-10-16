@@ -26,18 +26,31 @@ export function TodayCard({
 
   return (
     <div className="mb-6 space-y-3">
+      {/* 本日の格言（いちばん上。開いて最初に目に入るところ） */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-4">
+        <div className="flex items-start gap-2.5">
+          <Quote size={15} className="text-gray-300 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-semibold text-gray-400 tracking-widest">本日の格言</p>
+            <p className="text-sm font-bold text-gray-800 mt-1">{quote.text}</p>
+            <p className="text-xs font-semibold text-gray-500 mt-1">― {quote.by}</p>
+            {quote.note && <p className="text-xs text-gray-500 mt-1.5">{quote.note}</p>}
+          </div>
+        </div>
+      </div>
+
       {/* 今日の動き */}
       <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 p-4 text-white shadow-sm">
-        <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のFIT STAGE</p>
+        <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のあなた</p>
         {headline.lessonCount === 0 ? (
-          <p className="text-lg font-bold mt-1">今日の予定は入っていません</p>
+          <p className="text-lg font-bold mt-1">今日の担当の予定はありません</p>
         ) : (
           <p className="text-lg font-bold mt-1">
-            今日は {headline.lessonCount}レッスン・{headline.customerCount}名が来ます
+            今日は {headline.lessonCount}レッスン・{headline.customerCount}名を担当します
           </p>
         )}
         <p className="text-xs text-blue-100 mt-1">
-          今月はチームで{headline.monthCount}本目
+          今月は{headline.monthCount}本目
           {headline.lastMonthCount > 0 && (
             <>（先月の今日は{headline.lastMonthCount}本{diff === 0 ? "・同じペース" : diff > 0 ? `・${diff}本ペースが速い` : `・${-diff}本ぶん遅い`}）</>
           )}
@@ -93,19 +106,6 @@ export function TodayCard({
           )}
         </div>
       )}
-
-      {/* 本日の格言 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <div className="flex items-start gap-2.5">
-          <Quote size={15} className="text-gray-300 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-gray-800">{quote.text}</p>
-            <p className="text-xs font-semibold text-gray-500 mt-1">― {quote.by}</p>
-            {quote.note && <p className="text-xs text-gray-500 mt-1.5">{quote.note}</p>}
-            <p className="text-[10px] text-gray-300 mt-1.5">本日の格言</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

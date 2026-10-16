@@ -24,6 +24,36 @@ function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / DAY);
 }
 
+// ─── 自分の担当ぶんだけに絞る ──────────────────────────
+/**
+ * 「自分の担当」の決め方。
+ * 担当トレーナー（自分が指導する回）か、担当営業（自分が受け持つお客さま）のどちらか。
+ * 画面に他人のお客さまのことが出ると自分ごとにならないので、ここで絞る。
+ */
+export interface Mine {
+  /** 自分の担当者ID（members.id） */
+  memberId?: string;
+  /** 自分が担当営業になっているお客さまのID */
+  customerIds?: Set<string>;
+}
+
+function mineLesson(l: Pick<Lesson, "trainerMemberId" | "customerId">, mine?: Mine): boolean {
+  if (!mine) return true;
+  if (mine.memberId && l.trainerMemberId === mine.memberId) return true;
+  return !!mine.customerIds?.has(l.customerId);
+}
+
+function mineTrial(t: Pick<TrialLesson, "trainerMemberId" | "salesMemberId" | "customerId">, mine?: Mine): boolean {
+  if (!mine) return true;
+  if (mine.memberId && (t.trainerMemberId === mine.memberId || t.salesMemberId === mine.memberId)) return true;
+  return !!mine.customerIds?.has(t.customerId);
+}
+
+/** 自分が担当営業のお客さまID */
+export function myCustomerIds(customers: Customer[], memberId?: string): Set<string> {
+  return new Set(memberId ? customers.filter((c) => c.salesMemberId === memberId).map((c) => c.id) : []);
+}
+
 // ─── 今日のひとこと ────────────────────────────────────
 export interface TodayHeadline {
   /** 今日のレッスン件数（通常＋体験・キャンセル以外） */
@@ -55,11 +85,14 @@ export function todayHeadline(
   lessons: Lesson[],
   trialLessons: TrialLesson[],
   now: Date | number = Date.now(),
+  mine?: Mine,
 ): TodayHeadline {
   const today = jstDay(now);
   const all = [
-    ...lessons.map((l) => ({ day: jstDay(l.scheduledAt), status: l.status, customerId: l.customerId })),
-    ...trialLessons.map((t) => ({ day: jstDay(t.scheduledAt), status: t.status, customerId: t.customerId })),
+    ...lessons.filter((l) => mineLesson(l, mine))
+      .map((l) => ({ day: jstDay(l.scheduledAt), status: l.status, customerId: l.customerId })),
+    ...trialLessons.filter((t) => mineTrial(t, mine))
+      .map((t) => ({ day: jstDay(t.scheduledAt), status: t.status, customerId: t.customerId })),
   ].filter((x) => x.status !== "cancelled");
 
   const todays = all.filter((x) => x.day === today);
@@ -93,13 +126,21 @@ export interface Milestone {
  * - 通算◯回目（5回・10回・25回…）
  * - 初めて来てくれた日からちょうど◯年
  * 体験レッスンも1回に数える（お客さんにとっては同じ1回なので）。
+ *
+ * 通算回数は全員ぶんの履歴から数えるが、画面に出すのは自分の担当のお客さまだけ。
  */
 export function todayMilestones(
   lessons: Lesson[],
   trialLessons: TrialLesson[],
   now: Date | number = Date.now(),
+  mine?: Mine,
 ): Milestone[] {
   const today = jstDay(now);
+  // 今日のぶんが自分の担当かどうか（通算回数は全履歴から数える）
+  const mineToday = new Set<string>([
+    ...lessons.filter((l) => jstDay(l.scheduledAt) === today && l.status !== "cancelled" && mineLesson(l, mine)).map((l) => l.customerId),
+    ...trialLessons.filter((t) => jstDay(t.scheduledAt) === today && t.status !== "cancelled" && mineTrial(t, mine)).map((t) => t.customerId),
+  ]);
 
   // 顧客ごとの履歴（キャンセル以外）を日付順に
   const byCustomer = new Map<string, { day: string; name: string; done: boolean }[]>();
@@ -114,7 +155,7 @@ export function todayMilestones(
 
   const out: Milestone[] = [];
   for (const [customerId, rows] of byCustomer) {
-    if (!rows.some((r) => r.day === today)) continue;   // 今日の予定がある人だけ
+    if (!mineToday.has(customerId)) continue;   // 今日の予定があって、自分の担当の人だけ
     rows.sort((a, b) => a.day.localeCompare(b.day));
     const name = rows[rows.length - 1].name;
 

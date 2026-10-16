@@ -23,7 +23,7 @@ import {
   trialConversion, lastMonthSameDayRange, monthToDateRange,
 } from "@/lib/trainer-stats";
 import { PendingLessonsCard } from "./pending-lessons-card";
-import { todayHeadline, todayMilestones, followUps } from "@/lib/highlights-types";
+import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
 import { quoteOfTheDay } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 
@@ -128,8 +128,10 @@ export default async function DashboardPage() {
   ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
   // ─── 今日のひとこと・節目・声かけリスト（追加の読み込みなし） ───
-  const headline   = todayHeadline(lessons, trialLessons, now);
-  const milestones = todayMilestones(lessons, trialLessons, now);
+  // 自分の担当（指導する回＋担当営業のお客さま）だけに絞る
+  const mine = { memberId: myId, customerIds: myCustomerIds(customers, myId) };
+  const headline   = todayHeadline(lessons, trialLessons, now, mine);
+  const milestones = todayMilestones(lessons, trialLessons, now, mine);
   // 声かけリストは「担当営業が自分のお客さま」だけ。自分の持ち場だけが出るようにする。
   const allFollows = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
   const follows    = allFollows.filter((f) => f.salesMemberId && f.salesMemberId === myId);
