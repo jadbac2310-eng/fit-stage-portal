@@ -26,6 +26,9 @@ import { PendingLessonsCard } from "./pending-lessons-card";
 import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
 import { quoteOfTheDay } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
+import { weeklyStreak, earnedBadges } from "@/lib/badges-types";
+import { StreakBadges } from "./streak-badges";
+import { CountUp } from "./count-up";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +143,9 @@ export default async function DashboardPage() {
     ? allFollows.filter((f) => !f.salesMemberId).length
     : 0;
   const quote      = quoteOfTheDay(now);
+  // 連続記録と称号（自分の担当ぶんだけ）
+  const streak = weeklyStreak(lessons, trialLessons, myId, now);
+  const badges = earnedBadges(lessons, trialLessons, myId, streak, now);
 
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
   const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
@@ -159,6 +165,9 @@ export default async function DashboardPage() {
       <TodayCard headline={headline} milestones={milestones} quote={quote}
         follows={follows} unassignedFollows={unassignedFollows} />
 
+      {/* 連続記録と称号 */}
+      <StreakBadges streak={streak} badges={badges} />
+
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
 
@@ -172,7 +181,7 @@ export default async function DashboardPage() {
             <TrendingUp size={13} className="text-blue-500" />
             <p className="text-xs font-semibold text-blue-600">今月の自分の歩合</p>
           </div>
-          <p className="text-2xl font-bold text-blue-700">{yen(myCommissionThisMonth)}</p>
+          <CountUp value={myCommissionThisMonth} prefix="¥" className="text-2xl font-bold text-blue-700" />
           {diffPercent === null ? (
             <p className="text-xs text-blue-400 mt-0.5">タップで内訳</p>
           ) : (
@@ -186,7 +195,7 @@ export default async function DashboardPage() {
             <Dumbbell size={13} className="text-gray-400" />
             <p className="text-xs font-semibold text-gray-500">今月の完了レッスン</p>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{myCompletedThisMonth.length}</p>
+          <CountUp value={myCompletedThisMonth.length} className="block text-2xl font-bold text-gray-900" />
           <p className="text-xs text-gray-400 mt-0.5">このあとの予定 {myScheduledThisMonth.length}件</p>
         </div>
       </div>

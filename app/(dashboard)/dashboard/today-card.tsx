@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Quote, ChevronRight, PhoneCall } from "lucide-react";
+import { ChevronRight, PhoneCall } from "lucide-react";
+import { QuoteCard } from "./quote-card";
 import type { TodayHeadline, Milestone, FollowUp } from "@/lib/highlights-types";
 import type { DailyQuote } from "@/lib/daily-quote";
 
@@ -27,17 +28,7 @@ export function TodayCard({
   return (
     <div className="mb-6 space-y-3">
       {/* 本日の格言（いちばん上。開いて最初に目に入るところ） */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4">
-        <div className="flex items-start gap-2.5">
-          <Quote size={15} className="text-gray-300 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-[10px] font-semibold text-gray-400 tracking-widest">本日の格言</p>
-            <p className="text-sm font-bold text-gray-800 mt-1">{quote.text}</p>
-            <p className="text-xs font-semibold text-gray-500 mt-1">― {quote.by}</p>
-            {quote.note && <p className="text-xs text-gray-500 mt-1.5">{quote.note}</p>}
-          </div>
-        </div>
-      </div>
+      <QuoteCard quote={quote} />
 
       {/* 今日の動き */}
       <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 p-4 text-white shadow-sm">
