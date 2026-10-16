@@ -29,9 +29,6 @@ import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
 import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting, seasonal } from "@/lib/daily-cards";
 import { Confetti } from "./confetti";
-import { getKudosOfDay } from "@/lib/kudos";
-import { TeamToday, type TeamMemberToday } from "./team-today";
-import { jstDay } from "@/lib/highlights-types";
 import { StreakBadges } from "./streak-badges";
 import { CountUp } from "./count-up";
 
@@ -158,31 +155,6 @@ export default async function DashboardPage() {
   const hello   = greeting(now);
   const season  = seasonal(now);
 
-  // ─── 今日のチーム（おつかれの👏） ───────────────────────
-  const todayStr = jstDay(now);
-  const kudos = await getKudosOfDay(todayStr, myId);
-  const todayCount = new Map<string, number>();
-  for (const l of lessons) {
-    if (!l.trainerMemberId || l.status === "cancelled") continue;
-    if (jstDay(l.scheduledAt) !== todayStr) continue;
-    todayCount.set(l.trainerMemberId, (todayCount.get(l.trainerMemberId) ?? 0) + 1);
-  }
-  for (const t of trialLessons) {
-    if (!t.trainerMemberId || t.status === "cancelled") continue;
-    if (jstDay(t.scheduledAt) !== todayStr) continue;
-    todayCount.set(t.trainerMemberId, (todayCount.get(t.trainerMemberId) ?? 0) + 1);
-  }
-  const teamToday: TeamMemberToday[] = members
-    .filter((m) => todayCount.has(m.id))
-    .map((m) => ({
-      memberId: m.id, name: m.name, avatarUrl: m.avatarUrl,
-      lessons: todayCount.get(m.id) ?? 0,
-      kudos: kudos[m.id]?.count ?? 0,
-      mine:  kudos[m.id]?.mine  ?? false,
-      isMe:  m.id === myId,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
-
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
   const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
   const lineLinked = !!currentMember?.lineUserId;
@@ -215,9 +187,6 @@ export default async function DashboardPage() {
       <TodayCard headline={headline} milestones={milestones} quote={quote}
         mission={mission} tip={tip} fortune={fortune}
         follows={follows} unassignedFollows={unassignedFollows} />
-
-      {/* 今日のチーム */}
-      <TeamToday rows={teamToday} day={todayStr} />
 
       {/* 連続記録と称号 */}
       <StreakBadges streak={streak} badges={badges} />
