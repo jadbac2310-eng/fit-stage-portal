@@ -13,7 +13,7 @@ import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
 export function TodayCard({
-  headline, teamHeadline, milestones, quote, mission, tip, fortune, follows, unassignedFollows = 0,
+  headline, teamHeadline, milestones, quote, mission, tip, fortune, follows, unassigned = [],
 }: {
   /** 自分の担当ぶん */
   headline: TodayHeadline;
@@ -27,7 +27,7 @@ export function TodayCard({
   /** 担当営業が自分のお客さまだけ（画面側で絞り込み済み） */
   follows: FollowUp[];
   /** 担当営業が未設定で、誰の画面にも出ていない人数（管理者のみ） */
-  unassignedFollows?: number;
+  unassigned?: FollowUp[];
 }) {
   const diff = teamHeadline.monthCount - teamHeadline.lastMonthCount;
   const topFollows = follows.slice(0, 5);
@@ -82,7 +82,7 @@ export function TodayCard({
       )}
 
       {/* 声かけリスト（担当営業が自分のお客さまだけ） */}
-      {(topFollows.length > 0 || unassignedFollows > 0) && (
+      {(topFollows.length > 0 || unassigned.length > 0) && (
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <div className="flex items-center gap-1.5 mb-2">
             <PhoneCall size={13} className="text-rose-500" />
@@ -107,10 +107,24 @@ export function TodayCard({
           {follows.length > topFollows.length && (
             <p className="text-[11px] text-gray-400 mt-1.5">ほか {follows.length - topFollows.length}名</p>
           )}
-          {unassignedFollows > 0 && (
-            <Link href="/master/customers" className="block text-[11px] text-amber-700 mt-2 hover:underline">
-              担当営業が未設定のお客さまが{unassignedFollows}名います（誰の画面にも出ません）→
-            </Link>
+          {unassigned.length > 0 && (
+            <div className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-amber-800">
+                担当営業が未設定（誰の画面にも出ません）
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {unassigned.map((u) => (
+                  <Link
+                    key={u.customerId}
+                    href={`/master/customers?q=${encodeURIComponent(u.customerName)}`}
+                    className="rounded-full border border-amber-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                  >
+                    {u.customerName}
+                  </Link>
+                ))}
+              </div>
+              <p className="text-[10px] text-amber-700 mt-1">名前をタップすると顧客マスタで開けます。</p>
+            </div>
           )}
         </div>
       )}

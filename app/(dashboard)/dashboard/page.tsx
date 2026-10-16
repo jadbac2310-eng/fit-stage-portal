@@ -10,7 +10,7 @@ import { anyStaffNotifyEnabled } from "@/lib/line-notify";
 import { LineLinkCard } from "./line-link-card";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
-import { getCustomers } from "@/lib/customers";
+import { getCustomers, isFctCustomer } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
@@ -142,10 +142,12 @@ export default async function DashboardPage() {
   // 声かけリストは「担当営業が自分のお客さま」だけ。自分の持ち場だけが出るようにする。
   const allFollows = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
   const follows    = allFollows.filter((f) => f.salesMemberId && f.salesMemberId === myId);
-  // 担当営業が未設定だと誰の画面にも出ない。管理者にだけ件数を知らせて、取りこぼしを防ぐ。
-  const unassignedFollows = currentMember?.isAdmin
-    ? allFollows.filter((f) => !f.salesMemberId).length
-    : 0;
+  // 担当営業が未設定だと誰の画面にも出ない。管理者にだけ名前を出して、取りこぼしを防ぐ。
+  // FCT経由のお客さまはそもそも担当営業が付かない作りなので、ここには入れない。
+  const fctIds = new Set(customers.filter(isFctCustomer).map((c) => c.id));
+  const unassigned = currentMember?.isAdmin
+    ? allFollows.filter((f) => !f.salesMemberId && !fctIds.has(f.customerId))
+    : [];
   const quote      = quoteOfTheDay(now);
   // 連続記録と称号（自分の担当ぶんだけ）
   const streak = weeklyStreak(lessons, trialLessons, myId, now);
@@ -188,7 +190,7 @@ export default async function DashboardPage() {
       {/* 日替わりの1枚・今日のひとこと・節目 */}
       <TodayCard headline={headline} teamHeadline={teamHeadline} milestones={milestones} quote={quote}
         mission={mission} tip={tip} fortune={fortune}
-        follows={follows} unassignedFollows={unassignedFollows} />
+        follows={follows} unassigned={unassigned} />
 
       {/* 連続記録と称号 */}
       <StreakBadges streak={streak} badges={badges} />
