@@ -100,7 +100,8 @@ export function TodayCard({
           <Quote size={15} className="text-gray-300 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-gray-800">{quote.text}</p>
-            {quote.note && <p className="text-xs text-gray-500 mt-1">{quote.note}</p>}
+            <p className="text-xs font-semibold text-gray-500 mt-1">― {quote.by}</p>
+            {quote.note && <p className="text-xs text-gray-500 mt-1.5">{quote.note}</p>}
             <p className="text-[10px] text-gray-300 mt-1.5">本日の格言</p>
           </div>
         </div>
