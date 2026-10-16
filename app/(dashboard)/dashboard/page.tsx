@@ -23,6 +23,9 @@ import {
   trialConversion, lastMonthSameDayRange, monthToDateRange,
 } from "@/lib/trainer-stats";
 import { PendingLessonsCard } from "./pending-lessons-card";
+import { todayHeadline, todayMilestones, followUps } from "@/lib/highlights-types";
+import { quoteOfTheDay } from "@/lib/daily-quote";
+import { TodayCard } from "./today-card";
 
 export const dynamic = "force-dynamic";
 
@@ -43,20 +46,17 @@ function isPastIso(iso: string): boolean {
 }
 
 export default async function DashboardPage() {
+  // 読み込みは1回にまとめて全部同時に取る（2回に分けると往復のぶんだけ表示が遅れる）。
+  // 下で足している「今日のひとこと」「節目」「声かけリスト」は、
+  // ここで取ったデータから計算するだけなので、読み込みは1件も増えていない。
   const [
-    currentMember,
-    lessons,
-    trialLessons,
-    customers,
-  ] =
-    await Promise.all([
-      getCurrentMember(),
-      getLessons(),
-      getTrialLessons(),
-      getCustomers(),
-    ]);
-
-  const [sessionPasses, customerPlans, members, plansMaster, allRates, fctStores] = await Promise.all([
+    currentMember, lessons, trialLessons, customers,
+    sessionPasses, customerPlans, members, plansMaster, allRates, fctStores,
+  ] = await Promise.all([
+    getCurrentMember(),
+    getLessons(),
+    getTrialLessons(),
+    getCustomers(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),
@@ -127,6 +127,12 @@ export default async function DashboardPage() {
       .map((t) => ({ id: t.id, type: "trial" as const, customerName: t.customerName, scheduledAt: t.scheduledAt, location: t.location })),
   ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
+  // ─── 今日のひとこと・節目・声かけリスト（追加の読み込みなし） ───
+  const headline   = todayHeadline(lessons, trialLessons, now);
+  const milestones = todayMilestones(lessons, trialLessons, now);
+  const follows    = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
+  const quote      = quoteOfTheDay(now);
+
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
   const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
   const lineLinked = !!currentMember?.lineUserId;
@@ -140,6 +146,9 @@ export default async function DashboardPage() {
         <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
         <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
       </div>
+
+      {/* 今日のひとこと・節目・格言 */}
+      <TodayCard headline={headline} milestones={milestones} quote={quote} follows={follows} />
 
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
