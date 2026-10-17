@@ -1,3 +1,5 @@
+import { CARD_TOUCH, CARD_KEYED } from "./payment-fees";
+
 export type PaymentSourceType = "session_pass" | "customer_plan" | "single_lesson";
 
 export const SOURCE_TYPE_LABEL: Record<PaymentSourceType, string> = {
@@ -6,7 +8,8 @@ export const SOURCE_TYPE_LABEL: Record<PaymentSourceType, string> = {
   single_lesson: "都度払い",
 };
 
-export const PAYMENT_METHODS = ["現金", "振込", "カード", "その他"] as const;
+// カードは料率が違うので、タッチとキー入力を分けて選ぶ（手数料は lib/payment-fees.ts で計算する）
+export const PAYMENT_METHODS = ["現金", "振込", CARD_TOUCH, CARD_KEYED, "その他"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export interface Payment {

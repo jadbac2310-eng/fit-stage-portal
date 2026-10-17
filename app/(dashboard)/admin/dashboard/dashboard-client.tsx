@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, Clock, Receipt, ChevronRight, ChevronDown, X } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, Clock, Receipt, CreditCard, ChevronRight, ChevronDown, X } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
 import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/commissions";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
+import { cardFeeTotal, cardFeePayments, cardFeeRate, type FeeablePayment } from "@/lib/payment-fees";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
@@ -52,6 +53,7 @@ interface MonthFigures {
   rentalCost:   number;
   hourlyPayout: number;
   expenseTotal: number;
+  cardFee:      number;
   profit:       number;
 }
 
@@ -63,6 +65,7 @@ function computeMonth(
   ctx: CommissionContext,
   hourlyTasks: HourlyTask[],
   expenses: Expense[],
+  payments: FeeablePayment[],
 ): MonthFigures {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
@@ -76,15 +79,17 @@ function computeMonth(
   // 業務（時給）は完了したぶんだけ支払う。予定のままのものは含めない
   const hourlyPayout = buildHourlyEntries(hourlyTasks, month).reduce((s, e) => s + e.total, 0);
   const expenses_ = expenseTotal(expenses, month);
+  // カード決済の手数料。入金された月で引く（カード会社に引かれるのが入金のタイミングのため）
+  const cardFee = cardFeeTotal(payments, month);
   return {
     month, revenue, trainerPayout, salesPayout, rentalCost,
-    hourlyPayout, expenseTotal: expenses_,
-    profit: revenue - trainerPayout - salesPayout - rentalCost - hourlyPayout - expenses_,
+    hourlyPayout, expenseTotal: expenses_, cardFee,
+    profit: revenue - trainerPayout - salesPayout - rentalCost - hourlyPayout - expenses_ - cardFee,
   };
 }
 
 // ─── KPIカードの内訳（タップで表示） ─────────────────────
-type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "hourly" | "expense" | "profit";
+type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "hourly" | "expense" | "cardfee" | "profit";
 
 const BREAKDOWN_LABEL: Record<BreakdownKind, string> = {
   revenue: "売上",
@@ -93,6 +98,7 @@ const BREAKDOWN_LABEL: Record<BreakdownKind, string> = {
   rental:  "場所利用料",
   hourly:  "業務（時給）",
   expense: "経費",
+  cardfee: "カード手数料",
   profit:  "利益",
 };
 
@@ -110,6 +116,7 @@ interface MonthBreakdown {
   rentalByGym:     BreakdownRow[];
   hourly:          HourlyEntry[];
   expenses:        Expense[];
+  cardFees:        BreakdownRow[];
 }
 
 // computeMonth と同じ計算（resolveLessonFee・buildTrainerEntries 等）で集計するので、合計はカードの金額と一致する
@@ -125,6 +132,7 @@ function computeBreakdown(
   storeNames: Map<string, string>,
   hourlyTasks: HourlyTask[],
   expenses: Expense[],
+  payments: FeeablePayment[],
 ): MonthBreakdown {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
@@ -177,6 +185,12 @@ function computeBreakdown(
     rentalByGym:     sorted(byGym),
     hourly:          buildHourlyEntries(hourlyTasks, month),
     expenses:        expensesInMonth(expenses, month),
+    // カード手数料は決済の種類（タッチ／キー入力）ごとにまとめる
+    cardFees:        sorted(cardFeePayments(payments, month).reduce((map, p) => {
+      const label = p.method ?? "カード";
+      add(map, label, `${label}`, p.fee);
+      return map;
+    }, new Map<string, BreakdownRow>())),
   };
 }
 
@@ -395,7 +409,7 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
   const total: Record<BreakdownKind, number> = {
     revenue: figures.revenue, trainer: figures.trainerPayout, sales: figures.salesPayout,
     rental: figures.rentalCost, hourly: figures.hourlyPayout, expense: figures.expenseTotal,
-    profit: figures.profit,
+    cardfee: figures.cardFee, profit: figures.profit,
   };
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
@@ -432,6 +446,11 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
             unit="件"
             note="経費マスタに登録した、この月の支出です。場所利用料はここには含まれません。" />
         )}
+        {kind === "cardfee" && (
+          <GroupedRows
+            rows={breakdown.cardFees} unit="件"
+            note={`この月に入金された、カード決済の手数料です。タッチ ${cardFeeRate("カード（タッチ 2.5%）")}%、キー入力 ${cardFeeRate("カード（キー入力 3.6%）")}%。現金・振込には手数料はかかりません。`} />
+        )}
         {kind === "profit" && (
           <div>
             <BreakdownLine label="売上" amount={figures.revenue} />
@@ -440,6 +459,7 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
             <BreakdownLine label="− 場所利用料" amount={figures.rentalCost} />
             <BreakdownLine label="− 業務（時給）" amount={figures.hourlyPayout} />
             <BreakdownLine label="− 経費" amount={figures.expenseTotal} />
+            <BreakdownLine label="− カード手数料" amount={figures.cardFee} />
             <BreakdownLine label="＝ 利益" sub={`利益率 ${margin}%`} amount={figures.profit} strong />
             <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
               オーナーのレッスンは歩合の対象外なので、その売上はまるごとこの利益に残ります。
@@ -453,7 +473,7 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, rentalGyms, fctStores, avenirStores, stores, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, payments, rentalGyms, fctStores, avenirStores, stores, analytics,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -467,6 +487,7 @@ export function RevenueDashboardClient({
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   hourlyTasks?:  HourlyTask[];
   expenses?:     Expense[];
+  payments?:     FeeablePayment[];
   rentalGyms?:   { id: string; name: string }[];
   fctStores?:    { id: string; name: string; rate?: number }[];
   avenirStores?: { id: string; name: string }[];
@@ -478,6 +499,7 @@ export function RevenueDashboardClient({
   const trialsCompleted = useMemo(() => completedTrialLessons ?? [], [completedTrialLessons]);
   const tasks = useMemo(() => hourlyTasks ?? [], [hourlyTasks]);
   const costs = useMemo(() => expenses ?? [], [expenses]);
+  const paid = useMemo(() => payments ?? [], [payments]);
 
   // FCT経由のお客さまの売上は「単価の税抜 × 店舗の歩合率」で出すので、歩合率を渡す
   const fctRates = useMemo(
@@ -493,13 +515,13 @@ export function RevenueDashboardClient({
   const series = useMemo(() => {
     const months = [...monthOptions].reverse();
     return months.map((o) => {
-      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx, tasks, costs);
+      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid);
       const [, m] = o.value.split("-");
       return { ...f, label: `${Number(m)}月` };
     });
-  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx, tasks, costs]);
+  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid]);
 
-  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs), [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs]);
+  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid), [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid]);
 
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
   const monthLabel = monthOptions.find((o) => o.value === month)?.label ?? month;
@@ -511,8 +533,8 @@ export function RevenueDashboardClient({
   const avenirStoreNames = useMemo(() => new Map((avenirStores ?? []).map((a) => [a.id, a.name])), [avenirStores]);
   const storeNames = useMemo(() => new Map((stores ?? []).map((v) => [v.id, v.name])), [stores]);
   const breakdown = useMemo(
-    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs) : null,
-    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs],
+    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs, paid) : null,
+    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs, paid],
   );
 
   // 今月の実績（全体）
@@ -556,6 +578,7 @@ export function RevenueDashboardClient({
         <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />
         <KpiCard icon={<Clock size={12} />} label="業務（時給）" value={cur.hourlyPayout} accent="text-orange-600" sub="完了した業務の時給ぶん" onClick={() => setOpenCard("hourly")} />
         <KpiCard icon={<Receipt size={12} />} label="経費" value={cur.expenseTotal} accent="text-slate-600" sub="家賃・広告費など" onClick={() => setOpenCard("expense")} />
+        <KpiCard icon={<CreditCard size={12} />} label="カード手数料" value={cur.cardFee} accent="text-rose-500" sub="タッチ2.5% / キー入力3.6%" onClick={() => setOpenCard("cardfee")} />
       </div>
       <button
         type="button"
@@ -572,7 +595,7 @@ export function RevenueDashboardClient({
 
       {/* 内訳メモ */}
       <p className="text-[11px] text-gray-400 mb-4 px-1">
-        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料 − 業務（時給） − 経費。カードをタップすると内訳を表示します。
+        利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料 − 業務（時給） − 経費 − カード手数料。カードをタップすると内訳を表示します。
       </p>
 
       {openCard && breakdown && (

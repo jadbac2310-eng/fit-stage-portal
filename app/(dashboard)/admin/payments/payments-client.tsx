@@ -8,9 +8,43 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
 import type { Receivable } from "@/lib/payments-types";
 import { SOURCE_TYPE_LABEL, PAYMENT_METHODS, type PaymentSourceType } from "@/lib/payments-types";
+import { cardFee, cardFeeRate, isUnknownCard } from "@/lib/payment-fees";
 import { recordPaymentAction, recordPaymentsBulkAction, unrecordPaymentAction } from "./actions";
 
 function yen(n: number) { return `¥${Math.round(n).toLocaleString("ja-JP")}`; }
+
+/**
+ * 入金方法の選択肢。
+ *
+ * 記録ずみの方法が今の一覧に無いとき（料率を分ける前の「カード」など）は、
+ * その方法も選択肢に残す。残さないと、編集して保存した瞬間に
+ * ブラウザが勝手に先頭の「現金」に書き換えてしまう。
+ */
+function methodOptions(current?: string): string[] {
+  const list = [...PAYMENT_METHODS] as string[];
+  return current && !list.includes(current) ? [current, ...list] : list;
+}
+
+/** 入力中のカード手数料と手残りの案内。カード以外は何も出さない */
+function FeeHint({ amount, method }: { amount: number; method: string }) {
+  if (isUnknownCard(method)) {
+    return (
+      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+        料率が分からない古い記録です。タッチかキー入力を選び直すと手数料を計算します。
+      </p>
+    );
+  }
+  const fee = cardFee(amount, method);
+  if (fee <= 0) return null;
+  return (
+    <p className="text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+      手数料 <span className="font-semibold text-rose-600 tabular-nums">−{yen(fee)}</span>
+      <span className="text-gray-400">（{cardFeeRate(method)}%）</span>
+      　手元に入るのは <span className="font-semibold text-gray-900 tabular-nums">{yen(amount - fee)}</span>
+    </p>
+  );
+}
+
 function todayStr() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -41,6 +75,9 @@ function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void 
   const router = useRouter();
   const { locked: saving, run } = useSubmitLock();
   const inputClass = "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  // 手数料をその場で出すため、方法と金額だけ状態で持つ
+  const [method, setMethod] = useState(item.payment?.method ?? "振込");
+  const [amount, setAmount] = useState(item.payment?.amount ?? item.amount);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,15 +103,20 @@ function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void 
         </div>
         <div>
           <label className="text-[11px] font-semibold text-gray-500 mb-1 block">入金額</label>
-          <input type="number" name="amount" min="0" defaultValue={item.payment?.amount ?? item.amount} className={inputClass} />
+          <input
+            type="number" name="amount" min="0" value={amount}
+            onChange={(e) => setAmount(parseInt(e.target.value, 10) || 0)}
+            className={inputClass}
+          />
         </div>
       </div>
       <div>
         <label className="text-[11px] font-semibold text-gray-500 mb-1 block">入金方法</label>
-        <select name="method" defaultValue={item.payment?.method ?? "振込"} className={inputClass}>
-          {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+        <select name="method" value={method} onChange={(e) => setMethod(e.target.value)} className={inputClass}>
+          {methodOptions(item.payment?.method).map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
       </div>
+      <FeeHint amount={amount} method={method} />
       <div>
         <label className="text-[11px] font-semibold text-gray-500 mb-1 block">メモ（任意）</label>
         <input name="note" defaultValue={item.payment?.note ?? ""} placeholder="振込人名義など" className={inputClass} />
@@ -94,6 +136,9 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
   const { locked: saving, run } = useSubmitLock();
   const inputClass = "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const total = items.reduce((s, r) => s + r.amount, 0);
+  const [method, setMethod] = useState("振込");
+  // まとめ入金は1件ずつカードを通すので、手数料も1件ずつかかる
+  const bulkFee = items.reduce((s, r) => s + cardFee(r.amount, method), 0);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -120,11 +165,18 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
         </div>
         <div>
           <label className="text-[11px] font-semibold text-gray-500 mb-1 block">入金方法</label>
-          <select name="method" defaultValue="振込" className={inputClass}>
+          <select name="method" value={method} onChange={(e) => setMethod(e.target.value)} className={inputClass}>
             {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
       </div>
+      {bulkFee > 0 && (
+        <p className="text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+          手数料 <span className="font-semibold text-rose-600 tabular-nums">−{yen(bulkFee)}</span>
+          <span className="text-gray-400">（{cardFeeRate(method)}% × {items.length}件）</span>
+          　手元に入るのは <span className="font-semibold text-gray-900 tabular-nums">{yen(total - bulkFee)}</span>
+        </p>
+      )}
       <div>
         <label className="text-[11px] font-semibold text-gray-500 mb-1 block">メモ（任意）</label>
         <input name="note" placeholder="振込人名義など" className={inputClass} />
@@ -144,6 +196,7 @@ function Row({ item }: { item: Receivable }) {
   const [open, setOpen] = useState(false);
   const { locked: removing, run: runRemove } = useSubmitLock();
   const paid = !!item.payment;
+  const fee = cardFee(item.payment?.amount ?? item.amount, item.payment?.method);
 
   function unrecord() {
     if (removing) return;
@@ -171,11 +224,24 @@ function Row({ item }: { item: Receivable }) {
           </div>
           <p className="text-xs text-gray-500 mt-0.5">{item.label} ・ {item.date}</p>
           {paid && (
-            <p className="text-[11px] text-green-700 mt-1">
-              入金済 {item.payment?.paidAt ?? ""}{item.payment?.method ? ` ・ ${item.payment.method}` : ""}
-              {item.payment && item.payment.amount !== item.amount ? ` ・ ${yen(item.payment.amount)}` : ""}
-              {item.payment?.note ? ` ・ ${item.payment.note}` : ""}
-            </p>
+            <>
+              <p className="text-[11px] text-green-700 mt-1">
+                入金済 {item.payment?.paidAt ?? ""}{item.payment?.method ? ` ・ ${item.payment.method}` : ""}
+                {item.payment && item.payment.amount !== item.amount ? ` ・ ${yen(item.payment.amount)}` : ""}
+                {item.payment?.note ? ` ・ ${item.payment.note}` : ""}
+              </p>
+              {fee > 0 && (
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  手数料 <span className="text-rose-600 font-semibold tabular-nums">−{yen(fee)}</span>
+                  　手残り <span className="text-gray-900 font-semibold tabular-nums">{yen((item.payment?.amount ?? item.amount) - fee)}</span>
+                </p>
+              )}
+              {isUnknownCard(item.payment?.method) && (
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  ⚠ カードの種類が未設定です。タッチかキー入力を選び直すと手数料に反映されます。
+                </p>
+              )}
+            </>
           )}
         </div>
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -261,6 +327,9 @@ export function PaymentsClient({
   const paidTotal = paidItems.reduce((s, r) => s + (r.payment?.amount ?? r.amount), 0);
   const unpaidItems = receivables.filter((r) => !r.payment);
   const unpaidTotal = unpaidItems.reduce((s, r) => s + r.amount, 0);
+  // 入金済みのうち、カード決済で引かれた手数料
+  const feeTotal = paidItems.reduce((s, r) => s + cardFee(r.payment?.amount ?? r.amount, r.payment?.method), 0);
+  const unknownCards = paidItems.filter((r) => isUnknownCard(r.payment?.method)).length;
 
   const shown = receivables.filter((r) =>
     filter === "all" ? true : filter === "paid" ? !!r.payment : !r.payment,
@@ -324,6 +393,26 @@ export function PaymentsClient({
           <p className="text-[10px] text-amber-500">{unpaidItems.length}件</p>
         </div>
       </div>
+
+      {/* カード手数料。かかっている月だけ出す */}
+      {feeTotal > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-3 mb-4 flex items-center gap-3">
+          <CreditCard size={16} className="text-rose-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-gray-500">カード決済手数料</p>
+            <p className="text-[10px] text-gray-400">この月の売上のうち、カードで入金済みのぶん</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold text-rose-600 tabular-nums">−{yen(feeTotal)}</p>
+            <p className="text-[10px] text-gray-500">手残り {yen(paidTotal - feeTotal)}</p>
+          </div>
+        </div>
+      )}
+      {unknownCards > 0 && (
+        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-4">
+          カードの種類が未設定の入金が{unknownCards}件あります。タッチかキー入力を選び直すと手数料に反映されます。
+        </p>
+      )}
 
       {/* フィルタ */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
