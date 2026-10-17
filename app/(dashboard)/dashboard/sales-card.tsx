@@ -3,6 +3,7 @@ import { Handshake, Users, TrendingUp } from "lucide-react";
 import type { Coverage, SalesMonth, SalesStreak } from "@/lib/sales-stats";
 import type { Badge } from "@/lib/badges-types";
 import { CountUp } from "./count-up";
+import { Delta } from "@/components/ui/delta";
 
 /**
  * 営業のための1枚。
@@ -103,7 +104,13 @@ export function SalesCard({
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
             <TrendingUp size={10} className="text-gray-400" /> 担当の今月の本数
           </p>
-          <CountUp value={month.lessons} suffix="本" className="block text-lg font-bold text-gray-900" />
+          <p className="flex items-baseline">
+            <CountUp value={month.lessons} suffix="本" className="text-lg font-bold text-gray-900" />
+            <Delta now={month.lessons} prev={month.lastLessons} goodWhenUp className="ml-1 text-[10px]" />
+          </p>
+          {month.lastLessons > 0 && (
+            <p className="text-[10px] text-gray-400">先月の今日 {month.lastLessons}本</p>
+          )}
         </div>
       </div>
 

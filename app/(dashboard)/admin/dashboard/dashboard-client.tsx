@@ -19,7 +19,8 @@ import {
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
 import { feeTotal, feePayments, type FeeablePayment } from "@/lib/payment-fees";
-import { withinDay, upTo, prevMonthOf, deltaPercent } from "@/lib/month-compare";
+import { withinDay, upTo, prevMonthOf } from "@/lib/month-compare";
+import { Delta } from "@/components/ui/delta";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
@@ -110,32 +111,6 @@ function computeMonthUpTo(
     upTo(hourlyTasks, day, (t) => t.scheduledAt),
     upTo(expenses, day, (e) => e.incurredOn),
     upTo(payments, day, (p) => p.paidAt),
-  );
-}
-
-/**
- * 前月比。数字の横に「+12%」とだけ出す。
- *
- * ごちゃごちゃさせないため、カードに出すのはこの％だけにして、
- * 先月の実額はカードをタップした内訳の中で見せる。
- *
- * 色は「増えたら嬉しい数字」（売上・利益・新規・成約）にだけ付ける。
- * 支払や経費はレッスンが増えれば一緒に増えるので、赤くすると誤解をまねく。
- */
-function Delta({ now, prev, goodWhenUp, onGreen }: {
-  now: number; prev?: number | null; goodWhenUp?: boolean; onGreen?: boolean;
-}) {
-  const pct = deltaPercent(now, prev);
-  if (pct == null) return null;                  // 比べる相手が無いときは出さない
-  const tone = pct === 0 || !goodWhenUp
-    ? (onGreen ? "text-green-100" : "text-gray-400")
-    : pct > 0
-      ? (onGreen ? "text-white" : "text-green-600")
-      : (onGreen ? "text-rose-100" : "text-rose-600");
-  return (
-    <span className={cn("ml-2 text-xs font-semibold tabular-nums", tone)}>
-      {pct === 0 ? "±0%" : `${pct > 0 ? "+" : ""}${pct}%`}
-    </span>
   );
 }
 
@@ -670,7 +645,7 @@ export function RevenueDashboardClient({
           <ChevronRight size={12} className="ml-auto text-green-100" />
         </span>
         <span className="block text-2xl font-bold tabular-nums">
-          {yen(cur.profit)}<Delta now={cur.profit} prev={prev.profit} goodWhenUp onGreen />
+          {yen(cur.profit)}<Delta now={cur.profit} prev={prev.profit} goodWhenUp onColor />
         </span>
         <span className="block text-[11px] text-green-100 mt-0.5">利益率 {margin}%</span>
       </button>

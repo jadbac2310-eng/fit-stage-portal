@@ -170,6 +170,61 @@ export function trialConversion(
   };
 }
 
+/**
+ * 期間内に自分が実施した本数（通常＋体験）。
+ * 歩合とちがってオーナーも数える（本数は誰にとっても自分の実績なので）。
+ */
+export function trainerLessonCountInRange(
+  lessons: Lesson[],
+  trialLessons: TrialLesson[],
+  memberId: string,
+  fromDate: string,
+  toDate: string,
+): number {
+  if (!memberId) return 0;
+  const inRange = (iso: string) => {
+    const d = iso.slice(0, 10);
+    return d >= fromDate && d <= toDate;
+  };
+  return lessons.filter((l) =>
+      l.trainerMemberId === memberId && isBillableLessonStatus(l.status) && inRange(l.scheduledAt)).length
+    + trialLessons.filter((t) =>
+      t.trainerMemberId === memberId && t.status === "completed" && inRange(t.scheduledAt)).length;
+}
+
+/**
+ * 期間を指定した体験の成約率。
+ * 「先月の同じ日まで」と比べるために、月まるごとではなく期間で数えられるようにしている。
+ */
+export function trialConversionInRange(
+  trialLessons: TrialLesson[],
+  memberId: string,
+  fromDate: string,
+  toDate: string,
+): TrialConversion {
+  const mine = trialLessons.filter((t) => {
+    const d = t.scheduledAt.slice(0, 10);
+    return (t.trainerMemberId === memberId || t.salesMemberId === memberId)
+      && t.status === "completed" && d >= fromDate && d <= toDate;
+  });
+  const held       = mine.length;
+  const contracted = mine.filter((t) => t.contracted === true).length;
+  const unknown    = mine.filter((t) => t.contracted == null).length;
+  return {
+    held, contracted, unknown,
+    rate: held > 0 ? Math.round((contracted / held) * 1000) / 10 : null,
+  };
+}
+
+/** 先月まるごとの範囲。「先月の最終結果」と今月の着地見込みを比べるのに使う */
+export function lastMonthFullRange(now: Date): { from: string; to: string } {
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ym = `${prev.getFullYear()}-${pad(prev.getMonth() + 1)}`;
+  const lastDay = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate();
+  return { from: `${ym}-01`, to: `${ym}-${pad(lastDay)}` };
+}
+
 /** 先月の「同じ日まで」の範囲。月をまたぐ比較を同じ条件にするため、月末は超えない。 */
 export function lastMonthSameDayRange(now: Date): { from: string; to: string } {
   const y = now.getFullYear();

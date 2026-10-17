@@ -21,6 +21,7 @@ import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
   pendingTrainerLessons, trainerCommissionInRange, trainerMonthProjection,
   trialConversion, lastMonthSameDayRange, monthToDateRange,
+  trainerLessonCountInRange, trialConversionInRange, lastMonthFullRange,
 } from "@/lib/trainer-stats";
 import { PendingLessonsCard } from "./pending-lessons-card";
 import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
@@ -33,6 +34,7 @@ import { StreakBadges } from "./streak-badges";
 import { nextVisitCoverage, salesMonth, salesStreak, salesBadges } from "@/lib/sales-stats";
 import { SalesCard } from "./sales-card";
 import { CountUp } from "./count-up";
+import { Delta } from "@/components/ui/delta";
 
 export const dynamic = "force-dynamic";
 
@@ -117,12 +119,18 @@ export default async function DashboardPage() {
   const myThisMtd = myId ? trainerCommissionInRange(lessons, trialLessons, myId, mtd.from, mtd.to, ctx) : 0;
   const myLastMtd = myId ? trainerCommissionInRange(lessons, trialLessons, myId, last.from, last.to, ctx) : 0;
   const diffPercent = myLastMtd > 0 ? Math.round(((myThisMtd - myLastMtd) / myLastMtd) * 100) : null;
+  // 本数も同じ条件（先月の同じ日まで）で比べる
+  const myCountLastMtd = myId ? trainerLessonCountInRange(lessons, trialLessons, myId, last.from, last.to) : 0;
   // 着地見込み: 今の確定 ＋ 完了待ち ＋ これからの予定
   const pendingTotal = pendingRows.reduce((s, r) => s + r.amount, 0);
   const projection = myId ? trainerMonthProjection(lessons, trialLessons, myId, mon, now, ctx) : { remaining: 0, count: 0 };
   const forecast = myCommissionThisMonth + pendingTotal + projection.remaining;
+  // 着地見込みは「先月の最終結果」と比べる。月末にいくらになるかの話なので、同日までではなく先月まるごと
+  const lastFull = lastMonthFullRange(now);
+  const myLastMonthFinal = myId ? trainerCommissionInRange(lessons, trialLessons, myId, lastFull.from, lastFull.to, ctx) : 0;
   // 体験の成約率（担当トレーナーまたは担当営業として関わったぶん）
   const conv = myId ? trialConversion(trialLessons, myId, mon) : null;
+  const lastConv = myId ? trialConversionInRange(trialLessons, myId, last.from, last.to) : null;
 
   // 自分の今後の予定（通常＝担当トレーナー、体験＝担当トレーナー/営業、未来かつ予定中、直近5件）
   const myUpcoming = [
@@ -233,8 +241,14 @@ export default async function DashboardPage() {
             <Dumbbell size={13} className="text-gray-400" />
             <p className="text-xs font-semibold text-gray-500">今月の完了レッスン</p>
           </div>
-          <CountUp value={myCompletedThisMonth.length} className="block text-2xl font-bold text-gray-900" />
-          <p className="text-xs text-gray-400 mt-0.5">このあとの予定 {myScheduledThisMonth.length}件</p>
+          <p className="flex items-baseline">
+            <CountUp value={myCompletedThisMonth.length} className="text-2xl font-bold text-gray-900" />
+            <Delta now={myCompletedThisMonth.length} prev={myCountLastMtd} goodWhenUp />
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            このあとの予定 {myScheduledThisMonth.length}件
+            {myCountLastMtd > 0 && <>・先月の同日 {myCountLastMtd}本</>}
+          </p>
         </div>
       </div>
 
@@ -244,12 +258,23 @@ export default async function DashboardPage() {
           {(projection.count > 0 || pendingTotal > 0) && (
             <div>
               <p className="text-xs font-semibold text-gray-500">今月の着地見込み</p>
-              <p className="text-xl font-bold text-gray-900 mt-0.5">{yen(forecast)}</p>
+              <p className="text-xl font-bold text-gray-900 mt-0.5 flex items-baseline">
+                {yen(forecast)}
+                <Delta now={forecast} prev={myLastMonthFinal} goodWhenUp />
+              </p>
               <p className="text-[11px] text-gray-400 mt-0.5">
                 いまの確定 {yen(myCommissionThisMonth)}
                 {pendingTotal > 0 && ` ＋ 完了待ち ${yen(pendingTotal)}`}
                 {projection.count > 0 && ` ＋ これからの予定${projection.count}件 ${yen(projection.remaining)}`}
               </p>
+              {myLastMonthFinal > 0 && (
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  先月は最終 {yen(myLastMonthFinal)}
+                  {forecast > myLastMonthFinal
+                    ? `・このペースなら ${yen(forecast - myLastMonthFinal)} 上まわります`
+                    : `・あと ${yen(myLastMonthFinal - forecast)} で先月に並びます`}
+                </p>
+              )}
             </div>
           )}
           {conv && conv.held > 0 && (
@@ -257,7 +282,13 @@ export default async function DashboardPage() {
               <p className="text-xs font-semibold text-gray-500">今月の体験の成約率</p>
               <p className="text-xl font-bold text-gray-900 mt-0.5">
                 {conv.rate}% <span className="text-sm font-medium text-gray-500">（{conv.held}件中 {conv.contracted}件）</span>
+                <Delta now={conv.rate ?? 0} prev={lastConv?.rate} goodWhenUp />
               </p>
+              {lastConv && lastConv.rate != null && (
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  先月の同日まで {lastConv.rate}%（{lastConv.held}件中 {lastConv.contracted}件）
+                </p>
+              )}
               {conv.unknown > 0 && (
                 <Link href="/lessons/trial" className="text-[11px] text-amber-700 mt-0.5 inline-block hover:underline">
                   結果が未入力の体験が{conv.unknown}件あります →

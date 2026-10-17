@@ -94,6 +94,8 @@ export interface SalesMonth {
   customers:     number;
   /** 担当のお客さまが今月うけたレッスン数（営業歩合のもと） */
   lessons:       number;
+  /** 先月の同じ日までのレッスン数。比べられるように同じ条件で数える */
+  lastLessons:   number;
 }
 
 /** 'YYYY-MM-DD' の「先月の同じ日」。31日が無い月は末日に寄せる */
@@ -138,12 +140,17 @@ export function salesMonth(
       return d >= lastFrom && d <= lastTo;
     }).length,
     customers: activeMine,
-    lessons: lessons.filter((l) => {
+    lessons: countLessons(thisFrom, today),
+    lastLessons: countLessons(lastFrom, lastTo),
+  };
+
+  function countLessons(from: string, to: string): number {
+    return lessons.filter((l) => {
       if (!mineIds.has(l.customerId) || l.status === "cancelled") return false;
       const d = jstDay(l.scheduledAt);
-      return d >= thisFrom && d <= today;
-    }).length,
-  };
+      return d >= from && d <= to;
+    }).length;
+  }
 }
 
 // ─── 営業の連続記録 ────────────────────────────────────
