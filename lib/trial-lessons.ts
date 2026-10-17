@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import type { CustomerPlan } from "./customers-types";
 export type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
 export { STATUS_LABEL, CONTRACT_LABEL } from "./trial-lessons-types";
@@ -83,15 +83,22 @@ const SELECT_LEGACY = "*, customers(full_name)";
 
 export async function getTrialLessons(): Promise<TrialLesson[]> {
   const client = createAdminClient();
-  let { data, error } = await client.from("trial_lessons").select(SELECT).order("scheduled_at", { ascending: false });
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const read = (select: string) => fetchAllRows((from, to) =>
+    client.from("trial_lessons").select(select)
+      .order("scheduled_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  let { data, error } = await read(SELECT);
   if (error && isMissingAuthorColumn(error)) {
-    ({ data, error } = await client.from("trial_lessons").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
+    ({ data, error } = await read(SELECT_LEGACY));
   }
   if (error) {
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
     throw error;
   }
-  return (data as DbRow[]).map(fromDb);
+  return (data as unknown as DbRow[]).map(fromDb);
 }
 
 export async function getTrialLesson(id: string): Promise<TrialLesson | null> {

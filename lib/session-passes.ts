@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 export type { SessionPass } from "./session-passes-types";
 import type { SessionPass } from "./session-passes-types";
 import { passUsageOrdinals } from "./session-passes-types";
@@ -40,10 +40,14 @@ function fromDb(row: DbRow): SessionPass {
 }
 
 export async function getAllSessionPasses(): Promise<SessionPass[]> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const { data, error } = await fetchAllRows((from, to) => client
     .from("session_passes")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, to));
   if (error) throw error;
   return (data as DbRow[]).map(fromDb);
 }

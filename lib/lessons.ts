@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 export type { LessonPaymentType, LessonStatus, Lesson } from "./lessons-types";
 export { LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType } from "./lessons-types";
 import type { LessonPaymentType, LessonStatus, Lesson, DeliveryMode } from "./lessons-types";
@@ -98,7 +98,13 @@ function isMissingOptionalColumn(err: { code?: string; message?: string } | null
 export async function getLessons(): Promise<Lesson[]> {
   const client = createAdminClient();
   for (let i = 0; i < SELECTS.length; i++) {
-    const { data, error } = await client.from("lessons").select(SELECTS[i]).order("scheduled_at", { ascending: false });
+    // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+    const { data, error } = await fetchAllRows((from, to) =>
+      client.from("lessons").select(SELECTS[i])
+        .order("scheduled_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
     if (!error) return (data as unknown as DbRow[]).map(fromDb);
     // JOIN/列に由来しないエラーで、まだ後段が残っていないなら投げる
     if (!isMissingOptionalColumn(error) || i === SELECTS.length - 1) throw error;

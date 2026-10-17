@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import type { HourlyTask, HourlyTaskStatus } from "./hourly-tasks-types";
 export type { HourlyTask, HourlyTaskStatus } from "./hourly-tasks-types";
 export { HOURLY_TASK_STATUS_LABEL, hourlyTaskHours, hourlyTaskAmount } from "./hourly-tasks-types";
@@ -46,16 +46,23 @@ const SELECT_LEGACY = "*";
 
 export async function getHourlyTasks(): Promise<HourlyTask[]> {
   const client = createAdminClient();
-  let { data, error } = await client.from("hourly_tasks").select(SELECT).order("scheduled_at", { ascending: false });
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const read = (select: string) => fetchAllRows((from, to) =>
+    client.from("hourly_tasks").select(select)
+      .order("scheduled_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  let { data, error } = await read(SELECT);
   if (error && isMissingAuthorColumn(error)) {
-    ({ data, error } = await client.from("hourly_tasks").select(SELECT_LEGACY).order("scheduled_at", { ascending: false }));
+    ({ data, error } = await read(SELECT_LEGACY));
   }
   if (error) {
     // テーブル未作成（マイグレーション未適用）の場合は空配列で耐える
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
     throw error;
   }
-  return (data as DbRow[]).map(fromDb);
+  return (data as unknown as DbRow[]).map(fromDb);
 }
 
 export async function getHourlyTask(id: string): Promise<HourlyTask | null> {

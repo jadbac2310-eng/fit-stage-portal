@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import type { Expense } from "./expenses-types";
 
 // 一般経費のDBアクセス。型と集計は expenses-types.ts に置く
@@ -33,11 +33,15 @@ function fromDb(row: DbRow): Expense {
 }
 
 export async function getExpenses(): Promise<Expense[]> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const { data, error } = await fetchAllRows((from, to) => client
     .from("expenses")
     .select("*")
     .order("incurred_on", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, to));
   if (error) {
     // テーブル未作成（マイグレーション未適用）の場合は空で耐える
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];

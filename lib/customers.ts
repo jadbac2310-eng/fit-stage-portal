@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 export type { CustomerPlan, CustomerStatus, CustomerType, SalesChannel, Customer } from "./customers-types";
 export { STATUS_LABEL, CUSTOMER_TYPE_LABEL, isFctCustomer } from "./customers-types";
 import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth, SalesChannel } from "./customers-types";
@@ -57,10 +57,13 @@ function fromDb(row: DbRow): Customer {
 }
 
 export async function getCustomers(): Promise<Customer[]> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  const { data, error } = await fetchAllRows((from, to) => client
     .from("customers")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, to));
   if (error) throw error;
   // 名前順（あいうえお順）で返す。人数が増えると登録順では目当ての人を探せないため、
   // プルダウンも一覧もここで揃える（登録順で見たい画面は createdAt で並べ直す）。

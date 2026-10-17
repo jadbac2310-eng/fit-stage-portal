@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import { currentMemberId } from "./audit";
 import type { Customer } from "./customers-types";
 import { isFctCustomer } from "./customers-types";
@@ -40,7 +40,10 @@ function fromDb(row: DbRow): Payment {
 }
 
 export async function getPayments(): Promise<Payment[]> {
-  const { data, error } = await createAdminClient().from("payments").select("*");
+  const client = createAdminClient();
+  // 1000行ずつ全件読む。ページの境目でぶれないように id 順で読む
+  const { data, error } = await fetchAllRows((from, to) =>
+    client.from("payments").select("*").order("id", { ascending: true }).range(from, to));
   if (error) {
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
     throw error;

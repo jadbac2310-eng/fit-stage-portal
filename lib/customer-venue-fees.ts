@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import type { VenueKind } from "./lessons-types";
 import type { CustomerVenueFee } from "./customer-venue-fees-types";
 
@@ -35,10 +35,14 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
 }
 
 export async function getCustomerVenueFees(): Promise<CustomerVenueFee[]> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const { data, error } = await fetchAllRows((from, to) => client
     .from("customer_venue_fees")
     .select("*")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
+    .range(from, to));
   if (error) {
     if (isMissingTable(error)) return [];
     throw error;

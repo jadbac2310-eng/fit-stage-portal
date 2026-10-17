@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import { normalizeColor, type EventColor, type PersonalEvent } from "./personal-events-types";
 export type { PersonalEvent, EventColor } from "./personal-events-types";
 export { EVENT_COLORS, normalizeColor } from "./personal-events-types";
@@ -62,16 +62,23 @@ function isMissingMemberJoin(err: { code?: string; message?: string } | null): b
 
 export async function getPersonalEvents(): Promise<PersonalEvent[]> {
   const client = createAdminClient();
-  let { data, error } = await client.from("personal_events").select(SELECT).order("start_at", { ascending: false });
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const read = (select: string) => fetchAllRows((from, to) =>
+    client.from("personal_events").select(select)
+      .order("start_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  let { data, error } = await read(SELECT);
   if (error && isMissingMemberJoin(error)) {
-    ({ data, error } = await client.from("personal_events").select(SELECT_LEGACY).order("start_at", { ascending: false }));
+    ({ data, error } = await read(SELECT_LEGACY));
   }
   if (error) {
     // テーブル未作成（マイグレーション未適用）の場合は空配列で耐える
     if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
     throw error;
   }
-  return (data as DbRow[]).map(fromDb);
+  return (data as unknown as DbRow[]).map(fromDb);
 }
 
 export async function getPersonalEvent(id: string): Promise<PersonalEvent | null> {

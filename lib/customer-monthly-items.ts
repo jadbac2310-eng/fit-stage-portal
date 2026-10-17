@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 import type { CustomerMonthlyItem } from "./customer-monthly-items-types";
 
 export type { CustomerMonthlyItem } from "./customer-monthly-items-types";
@@ -38,11 +38,15 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
 }
 
 export async function getCustomerMonthlyItems(): Promise<CustomerMonthlyItem[]> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const { data, error } = await fetchAllRows((from, to) => client
     .from("customer_monthly_items")
     .select("*")
     .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
+    .range(from, to));
   if (error) {
     if (isMissingTable(error)) return [];
     throw error;

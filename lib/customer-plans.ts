@@ -1,4 +1,4 @@
-import { createAdminClient } from "./supabase";
+import { createAdminClient, fetchAllRows } from "./supabase";
 export type { ContractPlan, CustomerPlanRecord } from "./customer-plans-types";
 export { CONTRACT_PLAN_LABEL, plansOverlap } from "./customer-plans-types";
 import type { ContractPlan, CustomerPlanRecord } from "./customer-plans-types";
@@ -37,10 +37,14 @@ function fromDb(row: DbRow): CustomerPlanRecord {
 }
 
 export async function getAllCustomerPlans(): Promise<CustomerPlanRecord[]> {
-  const { data, error } = await createAdminClient()
+  const client = createAdminClient();
+  // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
+  const { data, error } = await fetchAllRows((from, to) => client
     .from("customer_plans")
     .select("*")
-    .order("started_at", { ascending: false });
+    .order("started_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, to));
   if (error) throw error;
   return (data as DbRow[]).map(fromDb);
 }
