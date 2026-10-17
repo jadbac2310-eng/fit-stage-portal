@@ -1,6 +1,7 @@
 import type { Member } from "./members";
+import { getMembers } from "./members";
 import { scheduleLink } from "./line-login";
-import { jstDateLabel, jstTimeStr, notifyAdminsByLine } from "./line-notify";
+import { jstDateLabel, jstTimeStr, notifyAdminsByLine, notifyMembersByLine, portalUrl } from "./line-notify";
 
 /**
  * 「誰かがレッスンを登録した」ことを管理者のLINEへ知らせる。
@@ -56,4 +57,31 @@ export async function notifyLessonAdded(
     exceptMemberId: registrant.id,
     kind: "lesson",
   });
+}
+
+/**
+ * 成約が出たときのお知らせ。
+ *
+ * 成約の瞬間がいちばん気持ちいいので、そこは全員に届くようにする。
+ * 数は月に数件なので、LINEの無料枠（月200通）を圧迫しない。
+ * 止めたいときは環境変数 LINE_NOTIFY_CELEBRATE を off にする。
+ */
+export async function notifyContracted(input: {
+  customerName: string;
+  salesName?: string;
+  trainerName?: string;
+  byName?: string;
+}): Promise<void> {
+  const members = await getMembers();
+  const lines = [
+    "🎉 成約です！",
+    `${input.customerName} さん`,
+    input.salesName  ? `営業: ${input.salesName}`   : null,
+    input.trainerName ? `トレーナー: ${input.trainerName}` : null,
+    input.byName && input.byName !== input.salesName ? `記録: ${input.byName}` : null,
+    "",
+    portalUrl("/lessons/trial"),
+  ].filter(Boolean).join("\n");
+
+  await notifyMembersByLine(members.map((m) => m.id), lines, members, "celebrate");
 }

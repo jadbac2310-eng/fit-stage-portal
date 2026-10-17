@@ -28,8 +28,10 @@ import { quoteOfTheDay } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
 import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting, seasonal } from "@/lib/daily-cards";
-import { Confetti } from "./confetti";
+import { Confetti } from "@/components/ui/confetti";
 import { StreakBadges } from "./streak-badges";
+import { nextVisitCoverage, salesMonth, salesStreak, salesBadges } from "@/lib/sales-stats";
+import { SalesCard } from "./sales-card";
 import { CountUp } from "./count-up";
 
 export const dynamic = "force-dynamic";
@@ -152,7 +154,13 @@ export default async function DashboardPage() {
   // 連続記録と称号（自分の担当ぶんだけ）
   const streak = weeklyStreak(lessons, trialLessons, myId, now);
   const badges = earnedBadges(lessons, trialLessons, myId, streak, now);
-  const celebrate = earnedToday(badges, now);
+  // ─── 営業の自分 ───────────────────────────────────────
+  const coverage   = nextVisitCoverage(customers, lessons, trialLessons, myId, now);
+  const sMonth     = salesMonth(customers, lessons, trialLessons, myId, now);
+  const sStreak    = salesStreak(trialLessons, myId, now);
+  const sBadges    = salesBadges(trialLessons, myId, sMonth, sStreak, coverage, now);
+
+  const celebrate = earnedToday([...badges, ...sBadges], now);
   const mission = missionOfTheDay(now);
   const tip     = tipOfTheDay(now);
   const fortune = fortuneOfTheDay(now, myId);   // 運勢だけは人ごとに変える
@@ -192,8 +200,11 @@ export default async function DashboardPage() {
         mission={mission} tip={tip} fortune={fortune}
         follows={follows} unassigned={unassigned} />
 
-      {/* 連続記録と称号 */}
+      {/* 連続記録と称号（トレーナーとして） */}
       <StreakBadges streak={streak} badges={badges} />
+
+      {/* 営業の自分 */}
+      <SalesCard coverage={coverage} month={sMonth} streak={sStreak} badges={sBadges} />
 
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}

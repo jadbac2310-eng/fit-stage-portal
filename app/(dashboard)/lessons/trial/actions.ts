@@ -8,7 +8,7 @@ import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
-import { notifyLessonAdded } from "@/lib/lesson-notify";
+import { notifyLessonAdded, notifyContracted } from "@/lib/lesson-notify";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 
@@ -123,6 +123,16 @@ export async function saveContractResultAction(id: string, formData: FormData): 
     // 契約成功 → 顧客ステータスを「審査中」へ自動変更
     if (contracted === true && lesson.customerId) {
       await updateCustomer(lesson.customerId, { status: "pending" });
+    }
+
+    // 成約の瞬間は全員に知らせる（もともと成約だったものを編集しただけなら送らない）
+    if (contracted === true && lesson.contracted !== true) {
+      await notifyContracted({
+        customerName: lesson.customerName,
+        salesName:    lesson.salesMemberName,
+        trainerName:  lesson.trainerMemberName,
+        byName:       member.name,
+      });
     }
 
     await logActivity({ action: "report", entityType: "trial_lesson", entityId: id, summary: `体験の契約結果を記録: ${lesson.customerName}${contracted === true ? "（成約）" : ""}`, memberId: member.id, memberName: member.name });

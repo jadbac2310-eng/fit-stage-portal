@@ -31,6 +31,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
+import { Confetti } from "@/components/ui/confetti";
 
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
@@ -616,18 +617,41 @@ function ContractResultForm({
     lesson.contracted === true ? "true" : lesson.contracted === false ? "false" : "null"
   );
   const [error, setError] = useState("");
+  // 成約を記録した瞬間だけ紙吹雪を出す。いちばん気持ちいいところなので盛る。
+  const [celebrate, setCelebrate] = useState(false);
   const boundSave = saveContractResultAction.bind(null, lesson.id);
 
   async function handleSubmit(fd: FormData) {
     setError("");
     await run(async () => {
-      try { await boundSave(fd); router.refresh(); onClose(); }
-      catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+      try {
+        assertActionOk(await boundSave(fd));
+        router.refresh();
+        // もともと成約だったものを編集しただけのときは出さない
+        if (contracted === "true" && lesson.contracted !== true) {
+          setCelebrate(true);
+          setTimeout(onClose, 2600);
+        } else {
+          onClose();
+        }
+      } catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
     });
   }
 
   const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
   const labelClass = "text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5";
+
+  if (celebrate) {
+    return (
+      <div className="py-8 text-center">
+        <Confetti />
+        <p className="text-4xl">🎉</p>
+        <p className="mt-3 text-lg font-bold text-gray-900">成約おめでとうございます！</p>
+        <p className="mt-1 text-sm text-gray-500">{lesson.customerName} さん</p>
+        <p className="mt-3 text-xs text-gray-400">みんなのLINEにもお知らせしました。</p>
+      </div>
+    );
+  }
 
   return (
     <form action={handleSubmit} className="space-y-4">
