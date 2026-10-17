@@ -82,9 +82,19 @@ export async function getCustomer(id: string): Promise<Customer | null> {
 }
 
 export async function addCustomer(
-  // 支払期限ルールは省略可。省略時はDBの既定（翌月末）になる
-  input: Omit<Customer, "id" | "createdAt" | "updatedAt" | "paymentDueMonth" | "paymentDueDay">
-    & Partial<Pick<Customer, "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay" | "billingCutoffDay">>
+  // 支払期限ルールは省略可。省略時はDBの既定（翌月末）になる。
+  // 請求まわりは画面で「未設定」を選べるので、undefined だけでなく null も受ける
+  input: Omit<Customer, "id" | "createdAt" | "updatedAt"
+    | "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay" | "billingCutoffDay"
+    | "billingName" | "billingToCustomerId">
+    & Partial<{
+      paymentDueMonth:     PaymentDueMonth;
+      paymentDueDay:       number | null;
+      invoiceSendDay:      number | null;
+      billingCutoffDay:    number | null;
+      billingName:         string | null;
+      billingToCustomerId: string | null;
+    }>
 ): Promise<Customer> {
   const client = createAdminClient();
   const row = {
@@ -101,6 +111,10 @@ export async function addCustomer(
       single_session_price: input.singleSessionPrice ?? null,
       sales_member_id:    input.salesMemberId       ?? null,
       sales_channel:      input.salesChannel        ?? "own",
+      // 新規登録の画面でも請求まとめ先・請求宛名を選べるので、ここで必ず保存する。
+      // 以前はこの2行が無く、登録時に選んだまとめ先が黙って消えていた
+      billing_to_customer_id: input.billingToCustomerId ?? null,
+      billing_name:       input.billingName         ?? null,
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
       customer_type:      input.customerType        ?? "individual",
@@ -117,6 +131,9 @@ export async function addCustomer(
   if (error) throw error;
   return fromDb(data as DbRow);
 }
+
+export const MISSING_BILLING_MESSAGE =
+  "請求まとめ先・請求宛名を保存できませんでした。ほかの項目も保存されていません。開発担当に連絡してください。";
 
 /** sales_channel 列がまだ無い環境か（マイグレーション未適用） */
 function isMissingSalesChannel(error: { message?: string; code?: string } | null): boolean {
@@ -178,11 +195,11 @@ export async function updateCustomer(
     void sales_channel;
     ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
   }
-  // 請求カラム（billing_*）が未適用の環境では、それらを外して再試行
+  // 請求まとめ先・請求宛名は、画面で選んだ値そのもの。
+  // ここで黙って外して保存すると「保存できたのに、まとめ先が入っていない」状態になり、
+  // 請求書が別々に出ているのに誰も原因に気づけない。失敗は失敗として見せる。
   if (error && /billing_(name|to_customer_id)/i.test(error.message ?? "")) {
-    const { billing_name, billing_to_customer_id, ...rest } = patch;
-    void billing_name; void billing_to_customer_id;
-    ({ data, error } = await client.from("customers").update(rest).eq("id", id).select().single());
+    throw new Error(MISSING_BILLING_MESSAGE);
   }
   // 支払期限ルール（payment_due_*）が未適用の環境でも同じく外して再試行
   if (error && /payment_due_(month|day)|invoice_send_day|billing_cutoff_day/i.test(error.message ?? "")) {

@@ -16,6 +16,31 @@ function readSales(formData: FormData): { salesMemberId: string | null; salesCha
   return { salesMemberId: raw || null, salesChannel: "own" };
 }
 
+/** 1〜31 の日付として読めれば数値、それ以外は null */
+function readDay(formData: FormData, name: string): number | null {
+  const raw = (formData.get(name) as string)?.trim();
+  const n = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n >= 1 && n <= 31 ? n : null;
+}
+
+/**
+ * 請求設定をフォームから読む。
+ *
+ * 新規登録と編集で同じ関数を使う。別々に書いていたせいで、
+ * 新規登録のときだけ「請求まとめ先」が読まれず、黙って捨てられていた。
+ */
+function readBilling(formData: FormData) {
+  return {
+    billingName:         (formData.get("billingName") as string)?.trim() || null,
+    billingToCustomerId: (formData.get("billingToCustomerId") as string)?.trim() || null,
+    billingCutoffDay:    readDay(formData, "billingCutoffDay"),
+    invoiceSendDay:      readDay(formData, "invoiceSendDay"),
+    // 支払期限ルール（例: 翌月末 / 当月末 / 翌月25日）
+    paymentDueMonth:     (formData.get("paymentDueMonth") as string) === "same" ? "same" as const : "next" as const,
+    paymentDueDay:       readDay(formData, "paymentDueDay"),
+  };
+}
+
 export type CustomerActionResult = { ok: true } | { ok: false; error: string };
 
 // Supabase のエラーは Error インスタンスではなくプレーンオブジェクト（message/code/details/hint）。
@@ -47,7 +72,13 @@ export async function createCustomerAction(formData: FormData): Promise<Customer
 
     if (!fullName) return { ok: false, error: "氏名を入力してください" };
 
-    const created = await addCustomer({ fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice, salesMemberId: salesMemberId ?? undefined, salesChannel, agreedToTerms: false, status: "trial", customerType, note });
+    const created = await addCustomer({
+      fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, singleSessionPrice,
+      salesMemberId: salesMemberId ?? undefined, salesChannel,
+      agreedToTerms: false, status: "trial", customerType, note,
+      // 新規登録の画面にも請求設定があるので、ここで保存しないと黙って消える
+      ...readBilling(formData),
+    });
     await logActivity({ action: "create", entityType: "customer", entityId: created.id, summary: `顧客を追加: ${fullName}` });
     return { ok: true };
   } catch (e) {
@@ -69,23 +100,13 @@ export async function updateCustomerAction(id: string, formData: FormData): Prom
     const sspRaw           = (formData.get("singleSessionPrice") as string)?.trim();
     const singleSessionPrice = sspRaw ? parseInt(sspRaw, 10) : null;
     const { salesMemberId, salesChannel } = readSales(formData);
-    const billingName      = (formData.get("billingName")    as string)?.trim() || null;
-    const billingToCustomerId = (formData.get("billingToCustomerId") as string)?.trim() || null;
-    const cutoffRaw = (formData.get("billingCutoffDay") as string)?.trim();
-    const cutoff = cutoffRaw ? parseInt(cutoffRaw, 10) : NaN;
-    const billingCutoffDay = Number.isFinite(cutoff) && cutoff >= 1 && cutoff <= 31 ? cutoff : null;
-    const sendDayRaw = (formData.get("invoiceSendDay") as string)?.trim();
-    const sendDay = sendDayRaw ? parseInt(sendDayRaw, 10) : NaN;
-    const invoiceSendDay = Number.isFinite(sendDay) && sendDay >= 1 && sendDay <= 31 ? sendDay : null;
-    // 支払期限ルール（例: 翌月末 / 当月末 / 翌月25日）
-    const paymentDueMonth = (formData.get("paymentDueMonth") as string) === "same" ? "same" as const : "next" as const;
-    const dueDayRaw = (formData.get("paymentDueDay") as string)?.trim();
-    const dueDay = dueDayRaw ? parseInt(dueDayRaw, 10) : NaN;
-    const paymentDueDay = Number.isFinite(dueDay) && dueDay >= 1 && dueDay <= 31 ? dueDay : null;
-
     if (!fullName) return { ok: false, error: "氏名を入力してください" };
 
-    await updateCustomer(id, { fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note, singleSessionPrice, salesMemberId, salesChannel, billingName, billingToCustomerId, billingCutoffDay, invoiceSendDay, paymentDueMonth, paymentDueDay });
+    await updateCustomer(id, {
+      fullName, email, dateOfBirth, address, phoneNumber, desiredStartDate, customerType, note,
+      singleSessionPrice, salesMemberId, salesChannel,
+      ...readBilling(formData),
+    });
     await logActivity({ action: "update", entityType: "customer", entityId: id, summary: `顧客を編集: ${fullName}` });
     revalidatePath("/invoices");
     return { ok: true };
