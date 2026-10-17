@@ -19,6 +19,7 @@ import {
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
 import { feeTotal, feePayments, type FeeablePayment } from "@/lib/payment-fees";
+import { withinDay, upTo, prevMonthOf, deltaPercent } from "@/lib/month-compare";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
@@ -86,6 +87,56 @@ function computeMonth(
     hourlyPayout, expenseTotal: expenses_, paymentFee,
     profit: revenue - trainerPayout - salesPayout - rentalCost - hourlyPayout - expenses_ - paymentFee,
   };
+}
+
+/** 先月ぶんの集計。day を渡すと「先月の同じ日まで」で数える */
+function computeMonthUpTo(
+  month: string,
+  lessons: Lesson[],
+  trialLessons: TrialLesson[],
+  completedTrialLessons: TrialLesson[],
+  ctx: CommissionContext,
+  hourlyTasks: HourlyTask[],
+  expenses: Expense[],
+  payments: FeeablePayment[],
+  day: number | null,
+): MonthFigures {
+  return computeMonth(
+    month,
+    upTo(lessons, day, (l) => l.scheduledAt),
+    upTo(trialLessons, day, (t) => t.scheduledAt),
+    upTo(completedTrialLessons, day, (t) => t.scheduledAt),
+    ctx,
+    upTo(hourlyTasks, day, (t) => t.scheduledAt),
+    upTo(expenses, day, (e) => e.incurredOn),
+    upTo(payments, day, (p) => p.paidAt),
+  );
+}
+
+/**
+ * 前月比。数字の横に「+12%」とだけ出す。
+ *
+ * ごちゃごちゃさせないため、カードに出すのはこの％だけにして、
+ * 先月の実額はカードをタップした内訳の中で見せる。
+ *
+ * 色は「増えたら嬉しい数字」（売上・利益・新規・成約）にだけ付ける。
+ * 支払や経費はレッスンが増えれば一緒に増えるので、赤くすると誤解をまねく。
+ */
+function Delta({ now, prev, goodWhenUp, onGreen }: {
+  now: number; prev?: number | null; goodWhenUp?: boolean; onGreen?: boolean;
+}) {
+  const pct = deltaPercent(now, prev);
+  if (pct == null) return null;                  // 比べる相手が無いときは出さない
+  const tone = pct === 0 || !goodWhenUp
+    ? (onGreen ? "text-green-100" : "text-gray-400")
+    : pct > 0
+      ? (onGreen ? "text-white" : "text-green-600")
+      : (onGreen ? "text-rose-100" : "text-rose-600");
+  return (
+    <span className={cn("ml-2 text-xs font-semibold tabular-nums", tone)}>
+      {pct === 0 ? "±0%" : `${pct > 0 ? "+" : ""}${pct}%`}
+    </span>
+  );
 }
 
 // ─── KPIカードの内訳（タップで表示） ─────────────────────
@@ -275,9 +326,10 @@ function SiteAnalytics({ data }: { data: AnalyticsData }) {
 }
 
 function KpiCard({
-  icon, label, value, accent, sub, onClick,
+  icon, label, value, prev, goodWhenUp, accent, sub, onClick,
 }: {
-  icon: React.ReactNode; label: string; value: number; accent: string; sub?: string; onClick: () => void;
+  icon: React.ReactNode; label: string; value: number; prev?: number | null;
+  goodWhenUp?: boolean; accent: string; sub?: string; onClick: () => void;
 }) {
   return (
     <button
@@ -289,7 +341,9 @@ function KpiCard({
         {icon} {label}
         <ChevronRight size={12} className="ml-auto text-gray-300" />
       </span>
-      <span className="block text-xl font-bold text-gray-900 tabular-nums">{yen(value)}</span>
+      <span className="block text-xl font-bold text-gray-900 tabular-nums">
+        {yen(value)}<Delta now={value} prev={prev} goodWhenUp={goodWhenUp} />
+      </span>
       {sub && <span className="block text-[11px] text-gray-400 mt-0.5">{sub}</span>}
     </button>
   );
@@ -403,14 +457,17 @@ function SalesBreakdown({ entries }: { entries: SalesEntry[] }) {
 }
 
 // スマホは下から出るシート、PCは中央のダイアログ
-function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose }: {
-  kind: BreakdownKind; monthLabel: string; figures: MonthFigures; breakdown: MonthBreakdown; margin: number; onClose: () => void;
+function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, breakdown, margin, onClose }: {
+  kind: BreakdownKind; monthLabel: string; figures: MonthFigures; prevFigures?: MonthFigures | null;
+  compareLabel: string; breakdown: MonthBreakdown; margin: number; onClose: () => void;
 }) {
-  const total: Record<BreakdownKind, number> = {
-    revenue: figures.revenue, trainer: figures.trainerPayout, sales: figures.salesPayout,
-    rental: figures.rentalCost, hourly: figures.hourlyPayout, expense: figures.expenseTotal,
-    cardfee: figures.paymentFee, profit: figures.profit,
-  };
+  const pick = (f: MonthFigures): Record<BreakdownKind, number> => ({
+    revenue: f.revenue, trainer: f.trainerPayout, sales: f.salesPayout,
+    rental: f.rentalCost, hourly: f.hourlyPayout, expense: f.expenseTotal,
+    cardfee: f.paymentFee, profit: f.profit,
+  });
+  const total = pick(figures);
+  const prevTotal = prevFigures ? pick(prevFigures)[kind] : null;
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -420,6 +477,12 @@ function BreakdownModal({ kind, monthLabel, figures, breakdown, margin, onClose 
           <div>
             <p className="text-xs font-semibold text-gray-500">{monthLabel}の{BREAKDOWN_LABEL[kind]}の内訳</p>
             <p className="text-2xl font-bold text-gray-900 tabular-nums mt-0.5">{yen(total[kind])}</p>
+            {prevTotal != null && (
+              <p className="text-[11px] text-gray-400 mt-0.5 tabular-nums">
+                {compareLabel} {yen(prevTotal)}
+                <Delta now={total[kind]} prev={prevTotal} goodWhenUp={kind === "revenue" || kind === "profit"} />
+              </p>
+            )}
           </div>
           <button type="button" onClick={onClose} aria-label="閉じる" className="text-gray-400 hover:text-gray-600 transition">
             <X size={18} />
@@ -523,6 +586,17 @@ export function RevenueDashboardClient({
 
   const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid), [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid]);
 
+  // 前月比。
+  // 今月を見ているときだけ、先月も「同じ日まで」で数える。
+  // 月の途中なのに先月まるごとと比べると、毎月の初めに必ず「大幅減」と出てしまうため。
+  const [today] = useState(() => new Date().getDate());
+  const compareDay = month === currentMonth() ? today : null;
+  const compareLabel = compareDay == null ? "先月" : "先月の同じ日まで";
+  const prev = useMemo(
+    () => computeMonthUpTo(prevMonthOf(month), lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, compareDay),
+    [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, compareDay],
+  );
+
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
   const monthLabel = monthOptions.find((o) => o.value === month)?.label ?? month;
 
@@ -539,11 +613,17 @@ export function RevenueDashboardClient({
 
   // 今月の実績（全体）
   const biz = useMemo(() => {
-    const newCustomers = customers.filter((c) => isoToMonth(c.createdAt) === month).length;
-    const activeCustomers = customers.filter((c) => c.status === "active").length;
-    const contracted = trialLessons.filter((t) => isoToMonth(t.scheduledAt) === month).length;
-    return { newCustomers, activeCustomers, contracted };
-  }, [customers, trialLessons, month]);
+    const inMonth = (iso: string, m: string, day: number | null) => isoToMonth(iso) === m && withinDay(iso, day);
+    const count = (m: string, day: number | null) => ({
+      newCustomers: customers.filter((c) => inMonth(c.createdAt, m, day)).length,
+      contracted:   trialLessons.filter((t) => inMonth(t.scheduledAt, m, day)).length,
+    });
+    return {
+      ...count(month, null),
+      prev: count(prevMonthOf(month), compareDay),
+      activeCustomers: customers.filter((c) => c.status === "active").length,
+    };
+  }, [customers, trialLessons, month, compareDay]);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto pb-10">
@@ -572,13 +652,13 @@ export function RevenueDashboardClient({
 
       {/* KPI カード（タップで内訳） */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} accent="text-blue-600" sub="完了レッスン単価の合計" onClick={() => setOpenCard("revenue")} />
-        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" onClick={() => setOpenCard("trainer")} />
-        <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" onClick={() => setOpenCard("sales")} />
-        <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />
-        <KpiCard icon={<Clock size={12} />} label="業務（時給）" value={cur.hourlyPayout} accent="text-orange-600" sub="完了した業務の時給ぶん" onClick={() => setOpenCard("hourly")} />
-        <KpiCard icon={<Receipt size={12} />} label="経費" value={cur.expenseTotal} accent="text-slate-600" sub="家賃・広告費など" onClick={() => setOpenCard("expense")} />
-        <KpiCard icon={<CreditCard size={12} />} label="決済手数料" value={cur.paymentFee} accent="text-rose-500" sub="カード2.5〜3.6% / PayPay3.25%" onClick={() => setOpenCard("cardfee")} />
+        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} prev={prev.revenue} goodWhenUp accent="text-blue-600" sub="完了レッスン単価の合計" onClick={() => setOpenCard("revenue")} />
+        <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} prev={prev.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" onClick={() => setOpenCard("trainer")} />
+        <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} prev={prev.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" onClick={() => setOpenCard("sales")} />
+        <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} prev={prev.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />
+        <KpiCard icon={<Clock size={12} />} label="業務（時給）" value={cur.hourlyPayout} prev={prev.hourlyPayout} accent="text-orange-600" sub="完了した業務の時給ぶん" onClick={() => setOpenCard("hourly")} />
+        <KpiCard icon={<Receipt size={12} />} label="経費" value={cur.expenseTotal} prev={prev.expenseTotal} accent="text-slate-600" sub="家賃・広告費など" onClick={() => setOpenCard("expense")} />
+        <KpiCard icon={<CreditCard size={12} />} label="決済手数料" value={cur.paymentFee} prev={prev.paymentFee} accent="text-rose-500" sub="カード2.5〜3.6% / PayPay3.25%" onClick={() => setOpenCard("cardfee")} />
       </div>
       <button
         type="button"
@@ -589,17 +669,21 @@ export function RevenueDashboardClient({
           <Wallet size={12} /> 利益
           <ChevronRight size={12} className="ml-auto text-green-100" />
         </span>
-        <span className="block text-2xl font-bold tabular-nums">{yen(cur.profit)}</span>
+        <span className="block text-2xl font-bold tabular-nums">
+          {yen(cur.profit)}<Delta now={cur.profit} prev={prev.profit} goodWhenUp onGreen />
+        </span>
         <span className="block text-[11px] text-green-100 mt-0.5">利益率 {margin}%</span>
       </button>
 
       {/* 内訳メモ */}
       <p className="text-[11px] text-gray-400 mb-4 px-1">
         利益 = 売上 − トレーナー支払 − 営業支払 − 場所利用料 − 業務（時給） − 経費 − 決済手数料。カードをタップすると内訳を表示します。
+        <br />
+        数字の横は{compareLabel}との増減です{compareDay != null && "（月の途中なので、先月も同じ日までで比べています）"}。
       </p>
 
       {openCard && breakdown && (
-        <BreakdownModal kind={openCard} monthLabel={monthLabel} figures={cur} breakdown={breakdown} margin={margin} onClose={() => setOpenCard(null)} />
+        <BreakdownModal kind={openCard} monthLabel={monthLabel} figures={cur} prevFigures={prev} compareLabel={compareLabel} breakdown={breakdown} margin={margin} onClose={() => setOpenCard(null)} />
       )}
 
       {/* 今月の実績（全体） */}
@@ -608,15 +692,21 @@ export function RevenueDashboardClient({
           <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5 mb-1">
             <UserPlus size={12} className="text-gray-400" /> 新規顧客
           </p>
-          <p className="text-xl font-bold text-gray-900">{biz.newCustomers}</p>
+          <p className="text-xl font-bold text-gray-900">
+            {biz.newCustomers}<Delta now={biz.newCustomers} prev={biz.prev.newCustomers} goodWhenUp />
+          </p>
           <p className="text-[11px] text-gray-400 mt-0.5">在籍中 {biz.activeCustomers}名</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5 mb-1">
             <Award size={12} className="text-green-500" /> 成約
           </p>
-          <p className="text-xl font-bold text-gray-900">{biz.contracted}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">体験からの成約数</p>
+          <p className="text-xl font-bold text-gray-900">
+            {biz.contracted}<Delta now={biz.contracted} prev={biz.prev.contracted} goodWhenUp />
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            体験からの成約数{biz.prev.contracted > 0 && `・${compareLabel} ${biz.prev.contracted}件`}
+          </p>
         </div>
       </div>
 
