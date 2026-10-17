@@ -8,7 +8,7 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock, Wallet, CopyPlus,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock, Wallet, CopyPlus, Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -40,6 +40,12 @@ import { assertActionOk } from "@/lib/action-result";
 export type ScheduleItem = {
   id: string;
   type: "regular" | "trial" | "personal" | "hourly";
+  /**
+   * 絞り込んでいる担当者から見て「自分は指導しないが、担当営業である回」。
+   * 自分が教える回と混ざると見分けがつかないので、画面でしるしを付けるために使う。
+   * 絞り込んだときに、その場で入れる。
+   */
+  salesOnly?: boolean;
   customerName: string;
   scheduledAt: string;
   endAt?: string;
@@ -506,6 +512,14 @@ function LessonCard({
               {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : isHourly ? <Wallet size={9} /> : <Dumbbell size={9} />}
               {isPersonal ? "個人" : isTrial ? "体験" : isHourly ? "業務" : "通常"}
             </span>
+            {item.salesOnly && (
+              <span
+                title="自分は教えませんが、担当営業のお客さまです"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700"
+              >
+                <Handshake size={9} /> 営業
+              </span>
+            )}
             {item.isPrivate && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-200 text-gray-600">
                 <Lock size={9} /> 非公開
@@ -1857,6 +1871,8 @@ export function ScheduleClient({
   const [filterStore, setFilterStore] = useState<string>("all");
   // 顧客で絞り込み（"all" = すべて）。その顧客のレッスン予定一覧。
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
+  // 立場で絞り込み。自分が教える回と、担当営業として見る回を分けられるようにする。
+  const [filterRole, setFilterRole] = useState<"all" | "trainer" | "sales">("all");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
   // 通常レッスンの追加モーダル（defaultDate を持つときはその日付で開く）
@@ -1890,15 +1906,27 @@ export function ScheduleClient({
 
   // 絞り込み後のアイテム（"all" は全件）。個人予定は作成者で絞り込む。
   const visibleItems = useMemo(() => {
-    return items.filter((it) => {
-      const memberOk = filterMember === "all" ||
-        it.trainerId === filterMember || it.salesId === filterMember || it.ownerId === filterMember ||
-        !!it.participantIds?.includes(filterMember);
-      const storeOk = filterStore === "all" || it.storeId === filterStore;
-      const customerOk = filterCustomer === "all" || it.customerId === filterCustomer;
-      return memberOk && storeOk && customerOk;
-    });
-  }, [items, filterMember, filterStore, filterCustomer]);
+    // 絞り込んでいる担当者が「教える側」か「担当営業だけ」かを見分ける
+    const asTrainer = (it: ScheduleItem) =>
+      it.trainerId === filterMember || it.ownerId === filterMember ||
+      !!it.participantIds?.includes(filterMember);
+    const asSalesOnly = (it: ScheduleItem) =>
+      it.salesId === filterMember && !asTrainer(it);
+
+    return items
+      .filter((it) => {
+        const memberOk = filterMember === "all"
+          ? true
+          : filterRole === "trainer" ? asTrainer(it)
+          : filterRole === "sales"   ? asSalesOnly(it)
+          : asTrainer(it) || it.salesId === filterMember;
+        const storeOk = filterStore === "all" || it.storeId === filterStore;
+        const customerOk = filterCustomer === "all" || it.customerId === filterCustomer;
+        return memberOk && storeOk && customerOk;
+      })
+      // 「自分は教えないが担当営業の回」に目印を付ける
+      .map((it) => (filterMember !== "all" && asSalesOnly(it) ? { ...it, salesOnly: true } : it));
+  }, [items, filterMember, filterRole, filterStore, filterCustomer]);
 
   const openCreate = (defaultDate?: string) => setModal({ mode: "create", defaultDate });
   const openEdit = (item: ScheduleItem) => setModal({ mode: "edit", initial: item });
@@ -2030,6 +2058,29 @@ export function ScheduleClient({
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
           </select>
+        </div>
+      )}
+
+      {/* 立場の切り替え。自分が教える回と、担当営業として見る回を分ける */}
+      {filterMember !== "all" && (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+          {([
+            ["all", "すべて"],
+            ["trainer", "自分が教える回"],
+            ["sales", "営業担当の回"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilterRole(key)}
+              className={cn(
+                "flex-1 py-1.5 rounded-lg text-xs font-semibold transition",
+                filterRole === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
