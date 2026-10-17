@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { NAV_TREE } from "./nav-config";
+import { NAV_TREE, getActiveHref } from "./nav-config";
 import { Avatar } from "@/components/ui/avatar";
 
 export function Sidebar({
@@ -21,6 +21,7 @@ export function Sidebar({
   onClose?:  () => void;
 }) {
   const pathname = usePathname();
+  const activeHref = getActiveHref(pathname);
   const router   = useRouter();
 
   async function handleLogout() {
@@ -55,9 +56,7 @@ export function Sidebar({
         <ul className={mobile ? "space-y-1.5" : "space-y-0.5"}>
           {NAV_TREE.filter((node) => !node.adminOnly || isAdmin).map((node) => {
             const Icon = node.icon;
-            const isActive =
-              pathname === node.href ||
-              (node.href !== "/dashboard" && pathname.startsWith(node.href + "/"));
+            const isActive = node.href === activeHref;
             return (
               <li key={node.href}>
                 <Link
