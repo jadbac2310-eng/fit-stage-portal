@@ -1907,10 +1907,14 @@ export function ScheduleClient({
 
   // 絞り込み後のアイテム（"all" は全件）。個人予定は作成者で絞り込む。
   const visibleItems = useMemo(() => {
-    // 絞り込んでいる担当者が「教える側」か「担当営業だけ」かを見分ける
+    // 絞り込んでいる担当者が「自分が動く予定」か「担当営業として見るだけ」かを見分ける。
+    //
+    // 体験レッスンは営業担当も同席するので、自分の予定として扱う。
+    // 通常レッスンの担当営業は、教えるのは別の人なので「営業のお客さま」側にする。
     const asTrainer = (it: ScheduleItem) =>
       it.trainerId === filterMember || it.ownerId === filterMember ||
-      !!it.participantIds?.includes(filterMember);
+      !!it.participantIds?.includes(filterMember) ||
+      (it.type === "trial" && it.salesId === filterMember);
     const asSalesOnly = (it: ScheduleItem) =>
       it.salesId === filterMember && !asTrainer(it);
 
