@@ -8,7 +8,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
 import type { Receivable } from "@/lib/payments-types";
 import { SOURCE_TYPE_LABEL, PAYMENT_METHODS, type PaymentSourceType } from "@/lib/payments-types";
-import { cardFee, cardFeeRate, isUnknownCard } from "@/lib/payment-fees";
+import { paymentFee, feeRate, isUnknownCard } from "@/lib/payment-fees";
 import { recordPaymentAction, recordPaymentsBulkAction, unrecordPaymentAction } from "./actions";
 
 function yen(n: number) { return `¥${Math.round(n).toLocaleString("ja-JP")}`; }
@@ -34,12 +34,12 @@ function FeeHint({ amount, method }: { amount: number; method: string }) {
       </p>
     );
   }
-  const fee = cardFee(amount, method);
+  const fee = paymentFee(amount, method);
   if (fee <= 0) return null;
   return (
     <p className="text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
       手数料 <span className="font-semibold text-rose-600 tabular-nums">−{yen(fee)}</span>
-      <span className="text-gray-400">（{cardFeeRate(method)}%）</span>
+      <span className="text-gray-400">（{feeRate(method)}%）</span>
       　手元に入るのは <span className="font-semibold text-gray-900 tabular-nums">{yen(amount - fee)}</span>
     </p>
   );
@@ -138,7 +138,7 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
   const total = items.reduce((s, r) => s + r.amount, 0);
   const [method, setMethod] = useState("振込");
   // まとめ入金は1件ずつカードを通すので、手数料も1件ずつかかる
-  const bulkFee = items.reduce((s, r) => s + cardFee(r.amount, method), 0);
+  const bulkFee = items.reduce((s, r) => s + paymentFee(r.amount, method), 0);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -173,7 +173,7 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
       {bulkFee > 0 && (
         <p className="text-[11px] text-gray-600 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
           手数料 <span className="font-semibold text-rose-600 tabular-nums">−{yen(bulkFee)}</span>
-          <span className="text-gray-400">（{cardFeeRate(method)}% × {items.length}件）</span>
+          <span className="text-gray-400">（{feeRate(method)}% × {items.length}件）</span>
           　手元に入るのは <span className="font-semibold text-gray-900 tabular-nums">{yen(total - bulkFee)}</span>
         </p>
       )}
@@ -196,7 +196,7 @@ function Row({ item }: { item: Receivable }) {
   const [open, setOpen] = useState(false);
   const { locked: removing, run: runRemove } = useSubmitLock();
   const paid = !!item.payment;
-  const fee = cardFee(item.payment?.amount ?? item.amount, item.payment?.method);
+  const fee = paymentFee(item.payment?.amount ?? item.amount, item.payment?.method);
 
   function unrecord() {
     if (removing) return;
@@ -328,7 +328,7 @@ export function PaymentsClient({
   const unpaidItems = receivables.filter((r) => !r.payment);
   const unpaidTotal = unpaidItems.reduce((s, r) => s + r.amount, 0);
   // 入金済みのうち、カード決済で引かれた手数料
-  const feeTotal = paidItems.reduce((s, r) => s + cardFee(r.payment?.amount ?? r.amount, r.payment?.method), 0);
+  const feeTotal = paidItems.reduce((s, r) => s + paymentFee(r.payment?.amount ?? r.amount, r.payment?.method), 0);
   const unknownCards = paidItems.filter((r) => isUnknownCard(r.payment?.method)).length;
 
   const shown = receivables.filter((r) =>
@@ -399,8 +399,8 @@ export function PaymentsClient({
         <div className="bg-white rounded-2xl border border-gray-200 p-3 mb-4 flex items-center gap-3">
           <CreditCard size={16} className="text-rose-500 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-semibold text-gray-500">カード決済手数料</p>
-            <p className="text-[10px] text-gray-400">この月の売上のうち、カードで入金済みのぶん</p>
+            <p className="text-[11px] font-semibold text-gray-500">決済手数料</p>
+            <p className="text-[10px] text-gray-400">この月の売上のうち、カード・PayPayで入金済みのぶん</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-bold text-rose-600 tabular-nums">−{yen(feeTotal)}</p>
