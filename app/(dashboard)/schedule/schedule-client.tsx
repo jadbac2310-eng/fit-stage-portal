@@ -1871,8 +1871,9 @@ export function ScheduleClient({
   const [filterStore, setFilterStore] = useState<string>("all");
   // 顧客で絞り込み（"all" = すべて）。その顧客のレッスン予定一覧。
   const [filterCustomer, setFilterCustomer] = useState<string>("all");
-  // 立場で絞り込み。自分が教える回と、担当営業として見る回を分けられるようにする。
-  const [filterRole, setFilterRole] = useState<"all" | "trainer" | "sales">("all");
+  // 立場で絞り込み。既定は自分が動く予定だけ（担当営業の回まで出すと、
+  // 自分のスケジュールとして見たときに混ざって分かりにくいため）。
+  const [filterRole, setFilterRole] = useState<"all" | "trainer" | "sales">("trainer");
   // 個人予定の追加/編集モーダル
   const [modal, setModal] = useState<{ mode: "create" | "edit"; initial?: ScheduleItem; defaultDate?: string } | null>(null);
   // 通常レッスンの追加モーダル（defaultDate を持つときはその日付で開く）
@@ -1977,7 +1978,12 @@ export function ScheduleClient({
           <p className="text-sm text-gray-500 mt-0.5">
             {filterMember === "all"
               ? "全員のスケジュール"
-              : `${members.find((m) => m.id === filterMember)?.name ?? ""} さんのスケジュール`}
+              : (() => {
+                  const who = members.find((m) => m.id === filterMember)?.name ?? "";
+                  return filterRole === "sales" ? `${who} さんが営業担当のお客さま`
+                       : filterRole === "all"   ? `${who} さんのスケジュール（営業担当ぶんも）`
+                       :                          `${who} さんのスケジュール`;
+                })()}
           </p>
         </div>
         <div className="relative flex-shrink-0">
@@ -2065,9 +2071,9 @@ export function ScheduleClient({
       {filterMember !== "all" && (
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
           {([
+            ["trainer", "自分のスケジュール"],
+            ["sales", "営業のお客さま"],
             ["all", "すべて"],
-            ["trainer", "自分が教える回"],
-            ["sales", "営業担当の回"],
           ] as const).map(([key, label]) => (
             <button
               key={key}
