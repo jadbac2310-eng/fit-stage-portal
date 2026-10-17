@@ -4,18 +4,19 @@ import { useEffect, useState } from "react";
 
 // ログイン画面で何もしないまま5秒たつと、一度だけ画面が爆発する。
 //
-// 入力中・タップ中は数え直すので、ふつうにログインする人には出ない。
-// 出るのは1回だけ（何度も出ると、ただのうっとうしい画面になるため）。
-// 「動きを減らす」設定の端末では何も出さない。
+// 流れ：
+//   ① 地鳴り（ぶるぶる）… だんだん強くなる。赤い縁も濃くなっていく
+//   ② 爆発 … 閃光 → 火球 → 衝撃波 → 火の粉 → 煙
+//   ③ 余震 … ドンのあと、こまかい揺れがしばらく続く
 //
-// 中身は、閃光 → 衝撃波 → 💥 → 破片 → 画面ゆれ、の5つを重ねているだけ。
-// ライブラリは使っていないので、読み込みは増えない。
+// 入力中・タップ中は数え直すので、ふつうにログインする人には出ない。
+// 出るのは1回だけ。「動きを減らす」設定の端末では何も出さない。
+// 絵文字は使わず、グラデーションと影だけで作っている（画像の読み込みは増えない）。
 
-const IDLE_MS = 5000;
-/** 画面がゆれている時間（ドン！のあと、ぶるぶるが長く続く） */
-const SHAKE_MS = 4200;
-/** 全部が消えるまで */
-const TOTAL_MS = 5200;
+const IDLE_MS   = 5000;   // 何もしないまま、この時間で地鳴りが始まる
+const RUMBLE_MS = 2600;   // 地鳴りの長さ（この間ずっと、だんだん強くなる）
+const SHAKE_MS  = 4200;   // 爆発後に画面がゆれている時間
+const TOTAL_MS  = 5200;   // 全部が消えるまで
 
 const LINES = [
   "びっくりしました？　ログインどうぞ。",
@@ -26,33 +27,41 @@ const LINES = [
   "ポータルは、開いた人の味方です。",
 ];
 
-const DEBRIS = ["💥", "🔥", "✨", "💢", "⭐️", "🧨"];
-const PIECES = 28;
+const SPARKS = 46;
+const SMOKES = 10;
 
 export function IdleSurprise() {
-  const [boom, setBoom] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "rumble" | "boom">("idle");
   const [line, setLine] = useState("");
 
   useEffect(() => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
     let timer: ReturnType<typeof setTimeout>;
+    let boomTimer: ReturnType<typeof setTimeout>;
+    let endTimer: ReturnType<typeof setTimeout>;
     let done = false;
 
-    const fire = () => {
+    const startRumble = () => {
       if (done) return;
       done = true;
-      setLine(LINES[Math.floor(Math.random() * LINES.length)]);
-      setBoom(true);
-      document.body.classList.add("fs-shake");
-      setTimeout(() => document.body.classList.remove("fs-shake"), SHAKE_MS);
-      setTimeout(() => setBoom(false), TOTAL_MS);
+      setPhase("rumble");
+      document.body.classList.add("fs-rumble");
+
+      boomTimer = setTimeout(() => {
+        document.body.classList.remove("fs-rumble");
+        setLine(LINES[Math.floor(Math.random() * LINES.length)]);
+        setPhase("boom");
+        document.body.classList.add("fs-shake");
+        setTimeout(() => document.body.classList.remove("fs-shake"), SHAKE_MS);
+        endTimer = setTimeout(() => setPhase("idle"), TOTAL_MS);
+      }, RUMBLE_MS);
     };
 
     const reset = () => {
       if (done) return;
       clearTimeout(timer);
-      timer = setTimeout(fire, IDLE_MS);
+      timer = setTimeout(startRumble, IDLE_MS);
     };
 
     const events = ["keydown", "pointerdown", "pointermove", "touchstart", "wheel"] as const;
@@ -60,54 +69,71 @@ export function IdleSurprise() {
     reset();
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(timer); clearTimeout(boomTimer); clearTimeout(endTimer);
       for (const e of events) window.removeEventListener(e, reset);
-      document.body.classList.remove("fs-shake");
+      document.body.classList.remove("fs-rumble", "fs-shake");
     };
   }, []);
 
   return (
     <>
-      {boom && (
+      {/* ① 地鳴り中の赤い縁。じわじわ濃くなる */}
+      {phase === "rumble" && <div className="fs-vignette pointer-events-none fixed inset-0 z-40" aria-hidden />}
+
+      {/* ② 爆発 */}
+      {phase === "boom" && (
         <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden>
-          {/* 閃光 */}
           <div className="fs-flash absolute inset-0" />
 
-          {/* 衝撃波（2枚ずらして出す） */}
-          <div className="fs-wave absolute left-1/2 top-1/2" />
-          <div className="fs-wave fs-wave-2 absolute left-1/2 top-1/2" />
-
-          {/* 本体 */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="fs-boom" style={{ fontSize: "min(60vw, 420px)", lineHeight: 1 }}>💥</span>
-          </div>
-
-          {/* 破片。中心から外へ飛ばす */}
           <div className="absolute left-1/2 top-1/2">
-            {Array.from({ length: PIECES }, (_, i) => {
-              const angle = (360 / PIECES) * i + (i % 3) * 4;
-              const dist = 42 + (i % 5) * 12;              // vmax
-              const delay = (i % 4) * 0.04;
-              const size = 22 + (i % 4) * 10;
+            {/* 衝撃波 */}
+            <div className="fs-wave" />
+            <div className="fs-wave fs-wave-2" />
+
+            {/* 煙（火球より先に広がり、あとまで残る） */}
+            {Array.from({ length: SMOKES }, (_, i) => {
+              const a = (360 / SMOKES) * i + (i % 3) * 7;
+              const d = 16 + (i % 4) * 7;
+              return (
+                <div
+                  key={`s${i}`}
+                  className="fs-smoke"
+                  style={{
+                    ["--x" as string]: `${Math.cos((a * Math.PI) / 180) * d}vmax`,
+                    ["--y" as string]: `${Math.sin((a * Math.PI) / 180) * d - 6}vmax`,
+                    width: `${26 + (i % 4) * 9}vmax`,
+                    height: `${26 + (i % 4) * 9}vmax`,
+                    animationDelay: `${0.05 + (i % 5) * 0.06}s`,
+                  }}
+                />
+              );
+            })}
+
+            {/* 火球 */}
+            <div className="fs-core" />
+            <div className="fs-core fs-core-2" />
+
+            {/* 火の粉 */}
+            {Array.from({ length: SPARKS }, (_, i) => {
+              const a = (360 / SPARKS) * i + (i % 5) * 3;
+              const d = 26 + (i % 7) * 9;
+              const sz = 3 + (i % 4) * 2;
               return (
                 <span
-                  key={i}
-                  className="fs-piece absolute"
+                  key={`p${i}`}
+                  className="fs-spark"
                   style={{
-                    fontSize: size,
-                    ["--fs-x" as string]: `${Math.cos((angle * Math.PI) / 180) * dist}vmax`,
-                    ["--fs-y" as string]: `${Math.sin((angle * Math.PI) / 180) * dist}vmax`,
-                    ["--fs-rot" as string]: `${(i % 2 ? 1 : -1) * (360 + i * 25)}deg`,
-                    animationDelay: `${delay}s`,
+                    ["--x" as string]: `${Math.cos((a * Math.PI) / 180) * d}vmax`,
+                    ["--y" as string]: `${Math.sin((a * Math.PI) / 180) * d}vmax`,
+                    width: sz, height: sz,
+                    animationDelay: `${(i % 6) * 0.03}s`,
+                    animationDuration: `${1.1 + (i % 5) * 0.28}s`,
                   }}
-                >
-                  {DEBRIS[i % DEBRIS.length]}
-                </span>
+                />
               );
             })}
           </div>
 
-          {/* ひとこと */}
           <p className="fs-line absolute bottom-20 left-0 right-0 px-6 text-center text-base font-bold text-gray-800">
             {line}
           </p>
@@ -115,35 +141,115 @@ export function IdleSurprise() {
       )}
 
       <style>{`
+        /* ── 地鳴り ───────────────────────────── */
+        @keyframes fs-rumble-keys {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-1px, 1px); }
+          40%  { transform: translate(1px, -1px); }
+          60%  { transform: translate(-2px, 1px); }
+          80%  { transform: translate(2px, -2px); }
+          100% { transform: translate(-1px, 1px); }
+        }
+        @keyframes fs-rumble-grow {
+          0%   { opacity: 0.15; }
+          100% { opacity: 1; }
+        }
+        @keyframes fs-vignette-keys {
+          0%   { box-shadow: inset 0 0 0 0 rgba(200,30,10,0); background: rgba(0,0,0,0); }
+          60%  { box-shadow: inset 0 0 90px 10px rgba(200,40,10,0.18); background: rgba(40,0,0,0.04); }
+          100% { box-shadow: inset 0 0 200px 40px rgba(220,50,10,0.45); background: rgba(40,0,0,0.12); }
+        }
+        .fs-rumble {
+          animation: fs-rumble-keys 0.06s linear infinite, fs-rumble-grow ${RUMBLE_MS}ms linear forwards;
+        }
+        .fs-vignette { animation: fs-vignette-keys ${RUMBLE_MS}ms ease-in forwards; }
+
+        /* ── 閃光 ─────────────────────────────── */
         @keyframes fs-flash-keys {
           0%   { background: rgba(255,255,255,0); }
-          8%   { background: rgba(255,245,210,0.95); }
-          28%  { background: rgba(255,170,60,0.35); }
+          5%   { background: rgba(255,252,240,0.98); }
+          18%  { background: rgba(255,190,90,0.5); }
+          45%  { background: rgba(255,120,40,0.12); }
           100% { background: rgba(255,255,255,0); }
         }
+        .fs-flash { animation: fs-flash-keys 1.3s ease-out forwards; }
+
+        /* ── 火球 ─────────────────────────────── */
+        @keyframes fs-core-keys {
+          0%   { transform: translate(-50%, -50%) scale(0.04); opacity: 1; filter: blur(0px); }
+          8%   { transform: translate(-50%, -50%) scale(0.75); opacity: 1; filter: blur(2px); }
+          30%  { transform: translate(-50%, -52%) scale(1.15); opacity: 0.95; filter: blur(8px); }
+          65%  { transform: translate(-50%, -56%) scale(1.5);  opacity: 0.45; filter: blur(20px); }
+          100% { transform: translate(-50%, -62%) scale(1.9);  opacity: 0;    filter: blur(34px); }
+        }
+        .fs-core {
+          position: absolute; left: 0; top: 0;
+          width: 62vmax; height: 62vmax; border-radius: 9999px;
+          background: radial-gradient(circle at 50% 50%,
+            #ffffff 0%, #fff6cf 9%, #ffd874 19%, #ffa52b 32%,
+            #ff6a14 46%, #e03207 60%, rgba(120,26,6,0.55) 74%, rgba(60,14,4,0) 86%);
+          animation: fs-core-keys 2.6s cubic-bezier(.12,.75,.25,1) forwards;
+        }
+        .fs-core-2 {
+          width: 34vmax; height: 34vmax;
+          background: radial-gradient(circle at 50% 45%,
+            #ffffff 0%, #fffbe8 18%, #ffdf8a 38%, #ff9c22 62%, rgba(255,110,20,0) 80%);
+          animation-duration: 1.7s; animation-delay: 0.03s;
+        }
+
+        /* ── 衝撃波 ───────────────────────────── */
         @keyframes fs-wave-keys {
-          0%   { width: 0; height: 0; opacity: 0.9; border-width: 14px; }
-          100% { width: 190vmax; height: 190vmax; opacity: 0; border-width: 0; }
+          0%   { width: 0; height: 0; opacity: 0.95; border-width: 18px; }
+          100% { width: 210vmax; height: 210vmax; opacity: 0; border-width: 0; }
         }
-        @keyframes fs-boom-keys {
-          0%   { transform: scale(0.05) rotate(-12deg); opacity: 0; }
-          12%  { transform: scale(1.35) rotate(6deg);  opacity: 1; }
-          30%  { transform: scale(1.05) rotate(-3deg); opacity: 1; }
-          70%  { transform: scale(1.15) rotate(0deg);  opacity: 0.95; }
-          100% { transform: scale(2.1)  rotate(4deg);  opacity: 0; }
+        .fs-wave {
+          position: absolute; left: 0; top: 0;
+          transform: translate(-50%, -50%);
+          border: solid rgba(255,214,140,0.9);
+          border-radius: 9999px;
+          animation: fs-wave-keys 1.4s cubic-bezier(.1,.7,.2,1) forwards;
         }
-        @keyframes fs-piece-keys {
-          0%   { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 0; }
-          10%  { opacity: 1; }
-          100% { transform: translate(calc(-50% + var(--fs-x)), calc(-50% + var(--fs-y))) scale(1) rotate(var(--fs-rot)); opacity: 0; }
+        .fs-wave-2 { border-color: rgba(255,110,40,0.5); animation-delay: 0.16s; animation-duration: 1.8s; }
+
+        /* ── 火の粉 ───────────────────────────── */
+        @keyframes fs-spark-keys {
+          0%   { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+          6%   { opacity: 1; }
+          70%  { opacity: 0.9; }
+          100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(0.25); opacity: 0; }
         }
+        .fs-spark {
+          position: absolute; left: 0; top: 0; border-radius: 9999px;
+          background: #fffbe0;
+          box-shadow: 0 0 10px 3px rgba(255,170,50,0.95), 0 0 24px 8px rgba(255,90,20,0.45);
+          animation-name: fs-spark-keys;
+          animation-timing-function: cubic-bezier(.08,.8,.2,1);
+          animation-fill-mode: forwards;
+        }
+
+        /* ── 煙 ───────────────────────────────── */
+        @keyframes fs-smoke-keys {
+          0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+          15%  { opacity: 0.55; }
+          100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1.6); opacity: 0; }
+        }
+        .fs-smoke {
+          position: absolute; left: 0; top: 0; border-radius: 9999px;
+          background: radial-gradient(circle, rgba(70,62,58,0.6) 0%, rgba(70,62,58,0.28) 45%, rgba(70,62,58,0) 72%);
+          filter: blur(10px);
+          animation: fs-smoke-keys 3.2s ease-out forwards;
+        }
+
+        /* ── ひとこと ─────────────────────────── */
         @keyframes fs-line-keys {
           0%   { opacity: 0; transform: translateY(10px) scale(0.96); }
-          18%  { opacity: 1; transform: translateY(0) scale(1); }
+          22%  { opacity: 1; transform: translateY(0) scale(1); }
           80%  { opacity: 1; }
           100% { opacity: 0; }
         }
-        /* ① ドン！ 最初の大きな一撃（0.7秒） */
+        .fs-line { animation: fs-line-keys ${TOTAL_MS}ms ease-out forwards; }
+
+        /* ── 爆発後のゆれ ─────────────────────── */
         @keyframes fs-hit-keys {
           0%, 100% { transform: translate(0, 0) rotate(0deg); }
           6%  { transform: translate(-26px, 14px) rotate(-2deg); }
@@ -155,7 +261,6 @@ export function IdleSurprise() {
           72% { transform: translate(-8px, 5px)   rotate(-0.5deg); }
           88% { transform: translate(5px, -3px)   rotate(0.3deg); }
         }
-        /* ② ぶるぶるぶるぶる。細かく速いのを何度も繰り返す */
         @keyframes fs-buzz-keys {
           0%   { transform: translate(-4px, 2px)  rotate(-0.35deg); }
           25%  { transform: translate(4px, -3px)  rotate(0.35deg); }
@@ -163,18 +268,6 @@ export function IdleSurprise() {
           75%  { transform: translate(3px, 3px)   rotate(0.3deg); }
           100% { transform: translate(-4px, 2px)  rotate(-0.35deg); }
         }
-        .fs-flash { animation: fs-flash-keys 1.1s ease-out forwards; }
-        .fs-wave {
-          transform: translate(-50%, -50%);
-          border: solid rgba(255,140,40,0.85);
-          border-radius: 9999px;
-          animation: fs-wave-keys 1.5s cubic-bezier(.15,.7,.25,1) forwards;
-        }
-        .fs-wave-2 { border-color: rgba(255,80,40,0.55); animation-delay: 0.14s; }
-        .fs-boom  { animation: fs-boom-keys ${TOTAL_MS}ms cubic-bezier(.2,.8,.2,1) forwards; }
-        .fs-piece { animation: fs-piece-keys 2.4s cubic-bezier(.1,.75,.25,1) forwards; }
-        .fs-line  { animation: fs-line-keys ${TOTAL_MS}ms ease-out forwards; }
-        /* ドン！のあと、0.07秒のぶるぶるを50回ぶん続ける（合計3.5秒） */
         .fs-shake {
           animation:
             fs-hit-keys 0.7s cubic-bezier(.36,.07,.19,.97),
