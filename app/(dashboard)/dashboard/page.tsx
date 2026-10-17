@@ -35,6 +35,8 @@ import { nextVisitCoverage, salesMonth, salesStreak, salesBadges } from "@/lib/s
 import { SalesCard } from "./sales-card";
 import { CountUp } from "./count-up";
 import { Delta } from "@/components/ui/delta";
+import { companyStats } from "@/lib/company-stats";
+import { CompanyCard } from "./company-card";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +134,9 @@ export default async function DashboardPage() {
   const conv = myId ? trialConversion(trialLessons, myId, mon) : null;
   const lastConv = myId ? trialConversionInRange(trialLessons, myId, last.from, last.to) : null;
 
+  // 会社全体の数字（全員に見せる）。売上は伸び率(%)だけで、金額は client に渡さない
+  const company = companyStats(customers, lessons, trialLessons, ctx, now);
+
   // 自分の今後の予定（通常＝担当トレーナー、体験＝担当トレーナー/営業、未来かつ予定中、直近5件）
   const myUpcoming = [
     ...lessons
@@ -216,6 +221,9 @@ export default async function DashboardPage() {
 
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
+
+      {/* FIT STAGE のいま（全員に見せる。金額は出さない） */}
+      <CompanyCard stats={company} />
 
       {/* 今月の自分 */}
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
