@@ -52,3 +52,9 @@ create index if not exists membership_applications_customer_idx
   on public.membership_applications (customer_id);
 create index if not exists membership_applications_status_idx
   on public.membership_applications (status);
+
+-- 行レベルセキュリティ(RLS)を有効にする。
+-- このポータルは service role キーで読み書きしているのでポリシーは不要。
+-- 有効にしないと、公開キーを持っている人が申込書の氏名・住所・緊急連絡先まで
+-- アプリを通さず直接読めてしまう（20261013000001_enable_rls.sql と同じ考え方）。
+alter table public.membership_applications enable row level security;
