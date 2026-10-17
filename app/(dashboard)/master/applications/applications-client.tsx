@@ -12,6 +12,7 @@ import {
   APPLICATION_STATUS_LABEL, hasHealthFlag,
 } from "@/lib/membership-applications-types";
 import { setApplicationStatusAction, deleteApplicationAction } from "./actions";
+import { HandoutPanel } from "./handout-panel";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
@@ -285,6 +286,8 @@ export function ApplicationsClient({
           {newCount > 0 && <span className="text-yellow-700 font-medium">（未対応 {newCount}件）</span>}
         </p>
       </div>
+
+      <HandoutPanel />
 
       <div className="flex items-center gap-2 mb-3">
         <div className="relative flex-1">
