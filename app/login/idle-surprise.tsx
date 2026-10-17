@@ -12,10 +12,10 @@ import { useEffect, useState } from "react";
 // ライブラリは使っていないので、読み込みは増えない。
 
 const IDLE_MS = 5000;
-/** 画面がゆれている時間 */
-const SHAKE_MS = 1800;
+/** 画面がゆれている時間（ドン！のあと、ぶるぶるが長く続く） */
+const SHAKE_MS = 4200;
 /** 全部が消えるまで */
-const TOTAL_MS = 4200;
+const TOTAL_MS = 5200;
 
 const LINES = [
   "びっくりしました？　ログインどうぞ。",
@@ -143,19 +143,25 @@ export function IdleSurprise() {
           80%  { opacity: 1; }
           100% { opacity: 0; }
         }
-        @keyframes fs-shake-keys {
+        /* ① ドン！ 最初の大きな一撃（0.7秒） */
+        @keyframes fs-hit-keys {
           0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          4%  { transform: translate(-20px, 10px) rotate(-1.6deg); }
-          9%  { transform: translate(18px, -14px) rotate(1.5deg); }
-          14% { transform: translate(-16px, 12px) rotate(-1.3deg); }
-          20% { transform: translate(15px, -10px) rotate(1.1deg); }
-          27% { transform: translate(-12px, 8px)  rotate(-0.9deg); }
-          35% { transform: translate(10px, -7px)  rotate(0.8deg); }
-          45% { transform: translate(-8px, 6px)   rotate(-0.6deg); }
-          56% { transform: translate(7px, -5px)   rotate(0.5deg); }
-          68% { transform: translate(-5px, 3px)   rotate(-0.3deg); }
-          80% { transform: translate(3px, -2px)   rotate(0.2deg); }
-          92% { transform: translate(-1px, 1px); }
+          6%  { transform: translate(-26px, 14px) rotate(-2deg); }
+          13% { transform: translate(24px, -18px) rotate(1.9deg); }
+          21% { transform: translate(-20px, 15px) rotate(-1.6deg); }
+          30% { transform: translate(18px, -12px) rotate(1.3deg); }
+          42% { transform: translate(-14px, 9px)  rotate(-1deg); }
+          56% { transform: translate(11px, -7px)  rotate(0.8deg); }
+          72% { transform: translate(-8px, 5px)   rotate(-0.5deg); }
+          88% { transform: translate(5px, -3px)   rotate(0.3deg); }
+        }
+        /* ② ぶるぶるぶるぶる。細かく速いのを何度も繰り返す */
+        @keyframes fs-buzz-keys {
+          0%   { transform: translate(-4px, 2px)  rotate(-0.35deg); }
+          25%  { transform: translate(4px, -3px)  rotate(0.35deg); }
+          50%  { transform: translate(-3px, -2px) rotate(-0.3deg); }
+          75%  { transform: translate(3px, 3px)   rotate(0.3deg); }
+          100% { transform: translate(-4px, 2px)  rotate(-0.35deg); }
         }
         .fs-flash { animation: fs-flash-keys 1.1s ease-out forwards; }
         .fs-wave {
@@ -168,7 +174,12 @@ export function IdleSurprise() {
         .fs-boom  { animation: fs-boom-keys ${TOTAL_MS}ms cubic-bezier(.2,.8,.2,1) forwards; }
         .fs-piece { animation: fs-piece-keys 2.4s cubic-bezier(.1,.75,.25,1) forwards; }
         .fs-line  { animation: fs-line-keys ${TOTAL_MS}ms ease-out forwards; }
-        .fs-shake { animation: fs-shake-keys ${SHAKE_MS}ms cubic-bezier(.36,.07,.19,.97); }
+        /* ドン！のあと、0.07秒のぶるぶるを50回ぶん続ける（合計3.5秒） */
+        .fs-shake {
+          animation:
+            fs-hit-keys 0.7s cubic-bezier(.36,.07,.19,.97),
+            fs-buzz-keys 0.07s linear 0.7s 50;
+        }
       `}</style>
     </>
   );
