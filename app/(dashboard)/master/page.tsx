@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store, Landmark, Receipt, Dumbbell, Repeat, Coins } from "lucide-react";
+import { Users, Image, Tag, ArrowRight, UserCheck, CreditCard, Building2, Store, Landmark, Receipt, Dumbbell, Repeat, Coins, FileSignature } from "lucide-react";
 import { getMembers } from "@/lib/members";
 import { getMaterialsCount } from "@/lib/materials";
 import { getKeywordsCount } from "@/lib/keywords";
@@ -9,11 +9,12 @@ import { getRentalGymsCount } from "@/lib/rental-gyms";
 import { getStoresCount } from "@/lib/stores";
 import { getFctStoresCount } from "@/lib/fct-stores";
 import { getAvenirStoresCount } from "@/lib/avenir-stores";
+import { getNewMembershipApplicationsCount } from "@/lib/membership-applications";
 
 export const dynamic = "force-dynamic";
 
 export default async function MasterPage() {
-  const [members, materialsCount, keywordsCount, customersCount, plans, rentalGymsCount, storesCount, fctStoresCount, avenirStoresCount] = await Promise.all([
+  const [members, materialsCount, keywordsCount, customersCount, plans, rentalGymsCount, storesCount, fctStoresCount, avenirStoresCount, newApplicationsCount] = await Promise.all([
     getMembers(),
     getMaterialsCount(),
     getKeywordsCount(),
@@ -23,6 +24,7 @@ export default async function MasterPage() {
     getStoresCount(),
     getFctStoresCount(),
     getAvenirStoresCount(),
+    getNewMembershipApplicationsCount(),
   ]);
 
   return (
@@ -66,6 +68,27 @@ export default async function MasterPage() {
             <ArrowRight size={16} className="text-gray-400 group-hover:text-purple-500 transition" />
           </div>
         </Link>
+        <Link
+          href="/master/applications"
+          className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+        >
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <FileSignature size={20} className="text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 text-sm">入会申し込み</p>
+            <p className="text-xs text-gray-500 mt-0.5">HPのフォームから届いた申込書</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {newApplicationsCount > 0 && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                未対応 {newApplicationsCount}
+              </span>
+            )}
+            <ArrowRight size={16} className="text-gray-400 group-hover:text-amber-500 transition" />
+          </div>
+        </Link>
+
         <Link
           href="/master/customers"
           className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
