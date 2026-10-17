@@ -39,7 +39,7 @@ export function LoginForm() {
   }
 
   return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="fs-login-card bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">

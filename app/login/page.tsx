@@ -10,11 +10,11 @@ export default function LoginPage() {
   const quote = quoteOfTheDay();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 overflow-hidden">
+    <div className="fs-login-root min-h-screen bg-gray-50 flex items-center justify-center p-4 overflow-hidden">
       {/* 5秒ぼーっとしていると一度だけ💥が出る（入力中は出ない） */}
       <IdleSurprise />
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
+        <div className="fs-logo text-center mb-8">
           <Image
             src="/title.png"
             alt="FIT STAGE"
@@ -23,13 +23,13 @@ export default function LoginPage() {
             className="mx-auto mb-4"
             priority
           />
-          <p className="text-lg font-semibold text-gray-700">ポータル</p>
+          <p className="fs-sub text-lg font-semibold text-gray-700">ポータル</p>
         </div>
 
         <LoginForm />
 
         {/* 本日の格言 */}
-        <div className="mt-6 text-center px-2">
+        <div className="fs-login-quote mt-6 text-center px-2">
           <p className="text-sm font-semibold text-gray-600 leading-relaxed">{quote.text}</p>
           <p className="text-xs text-gray-400 mt-1.5">― {quote.by}</p>
         </div>

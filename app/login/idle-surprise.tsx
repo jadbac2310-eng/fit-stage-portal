@@ -32,6 +32,7 @@ const SMOKES = 10;
 
 export function IdleSurprise() {
   const [phase, setPhase] = useState<"idle" | "rumble" | "boom">("idle");
+  const [burned, setBurned] = useState(false);   // 爆発のあとの姿（そのまま残る）
   const [line, setLine] = useState("");
 
   useEffect(() => {
@@ -53,6 +54,8 @@ export function IdleSurprise() {
         setLine(LINES[Math.floor(Math.random() * LINES.length)]);
         setPhase("boom");
         document.body.classList.add("fs-shake");
+        document.body.classList.add("fs-burned");   // ここから見た目が変わる
+        setBurned(true);
         setTimeout(() => document.body.classList.remove("fs-shake"), SHAKE_MS);
         endTimer = setTimeout(() => setPhase("idle"), TOTAL_MS);
       }, RUMBLE_MS);
@@ -71,7 +74,7 @@ export function IdleSurprise() {
     return () => {
       clearTimeout(timer); clearTimeout(boomTimer); clearTimeout(endTimer);
       for (const e of events) window.removeEventListener(e, reset);
-      document.body.classList.remove("fs-rumble", "fs-shake");
+      document.body.classList.remove("fs-rumble", "fs-shake", "fs-burned");
     };
   }, []);
 
@@ -137,6 +140,25 @@ export function IdleSurprise() {
           <p className="fs-line absolute bottom-20 left-0 right-0 px-6 text-center text-base font-bold text-gray-800">
             {line}
           </p>
+        </div>
+      )}
+
+      {/* ③ 爆発のあと。残り火が立ちのぼり続ける */}
+      {burned && (
+        <div className="fs-embers pointer-events-none fixed inset-0 z-10 overflow-hidden" aria-hidden>
+          {Array.from({ length: 26 }, (_, i) => (
+            <span
+              key={i}
+              className="fs-ember"
+              style={{
+                left: `${(i * 37) % 100}%`,
+                width: 2 + (i % 3),
+                height: 2 + (i % 3),
+                animationDelay: `${(i % 13) * 0.9}s`,
+                animationDuration: `${7 + (i % 6)}s`,
+              }}
+            />
+          ))}
         </div>
       )}
 
@@ -272,6 +294,77 @@ export function IdleSurprise() {
           animation:
             fs-hit-keys 0.7s cubic-bezier(.36,.07,.19,.97),
             fs-buzz-keys 0.07s linear 0.7s 50;
+        }
+
+        /* ── 爆発のあとのログイン画面 ───────────────
+           焦げた黒い背景に、オレンジの光が残っている状態。
+           ログイン画面の中だけに当てる（ほかの画面には持ち込まない）。 */
+        @keyframes fs-burn-in { from { opacity: 0 } to { opacity: 1 } }
+        body.fs-burned .fs-login-root {
+          background:
+            radial-gradient(120% 80% at 50% 120%, rgba(255,110,30,0.22) 0%, rgba(255,80,20,0.06) 38%, rgba(0,0,0,0) 70%),
+            radial-gradient(100% 60% at 50% -10%, rgba(255,160,60,0.10) 0%, rgba(0,0,0,0) 60%),
+            linear-gradient(180deg, #0c0b10 0%, #121016 55%, #1a1115 100%);
+        }
+        body.fs-burned .fs-login-root::after {
+          /* うっすら走る横線。画面に奥行きを出す */
+          content: ""; position: fixed; inset: 0; pointer-events: none;
+          background: repeating-linear-gradient(180deg, rgba(255,255,255,0.025) 0 1px, rgba(0,0,0,0) 1px 3px);
+          opacity: 0.6;
+        }
+        body.fs-burned .fs-logo img {
+          filter: invert(1) drop-shadow(0 0 14px rgba(255,150,50,0.55)) drop-shadow(0 0 40px rgba(255,90,20,0.35));
+        }
+        body.fs-burned .fs-sub {
+          color: #f4a33c;
+          letter-spacing: 0.35em; text-indent: 0.35em;
+          text-shadow: 0 0 18px rgba(255,140,40,0.55);
+        }
+        body.fs-burned .fs-login-card {
+          background: rgba(18,16,22,0.72) !important;
+          border-color: rgba(255,140,50,0.32) !important;
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.04) inset,
+            0 18px 60px rgba(0,0,0,0.6),
+            0 0 50px rgba(255,110,30,0.18) !important;
+          backdrop-filter: blur(10px);
+          animation: fs-burn-in 0.9s ease-out both;
+        }
+        body.fs-burned .fs-login-card label { color: #cbd2dd !important; }
+        body.fs-burned .fs-login-card input {
+          background: rgba(255,255,255,0.05) !important;
+          border-color: rgba(255,255,255,0.14) !important;
+          color: #f6f7fa !important;
+        }
+        body.fs-burned .fs-login-card input::placeholder { color: rgba(255,255,255,0.3) !important; }
+        body.fs-burned .fs-login-card input:focus {
+          border-color: rgba(255,150,60,0.7) !important;
+          box-shadow: 0 0 0 2px rgba(255,130,40,0.25) !important;
+        }
+        body.fs-burned .fs-login-card button[type="submit"] {
+          background: linear-gradient(135deg, #ff8a1f 0%, #ff5a12 55%, #e23c06 100%) !important;
+          box-shadow: 0 8px 26px rgba(255,90,20,0.45), 0 0 0 1px rgba(255,255,255,0.1) inset;
+        }
+        body.fs-burned .fs-login-quote p:first-child {
+          color: #e9edf4 !important;
+          text-shadow: 0 0 22px rgba(255,130,40,0.35);
+        }
+        body.fs-burned .fs-login-quote p:last-child { color: rgba(255,255,255,0.45) !important; }
+
+        /* 残り火 */
+        @keyframes fs-ember-keys {
+          0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+          10%  { opacity: 0.9; }
+          50%  { transform: translateY(-45vh) translateX(14px) scale(0.9); opacity: 0.7; }
+          100% { transform: translateY(-100vh) translateX(-10px) scale(0.4); opacity: 0; }
+        }
+        .fs-ember {
+          position: absolute; bottom: -10px; border-radius: 9999px;
+          background: #ffcf7a;
+          box-shadow: 0 0 8px 2px rgba(255,150,40,0.8);
+          animation-name: fs-ember-keys;
+          animation-timing-function: linear;
+          animation-iteration-count: infinite;
         }
       `}</style>
     </>
