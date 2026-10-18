@@ -27,6 +27,7 @@ type DbRow = {
   photo_consent: string | null;
   request_note: string | null;
   agreed_to_terms: boolean;
+  agreed_to_privacy: boolean;
   agreed_at: string | null;
   signature_name: string | null;
   status: ApplicationStatus;
@@ -62,6 +63,7 @@ function fromDb(row: DbRow): MembershipApplication {
     photoConsent:      row.photo_consent ?? undefined,
     requestNote:       row.request_note ?? undefined,
     agreedToTerms:     row.agreed_to_terms,
+    agreedToPrivacy:   row.agreed_to_privacy,
     agreedAt:          row.agreed_at ?? undefined,
     signatureName:     row.signature_name ?? undefined,
     status:            row.status,
@@ -146,6 +148,7 @@ export async function addMembershipApplication(
       photo_consent:      input.photoConsent ?? null,
       request_note:       input.requestNote ?? null,
       agreed_to_terms:    input.agreedToTerms,
+      agreed_to_privacy:  input.agreedToPrivacy,
       agreed_at:          input.agreedAt ?? null,
       signature_name:     input.signatureName ?? null,
       note:               input.note ?? null,

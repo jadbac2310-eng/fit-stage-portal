@@ -33,6 +33,8 @@ export interface MembershipApplication {
   requestNote?: string;
 
   agreedToTerms: boolean;
+  /** 個人情報の取り扱いへの同意。会員規約とは別のチェック項目 */
+  agreedToPrivacy: boolean;
   agreedAt?: string;
   signatureName?: string;
 

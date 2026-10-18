@@ -46,6 +46,7 @@ type Body = {
   photo_consent?: string;
   request_note?: string;
   agreed_to_terms?: string;
+  agreed_to_privacy?: string;
   agreed_at?: string;
   signature_name?: string;
 };
@@ -199,6 +200,7 @@ export async function POST(req: NextRequest) {
       photoConsent:      trim(body.photo_consent),
       requestNote:       trim(body.request_note),
       agreedToTerms:     (body.agreed_to_terms ?? "").trim() !== "",
+      agreedToPrivacy:   (body.agreed_to_privacy ?? "").trim() !== "",
       agreedAt:          new Date().toISOString(),
       signatureName:     trim(body.signature_name),
     });

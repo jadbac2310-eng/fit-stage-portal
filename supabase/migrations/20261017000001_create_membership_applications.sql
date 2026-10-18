@@ -36,6 +36,7 @@ create table if not exists public.membership_applications (
   request_note       text,
 
   agreed_to_terms    boolean not null default false,
+  agreed_to_privacy  boolean not null default false,
   agreed_at          timestamptz,
   signature_name     text,    -- 署名の代わりに入力してもらった氏名
 

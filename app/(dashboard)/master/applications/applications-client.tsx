@@ -184,6 +184,7 @@ function Detail({ a, isAdmin }: { a: MembershipApplication; isAdmin: boolean }) 
 
           <p className="text-[11px] font-semibold text-gray-400 tracking-wide mt-4 mb-1">同意</p>
           <Row label="会員規約" value={a.agreedToTerms ? "同意済み" : "未同意"} />
+          <Row label="個人情報の取り扱い" value={a.agreedToPrivacy ? "同意済み" : "未同意"} />
           <Row label="ご署名" value={a.signatureName} />
           <Row label="同意日時" value={a.agreedAt ? new Date(a.agreedAt).toLocaleString("ja-JP") : undefined} />
         </div>
