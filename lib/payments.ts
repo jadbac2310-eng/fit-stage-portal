@@ -6,6 +6,9 @@ import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { Lesson } from "./lessons-types";
 import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
+import type { TrialLesson } from "./trial-lessons-types";
+import { trialCourseLabel } from "./trial-lessons-types";
+import { resolveTrialFee } from "./commissions";
 import { paymentKey, type Payment, type PaymentSourceType, type Receivable } from "./payments-types";
 export type { Payment, PaymentSourceType, Receivable } from "./payments-types";
 
@@ -92,8 +95,11 @@ function inMonth(iso: string | undefined, month: string): boolean {
 }
 
 /**
- * 対象月に計上される売上項目（回数券・月額プラン・都度払い）を列挙し、入金記録を紐づける。
- * 計上月は invoices と同じ基準（回数券/プランは購入月、都度は実施月）。
+ * 対象月に計上される売上項目（回数券・月額プラン・都度払い・体験レッスン）を列挙し、入金記録を紐づける。
+ * 計上月は invoices と同じ基準（回数券/プランは購入月、都度と体験は実施月）。
+ *
+ * 請求書に出る項目と、ここに出る項目は必ず同じにすること。
+ * 片方にしか無いと「請求書には載っているのに入金済みにできない」項目ができてしまう。
  */
 export function buildReceivables(
   month: string,
@@ -102,9 +108,12 @@ export function buildReceivables(
     passes: SessionPass[];
     plans: CustomerPlanRecord[];
     lessons: Lesson[];
+    trialLessons?: TrialLesson[];
     payments: Payment[];
     singleSessionFee?: number;
     sessionPassPriceMap?: Record<number, Record<number, number>>;
+    /** コース名→1回単価。体験レッスンの料金区分を解決するのに使う */
+    lessonFees?: Record<string, number>;
   },
 ): Receivable[] {
   const nameOf = new Map(data.customers.map((c) => [c.id, c.fullName]));
@@ -153,6 +162,23 @@ export function buildReceivables(
       customerName: l.customerName,
       label: l.course && l.course !== "都度" ? l.course : "都度レッスン", date: l.scheduledAt.slice(0, 10), amount,
       payment: payMap.get(paymentKey("single_lesson", l.id)),
+    });
+  }
+
+  // 体験レッスン（その月に実施したもの）。請求書と同じ基準で計上する
+  for (const t of data.trialLessons ?? []) {
+    if (t.status !== "completed") continue;
+    if (!inMonth(t.scheduledAt, month)) continue;
+    const cust = data.customers.find((c) => c.id === t.customerId);
+    // FCT経由のお客さまはお客さまから直接もらわないので、入金管理には出さない
+    if (isFctCustomer(cust)) continue;
+    const amount = resolveTrialFee(t, { lessonFees: data.lessonFees ?? {} });
+    if (amount <= 0) continue;   // 無料体験は請求も入金も発生しない
+    items.push({
+      sourceType: "trial_lesson", sourceId: t.id, customerId: t.customerId,
+      customerName: t.customerName || nameOf.get(t.customerId) || "",
+      label: trialCourseLabel(t.course), date: t.scheduledAt.slice(0, 10), amount,
+      payment: payMap.get(paymentKey("trial_lesson", t.id)),
     });
   }
 

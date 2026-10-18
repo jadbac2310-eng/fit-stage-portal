@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, X, Pencil, ChevronDown, ChevronUp, Layers } from "lucide-react";
+import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, Sparkles, X, Pencil, ChevronDown, ChevronUp, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
@@ -64,11 +64,13 @@ const TYPE_ICON: Record<PaymentSourceType, React.ReactNode> = {
   session_pass: <Ticket size={12} />,
   customer_plan: <CreditCard size={12} />,
   single_lesson: <Dumbbell size={12} />,
+  trial_lesson: <Sparkles size={12} />,
 };
 const TYPE_CLS: Record<PaymentSourceType, string> = {
   session_pass: "bg-amber-100 text-amber-700",
   customer_plan: "bg-indigo-100 text-indigo-700",
   single_lesson: "bg-blue-100 text-blue-700",
+  trial_lesson: "bg-purple-100 text-purple-700",
 };
 
 function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void }) {
@@ -361,7 +363,7 @@ export function PaymentsClient({
           <Wallet size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">入金管理</h1>
         </div>
-        <p className="text-sm text-gray-500 mt-0.5">売上（回数券・月額プラン・都度払い）の入金状況を管理します</p>
+        <p className="text-sm text-gray-500 mt-0.5">売上（回数券・月額プラン・都度払い・体験レッスン）の入金状況を管理します</p>
       </div>
 
       <div className="flex items-center gap-3 mb-4">
@@ -431,7 +433,7 @@ export function PaymentsClient({
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🧾</p>
           <p className="text-sm font-semibold text-gray-600">該当する売上はありません</p>
-          <p className="text-xs text-gray-400 mt-1">回数券・月額プランの購入や都度レッスンがあると表示されます</p>
+          <p className="text-xs text-gray-400 mt-1">回数券・月額プランの購入や、都度レッスン・体験レッスンがあると表示されます</p>
         </div>
       ) : (
         <div className="space-y-2">

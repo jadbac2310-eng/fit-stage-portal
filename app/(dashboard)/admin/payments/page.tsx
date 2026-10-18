@@ -3,7 +3,8 @@ import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getLessons } from "@/lib/lessons";
-import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap } from "@/lib/plans-master";
+import { getTrialLessons } from "@/lib/trial-lessons";
+import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap, buildLessonFeeMap } from "@/lib/plans-master";
 import { getPayments, buildReceivables } from "@/lib/payments";
 import { billingGroups, billingName } from "@/lib/invoices";
 import { PaymentsClient } from "./payments-client";
@@ -33,8 +34,8 @@ export default async function PaymentsPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, passes, plans, lessons, plansMaster, sppPrices, payments] = await Promise.all([
-    getCustomers(), getAllSessionPasses(), getAllCustomerPlans(), getLessons(),
+  const [customers, passes, plans, lessons, trialLessons, plansMaster, sppPrices, payments] = await Promise.all([
+    getCustomers(), getAllSessionPasses(), getAllCustomerPlans(), getLessons(), getTrialLessons(),
     getAllPlans(), getAllSessionPassPrices(), getPayments(),
   ]);
 
@@ -42,9 +43,10 @@ export default async function PaymentsPage({
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
 
   const receivables = buildReceivables(month, {
-    customers, passes, plans, lessons, payments,
+    customers, passes, plans, lessons, trialLessons, payments,
     singleSessionFee: singleFee,
     sessionPassPriceMap: buildSessionPassPriceMap(sppPrices),
+    lessonFees: buildLessonFeeMap(plansMaster),
   });
 
   // 同じ会社・人物への請求をまとめる先（billingToCustomerId）ごとに顧客IDをグルーピングする
