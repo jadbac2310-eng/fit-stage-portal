@@ -13,18 +13,8 @@ import { cn } from "@/lib/cn";
  * HP側の /tools/join-card/ と同じことを、ポータルからもできるようにしている。
  */
 
-const BASE = "https://www.fitstage.jp/store/join/";
-
-const STORES = [
-  { slug: "esaka",          label: "江坂店",     qr: "/join-qr/qr-esaka.svg" },
-  { slug: "shonai",         label: "庄内店",     qr: "/join-qr/qr-shonai.svg" },
-  { slug: "sone-shiroyama", label: "曽根城山店", qr: "/join-qr/qr-sone-shiroyama.svg" },
-  { slug: "",               label: "全店共通",   qr: "/join-qr/qr-all.svg" },
-] as const;
-
-function formUrl(slug: string) {
-  return slug ? `${BASE}?store=${slug}` : BASE;
-}
+const FORM_URL = "https://www.fitstage.jp/store/join/";
+const QR_SRC   = "/join-qr/qr-all.svg";
 
 /** 体験の後にお送りするLINEの文面。HP側のカードと同じ内容に揃えている */
 function lineMessage(url: string) {
@@ -66,10 +56,7 @@ function CopyButton({ text, label, className }: { text: string; label: string; c
 
 export function HandoutPanel() {
   const [open, setOpen] = useState(false);
-  const [slug, setSlug] = useState<string>(STORES[0].slug);
-
-  const store = STORES.find((s) => s.slug === slug) ?? STORES[0];
-  const url = formUrl(store.slug);
+  const url = FORM_URL;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 mb-3 overflow-hidden">
@@ -82,42 +69,24 @@ export function HandoutPanel() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 text-sm">お客様にお渡しする</p>
-          <p className="text-xs text-gray-500 mt-0.5">入会フォームのQR・リンク・LINEの文面</p>
+          <p className="text-xs text-gray-500 mt-0.5">入会フォームのQR・リンク・LINEの文面（3店舗共通）</p>
         </div>
         <ChevronDown size={16} className={cn("text-gray-400 transition flex-shrink-0", open && "rotate-180")} />
       </button>
 
       {open && (
         <div className="border-t border-gray-100 p-4 bg-gray-50/60">
-          <div className="flex flex-wrap items-center gap-1.5 mb-4">
-            {STORES.map((s) => (
-              <button
-                key={s.label}
-                onClick={() => setSlug(s.slug)}
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition",
-                  s.slug === slug
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <div className="bg-white p-3 rounded-xl border border-gray-200 self-start">
               <NextImage
-                key={store.qr}
-                src={store.qr}
-                alt={`${store.label}の入会お申し込みフォームのQRコード`}
+                src={QR_SRC}
+                alt="入会お申し込みフォームのQRコード"
                 width={148}
                 height={148}
                 unoptimized
                 className="block w-[148px] h-[148px]"
               />
-              <p className="text-[11px] text-gray-500 text-center mt-2">{store.label}</p>
+              <p className="text-[11px] text-gray-500 text-center mt-2">3店舗共通</p>
             </div>
 
             <div className="flex-1 min-w-0 space-y-3">

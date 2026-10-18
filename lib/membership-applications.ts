@@ -24,6 +24,10 @@ type DbRow = {
   health_medicine: string | null;
   health_injury: string | null;
   health_maternity: boolean;
+  health_note: string | null;
+  guardian_name: string | null;
+  guardian_relation: string | null;
+  guardian_consent: boolean;
   photo_consent: string | null;
   request_note: string | null;
   agreed_to_terms: boolean;
@@ -60,6 +64,10 @@ function fromDb(row: DbRow): MembershipApplication {
     healthMedicine:    row.health_medicine ?? undefined,
     healthInjury:      row.health_injury ?? undefined,
     healthMaternity:   row.health_maternity,
+    healthNote:        row.health_note ?? undefined,
+    guardianName:      row.guardian_name ?? undefined,
+    guardianRelation:  row.guardian_relation ?? undefined,
+    guardianConsent:   row.guardian_consent,
     photoConsent:      row.photo_consent ?? undefined,
     requestNote:       row.request_note ?? undefined,
     agreedToTerms:     row.agreed_to_terms,
@@ -116,8 +124,8 @@ export async function getNewMembershipApplicationsCount(): Promise<number> {
 
 export type NewMembershipApplication = Omit<
   MembershipApplication,
-  "id" | "status" | "createdAt" | "updatedAt" | "healthMaternity"
-> & Partial<{ healthMaternity: boolean; status: ApplicationStatus }>;
+  "id" | "status" | "createdAt" | "updatedAt" | "healthMaternity" | "guardianConsent"
+> & Partial<{ healthMaternity: boolean; guardianConsent: boolean; status: ApplicationStatus }>;
 
 export async function addMembershipApplication(
   input: NewMembershipApplication
@@ -145,6 +153,10 @@ export async function addMembershipApplication(
       health_medicine:    input.healthMedicine ?? null,
       health_injury:      input.healthInjury ?? null,
       health_maternity:   input.healthMaternity ?? false,
+      health_note:        input.healthNote ?? null,
+      guardian_name:      input.guardianName ?? null,
+      guardian_relation:  input.guardianRelation ?? null,
+      guardian_consent:   input.guardianConsent ?? false,
       photo_consent:      input.photoConsent ?? null,
       request_note:       input.requestNote ?? null,
       agreed_to_terms:    input.agreedToTerms,

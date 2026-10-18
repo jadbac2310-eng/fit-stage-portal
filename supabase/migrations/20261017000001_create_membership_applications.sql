@@ -31,6 +31,12 @@ create table if not exists public.membership_applications (
   health_medicine    text,    -- 服薬（ある／ない）
   health_injury      text,    -- 過去のケガ・手術（ある／ない）
   health_maternity   boolean not null default false,
+  health_note        text,    -- 自由記入（お伝えしておきたいこと）
+
+  -- 18歳未満の方の保護者の同意
+  guardian_name      text,
+  guardian_relation  text,
+  guardian_consent   boolean not null default false,
 
   photo_consent      text,    -- 写真・動画の掲載可否
   request_note       text,

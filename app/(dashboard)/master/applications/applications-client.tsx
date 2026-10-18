@@ -169,7 +169,7 @@ function Detail({ a, isAdmin }: { a: MembershipApplication; isAdmin: boolean }) 
 
         <div>
           <p className="text-[11px] font-semibold text-gray-400 tracking-wide mb-1 mt-4 md:mt-0">お申し込み内容</p>
-          <Row label="希望店舗" value={a.storeName} />
+          {a.storeName && <Row label="希望店舗" value={a.storeName} />}
           <Row label="プラン" value={a.plan} />
           <Row label="お支払い方法" value={a.paymentMethod} />
           <Row label="写真の掲載" value={a.photoConsent} />
@@ -181,12 +181,26 @@ function Detail({ a, isAdmin }: { a: MembershipApplication; isAdmin: boolean }) 
                 <p key={l} className="text-sm text-gray-900 py-1 border-b border-gray-100 last:border-0">{l}</p>
               ))
             : <p className="text-sm text-gray-400 py-1">—</p>}
+          {a.healthNote && (
+            <div className="mt-2 p-2.5 rounded-xl bg-white border border-gray-200">
+              <p className="text-[11px] text-gray-500 mb-1">お伝えしておきたいこと</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{a.healthNote}</p>
+            </div>
+          )}
 
           <p className="text-[11px] font-semibold text-gray-400 tracking-wide mt-4 mb-1">同意</p>
           <Row label="会員規約" value={a.agreedToTerms ? "同意済み" : "未同意"} />
           <Row label="個人情報の取り扱い" value={a.agreedToPrivacy ? "同意済み" : "未同意"} />
           <Row label="ご署名" value={a.signatureName} />
           <Row label="同意日時" value={a.agreedAt ? new Date(a.agreedAt).toLocaleString("ja-JP") : undefined} />
+          {(a.guardianConsent || a.guardianName) && (
+            <>
+              <p className="text-[11px] font-semibold text-gray-400 tracking-wide mt-4 mb-1">保護者の同意（18歳未満）</p>
+              <Row label="お名前" value={a.guardianName} />
+              <Row label="続柄" value={a.guardianRelation} />
+              <Row label="同意" value={a.guardianConsent ? "同意済み" : "未同意"} />
+            </>
+          )}
         </div>
       </div>
 
@@ -344,6 +358,11 @@ export function ApplicationsClient({
                       {hasHealthFlag(a) && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
                           <AlertTriangle size={9} /> 健康申告
+                        </span>
+                      )}
+                      {a.guardianConsent && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
+                          18歳未満
                         </span>
                       )}
                     </div>

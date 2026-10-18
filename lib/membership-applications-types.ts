@@ -28,6 +28,13 @@ export interface MembershipApplication {
   healthMedicine?: string;
   healthInjury?: string;
   healthMaternity: boolean;
+  /** 自由記入。「ある／ない」では拾えない、気をつけてほしいこと */
+  healthNote?: string;
+
+  /** 18歳未満の方の保護者の同意 */
+  guardianName?: string;
+  guardianRelation?: string;
+  guardianConsent: boolean;
 
   photoConsent?: string;
   requestNote?: string;
@@ -55,6 +62,7 @@ export function hasHealthFlag(a: MembershipApplication): boolean {
     a.healthCondition === "ある" ||
     a.healthMedicine === "ある" ||
     a.healthInjury === "ある" ||
-    a.healthMaternity
+    a.healthMaternity ||
+    (a.healthNote ?? "").trim() !== ""
   );
 }

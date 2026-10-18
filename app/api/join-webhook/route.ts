@@ -43,6 +43,10 @@ type Body = {
   health_medicine?: string;
   health_injury?: string;
   health_maternity?: string;
+  health_note?: string;
+  guardian_name?: string;
+  guardian_relation?: string;
+  guardian_consent?: string;
   photo_consent?: string;
   request_note?: string;
   agreed_to_terms?: string;
@@ -70,6 +74,7 @@ async function notifyAdmins(a: {
   storeName?: string;
   plan?: string;
   health: boolean;
+  guardian: boolean;
 }) {
   if ((process.env.LINE_NOTIFY_JOIN ?? "").trim().toLowerCase() === "off") return;
   try {
@@ -87,6 +92,7 @@ async function notifyAdmins(a: {
       a.storeName ? `店舗: ${a.storeName}` : null,
       a.plan ? `プラン: ${a.plan}` : null,
       a.health ? "※ 健康状態に申告あり" : null,
+      a.guardian ? "※ 18歳未満・保護者の同意あり" : null,
       "",
       portalUrl("/master/applications"),
     ].filter(Boolean).join("\n");
@@ -129,7 +135,8 @@ export async function POST(req: NextRequest) {
     body.health_condition === "ある" ||
     body.health_medicine === "ある" ||
     body.health_injury === "ある" ||
-    maternity;
+    maternity ||
+    trim(body.health_note) !== undefined;
 
   // 希望店舗は店舗マスタと名前で照合する（見つからなければ名前だけ残す）
   let storeId: string | undefined;
@@ -197,6 +204,10 @@ export async function POST(req: NextRequest) {
       healthMedicine:    trim(body.health_medicine),
       healthInjury:      trim(body.health_injury),
       healthMaternity:   maternity,
+      healthNote:        trim(body.health_note),
+      guardianName:      trim(body.guardian_name),
+      guardianRelation:  trim(body.guardian_relation),
+      guardianConsent:   (body.guardian_consent ?? "").trim() !== "",
       photoConsent:      trim(body.photo_consent),
       requestNote:       trim(body.request_note),
       agreedToTerms:     (body.agreed_to_terms ?? "").trim() !== "",
@@ -205,7 +216,10 @@ export async function POST(req: NextRequest) {
       signatureName:     trim(body.signature_name),
     });
 
-    await notifyAdmins({ fullName, storeName, plan: trim(body.plan), health });
+    await notifyAdmins({
+      fullName, storeName, plan: trim(body.plan), health,
+      guardian: (body.guardian_consent ?? "").trim() !== "",
+    });
 
     return NextResponse.json({ success: true, application_id: app.id, customer_id: customerId });
   } catch (e) {
