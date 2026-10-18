@@ -16,7 +16,13 @@ import { ScheduleClient, type ScheduleItem } from "./schedule-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ member?: string }>;
+}) {
+  // ダッシュボードの「今日は◯レッスン」から、全員ぶんを開いて内訳を見られるようにする
+  const { member: memberParam } = await searchParams;
   const member = await getCurrentMember();
 
   if (!member) {
@@ -186,6 +192,7 @@ export default async function SchedulePage() {
       memberName={member.name}
       isAdmin={isAdmin}
       currentMemberId={member.id}
+      initialMember={memberParam}
       members={members}
       customers={customers}
       sessionPasses={sessionPasses}

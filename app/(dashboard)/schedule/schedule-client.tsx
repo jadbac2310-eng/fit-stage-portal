@@ -1836,13 +1836,15 @@ function TimelineView({
 
 // ─── メイン ───────────────────────────────────────────
 export function ScheduleClient({
-  items, memberName, isAdmin = false, currentMemberId, members = [],
+  items, memberName, isAdmin = false, currentMemberId, initialMember, members = [],
   customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], hourlyTasks = [],
 }: {
   items: ScheduleItem[];
   memberName: string;
   isAdmin?: boolean;
   currentMemberId?: string;
+  /** 誰の予定で開くか。"all" で全員ぶん。ダッシュボードから「今日の内訳」を見にくるときに使う */
+  initialMember?: string;
   members?: Member[];
   customers?: Customer[];
   sessionPasses?: SessionPass[];
@@ -1866,7 +1868,7 @@ export function ScheduleClient({
   const summaryMonth = `${monthCursor.getFullYear()}-${pad2(monthCursor.getMonth() + 1)}`;
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   // 担当者で絞り込み（"all" = 全員）。初期は自分の予定。全員が全員分を閲覧可。
-  const [filterMember, setFilterMember] = useState<string>(currentMemberId ?? "all");
+  const [filterMember, setFilterMember] = useState<string>(initialMember || currentMemberId || "all");
   // 店舗で絞り込み（"all" = すべて）。その店舗でのレッスン予定一覧。
   const [filterStore, setFilterStore] = useState<string>("all");
   // 顧客で絞り込み（"all" = すべて）。その顧客のレッスン予定一覧。

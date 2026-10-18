@@ -12,6 +12,20 @@ import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
  * 声をかけたほうがいい人・その日の格言を、1枚にまとめて置く。
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
+/** 声かけリストの1行。上位5名ぶんと「ほか◯名」で同じ見た目にするため共通にする */
+function FollowRow({ follow }: { follow: FollowUp }) {
+  return (
+    <Link
+      href={`/lessons/regular?q=${encodeURIComponent(follow.customerName)}`}
+      className="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-2 hover:bg-gray-100 transition"
+    >
+      <span className="text-sm font-semibold text-gray-800 truncate">{follow.customerName}</span>
+      <span className="text-[11px] text-gray-500 truncate">{follow.reason}</span>
+      <ChevronRight size={13} className="ml-auto flex-shrink-0 text-gray-300" />
+    </Link>
+  );
+}
+
 export function TodayCard({
   headline, teamHeadline, milestones, quote, mission, tip, fortune, follows, unassigned = [],
 }: {
@@ -31,38 +45,50 @@ export function TodayCard({
 }) {
   const diff = teamHeadline.monthCount - teamHeadline.lastMonthCount;
   const topFollows = follows.slice(0, 5);
+  const restFollows = follows.slice(5);
 
   return (
     <div className="mb-6 space-y-3">
       {/* 本日の格言（いちばん上。開いて最初に目に入るところ） */}
       <QuoteCard quote={quote} mission={mission} tip={tip} fortune={fortune} />
 
-      {/* 今日の動き（FIT STAGE全体＋自分の担当） */}
+      {/* 今日の動き（FIT STAGE全体＋自分の担当）。
+          数字だけ見せても誰が来るのか分からないので、タップでその日の予定に飛ばす。
+          全体ぶんは全員分のスケジュール、自分の担当ぶんは自分のスケジュールを開く。 */}
       <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 p-4 text-white shadow-sm">
-        <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のFIT STAGE</p>
-        {teamHeadline.lessonCount === 0 ? (
-          <p className="text-lg font-bold mt-1">今日の予定は入っていません</p>
-        ) : (
-          <p className="text-lg font-bold mt-1">
-            今日は {teamHeadline.lessonCount}レッスン・{teamHeadline.customerCount}名が来ます
-          </p>
-        )}
-        <p className="text-xs text-blue-100 mt-1">
-          今月はチームで{teamHeadline.monthCount}本目
-          {teamHeadline.lastMonthCount > 0 && (
-            <>（先月の今日は{teamHeadline.lastMonthCount}本{diff === 0 ? "・同じペース" : diff > 0 ? `・${diff}本ペースが速い` : `・${-diff}本ぶん遅い`}）</>
+        <Link href="/schedule?member=all" className="block hover:opacity-90 transition">
+          <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のFIT STAGE</p>
+          {teamHeadline.lessonCount === 0 ? (
+            <p className="text-lg font-bold mt-1">今日の予定は入っていません</p>
+          ) : (
+            <p className="text-lg font-bold mt-1 flex items-start gap-1">
+              <span>今日は {teamHeadline.lessonCount}レッスン・{teamHeadline.customerCount}名が来ます</span>
+              <ChevronRight size={18} className="mt-1 flex-shrink-0 text-blue-100" />
+            </p>
           )}
-        </p>
-
-        <div className="mt-3 pt-3 border-t border-white/25">
-          <p className="text-[11px] font-semibold text-blue-100">あなたの担当</p>
-          <p className="text-sm font-bold mt-0.5">
-            {headline.lessonCount === 0
-              ? "今日の予定はありません"
-              : `今日は ${headline.lessonCount}レッスン・${headline.customerCount}名`}
-            <span className="font-semibold text-blue-100"> ／ 今月{headline.monthCount}本</span>
+          <p className="text-xs text-blue-100 mt-1">
+            今月はチームで{teamHeadline.monthCount}本目
+            {teamHeadline.lastMonthCount > 0 && (
+              <>（先月の今日は{teamHeadline.lastMonthCount}本{diff === 0 ? "・同じペース" : diff > 0 ? `・${diff}本ペースが速い` : `・${-diff}本ぶん遅い`}）</>
+            )}
           </p>
-        </div>
+          {teamHeadline.lessonCount > 0 && (
+            <p className="text-[11px] text-blue-100/90 mt-1">タップすると今日の予定（全員ぶん）を表示します</p>
+          )}
+        </Link>
+
+        <Link href="/schedule" className="block mt-3 pt-3 border-t border-white/25 hover:opacity-90 transition">
+          <p className="text-[11px] font-semibold text-blue-100">あなたの担当</p>
+          <p className="text-sm font-bold mt-0.5 flex items-start gap-1">
+            <span>
+              {headline.lessonCount === 0
+                ? "今日の予定はありません"
+                : `今日は ${headline.lessonCount}レッスン・${headline.customerCount}名`}
+              <span className="font-semibold text-blue-100"> ／ 今月{headline.monthCount}本</span>
+            </span>
+            <ChevronRight size={15} className="mt-0.5 flex-shrink-0 text-blue-100" />
+          </p>
+        </Link>
       </div>
 
       {/* 今日の節目 */}
@@ -92,20 +118,20 @@ export function TodayCard({
             {topFollows.length === 0 && (
               <p className="text-xs text-gray-400 py-1">自分が担当のお客さまで、声をかけたほうがいい人はいません。</p>
             )}
-            {topFollows.map((f) => (
-              <Link
-                key={f.customerId}
-                href={`/lessons/regular?q=${encodeURIComponent(f.customerName)}`}
-                className="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-2 hover:bg-gray-100 transition"
-              >
-                <span className="text-sm font-semibold text-gray-800 truncate">{f.customerName}</span>
-                <span className="text-[11px] text-gray-500 truncate">{f.reason}</span>
-                <ChevronRight size={13} className="ml-auto flex-shrink-0 text-gray-300" />
-              </Link>
-            ))}
+            {topFollows.map((f) => <FollowRow key={f.customerId} follow={f} />)}
           </div>
-          {follows.length > topFollows.length && (
-            <p className="text-[11px] text-gray-400 mt-1.5">ほか {follows.length - topFollows.length}名</p>
+          {/* 残りは「ほか3名」で隠さず、その場で開けるようにする。
+              誰か分からないままだと声のかけようがないため。
+              details を使うので JavaScript は要らない（表示は重くならない）。 */}
+          {restFollows.length > 0 && (
+            <details className="mt-1.5">
+              <summary className="cursor-pointer list-none text-[11px] font-semibold text-blue-600 hover:underline">
+                ほか {restFollows.length}名を表示
+              </summary>
+              <div className="space-y-1 mt-1">
+                {restFollows.map((f) => <FollowRow key={f.customerId} follow={f} />)}
+              </div>
+            </details>
           )}
           {unassigned.length > 0 && (
             <div className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2">
