@@ -94,8 +94,23 @@ export function PendingLessonsCard({ rows }: { rows: PendingLessonRow[] }) {
           />
         ))}
       </div>
+      {/* 9件目以降も開けるようにする。完了にしないと歩合にならないので、
+          隠れたままだと取りこぼしになる */}
       {left.length > 8 && (
-        <p className="text-[11px] text-amber-700 mt-2">ほか{left.length - 8}件</p>
+        <details className="mt-2">
+          <summary className="cursor-pointer list-none text-[11px] font-semibold text-amber-800 hover:underline">
+            ほか{left.length - 8}件を表示
+          </summary>
+          <div className="mt-1">
+            {left.slice(8).map((r) => (
+              <Row
+                key={r.id}
+                row={r}
+                onDone={() => { setDone((d) => [...d, r.id]); router.refresh(); }}
+              />
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );

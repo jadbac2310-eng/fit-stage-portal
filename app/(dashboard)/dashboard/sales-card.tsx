@@ -12,6 +12,18 @@ import { Delta } from "@/components/ui/delta";
  * いちばん大きく見せる。今日の行動がそのまま数字に出るため。
  * 担当のお客さまも成約もまだ無い人には出さない。
  */
+/** 次の予定が入っていない人の名札。最初の6名と「ほか◯名」で同じ見た目にする */
+function UncoveredChip({ name }: { name: string }) {
+  return (
+    <Link
+      href={`/lessons/regular?q=${encodeURIComponent(name)}`}
+      className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700"
+    >
+      {name}
+    </Link>
+  );
+}
+
 export function SalesCard({
   coverage, month, streak, badges,
 }: {
@@ -62,19 +74,27 @@ export function SalesCard({
             )}
           </p>
 
+          {/* 次の予定が入っていない人。ここは「声をかける相手」の名簿なので、
+              「ほか◯名」で隠すと誰に連絡すればいいか分からなくなる。
+              その場で開けるようにする（details なので JavaScript は要らない）。 */}
           {coverage.uncovered.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {coverage.uncovered.slice(0, 6).map((u) => (
-                <Link
-                  key={u.customerId}
-                  href={`/lessons/regular?q=${encodeURIComponent(u.customerName)}`}
-                  className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700"
-                >
-                  {u.customerName}
-                </Link>
-              ))}
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-1">
+                {coverage.uncovered.slice(0, 6).map((u) => (
+                  <UncoveredChip key={u.customerId} name={u.customerName} />
+                ))}
+              </div>
               {coverage.uncovered.length > 6 && (
-                <span className="px-1 text-[11px] text-gray-400">ほか{coverage.uncovered.length - 6}名</span>
+                <details className="mt-1">
+                  <summary className="cursor-pointer list-none text-[11px] font-semibold text-blue-600 hover:underline">
+                    ほか{coverage.uncovered.length - 6}名を表示
+                  </summary>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {coverage.uncovered.slice(6).map((u) => (
+                      <UncoveredChip key={u.customerId} name={u.customerName} />
+                    ))}
+                  </div>
+                </details>
               )}
             </div>
           )}

@@ -349,8 +349,11 @@ export default async function DashboardPage() {
               <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
             </Link>
           ))}
+          {/* 残りはスケジュールで見られるので、文字で置かずにそこへ飛ばす */}
           {myUpcoming.length > 5 && (
-            <p className="text-xs text-gray-400 text-center pt-1">ほか {myUpcoming.length - 5} 件</p>
+            <Link href="/schedule" className="block text-xs font-semibold text-blue-600 text-center pt-1 hover:underline">
+              ほか {myUpcoming.length - 5} 件を見る →
+            </Link>
           )}
         </div>
       )}
