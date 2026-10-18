@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/consultation-webhook",
   "/api/reserve-webhook", // HPの体験予約フォーム（x-webhook-secret で検証）
+  "/api/join-webhook",   // HPの入会申し込みフォーム（x-webhook-secret で検証）
   "/api/line/webhook",   // LINE Webhook（署名で検証）
   "/api/line/login",     // LINE通知からの自動ログイン（署名トークンで検証）
   "/api/cron/",          // Cron（CRON_SECRET で検証）
