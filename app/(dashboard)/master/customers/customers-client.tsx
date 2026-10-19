@@ -31,6 +31,14 @@ function statusColor(status: CustomerStatus) {
                                 "bg-gray-100 text-gray-500";
 }
 
+/** 登録日。「新しい順」で並べたとき、どこまでが今月かを見えるようにするために出す */
+function regDate(iso?: string) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 /** FCT経由のお客さま。請求書を出さない・会場代がかからないので、一覧でひと目で分かるようにする */
 function FctBadge() {
   return (
@@ -604,6 +612,7 @@ function CustomerRow({ customer, isAdmin, members, fctRates, allCustomers }: { c
           {isFctCustomer(customer) && <FctBadge />}
         </div>
         <p className="text-xs text-gray-400 mt-0.5">{customer.email}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">登録 {regDate(customer.createdAt) || "—"}</p>
       </td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{customer.phoneNumber}</p>
@@ -682,6 +691,7 @@ function CustomerCard({ customer, isAdmin, members, fctRates, allCustomers }: { 
           <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
             <Phone size={10} className="flex-shrink-0" />{customer.phoneNumber}
           </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">登録 {regDate(customer.createdAt) || "—"}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           {isAdmin
