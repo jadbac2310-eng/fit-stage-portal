@@ -15,11 +15,26 @@ function pick<T>(list: T[], now: Date | number, offset: number): T {
   return list[(jstDayNumber(now) + offset) % list.length];
 }
 
+/**
+ * 数のビットをよく混ぜる。
+ *
+ * これが無いと「10月18日」と「10月19日」のように1文字ちがうだけの文字列は
+ * ハッシュも1しかちがわず、翌日になっても隣の候補しか出ない。
+ * （運勢が2日続けて同じに見えていたのはこれが原因）
+ */
+function mix(n: number): number {
+  let h = n | 0;
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return Math.abs(h);
+}
+
 /** 文字列から数をつくる（担当者ごとに別のものを出すため。毎回おなじ結果になる） */
 function hashOf(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
+  return mix(h);
 }
 
 // ─── 今日のお題 ────────────────────────────────────────
@@ -164,10 +179,17 @@ const LUCKY_ITEMS: string[] = [
  * 同じ人・同じ日なら必ずおなじものが出る（引き直しはできない）。
  */
 export function fortuneOfTheDay(now: Date | number = Date.now(), memberId?: string): DailyFortune {
-  const seed = jstDayNumber(now) + (memberId ? hashOf(memberId) : 0);
+  // 日付に足し算するだけだと、並びが1つずつ進むので
+  //   ・同じ運勢が2日続く（同じ運勢が2つずつ並んでいるため）
+  //   ・12日でまったく同じ並びが一周する
+  // となって「ずっと同じ」に見えてしまう。
+  // 日付と人をまぜてハッシュにし、隣り合う日がバラバラになるようにする。
+  const day = jstDayNumber(now);
+  const seed = hashOf(`${memberId ?? "-"}:${day}`);
   return {
-    ...FORTUNE_LEVELS[(seed + 11) % FORTUNE_LEVELS.length],
-    item: LUCKY_ITEMS[(seed + 5) % LUCKY_ITEMS.length],
+    ...FORTUNE_LEVELS[seed % FORTUNE_LEVELS.length],
+    // 運勢とラッキー種目が連動しないよう、別のたねから引く
+    item: LUCKY_ITEMS[hashOf(`item:${memberId ?? "-"}:${day}`) % LUCKY_ITEMS.length],
   };
 }
 

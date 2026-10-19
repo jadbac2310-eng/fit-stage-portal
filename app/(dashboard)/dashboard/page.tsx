@@ -25,7 +25,7 @@ import {
 } from "@/lib/trainer-stats";
 import { PendingLessonsCard } from "./pending-lessons-card";
 import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
-import { quoteOfTheDay } from "@/lib/daily-quote";
+import { randomQuote } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
 import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting, seasonal } from "@/lib/daily-cards";
@@ -166,7 +166,8 @@ export default async function DashboardPage() {
   const unassigned = currentMember?.isAdmin
     ? allFollows.filter((f) => !f.salesMemberId && !fctIds.has(f.customerId))
     : [];
-  const quote      = quoteOfTheDay(now);
+  // 格言は開くたびに変える（1日1つだと、だんだん見なくなるため）
+  const quote      = randomQuote();
   // 連続記録と称号（自分の担当ぶんだけ）
   const streak = weeklyStreak(lessons, trialLessons, myId, now);
   const badges = earnedBadges(lessons, trialLessons, myId, streak, now);

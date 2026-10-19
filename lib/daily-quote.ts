@@ -247,3 +247,22 @@ function jstDayNumber(now: Date | number = Date.now()): number {
 export function quoteOfTheDay(now: Date | number = Date.now()): DailyQuote {
   return DAILY_QUOTES[jstDayNumber(now) % DAILY_QUOTES.length];
 }
+
+/**
+ * 開くたびに変わる格言。
+ *
+ * 1日1つだと、何度開いても同じでだんだん見なくなる。
+ * 143個あるので、開くたびに引いたほうが読まれる。
+ *
+ * 直前に出たものは避ける（続けて同じものが出ると「変わってない」と思われるため）。
+ */
+export function randomQuote(exclude?: string): DailyQuote {
+  const pool = exclude
+    ? DAILY_QUOTES.filter((q) => q.text !== exclude)
+    : DAILY_QUOTES;
+  const list = pool.length > 0 ? pool : DAILY_QUOTES;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+/** 格言の総数（「143の格言からランダム」のような表示に使う） */
+export const QUOTE_COUNT = DAILY_QUOTES.length;

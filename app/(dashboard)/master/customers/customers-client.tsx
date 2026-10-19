@@ -715,6 +715,8 @@ export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_D
   // 既定は「退会をのぞく」。人数が増えると、辞めた人が混ざって探しにくいため
   const [filterStatus, setFilterStatus] = useState<CustomerStatus | "" | "notInactive">("notInactive");
   const [sortBy, setSortBy] = useState<"name" | "newest">("name");
+  // 法人だけ見たいことがある（請求まとめ先の確認など）
+  const [filterType, setFilterType] = useState<"" | CustomerType>("");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -731,14 +733,15 @@ export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_D
         filterStatus === ""           ? true :
         filterStatus === "notInactive" ? c.status !== "inactive" :
                                          c.status === filterStatus;
-      return hit(c) && matchStatus;
+      const matchType = filterType === "" || c.customerType === filterType;
+      return hit(c) && matchStatus && matchType;
     });
 
     // 名前順（あいうえお順）が既定。登録順だと目で追えないため
     return sortBy === "name"
       ? [...rows].sort((a, b) => a.fullName.localeCompare(b.fullName, "ja"))
       : [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [customers, search, filterStatus, sortBy]);
+  }, [customers, search, filterStatus, filterType, sortBy]);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -788,6 +791,15 @@ export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_D
           <option value="inactive">退会</option>
         </select>
         <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as "" | CustomerType)}
+          className="px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">個人・法人すべて</option>
+          <option value="corporate">法人だけ</option>
+          <option value="individual">個人だけ</option>
+        </select>
+        <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as "name" | "newest")}
           className="px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -799,6 +811,8 @@ export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_D
 
       <p className="text-xs text-gray-400 mb-2 px-1">
         {filtered.length}名を表示中（全{customers.length}名）
+        {filterType === "corporate" && "・法人のみ"}
+        {filterType === "individual" && "・個人のみ"}
       </p>
 
       {/* 追加フォーム（デスクトップ） */}

@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { quoteOfTheDay } from "@/lib/daily-quote";
+import { randomQuote } from "@/lib/daily-quote";
 import { LoginForm } from "./login-form";
 import { IdleSurprise } from "./idle-surprise";
 
@@ -7,7 +7,8 @@ import { IdleSurprise } from "./idle-surprise";
 export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
-  const quote = quoteOfTheDay();
+  // 格言は開くたびに変える
+  const quote = randomQuote();
 
   return (
     <div className="fs-login-root min-h-screen bg-gray-50 flex items-center justify-center p-4 overflow-hidden">
