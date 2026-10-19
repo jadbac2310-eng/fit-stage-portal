@@ -58,6 +58,32 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
         </div>
       </div>
 
+      {/* 今月増えたお客さまのお名前。
+          人数だけだと「誰が増えたのか」が分からず、見ても次の行動につながらない。
+          名前が多いときは先頭だけ出して、残りは件数で示す（lib/company-stats.ts で絞っている）。 */}
+      {s.newCustomerNames.length > 0 && (
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1.5">
+            <Sparkles size={10} className="text-amber-500" /> 今月増えたお客さま
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {s.newCustomerNames.map((name) => (
+              <span
+                key={name}
+                className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+              >
+                {name}
+              </span>
+            ))}
+            {s.newCustomers > s.newCustomerNames.length && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                ほか{s.newCustomers - s.newCustomerNames.length}名
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 売上の伸び（％のみ。金額は出さない） */}
       {(s.revenueGrowth != null || s.revenueGrowthYoY != null) && (
         <div className="mt-3 border-t border-gray-100 pt-3 flex items-center gap-4">

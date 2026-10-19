@@ -29,6 +29,8 @@ export interface CompanyStats {
   lastMonthLessons: number;
   /** 今月の新規のお客さま */
   newCustomers:     number;
+  /** 今月の新規のお客さまのお名前（新しい順）。多いときは先頭だけ。金額は持たない */
+  newCustomerNames: string[];
   /** 先月の同じ日までの新規のお客さま */
   lastNewCustomers: number;
   /** 在籍中のお客さま */
@@ -108,8 +110,18 @@ export function companyStats(
   const yoy  = countAndRevenue(sameDayRange(today, 12));
 
   // ─── 新規のお客さま ───
-  const newIn = (r: { from: string; to: string }) =>
-    customers.filter((c) => c.createdAt && inRange(c.createdAt, r)).length;
+  const newListIn = (r: { from: string; to: string }) =>
+    customers.filter((c) => c.createdAt && inRange(c.createdAt, r));
+  const newIn = (r: { from: string; to: string }) => newListIn(r).length;
+
+  // 数字だけだと「誰が増えたのか」が分からず、見ても次の行動につながらない。
+  // 新しい順に並べて、多いときは先頭だけ渡す（残りは件数で足りる）。
+  const NEW_NAMES_MAX = 8;
+  const newCustomerNames = newListIn(thisR)
+    .slice()
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+    .slice(0, NEW_NAMES_MAX)
+    .map((c) => c.fullName);
 
   // ─── 今月の体験（全体） ───
   const trialsThisMonth = doneTrials.filter((t) => inRange(t.scheduledAt, thisR));
@@ -137,6 +149,7 @@ export function companyStats(
     monthLessons:     cur.count,
     lastMonthLessons: prev.count,
     newCustomers:     newIn(thisR),
+    newCustomerNames,
     lastNewCustomers: newIn(sameDayRange(today, 1)),
     activeCustomers:  customers.filter((c) => c.status === "active").length,
     totalLessons,
