@@ -8,6 +8,7 @@ import { getFctStores } from "@/lib/fct-stores";
 import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, fctLessonSummary } from "@/lib/invoices";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { courseToPaymentType, isBillableLessonStatus } from "@/lib/lessons-types";
 import { InvoicesClient } from "./invoices-client";
 
@@ -48,10 +49,13 @@ export default async function InvoicesPage({
     getFctStores(),
   ]);
 
-  const fees = invoiceFeesFromPlans(plansMaster);
+    // 段階単価（まとめた人数の合計で単価が変わる契約）をレッスンごとに当てはめる
+  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
+
+const fees = invoiceFeesFromPlans(plansMaster);
 
   const invoices = billingGroups(customers)
-    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons, trialLessons, monthlyItems }, fees))
+    .map((g) => buildGroupInvoice(g.biller, g.members, month, { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, fees))
     .filter((inv) => inv.lines.length > 0) // 明細があれば出す（合計0円でも隠さない）
     .sort((a, b) => a.customerName.localeCompare(b.customerName, "ja"));
 

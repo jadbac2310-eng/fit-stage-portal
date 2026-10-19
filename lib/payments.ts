@@ -114,6 +114,8 @@ export function buildReceivables(
     sessionPassPriceMap?: Record<number, Record<number, number>>;
     /** コース名→1回単価。体験レッスンの料金区分を解決するのに使う */
     lessonFees?: Record<string, number>;
+    /** 段階単価を当てはめた「レッスンID → 単価」（lib/session-tiers.ts） */
+    tieredPrices?: Record<string, number>;
   },
 ): Receivable[] {
   const nameOf = new Map(data.customers.map((c) => [c.id, c.fullName]));
@@ -155,7 +157,11 @@ export function buildReceivables(
     // FCT経由のお客さまはお客さまから直接もらわない（FCTからまとめて入る）ので、
     // 1回ごとの入金管理には出さない。月の合計は請求書画面の「FCT分」で見る。
     if (isFctCustomer(cust)) continue;
-    const amount = resolveSingleLessonAmount(l.amount, cust?.singleSessionPrice) ?? singleSessionFee;
+    // 請求書と同じ順で決める（この回だけの金額 → 段階単価 → 顧客の都度単価 → 既定）
+    const amount = l.amount
+      ?? data.tieredPrices?.[l.id]
+      ?? resolveSingleLessonAmount(null, cust?.singleSessionPrice)
+      ?? singleSessionFee;
     if (amount <= 0) continue; // 0円は請求も入金も発生しないので入金管理には出さない
     items.push({
       sourceType: "single_lesson", sourceId: l.id, customerId: l.customerId,

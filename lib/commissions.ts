@@ -99,6 +99,12 @@ export interface CommissionContext {
   trainerRates?: { memberId: string; customerId: string; rate: number; fixedAmount?: number }[];
   /** プランマスタ由来のコース名→1回単価。未指定コースは固定単価表にフォールバック */
   lessonFees?:   Record<string, number>;
+  /**
+   * 段階単価を当てはめた「レッスンID → 単価」。lib/session-tiers.ts の tieredLessonPrices で作る。
+   * 請求まとめ先ごとに合算した回数で単価が変わる契約（4回目まで9,200円／5回目から9,000円）に使う。
+   * ここに無いレッスンは今までどおり顧客ごとの都度単価。
+   */
+  tieredPrices?: Record<string, number>;
   /** 回数券標準金額マスタ { 人数: { 回数: 総額 } }。回数券に price 未設定時のフォールバック */
   sessionPassPriceMap?: Record<number, Record<number, number>>;
   /**
@@ -162,8 +168,13 @@ export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number
     if (plan?.price != null && sessions > 0) return Math.round(plan.price / sessions);
   }
 
-  // 単発(都度・オンライン等): レッスン個別金額 → 顧客の都度単価
+  // 単発(都度・オンライン等): レッスン個別金額 → 段階単価 → 顧客の都度単価
   if (courseToPaymentType(course) === "single") {
+    // この回だけ金額を入れてあるときは、それがいちばん強い
+    if (lesson.amount != null) return lesson.amount;
+    // 段階単価（「まとめて4回目まで9,200円、5回目から9,000円」など）が決まっていればそれ
+    const tiered = ctx.tieredPrices?.[lesson.id];
+    if (tiered != null) return tiered;
     const cust = ctx.customers.find((c) => c.id === lesson.customerId);
     const amount = resolveSingleLessonAmount(lesson.amount, cust?.singleSessionPrice);
     if (amount != null) return amount;

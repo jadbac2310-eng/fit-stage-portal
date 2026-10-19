@@ -210,6 +210,11 @@ export interface InvoiceData {
   trialLessons?: TrialLesson[];
   /** 毎月かかる固定の請求項目（ホームページ運用代行など） */
   monthlyItems?: CustomerMonthlyItem[];
+  /**
+   * 段階単価を当てはめた「レッスンID → 単価」（lib/session-tiers.ts）。
+   * 請求まとめ先ごとに合算した回数で単価が変わる契約に使う。
+   */
+  tieredPrices?: Record<string, number>;
 }
 
 /**
@@ -258,7 +263,11 @@ export function buildInvoice(
     if (l.customerId !== customer.id) continue;
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inPeriod(l.scheduledAt, period)) continue;
-    const amount = resolveSingleLessonAmount(l.amount, customer.singleSessionPrice) ?? fees.single;
+    // この回だけの金額 → 段階単価 → 顧客の都度単価 → マスタの既定、の順で決める
+    const amount = l.amount
+      ?? data.tieredPrices?.[l.id]
+      ?? resolveSingleLessonAmount(null, customer.singleSessionPrice)
+      ?? fees.single;
     lines.push({ date: l.scheduledAt.slice(0, 10), label: deliveryLabel(l.deliveryMode), amount });
   }
 

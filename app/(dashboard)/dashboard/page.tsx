@@ -35,6 +35,7 @@ import { nextVisitCoverage, salesMonth, salesStreak, salesBadges } from "@/lib/s
 import { SalesCard } from "./sales-card";
 import { CountUp } from "./count-up";
 import { Delta } from "@/components/ui/delta";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { companyStats } from "@/lib/company-stats";
 import { CompanyCard } from "./company-card";
 
@@ -84,6 +85,8 @@ export default async function DashboardPage() {
       .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
+    // 段階単価（まとめた人数の合計で単価が変わる契約）。請求書と同じ単価で歩合を出すため
+    tieredPrices: tieredLessonPricesAll({ customers, lessons }),
   };
 
   // ─── 今月サマリー（個人向け） ──────────────────────────

@@ -17,6 +17,7 @@ import {
   resolveTrialFee,
   type CommissionContext,
 } from "@/lib/commissions";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
@@ -117,9 +118,12 @@ export function DetailsClient({
     [fctStores],
   );
 
+  // 段階単価（まとめた人数の合計で単価が変わる契約）。請求書と同じ単価で歩合を出すため
+  const tieredPrices = useMemo(() => tieredLessonPricesAll({ customers, lessons }), [customers, lessons]);
+
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctStores: fctRates }
-  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctRates]);
+    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctStores: fctRates, tieredPrices }
+  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctRates, tieredPrices]);
 
   const customerTypeMap = useMemo(() => {
     const map = new Map<string, string>();

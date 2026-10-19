@@ -13,6 +13,7 @@ import {
   billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
   monthLabel, billingPeriodLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown,
 } from "@/lib/invoices";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { EditableBillingName } from "./editable-name";
 import { EditableDueDate } from "./editable-due-date";
@@ -52,9 +53,12 @@ export default async function InvoicePrintPage({
   if (!group) notFound();
   const customer = group.biller;
 
+  // 段階単価（まとめた人数の合計で単価が変わる契約）をレッスンごとに当てはめる
+  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
+
   const invoice = buildGroupInvoice(
     customer, group.members, month,
-    { plans, passes, lessons, trialLessons, monthlyItems }, invoiceFeesFromPlans(plansMaster),
+    { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, invoiceFeesFromPlans(plansMaster),
   );
   const dueOverride = await getInvoiceDueDate(customer.id, month);
   const invoiceNo = invoiceNumber(month, customer.id);

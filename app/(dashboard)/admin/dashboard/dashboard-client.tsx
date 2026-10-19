@@ -16,6 +16,7 @@ import {
   buildTrainerEntries, buildSalesEntries, buildHourlyEntries, resolveLessonFee, resolveTrialFee, isoToMonth,
   type CommissionContext, type TrainerEntry, type SalesEntry, type HourlyEntry,
 } from "@/lib/commissions";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
 import { feeTotal, feePayments, type FeeablePayment } from "@/lib/payment-fees";
@@ -545,9 +546,12 @@ export function RevenueDashboardClient({
     [fctStores],
   );
 
+  // 段階単価（まとめた人数の合計で単価が変わる契約）。請求書と同じ単価で歩合を出すため
+  const tieredPrices = useMemo(() => tieredLessonPricesAll({ customers, lessons }), [customers, lessons]);
+
   const ctx = useMemo((): CommissionContext => (
-    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctStores: fctRates }
-  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctRates]);
+    { customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctStores: fctRates, tieredPrices }
+  ), [customers, sessionPasses, customerPlans, members, trainerRates, lessonFees, sessionPassPriceMap, fctRates, tieredPrices]);
 
   // 直近12か月（古い→新しい）
   const series = useMemo(() => {

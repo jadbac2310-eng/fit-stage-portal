@@ -1,4 +1,5 @@
 import { getCustomers } from "@/lib/customers";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getHourlyTasks } from "@/lib/hourly-tasks";
@@ -57,6 +58,8 @@ export default async function CommissionStatementPage({
     members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
     trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
+    // 段階単価（請求書と同じ単価で歩合を出す）
+    tieredPrices: tieredLessonPricesAll({ customers, lessons }),
     sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),
     fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
   };

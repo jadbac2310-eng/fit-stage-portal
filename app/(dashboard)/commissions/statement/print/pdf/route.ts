@@ -12,6 +12,7 @@ import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { type CommissionContext } from "@/lib/commissions";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { buildTrainerStatements } from "@/lib/commission-statement";
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
 import { CommissionStatementDocument } from "@/lib/commission-statement-pdf";
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),
     fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
+    // 段階単価（請求書と同じ単価で歩合を出す）
+    tieredPrices: tieredLessonPricesAll({ customers, lessons }),
   };
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));

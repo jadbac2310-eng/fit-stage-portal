@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { requireAdmin } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
+import { normalizeTiers } from "@/lib/session-tiers-types";
 import { STATUS_LABEL, FCT_SALES_VALUE, type CustomerStatus, type CustomerType, type SalesChannel } from "@/lib/customers-types";
 
 /**
@@ -30,9 +31,16 @@ function readDay(formData: FormData, name: string): number | null {
  * 新規登録のときだけ「請求まとめ先」が読まれず、黙って捨てられていた。
  */
 function readBilling(formData: FormData) {
+  // 段階単価はJSONで送られてくる。壊れていても保存を止めず、normalizeTiers で安全な形にする
+  let sessionTiers: { fromCount: number; unitPrice: number }[] = [];
+  try {
+    sessionTiers = normalizeTiers(JSON.parse((formData.get("sessionTiers") as string) || "[]"));
+  } catch { sessionTiers = []; }
+
   return {
     billingName:         (formData.get("billingName") as string)?.trim() || null,
     billingToCustomerId: (formData.get("billingToCustomerId") as string)?.trim() || null,
+    sessionTiers:        sessionTiers.length > 0 ? sessionTiers : null,
     billingCutoffDay:    readDay(formData, "billingCutoffDay"),
     invoiceSendDay:      readDay(formData, "invoiceSendDay"),
     // 支払期限ルール（例: 翌月末 / 当月末 / 翌月25日）

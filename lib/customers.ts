@@ -1,4 +1,5 @@
 import { createAdminClient, fetchAllRows } from "./supabase";
+import { normalizeTiers } from "./session-tiers-types";
 export type { CustomerPlan, CustomerStatus, CustomerType, SalesChannel, Customer } from "./customers-types";
 export { STATUS_LABEL, CUSTOMER_TYPE_LABEL, isFctCustomer } from "./customers-types";
 import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth, SalesChannel } from "./customers-types";
@@ -16,6 +17,7 @@ type DbRow = {
   sales_channel?: string | null;
   billing_name: string | null;
   billing_to_customer_id: string | null;
+  session_tiers?: unknown;
   billing_cutoff_day?: number | null;
   invoice_send_day?: number | null;
   payment_due_month?: string | null;
@@ -43,6 +45,7 @@ function fromDb(row: DbRow): Customer {
     salesChannel:     row.sales_channel === "fct" ? "fct" : "own",
     billingName:      row.billing_name ?? undefined,
     billingToCustomerId: row.billing_to_customer_id ?? undefined,
+    sessionTiers:     normalizeTiers(row.session_tiers),
     billingCutoffDay: row.billing_cutoff_day ?? undefined,
     invoiceSendDay:   row.invoice_send_day ?? undefined,
     paymentDueMonth:  row.payment_due_month === "same" ? "same" : "next",
@@ -86,7 +89,7 @@ export async function addCustomer(
   // 請求まわりは画面で「未設定」を選べるので、undefined だけでなく null も受ける
   input: Omit<Customer, "id" | "createdAt" | "updatedAt"
     | "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay" | "billingCutoffDay"
-    | "billingName" | "billingToCustomerId">
+    | "billingName" | "billingToCustomerId" | "sessionTiers">
     & Partial<{
       paymentDueMonth:     PaymentDueMonth;
       paymentDueDay:       number | null;
@@ -94,6 +97,7 @@ export async function addCustomer(
       billingCutoffDay:    number | null;
       billingName:         string | null;
       billingToCustomerId: string | null;
+      sessionTiers:        { fromCount: number; unitPrice: number }[] | null;
     }>
 ): Promise<Customer> {
   const client = createAdminClient();
@@ -115,6 +119,7 @@ export async function addCustomer(
       // 以前はこの2行が無く、登録時に選んだまとめ先が黙って消えていた
       billing_to_customer_id: input.billingToCustomerId ?? null,
       billing_name:       input.billingName         ?? null,
+      session_tiers:      input.sessionTiers        ?? null,
       agreed_to_terms:    input.agreedToTerms,
       status:             input.status,
       customer_type:      input.customerType        ?? "individual",
@@ -156,6 +161,7 @@ export async function updateCustomer(
     salesChannel: SalesChannel;
     billingName: string | null;
     billingToCustomerId: string | null;
+    sessionTiers: { fromCount: number; unitPrice: number }[] | null;
     billingCutoffDay: number | null;
     invoiceSendDay: number | null;
     paymentDueMonth: PaymentDueMonth;
@@ -178,6 +184,7 @@ export async function updateCustomer(
   if (input.salesChannel     !== undefined) patch.sales_channel       = input.salesChannel;
   if (input.billingName      !== undefined) patch.billing_name       = input.billingName ?? null;
   if (input.billingToCustomerId !== undefined) patch.billing_to_customer_id = input.billingToCustomerId ?? null;
+  if (input.sessionTiers        !== undefined) patch.session_tiers = input.sessionTiers ?? null;
   if (input.billingCutoffDay !== undefined) patch.billing_cutoff_day = input.billingCutoffDay ?? null;
   if (input.invoiceSendDay   !== undefined) patch.invoice_send_day  = input.invoiceSendDay ?? null;
   if (input.paymentDueMonth  !== undefined) patch.payment_due_month = input.paymentDueMonth;

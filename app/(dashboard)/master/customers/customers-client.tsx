@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeTiers, tiersLabel } from "@/lib/session-tiers-types";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -135,6 +136,10 @@ function CustomerForm({
   // まとめ先を選ぶと、その顧客あての請求書は作られない（まとめ先の請求書に合算される）。
   // 宛名・締日・送付日・支払期限はすべてまとめ先のものが使われるので、入力欄ごと隠す。
   const [billingTo, setBillingTo] = useState(defaultValues?.billingToCustomerId ?? "");
+  // 段階単価（「4回目まで9,200円、5回目から9,000円」など）。請求まとめ先に設定する
+  const [tiers, setTiers] = useState<{ fromCount: number; unitPrice: number }[]>(
+    () => normalizeTiers(defaultValues?.sessionTiers),
+  );
   const billerName = allCustomers.find((c) => c.id === billingTo)?.fullName ?? "まとめ先の顧客";
   // 担当営業は「自社の営業」か「FCT」のどちらか。FCTのお客さまは請求書を出さないので請求設定も要らない。
   const [sales, setSales] = useState(
@@ -351,6 +356,7 @@ function CustomerForm({
           </p>
           <input type="hidden" name="billingToCustomerId" defaultValue={defaultValues?.billingToCustomerId ?? ""} />
           <input type="hidden" name="billingName"      defaultValue={defaultValues?.billingName ?? ""} />
+          <input type="hidden" name="sessionTiers"      defaultValue={JSON.stringify(normalizeTiers(defaultValues?.sessionTiers))} />
           <input type="hidden" name="billingCutoffDay" defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""} />
           <input type="hidden" name="invoiceSendDay"   defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""} />
           <input type="hidden" name="paymentDueMonth"  defaultValue={defaultValues?.paymentDueMonth ?? "next"} />
@@ -383,6 +389,7 @@ function CustomerForm({
             </p>
             {/* まとめをやめたときに元の設定が消えないよう、値はそのまま持っておく */}
             <input type="hidden" name="billingName"      defaultValue={defaultValues?.billingName ?? ""} />
+            <input type="hidden" name="sessionTiers"      defaultValue={JSON.stringify(normalizeTiers(defaultValues?.sessionTiers))} />
             <input type="hidden" name="billingCutoffDay" defaultValue={defaultValues?.billingCutoffDay?.toString() ?? ""} />
             <input type="hidden" name="invoiceSendDay"   defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""} />
             <input type="hidden" name="paymentDueMonth"  defaultValue={defaultValues?.paymentDueMonth ?? "next"} />
@@ -398,6 +405,60 @@ function CustomerForm({
               placeholder="未設定なら氏名を使用"
               className={inputClass}
             />
+          </div>
+          {/* 段階単価。「この請求先にまとめた人数の合計で、◯回目から単価が変わる」契約に使う。
+              例) 井上塗装店＝2名合わせて4回目まで9,200円、5回目から9,000円 */}
+          <div>
+            <label className={labelClass}>段階単価（任意）</label>
+            <input type="hidden" name="sessionTiers" value={JSON.stringify(tiers)} />
+            {tiers.length === 0 ? (
+              <p className="text-xs text-gray-400">
+                設定なし（都度単価をそのまま使います）
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {tiers.map((t, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <input
+                      type="number" min="1" value={t.fromCount}
+                      onChange={(e) => setTiers((rows) => rows.map((r, j) =>
+                        j === i ? { ...r, fromCount: parseInt(e.target.value, 10) || 1 } : r))}
+                      className={`${inputClass} w-20`}
+                      aria-label={`${i + 1}段目の開始回数`}
+                    />
+                    <span className="text-xs text-gray-500 flex-shrink-0">回目から</span>
+                    <input
+                      type="number" min="0" step="100" value={t.unitPrice}
+                      onChange={(e) => setTiers((rows) => rows.map((r, j) =>
+                        j === i ? { ...r, unitPrice: parseInt(e.target.value, 10) || 0 } : r))}
+                      className={`${inputClass} w-28`}
+                      aria-label={`${i + 1}段目の単価`}
+                    />
+                    <span className="text-xs text-gray-500 flex-shrink-0">円</span>
+                    <button
+                      type="button"
+                      onClick={() => setTiers((rows) => rows.filter((_, j) => j !== i))}
+                      className="ml-auto text-xs text-gray-400 hover:text-red-500 px-1.5 py-1"
+                    >削除</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setTiers((rows) => [
+                ...rows,
+                { fromCount: rows.length === 0 ? 1 : (rows[rows.length - 1]?.fromCount ?? 0) + 4, unitPrice: 0 },
+              ])}
+              className="mt-1.5 text-xs font-semibold text-blue-600 hover:underline"
+            >＋ 段を追加</button>
+            {tiers.length > 0 && (
+              <p className="text-xs text-blue-700 bg-blue-50 rounded-lg p-2 mt-1.5 leading-relaxed">
+                {tiersLabel(tiers)}
+                <br />
+                この請求先にまとめたお客さま全員の合計回数で数えます（締日の期間ごとに数え直し）。
+              </p>
+            )}
           </div>
           <div>
             <label className={labelClass}>請求の締日</label>

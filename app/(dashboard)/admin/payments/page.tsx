@@ -7,6 +7,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPriceMap, buildLessonFeeMap } from "@/lib/plans-master";
 import { getPayments, buildReceivables } from "@/lib/payments";
 import { billingGroups, billingName } from "@/lib/invoices";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { PaymentsClient } from "./payments-client";
 
 export const dynamic = "force-dynamic";
@@ -42,11 +43,15 @@ export default async function PaymentsPage({
   const singleMaster = plansMaster.find((p) => p.paymentType === "single");
   const singleFee = singleMaster ? planUnitPrice(singleMaster) : 0;
 
+  // 段階単価（まとめた人数の合計で単価が変わる契約）
+  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
+
   const receivables = buildReceivables(month, {
     customers, passes, plans, lessons, trialLessons, payments,
     singleSessionFee: singleFee,
     sessionPassPriceMap: buildSessionPassPriceMap(sppPrices),
     lessonFees: buildLessonFeeMap(plansMaster),
+    tieredPrices,
   });
 
   // 同じ会社・人物への請求をまとめる先（billingToCustomerId）ごとに顧客IDをグルーピングする

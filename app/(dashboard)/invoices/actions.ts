@@ -11,6 +11,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
 import { getAllPlans } from "@/lib/plans-master";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, billingPeriodLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
+import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
@@ -76,9 +77,12 @@ export async function createInvoiceShareAction(
   const biller = group.biller;
 
   // 請求書の内訳（全明細）
+  // 段階単価（まとめた人数の合計で単価が変わる契約）をレッスンごとに当てはめる
+  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
+
   const invoice = buildGroupInvoice(
     biller, group.members, month,
-    { plans, passes, lessons, trialLessons, monthlyItems }, invoiceFeesFromPlans(plansMaster),
+    { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, invoiceFeesFromPlans(plansMaster),
   );
   if (invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
 

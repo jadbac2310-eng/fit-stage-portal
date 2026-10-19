@@ -25,6 +25,12 @@ export interface Customer {
   salesChannel?: SalesChannel;  // 自社 / FCT経由（未設定は自社あつかい）
   billingName?: string;         // 請求書の宛名（上書き。未設定なら fullName）
   billingToCustomerId?: string; // 請求のまとめ先（この顧客分を別顧客に請求する）
+  /**
+   * 段階単価。「まとめた人数の合計で 4回目まで9,200円／5回目から9,000円」のような契約。
+   * 請求まとめ先（法人など）に設定する。まとめられる側に入れても使われない。
+   * 形は [{ fromCount, unitPrice }]（lib/session-tiers.ts）
+   */
+  sessionTiers?: { fromCount: number; unitPrice: number }[];
   billingCutoffDay?: number;        // 請求の締日。未設定なら月末締め（暦の月）
   invoiceSendDay?: number;          // 請求書を送る日（毎月）。未設定なら決まりなし
   paymentDueMonth: PaymentDueMonth; // 支払期限が当月か翌月か
