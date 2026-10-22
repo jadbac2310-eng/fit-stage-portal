@@ -12,7 +12,7 @@ import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import { cn } from "@/lib/cn";
 import {
   SALES_PRIORITIES, SALES_STEPS, SALES_END_STATUSES, SALES_STATUSES, END_STATUS_CLASS,
-  LOG_KINDS, LOG_KIND_CLASS, stepIndex, isOverdue,
+  LOG_KINDS, LOG_KIND_CLASS, isOverdue,
   type SalesTarget, type SalesTargetLog,
 } from "@/lib/sales-targets-types";
 import {
@@ -85,21 +85,20 @@ function useActionForm(action: (fd: FormData) => Promise<ActionResult>, onDone?:
   return { locked, error, submit };
 }
 
-// ─── 進み具合のバー（テレアポ → 企画書作成 → 訪問） ─────────────
-function StepBar({ status }: { status: string }) {
-  const idx = stepIndex(status);
-  if (idx < 0) {
-    return <span className={cn("text-[11px] font-semibold rounded-full px-2.5 py-0.5", END_STATUS_CLASS[status] ?? "bg-gray-100 text-gray-500")}>{status}</span>;
-  }
+// ─── 状況のバッジ ─────────────────────────────────────
+const STATUS_BADGE: Record<string, string> = {
+  "未着手":   "bg-gray-100 text-gray-500",
+  "テレアポ":  "bg-sky-50 text-sky-700",
+  "企画書作成": "bg-violet-50 text-violet-700",
+  "訪問":     "bg-amber-50 text-amber-700",
+  ...END_STATUS_CLASS,
+};
+
+function StatusBadge({ status }: { status: string }) {
   return (
-    <div className="flex items-center gap-1" aria-label={`状況: ${status}`}>
-      {SALES_STEPS.map((s, i) => (
-        <div key={s} className="flex-1 min-w-0">
-          <div className={cn("h-1.5 rounded-full", i < idx ? "bg-blue-500" : "bg-gray-200")} />
-          <p className={cn("text-[10px] mt-0.5 truncate", i < idx ? "text-blue-700 font-semibold" : "text-gray-400")}>{s}</p>
-        </div>
-      ))}
-    </div>
+    <span className={cn("text-[11px] font-semibold rounded-full px-2.5 py-0.5 whitespace-nowrap", STATUS_BADGE[status] ?? "bg-gray-100 text-gray-500")}>
+      {status}
+    </span>
   );
 }
 
@@ -126,14 +125,14 @@ function Playbook() {
             </ul>
             <p className="bg-white/70 rounded-xl p-3 leading-relaxed mt-2 text-[13px]">
               「お忙しいところ失礼いたします。大阪で出張パーソナルトレーニングを行っておりますFIT STAGEの〇〇と申します。
-              海外からのお客様向けに、英語でのトレーニングを客室や館内ジムで1回からご提供しておりまして、
-              ご案内の資料をお送りしたくご連絡いたしました。ご担当の方はいらっしゃいますでしょうか。」
+              英語を話せるトレーナーが数名在籍しておりまして、海外からのお客様向けに、客室や館内ジムでのトレーニングを1回からご提供しております。
+              ご案内の資料をお送りしたく、ご連絡いたしました。ご担当の方はいらっしゃいますでしょうか。」
             </p>
           </div>
           <div>
             <p className="text-xs font-bold text-amber-800 mb-1">2. 企画書作成</p>
             <ul className="list-disc pl-5 space-y-0.5">
-              <li>伝えるのは3つ：客室・館内ジムへ伺う（ホテル側の準備は不要）／英語・イタリア語・日本語で対応／前日〜当日の予約にも対応</li>
+              <li>伝えるのは3つ：英語を話せるトレーナーが数名在籍（イタリア語も可）／客室・館内ジムへ伺う（ホテル側の準備は不要）／前日〜当日の予約にも対応</li>
               <li>料金（ホテル経由）：1名60分 ¥16,000（税・交通費込み）。90分・2名は要相談。体験料金なし。HPの ¥9,900 とは別</li>
               <li>館内に専属トレーナーがいるホテルでは、競合ではなく「語学・時間外の補完」として書く</li>
             </ul>
@@ -498,9 +497,11 @@ function TargetCard({
                 : <span className="inline-flex items-center gap-1 text-amber-600"><UserRound size={12} />未割当</span>}
             </div>
           </div>
-          {open ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0 mt-1" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0 mt-1" />}
+          <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+            <StatusBadge status={status} />
+            {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          </div>
         </div>
-        <div className="mt-2.5"><StepBar status={status} /></div>
         {(target.nextAction || target.nextActionOn) && (
           <p className={cn("text-xs mt-2 flex items-center gap-1", overdue ? "text-red-600 font-semibold" : "text-gray-600")}>
             <CalendarClock size={12} className="flex-shrink-0" />
