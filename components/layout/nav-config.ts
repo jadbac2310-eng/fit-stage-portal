@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   PiggyBank,
   FileSignature,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "歩合",           href: "/commissions", icon: PiggyBank },
   { label: "プラン管理",     href: "/plans",       icon: CreditCard },
   { label: "入会申し込み",   href: "/master/applications", icon: FileSignature },
+  { label: "ホテル営業",     href: "/sales",       icon: Building2 },
   { label: "マスタ管理",     href: "/master",      icon: Database },
   { label: "管理者機能",     href: "/admin",       icon: ShieldCheck, adminOnly: true },
 ];
