@@ -21,6 +21,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### 反映済みのDB変更（SQL Editor で手動適用したもの）
 
 - 2026-10-23｜`20261023000001_sales_targets.sql`・`20261023000002_sales_targets_handover.sql`（ホテル営業ページ。18軒投入済み）
+- 2026-10-23｜`20261023000003_sales_flow_companions.sql`（ホテル営業：状況を テレアポ→企画書作成→訪問 に整理、訪問の付き添い companion_ids）
 
 ## セッションの担当分け（2つのリポジトリ）
 
