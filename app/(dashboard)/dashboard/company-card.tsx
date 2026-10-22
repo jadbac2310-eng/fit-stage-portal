@@ -11,6 +11,9 @@ import { Delta } from "@/components/ui/delta";
  *
  * 個人名の出る順位は出さない。下位になった人のやる気が確実に下がるため。
  */
+/** 棒グラフの高さ（px）。CSSクラスではなく数で持つ（棒の高さを px で計算するため） */
+const BAR_AREA = 64;
+
 export function CompanyCard({ stats }: { stats: CompanyStats }) {
   const s = stats;
   const max = Math.max(...s.monthlyCounts.map((m) => m.count), 1);
@@ -112,15 +115,26 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
       {/* 12か月の本数（グラフ用のライブラリは使わない。読み込みを重くしないため） */}
       <div className="mt-3 border-t border-gray-100 pt-3">
         <p className="text-[11px] font-semibold text-gray-500 mb-1.5">この1年のレッスン本数</p>
-        <div className="flex items-end gap-1 h-16">
+        {/* 棒の高さは px で指定する。
+            % にすると、親の高さが決まっていないときに 0 になって何も出ない
+            （棒を月名と同じ箱に入れていたため、実際それでグラフが真っ白になっていた）。
+            棒と月名は別の行に分けて、棒の行だけ高さを固定する。 */}
+        <div className="flex items-end gap-1" style={{ height: BAR_AREA }}>
           {s.monthlyCounts.map((m, i) => (
-            <div key={m.month} className="flex-1 flex flex-col items-center gap-1" title={`${m.label} ${m.count}本`}>
-              <div
-                className={i === s.monthlyCounts.length - 1 ? "w-full rounded-t bg-blue-500" : "w-full rounded-t bg-blue-200"}
-                style={{ height: `${Math.max((m.count / max) * 100, 2)}%` }}
-              />
-              <span className="text-[9px] text-gray-400">{m.label}</span>
-            </div>
+            <div
+              key={m.month}
+              title={`${m.label} ${m.count}本`}
+              className={[
+                "flex-1 rounded-t",
+                i === s.monthlyCounts.length - 1 ? "bg-blue-500" : m.count > 0 ? "bg-blue-200" : "bg-gray-100",
+              ].join(" ")}
+              style={{ height: m.count > 0 ? Math.max(Math.round((m.count / max) * BAR_AREA), 3) : 2 }}
+            />
+          ))}
+        </div>
+        <div className="flex gap-1 mt-1">
+          {s.monthlyCounts.map((m) => (
+            <span key={m.month} className="flex-1 text-center text-[9px] text-gray-400">{m.label}</span>
           ))}
         </div>
       </div>
