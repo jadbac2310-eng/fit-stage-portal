@@ -71,11 +71,15 @@ export async function updateSalesProgressAction(id: string, fd: FormData): Promi
 
 export async function updateSalesStatusAction(id: string, status: string): Promise<ActionResult> {
   return runAction(async () => {
-    await requireMember();
+    const me = await requireMember();
     checkStatus(status);
-    await patchSalesTarget(id, { status });
-    const t = await getSalesTarget(id);
-    await logActivity({ action: "update", entityType: "sales_target", entityId: id, summary: `ホテル営業の状況を変更: ${t?.name ?? ""} → ${status}` });
+    // 保存と名前の取得を同時に行って、押してからの待ち時間を短くする
+    const [, t] = await Promise.all([patchSalesTarget(id, { status }), getSalesTarget(id)]);
+    await logActivity({
+      action: "update", entityType: "sales_target", entityId: id,
+      summary: `ホテル営業の状況を変更: ${t?.name ?? ""} → ${status}`,
+      memberId: me.id, memberName: me.name,
+    });
     revalidatePath(PATH);
   });
 }

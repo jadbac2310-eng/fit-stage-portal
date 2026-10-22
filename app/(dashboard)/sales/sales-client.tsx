@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import {
   Building2, ChevronDown, ChevronUp, Plus, X, Trash2, ExternalLink, CalendarClock,
   Lightbulb, UserRound, Pencil, CalendarCheck, Users,
@@ -68,15 +67,18 @@ function SubmitButtons({ locked, label, onCancel }: { locked: boolean; label: st
   );
 }
 
-/** フォーム送信 → サーバーアクション → 再読込、の共通処理 */
+/**
+ * フォーム送信 → サーバーアクション、の共通処理。
+ * アクション側の revalidatePath で最新の画面が同じ往復で返ってくるので、router.refresh() はしない
+ * （二重に読み込んで反映が遅くなるため）。
+ */
 function useActionForm(action: (fd: FormData) => Promise<ActionResult>, onDone?: () => void) {
-  const router = useRouter();
   const { locked, run } = useSubmitLock();
   const [error, setError] = useState("");
   async function submit(fd: FormData) {
     setError("");
     await run(async () => {
-      try { assertActionOk(await action(fd)); router.refresh(); onDone?.(); }
+      try { assertActionOk(await action(fd)); onDone?.(); }
       catch (e) { setError(e instanceof Error ? e.message : "保存に失敗しました"); }
     });
   }
@@ -150,27 +152,17 @@ function Playbook() {
   );
 }
 
-// ─── 状況をタップで変える ───────────────────────────────
-function StatusPicker({ target }: { target: SalesTarget }) {
-  const router = useRouter();
-  const { locked, run } = useSubmitLock();
-  function change(value: string) {
-    if (value === target.status) return;
-    run(async () => {
-      try { assertActionOk(await updateSalesStatusAction(target.id, value)); router.refresh(); }
-      catch (e) { alert(e instanceof Error ? e.message : "変更に失敗しました"); }
-    });
-  }
+// ─── 状況をタップで変える（押した瞬間に見た目を変え、保存は裏で行う） ───────
+function StatusPicker({ status, onChange }: { status: string; onChange: (v: string) => void }) {
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1">
       {SALES_STATUSES.map((s) => (
         <button
-          key={s} type="button" disabled={locked} onClick={() => change(s)}
+          key={s} type="button" onClick={() => onChange(s)}
           className={cn("px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap transition",
-            target.status === s ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200")}
+            status === s ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200")}
         >{s}</button>
       ))}
-      {locked && <Spinner size={12} />}
     </div>
   );
 }
@@ -263,7 +255,6 @@ function LogForm({
 }
 
 function LogList({ logs, members, meId, isAdmin }: { logs: SalesTargetLog[]; members: MemberLite[]; meId?: string; isAdmin: boolean }) {
-  const router = useRouter();
   const del = useSubmitLock();
   const nameOf = useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members]);
   const sorted = useMemo(() => [...logs].sort(byWhenDesc), [logs]);
@@ -272,7 +263,7 @@ function LogList({ logs, members, meId, isAdmin }: { logs: SalesTargetLog[]; mem
     const msg = l.eventId ? "この記録を削除しますか？スケジュールの予定も消えます。" : "この記録を削除しますか？";
     if (!confirm(msg)) return;
     del.run(async () => {
-      try { assertActionOk(await deleteSalesLogAction(l.id)); router.refresh(); }
+      try { assertActionOk(await deleteSalesLogAction(l.id)); }
       catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
     });
   }
@@ -422,7 +413,6 @@ function InfoFields({ target }: { target?: SalesTarget }) {
 }
 
 function InfoTab({ target, isAdmin }: { target: SalesTarget; isAdmin: boolean }) {
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const form = useActionForm(updateSalesInfoAction.bind(null, target.id), () => setEditing(false));
   const del = useSubmitLock();
@@ -430,7 +420,7 @@ function InfoTab({ target, isAdmin }: { target: SalesTarget; isAdmin: boolean })
   function handleDelete() {
     if (!confirm(`「${target.name}」をリストから削除しますか？記録も消えます。`)) return;
     del.run(async () => {
-      try { assertActionOk(await deleteSalesTargetAction(target.id)); router.refresh(); }
+      try { assertActionOk(await deleteSalesTargetAction(target.id)); }
       catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
     });
   }
@@ -481,8 +471,19 @@ function TargetCard({
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("log");
   const [adding, setAdding] = useState(false);
+  const [, startTransition] = useTransition();
+  const [status, setOptimisticStatus] = useOptimistic(target.status);
   const assignee = members.find((m) => m.id === target.assigneeId);
-  const overdue = isOverdue(target, today);
+  const overdue = isOverdue({ ...target, status }, today);
+
+  function changeStatus(value: string) {
+    if (value === status) return;
+    startTransition(async () => {
+      setOptimisticStatus(value);
+      try { assertActionOk(await updateSalesStatusAction(target.id, value)); }
+      catch (e) { alert(e instanceof Error ? e.message : "変更に失敗しました"); }
+    });
+  }
 
   return (
     <div className={cn("bg-white rounded-2xl border", overdue ? "border-red-300" : "border-gray-200")}>
@@ -499,7 +500,7 @@ function TargetCard({
           </div>
           {open ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0 mt-1" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0 mt-1" />}
         </div>
-        <div className="mt-2.5"><StepBar status={target.status} /></div>
+        <div className="mt-2.5"><StepBar status={status} /></div>
         {(target.nextAction || target.nextActionOn) && (
           <p className={cn("text-xs mt-2 flex items-center gap-1", overdue ? "text-red-600 font-semibold" : "text-gray-600")}>
             <CalendarClock size={12} className="flex-shrink-0" />
@@ -511,7 +512,7 @@ function TargetCard({
 
       {open && (
         <div className="px-4 pb-4 space-y-4">
-          <StatusPicker target={target} />
+          <StatusPicker status={status} onChange={changeStatus} />
 
           <div className="flex border-b border-gray-200">
             {([["log", `記録${logs.length ? `（${logs.length}）` : ""}`], ["handover", "引き継ぎ"], ["info", "ホテル情報"]] as const).map(([v, label]) => (
