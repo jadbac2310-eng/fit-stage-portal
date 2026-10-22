@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, Clock, Receipt, CreditCard, ChevronRight, ChevronDown, X } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
 import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
@@ -60,7 +60,7 @@ interface MonthFigures {
   profit:       number;
 }
 
-function computeMonth(
+export function computeMonth(
   month: string,
   lessons: Lesson[],
   trialLessons: TrialLesson[],
@@ -92,6 +92,55 @@ function computeMonth(
 }
 
 /** 先月ぶんの集計。day を渡すと「先月の同じ日まで」で数える */
+interface YearFigures extends Omit<MonthFigures, "month"> {
+  year: number;
+  /** 何か月ぶんか（今年なら今月まで）。月平均を出すのに使う */
+  months: number;
+}
+
+/**
+ * 1年ぶんの数字。
+ *
+ * 売上も支払も経費も、月ごとの数字をそのまま足せばいいので、月の計算を積み上げる。
+ *
+ * throughMonth を渡すとその月までで止める。
+ * 年の途中で「去年より増えた／減った」を見るとき、去年まるごとと比べると
+ * 毎年1月に必ず「大幅減」と出てしまうため、去年も同じ時期までで数える。
+ */
+export function computeYear(
+  year: number,
+  throughMonth: number,          // 1〜12
+  lessons: Lesson[],
+  trialLessons: TrialLesson[],
+  completedTrialLessons: TrialLesson[],
+  ctx: CommissionContext,
+  hourlyTasks: HourlyTask[],
+  expenses: Expense[],
+  payments: FeeablePayment[],
+): YearFigures {
+  const months = Math.min(Math.max(throughMonth, 1), 12);
+  const out: YearFigures = {
+    year, months,
+    revenue: 0, trainerPayout: 0, salesPayout: 0, rentalCost: 0,
+    hourlyPayout: 0, expenseTotal: 0, paymentFee: 0, profit: 0,
+  };
+  for (let m = 1; m <= months; m++) {
+    const f = computeMonth(
+      `${year}-${String(m).padStart(2, "0")}`,
+      lessons, trialLessons, completedTrialLessons, ctx, hourlyTasks, expenses, payments,
+    );
+    out.revenue       += f.revenue;
+    out.trainerPayout += f.trainerPayout;
+    out.salesPayout   += f.salesPayout;
+    out.rentalCost    += f.rentalCost;
+    out.hourlyPayout  += f.hourlyPayout;
+    out.expenseTotal  += f.expenseTotal;
+    out.paymentFee    += f.paymentFee;
+    out.profit        += f.profit;
+  }
+  return out;
+}
+
 function computeMonthUpTo(
   month: string,
   lessons: Lesson[],
@@ -579,6 +628,32 @@ export function RevenueDashboardClient({
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
   const monthLabel = monthOptions.find((o) => o.value === month)?.label ?? month;
 
+  // 年間の数字。選んでいる月の年を見る（7月を選べば「2026年の1〜7月」）
+  const [selYear, selMonthNo] = useMemo(() => {
+    const [y, m] = month.split("-").map((x) => parseInt(x, 10));
+    return [y, m];
+  }, [month]);
+  const yearArgs = [lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid] as const;
+  const yearCur = useMemo(
+    () => computeYear(selYear, selMonthNo, ...yearArgs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selYear, selMonthNo, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid],
+  );
+  // 去年の「同じ時期まで」。年の途中で去年まるごとと比べると必ず減って見えるため
+  const yearPrev = useMemo(
+    () => computeYear(selYear - 1, selMonthNo, ...yearArgs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selYear, selMonthNo, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid],
+  );
+  // 去年の通年（12か月ぶん）。着地の目安として別に出す
+  const lastYearFull = useMemo(
+    () => computeYear(selYear - 1, 12, ...yearArgs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selYear, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid],
+  );
+  const yearMargin = yearCur.revenue > 0 ? Math.round((yearCur.profit / yearCur.revenue) * 100) : 0;
+  const fullYear = selMonthNo >= 12;
+
   // タップされたKPIカードの内訳（選択月）
   const [openCard, setOpenCard] = useState<BreakdownKind | null>(null);
   const gymNames = useMemo(() => new Map((rentalGyms ?? []).map((g) => [g.id, g.name])), [rentalGyms]);
@@ -660,6 +735,69 @@ export function RevenueDashboardClient({
         <br />
         数字の横は{compareLabel}との増減です{compareDay != null && "（月の途中なので、先月も同じ日までで比べています）"}。
       </p>
+
+      {/* 年間の数字。月のカードは選んだ1か月ぶんなので、年の合計を別に出す */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-4">
+        <div className="flex items-baseline gap-2 mb-3">
+          <Calendar size={13} className="text-gray-400 self-center" />
+          <p className="text-sm font-bold text-gray-700">{yearCur.year}年の累計</p>
+          <p className="text-[11px] text-gray-400">
+            {fullYear ? "1〜12月（通年）" : `1〜${yearCur.months}月`}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-1">
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500">年間の売上</p>
+            <p className="text-xl font-bold text-gray-900 tabular-nums flex items-baseline">
+              {yen(yearCur.revenue)}
+              <Delta now={yearCur.revenue} prev={yearPrev.revenue} goodWhenUp />
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500">年間の利益</p>
+            <p className="text-xl font-bold text-green-700 tabular-nums flex items-baseline">
+              {yen(yearCur.profit)}
+              <Delta now={yearCur.profit} prev={yearPrev.profit} goodWhenUp />
+            </p>
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-400 mb-2">
+          利益率 {yearMargin}%
+          {yearPrev.revenue > 0 && (
+            <>　去年の同じ時期まで 売上 {yen(yearPrev.revenue)}・利益 {yen(yearPrev.profit)}</>
+          )}
+        </p>
+
+        <div className="border-t border-gray-100 pt-1">
+          <BreakdownLine label="売上" amount={yearCur.revenue} compact />
+          <BreakdownLine label="− トレーナー支払" amount={yearCur.trainerPayout} compact />
+          <BreakdownLine label="− 営業支払" amount={yearCur.salesPayout} compact />
+          <BreakdownLine label="− 場所利用料" amount={yearCur.rentalCost} compact />
+          <BreakdownLine label="− 業務（時給）" amount={yearCur.hourlyPayout} compact />
+          <BreakdownLine label="− 経費" amount={yearCur.expenseTotal} compact />
+          <BreakdownLine label="− 決済手数料" amount={yearCur.paymentFee} compact />
+          <BreakdownLine label="＝ 年間の利益" amount={yearCur.profit} strong compact />
+        </div>
+
+        <div className="border-t border-gray-100 mt-2 pt-2 space-y-0.5">
+          <p className="text-[11px] text-gray-500">
+            月あたりの平均　売上 <span className="font-semibold text-gray-800">{yen(yearCur.revenue / yearCur.months)}</span>
+            ・利益 <span className="font-semibold text-gray-800">{yen(yearCur.profit / yearCur.months)}</span>
+          </p>
+          {!fullYear && yearCur.months > 0 && (
+            <p className="text-[11px] text-gray-500">
+              このペースなら年末は　売上 <span className="font-semibold text-gray-800">{yen(yearCur.revenue / yearCur.months * 12)}</span>
+              ・利益 <span className="font-semibold text-gray-800">{yen(yearCur.profit / yearCur.months * 12)}</span>
+            </p>
+          )}
+          {lastYearFull.revenue > 0 && (
+            <p className="text-[11px] text-gray-400">
+              {lastYearFull.year}年の通年は 売上 {yen(lastYearFull.revenue)}・利益 {yen(lastYearFull.profit)}
+            </p>
+          )}
+        </div>
+      </div>
 
       {openCard && breakdown && (
         <BreakdownModal kind={openCard} monthLabel={monthLabel} figures={cur} prevFigures={prev} compareLabel={compareLabel} breakdown={breakdown} margin={margin} onClose={() => setOpenCard(null)} />
