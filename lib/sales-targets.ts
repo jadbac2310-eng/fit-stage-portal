@@ -14,10 +14,7 @@ type DbRow = {
   area:           string | null;
   contact_point:  string | null;
   pitch:          string | null;
-  has_pt:         string | null;
-  single_session: string | null;
-  english:        string | null;
-  research_note:  string | null;
+  hotel_info?:    string | null;
   research_url:   string | null;
   assignee_id:    string | null;
   status:         string;
@@ -30,11 +27,15 @@ type DbRow = {
 };
 
 type LogRow = {
-  id:         string;
-  target_id:  string;
-  body:       string;
-  created_by: string | null;
-  created_at: string;
+  id:           string;
+  target_id:    string;
+  kind?:        string | null;
+  occurred_at?: string | null;
+  person?:      string | null;
+  body:         string;
+  event_id?:    string | null;
+  created_by:   string | null;
+  created_at:   string;
 };
 
 function fromDb(r: DbRow): SalesTarget {
@@ -47,11 +48,8 @@ function fromDb(r: DbRow): SalesTarget {
     area:          r.area ?? undefined,
     contactPoint:  r.contact_point ?? undefined,
     pitch:         r.pitch ?? undefined,
-    hasPt:         r.has_pt ?? undefined,
-    singleSession: r.single_session ?? undefined,
-    english:       r.english ?? undefined,
-    researchNote:  r.research_note ?? undefined,
-    researchUrl:   r.research_url ?? undefined,
+    hotelInfo:     r.hotel_info ?? undefined,
+    url:           r.research_url ?? undefined,
     assigneeId:    r.assignee_id ?? undefined,
     status:        r.status,
     nextAction:    r.next_action ?? undefined,
@@ -67,7 +65,11 @@ function logFromDb(r: LogRow): SalesTargetLog {
   return {
     id:          r.id,
     targetId:    r.target_id,
+    kind:        r.kind ?? "メモ",
+    occurredAt:  r.occurred_at ?? undefined,
+    person:      r.person ?? undefined,
     body:        r.body,
+    eventId:     r.event_id ?? undefined,
     createdById: r.created_by ?? undefined,
     createdAt:   r.created_at,
   };
@@ -93,6 +95,12 @@ export async function getSalesTargets(): Promise<SalesTarget[]> {
   return (data as DbRow[]).map(fromDb);
 }
 
+export async function getSalesTarget(id: string): Promise<SalesTarget | null> {
+  const { data, error } = await createAdminClient().from("sales_targets").select("*").eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return fromDb(data as DbRow);
+}
+
 export async function getSalesTargetLogs(): Promise<SalesTargetLog[]> {
   const client = createAdminClient();
   const { data, error } = await fetchAllRows((from, to) => client
@@ -108,7 +116,13 @@ export async function getSalesTargetLogs(): Promise<SalesTargetLog[]> {
   return (data as LogRow[]).map(logFromDb);
 }
 
-/** 営業の進み具合（担当・状況・次にやること・先方情報・メモ）を更新する */
+export async function getSalesTargetLog(id: string): Promise<SalesTargetLog | null> {
+  const { data, error } = await createAdminClient().from("sales_target_logs").select("*").eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return logFromDb(data as LogRow);
+}
+
+/** 営業の進み具合（担当・状況・次にやること・先方情報・引き継ぎメモ）を更新する */
 export async function updateSalesProgress(id: string, input: {
   assigneeId:    string | null;
   status:        string;
@@ -134,17 +148,43 @@ export async function updateSalesProgress(id: string, input: {
   if (error) throw error;
 }
 
-/** 状況だけを変える（一覧からワンタップで変えるとき用） */
-export async function updateSalesStatus(id: string, status: string): Promise<void> {
+/** ホテルの基本情報（名前・エリア・優先度・窓口・提案のポイント・ホテル情報・公式サイト）を更新する */
+export async function updateSalesInfo(id: string, input: {
+  name: string; priority: string; area: string | null; contactPoint: string | null;
+  pitch: string | null; hotelInfo: string | null; url: string | null;
+}): Promise<void> {
   const { error } = await createAdminClient()
     .from("sales_targets")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({
+      name:          input.name,
+      priority:      input.priority,
+      area:          input.area,
+      contact_point: input.contactPoint,
+      pitch:         input.pitch,
+      hotel_info:    input.hotelInfo,
+      research_url:  input.url,
+      updated_at:    new Date().toISOString(),
+    })
     .eq("id", id);
   if (error) throw error;
 }
 
+/** 状況・次にやることなど一部だけ変える */
+export async function patchSalesTarget(id: string, patch: {
+  status?: string; nextAction?: string | null; nextActionOn?: string | null; contactPerson?: string | null;
+}): Promise<void> {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.status        !== undefined) row.status         = patch.status;
+  if (patch.nextAction    !== undefined) row.next_action    = patch.nextAction;
+  if (patch.nextActionOn  !== undefined) row.next_action_on = patch.nextActionOn;
+  if (patch.contactPerson !== undefined) row.contact_person = patch.contactPerson;
+  const { error } = await createAdminClient().from("sales_targets").update(row).eq("id", id);
+  if (error) throw error;
+}
+
 export async function addSalesTarget(input: {
-  priority: string; name: string; area?: string; contactPoint?: string; pitch?: string; createdBy?: string;
+  priority: string; name: string; area?: string; contactPoint?: string; pitch?: string;
+  hotelInfo?: string; url?: string; createdBy?: string;
 }): Promise<SalesTarget> {
   const client = createAdminClient();
   // 同じ優先度の末尾に入れる
@@ -165,6 +205,8 @@ export async function addSalesTarget(input: {
       area:          input.area ?? null,
       contact_point: input.contactPoint ?? null,
       pitch:         input.pitch ?? null,
+      hotel_info:    input.hotelInfo ?? null,
+      research_url:  input.url ?? null,
       created_by:    input.createdBy ?? null,
     })
     .select()
@@ -178,25 +220,25 @@ export async function deleteSalesTarget(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function addSalesTargetLog(targetId: string, body: string, createdBy?: string): Promise<void> {
+export async function addSalesTargetLog(input: {
+  targetId: string; kind: string; occurredAt: string | null; person: string | null;
+  body: string; eventId: string | null; createdBy?: string;
+}): Promise<void> {
   const { error } = await createAdminClient()
     .from("sales_target_logs")
-    .insert({ target_id: targetId, body, created_by: createdBy ?? null });
+    .insert({
+      target_id:   input.targetId,
+      kind:        input.kind,
+      occurred_at: input.occurredAt,
+      person:      input.person,
+      body:        input.body,
+      event_id:    input.eventId,
+      created_by:  input.createdBy ?? null,
+    });
   if (error) throw error;
 }
 
 export async function deleteSalesTargetLog(id: string): Promise<void> {
   const { error } = await createAdminClient().from("sales_target_logs").delete().eq("id", id);
   if (error) throw error;
-}
-
-/** 記録を書いたメンバーのid（削除してよいかの判定用） */
-export async function getSalesTargetLogAuthor(id: string): Promise<string | undefined> {
-  const { data } = await createAdminClient().from("sales_target_logs").select("created_by").eq("id", id).maybeSingle();
-  return (data as { created_by: string | null } | null)?.created_by ?? undefined;
-}
-
-export async function getSalesTargetName(id: string): Promise<string | undefined> {
-  const { data } = await createAdminClient().from("sales_targets").select("name").eq("id", id).maybeSingle();
-  return (data as { name: string } | null)?.name;
 }

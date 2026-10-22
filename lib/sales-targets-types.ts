@@ -4,52 +4,45 @@
 export interface SalesTarget {
   id:            string;
   kind:          string;
-  priority:      string;
+  priority:      string;   // 高 / 中 / 低
   sortOrder:     number;
   name:          string;
   area?:         string;
-  contactPoint?: string;
-  pitch?:        string;
-  hasPt?:        string;
-  singleSession?: string;
-  english?:      string;
-  researchNote?: string;
-  researchUrl?:  string;
+  contactPoint?: string;   // 窓口の目安
+  pitch?:        string;   // 提案のポイント
+  hotelInfo?:    string;   // ホテル情報メモ（種別・クラス・パーソナルの有無・料金など）
+  url?:          string;   // 公式サイト
   assigneeId?:   string;
   status:        string;
   nextAction?:   string;
   nextActionOn?: string;   // YYYY-MM-DD
-  contactPerson?: string;
-  contactInfo?:  string;
-  memo?:         string;
+  contactPerson?: string;  // 先方の担当者
+  contactInfo?:  string;   // 先方の連絡先
+  memo?:         string;   // 引き継ぎメモ（今の状況のまとめ）
   updatedAt:     string;
 }
 
 export interface SalesTargetLog {
   id:          string;
   targetId:    string;
+  kind:        string;     // 電話 / アポ / 訪問 / メール / メモ
+  occurredAt?: string;     // ISO。電話した日時・アポの日時など
+  person?:     string;     // 先方の担当者
   body:        string;
+  eventId?:    string;     // スケジュールに入れた個人予定
   createdById?: string;
   createdAt:   string;
 }
 
-/** 並び順もこの順。上から当たる */
-export const SALES_PRIORITIES = ["本命", "次点", "国内系", "京都", "後回し"] as const;
-
-export const PRIORITY_NOTES: Record<string, string> = {
-  "本命":   "梅田・中之島・本町。海外客が多く江坂から近い",
-  "次点":   "心斎橋・なんば",
-  "国内系": "日本人の長期滞在・シニア客向け",
-  "京都":   "出張範囲。移動時間を含めた料金で",
-  "後回し": "館内に専属トレーナーがいる",
-};
+export const SALES_PRIORITIES = ["高", "中", "低"] as const;
 
 export type StatusTone = "todo" | "doing" | "won" | "off";
 
-/** 状況の選択肢。tone は色分け用 */
+/** 状況の選択肢（おおよそ進む順）。tone は色分け用 */
 export const SALES_STATUSES: { value: string; tone: StatusTone }[] = [
   { value: "未着手",       tone: "todo" },
-  { value: "アポ打診中",   tone: "doing" },
+  { value: "電話済",       tone: "doing" },
+  { value: "アポ確定",     tone: "doing" },
   { value: "企画書準備中", tone: "doing" },
   { value: "面談済",       tone: "doing" },
   { value: "提案済",       tone: "doing" },
@@ -70,13 +63,33 @@ export const STATUS_TONE_CLASS: Record<StatusTone, string> = {
   off:   "bg-gray-50 text-gray-400",
 };
 
-/** 下調べの値（あり／可 など）の色分け */
-export function factToneClass(value?: string): string {
-  if (!value) return "border border-gray-200 text-gray-500";
-  if (/^(あり|可)$/.test(value)) return "bg-emerald-50 text-emerald-700";
-  if (/^(なし|不可|記載なし|—)$/.test(value)) return "bg-gray-100 text-gray-400";
-  if (/一部|予約のみ/.test(value)) return "bg-blue-50 text-blue-700";
-  return "border border-gray-200 text-gray-500";
+/** やりとりの種類。schedule=true はスケジュールにも入れる */
+export const LOG_KINDS: { value: string; schedule: boolean; hint: string }[] = [
+  { value: "電話", schedule: true,  hint: "電話した日時" },
+  { value: "アポ", schedule: true,  hint: "アポの日時" },
+  { value: "訪問", schedule: true,  hint: "訪問した日時" },
+  { value: "メール", schedule: false, hint: "送った日時" },
+  { value: "メモ", schedule: false, hint: "日時（任意）" },
+];
+
+export const LOG_KIND_CLASS: Record<string, string> = {
+  "電話":  "bg-sky-50 text-sky-700",
+  "アポ":  "bg-amber-50 text-amber-700",
+  "訪問":  "bg-purple-50 text-purple-700",
+  "メール": "bg-gray-100 text-gray-600",
+  "メモ":  "bg-gray-100 text-gray-500",
+};
+
+/** 記録の種類から、状況を自動で進める先（今より手前の段階のときだけ進める） */
+export function statusAfterLog(current: string, kind: string): string | null {
+  const order = SALES_STATUSES.map((s) => s.value);
+  const target = kind === "アポ" ? "アポ確定" : kind === "電話" ? "電話済" : null;
+  if (!target) return null;
+  const ci = order.indexOf(current);
+  const ti = order.indexOf(target);
+  // 提携・見送り・保留は手で決めたものなので触らない
+  if (ci < 0 || statusTone(current) === "won" || statusTone(current) === "off") return null;
+  return ci < ti ? target : null;
 }
 
 /** 次にやることの期日を過ぎていて、まだ終わっていない */
