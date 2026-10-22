@@ -9,8 +9,18 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **main ブランチで直接作業する。** 機能ブランチ（`claude/...` など）は作らない。
 - 作業が終わったら main にコミットして `git push origin main`。レビュー待ちにせず、そのまま本番へ反映してよい。
 - **プルリクエストは作らない。** 明示的に「PR作って」と言われたときだけ作る。
-- DB を変更したら `supabase/migrations/` にマイグレーションを追加し、適用には
-  `npx supabase db push` が必要なことを最後に必ず伝える（アプリのデプロイとは別作業のため）。
+- DB を変更したら `supabase/migrations/` にマイグレーションを追加する（記録用）。
+- **`npx supabase db push` は使わない・勧めない。**
+  マイグレーション履歴が途中からしか記録されていないため、適用済みの基幹テーブル
+  （customers・lessons など）を「未適用」と誤認して作り直そうとする。
+- DB への反映は、**何回流しても安全な SQL**（`create table if not exists`・`add column if not exists`・
+  `on conflict do nothing` など）を用意し、尚樹に **Supabase の SQL Editor に貼って Run** してもらう。
+  アプリのデプロイとは別作業なので、反映が必要なことを最後に必ず伝える。
+- SQL Editor で反映したら、下の「反映済みのDB変更」に日付とファイル名を書き足す。
+
+### 反映済みのDB変更（SQL Editor で手動適用したもの）
+
+- 2026-10-23｜`20261023000001_sales_targets.sql`・`20261023000002_sales_targets_handover.sql`（ホテル営業ページ。18軒投入済み）
 
 ## セッションの担当分け（2つのリポジトリ）
 
