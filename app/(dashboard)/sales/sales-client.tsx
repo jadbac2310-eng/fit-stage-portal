@@ -104,8 +104,9 @@ function Playbook() {
         {open && (
           <>
             <div>
-              <p className="text-xs font-bold text-amber-800 mb-1">ゲスト向けの料金（税込）</p>
-              <p>1名60分 ¥9,900／1名90分 ¥13,500／2名60分 ¥13,500。体験料金はなし。</p>
+              <p className="text-xs font-bold text-amber-800 mb-1">ホテル経由の料金</p>
+              <p>1名60分 ¥16,000（税・交通費込み）。90分・2名は要相談。体験料金はなし。</p>
+              <p className="text-xs text-amber-800 mt-0.5">※HPから直接申し込む出張（60分 ¥9,900）とは別の料金。ホテルにはこちらだけを伝える</p>
               <a href="https://www.fitstage.jp/en/hotel/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-700 hover:underline mt-0.5">
                 ホテル向け英語ページ（先方に見せる用） <ExternalLink size={11} />
               </a>
