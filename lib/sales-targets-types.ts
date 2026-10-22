@@ -23,73 +23,61 @@ export interface SalesTarget {
 }
 
 export interface SalesTargetLog {
-  id:          string;
-  targetId:    string;
-  kind:        string;     // 電話 / アポ / 訪問 / メール / メモ
-  occurredAt?: string;     // ISO。電話した日時・アポの日時など
-  person?:     string;     // 先方の担当者
-  body:        string;
-  eventId?:    string;     // スケジュールに入れた個人予定
+  id:           string;
+  targetId:     string;
+  kind:         string;     // 電話 / 訪問 / メモ
+  occurredAt?:  string;     // ISO。電話した日時・訪問の日時
+  person?:      string;     // 先方の担当者
+  body:         string;
+  companionIds: string[];   // 訪問の付き添い
+  eventId?:     string;     // スケジュールに入れた個人予定
   createdById?: string;
-  createdAt:   string;
+  createdAt:    string;
 }
 
 export const SALES_PRIORITIES = ["高", "中", "低"] as const;
 
-export type StatusTone = "todo" | "doing" | "won" | "off";
+/** 営業の流れ。この順に進む */
+export const SALES_STEPS = ["テレアポ", "企画書作成", "訪問"] as const;
 
-/** 状況の選択肢（おおよそ進む順）。tone は色分け用 */
-export const SALES_STATUSES: { value: string; tone: StatusTone }[] = [
-  { value: "未着手",       tone: "todo" },
-  { value: "電話済",       tone: "doing" },
-  { value: "アポ確定",     tone: "doing" },
-  { value: "企画書準備中", tone: "doing" },
-  { value: "面談済",       tone: "doing" },
-  { value: "提案済",       tone: "doing" },
-  { value: "トライアル中", tone: "doing" },
-  { value: "提携",         tone: "won" },
-  { value: "見送り",       tone: "off" },
-  { value: "保留",         tone: "off" },
-];
+/** 流れの外にある状況（結果・止めているもの） */
+export const SALES_END_STATUSES = ["提携", "見送り", "保留"] as const;
 
-export function statusTone(status: string): StatusTone {
-  return SALES_STATUSES.find((s) => s.value === status)?.tone ?? "todo";
+export const SALES_STATUSES = ["未着手", ...SALES_STEPS, ...SALES_END_STATUSES] as const;
+
+/** 流れの何段目まで進んだか（未着手=0、テレアポ=1 … 訪問=3、それ以外=-1） */
+export function stepIndex(status: string): number {
+  if (status === "未着手") return 0;
+  const i = (SALES_STEPS as readonly string[]).indexOf(status);
+  return i >= 0 ? i + 1 : -1;
 }
 
-export const STATUS_TONE_CLASS: Record<StatusTone, string> = {
-  todo:  "bg-gray-100 text-gray-600",
-  doing: "bg-blue-50 text-blue-700",
-  won:   "bg-emerald-50 text-emerald-700",
-  off:   "bg-gray-50 text-gray-400",
+export const END_STATUS_CLASS: Record<string, string> = {
+  "提携":  "bg-emerald-50 text-emerald-700",
+  "見送り": "bg-gray-100 text-gray-500",
+  "保留":  "bg-gray-100 text-gray-500",
 };
 
-/** やりとりの種類。schedule=true はスケジュールにも入れる */
-export const LOG_KINDS: { value: string; schedule: boolean; hint: string }[] = [
+/** 記録の種類。schedule=true は日時を入れるとスケジュールにも入る */
+export const LOG_KINDS = [
   { value: "電話", schedule: true,  hint: "電話した日時" },
-  { value: "アポ", schedule: true,  hint: "アポの日時" },
-  { value: "訪問", schedule: true,  hint: "訪問した日時" },
-  { value: "メール", schedule: false, hint: "送った日時" },
+  { value: "訪問", schedule: true,  hint: "訪問の日時（これからの予定もここに）" },
   { value: "メモ", schedule: false, hint: "日時（任意）" },
-];
+] as const;
 
 export const LOG_KIND_CLASS: Record<string, string> = {
-  "電話":  "bg-sky-50 text-sky-700",
-  "アポ":  "bg-amber-50 text-amber-700",
-  "訪問":  "bg-purple-50 text-purple-700",
-  "メール": "bg-gray-100 text-gray-600",
-  "メモ":  "bg-gray-100 text-gray-500",
+  "電話": "bg-sky-50 text-sky-700",
+  "訪問": "bg-amber-50 text-amber-700",
+  "メモ": "bg-gray-100 text-gray-500",
 };
 
 /** 記録の種類から、状況を自動で進める先（今より手前の段階のときだけ進める） */
 export function statusAfterLog(current: string, kind: string): string | null {
-  const order = SALES_STATUSES.map((s) => s.value);
-  const target = kind === "アポ" ? "アポ確定" : kind === "電話" ? "電話済" : null;
+  const target = kind === "訪問" ? "訪問" : kind === "電話" ? "テレアポ" : null;
   if (!target) return null;
-  const ci = order.indexOf(current);
-  const ti = order.indexOf(target);
-  // 提携・見送り・保留は手で決めたものなので触らない
-  if (ci < 0 || statusTone(current) === "won" || statusTone(current) === "off") return null;
-  return ci < ti ? target : null;
+  const ci = stepIndex(current);
+  if (ci < 0) return null; // 提携・見送り・保留は手で決めたものなので触らない
+  return ci < stepIndex(target) ? target : null;
 }
 
 /** 次にやることの期日を過ぎていて、まだ終わっていない */

@@ -34,6 +34,7 @@ type LogRow = {
   person?:      string | null;
   body:         string;
   event_id?:    string | null;
+  companion_ids?: string[] | null;
   created_by:   string | null;
   created_at:   string;
 };
@@ -70,6 +71,7 @@ function logFromDb(r: LogRow): SalesTargetLog {
     person:      r.person ?? undefined,
     body:        r.body,
     eventId:     r.event_id ?? undefined,
+    companionIds: r.companion_ids ?? [],
     createdById: r.created_by ?? undefined,
     createdAt:   r.created_at,
   };
@@ -222,19 +224,23 @@ export async function deleteSalesTarget(id: string): Promise<void> {
 
 export async function addSalesTargetLog(input: {
   targetId: string; kind: string; occurredAt: string | null; person: string | null;
-  body: string; eventId: string | null; createdBy?: string;
+  body: string; companionIds: string[]; eventId: string | null; createdBy?: string;
 }): Promise<void> {
-  const { error } = await createAdminClient()
-    .from("sales_target_logs")
-    .insert({
-      target_id:   input.targetId,
-      kind:        input.kind,
-      occurred_at: input.occurredAt,
-      person:      input.person,
-      body:        input.body,
-      event_id:    input.eventId,
-      created_by:  input.createdBy ?? null,
-    });
+  const client = createAdminClient();
+  const base = {
+    target_id:   input.targetId,
+    kind:        input.kind,
+    occurred_at: input.occurredAt,
+    person:      input.person,
+    body:        input.body,
+    event_id:    input.eventId,
+    created_by:  input.createdBy ?? null,
+  };
+  let { error } = await client.from("sales_target_logs").insert({ ...base, companion_ids: input.companionIds });
+  // companion_ids 列が未追加（SQL未反映）なら、付き添いなしで保存する
+  if (error && (/companion_ids/i.test(error.message ?? "") || error.code === "PGRST204" || error.code === "42703")) {
+    ({ error } = await client.from("sales_target_logs").insert(base));
+  }
   if (error) throw error;
 }
 
