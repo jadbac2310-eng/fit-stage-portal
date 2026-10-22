@@ -35,11 +35,14 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
 |---|---|---|
 | 体験予約 | `api/reserve.js` | `app/api/reserve-webhook/route.ts` |
 | 入会申し込み | `api/join.js` | `app/api/join-webhook/route.ts` |
+| 英語トレーナーの応募（LINE通知のみ・DB保存なし） | `api/recruit.js` | `app/api/recruit-webhook/route.ts` |
 
 - 合言葉はHP側の環境変数 `PORTAL_WEBHOOK_SECRET`、ポータル側は `RESERVE_WEBHOOK_SECRET`。
   **同じ文字列**にすること。ヘッダ `x-webhook-secret` で検証する。
 - **受け口を増やしたら、必ず `middleware.ts` の `PUBLIC_PATHS` に追加する。**
   入れ忘れるとログイン画面へ転送され、転送先が正常に返るのでHP側からは成功に見えてしまう。
   （入会申し込みで実際に起きた。2026-10-18 修正）
+- 応募の通知は管理者（LINE連携済み）へ送る。`RECRUIT_NOTIFY_MEMBER_IDS` で送信先を指定、`LINE_NOTIFY_RECRUIT=off` で停止できる。
+  応募者はお客様ではないので、顧客データには入れない。
 - フォームの項目名（日本語）→ こちらの項目名（英語）の変換は、HP側 `api/*.js` の1か所だけで行う。
   **項目が増えたら、HP側の変換・こちらの受け口・DBの列の3つをまとめて直す。**
