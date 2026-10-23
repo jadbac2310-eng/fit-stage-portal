@@ -1,6 +1,6 @@
 "use server";
 
-import { toDeliveryMode } from "@/lib/lessons-types";
+import { toDeliveryMode, canWriteLessonNote } from "@/lib/lessons-types";
 
 import { revalidatePath } from "next/cache";
 import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons";
@@ -21,6 +21,39 @@ async function assertCanEditLesson(id: string): Promise<{ lesson: Lesson; isAdmi
   const canEdit = member.isAdmin || (!!lesson.createdById && lesson.createdById === member.id);
   if (!canEdit) throw new ActionError("このレッスンを編集できるのは追加した本人または管理者のみです");
   return { lesson, isAdmin: member.isAdmin };
+}
+
+/**
+ * 備考（レッスンの記録）だけを書き換える。
+ *
+ * レッスン全体の編集は「管理者か、追加した本人」に限っているが、
+ * それだと担当トレーナーが自分の回の記録を書けない。
+ * 同じお客さまを複数のトレーナーで見るとき、記録が書けないと引き継ぎが成立しないので、
+ * 担当トレーナーにも備考だけは書けるようにする。
+ *
+ * 日時・金額・お客さま・コースなどは、この経路では一切変えられない。
+ * 完了したあとでも書ける（記録はレッスンが終わってから書くもの）。
+ */
+export async function saveLessonNoteAction(id: string, note: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const [member, lesson] = await Promise.all([getCurrentMember(), getLesson(id)]);
+    if (!member) throw new ActionError("ログインが必要です");
+    if (!lesson) throw new ActionError("レッスンが見つかりません");
+
+    if (!canWriteLessonNote(member, lesson)) {
+      throw new ActionError("記録を書けるのは、担当トレーナーか追加した本人、管理者だけです");
+    }
+
+    // 「誰が更新したか」は updateLesson が自分で記録する
+    await updateLesson(id, { note: note.trim() || null });
+    await logActivity({
+      action: "update", entityType: "lesson", entityId: id,
+      summary: `レッスンの記録を更新: ${lesson.customerName}`,
+    });
+    revalidatePath("/lessons/regular");
+    revalidatePath("/schedule");
+    revalidatePath(`/schedule/${id}`);
+  });
 }
 
 // ─── レッスン ─────────────────────────────────────────

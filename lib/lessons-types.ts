@@ -241,3 +241,25 @@ export function matchVenueByText(
   }
   return null;
 }
+
+/**
+ * その人がこのレッスンの記録（備考）を書けるか。
+ *
+ * レッスン全体の編集は「管理者か、追加した本人」に限っている（日時・金額・お客さまを
+ * 勝手に変えられると困るため）。ただし記録だけは担当トレーナーにも書けないといけない。
+ * 坂根さんが入れた予定を渡辺さんが担当したとき、渡辺さんが記録を書けないと
+ * 次に入る人への引き継ぎが成立しないため。
+ *
+ * 画面とサーバーで別々に書くとズレて事故るので、判定はここ1か所にする。
+ * レッスンが完了しているかどうかは見ない（記録は終わってから書くもの）。
+ */
+export function canWriteLessonNote(
+  member: { id: string; isAdmin?: boolean } | null | undefined,
+  lesson: { trainerMemberId?: string; createdById?: string } | null | undefined,
+): boolean {
+  if (!member || !lesson) return false;
+  if (member.isAdmin) return true;
+  if (lesson.trainerMemberId && lesson.trainerMemberId === member.id) return true;
+  if (lesson.createdById && lesson.createdById === member.id) return true;
+  return false;
+}

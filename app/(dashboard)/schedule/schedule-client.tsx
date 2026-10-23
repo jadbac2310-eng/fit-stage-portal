@@ -13,6 +13,8 @@ import {
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Handover, type HandoverLesson, type HandoverTrial } from "./handover";
+import { LessonNoteEditor } from "./lesson-note";
+import { canWriteLessonNote } from "@/lib/lessons-types";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
@@ -420,6 +422,12 @@ function LessonCard({
   const canCompleteHourly = isHourly && (isAdmin || (!!currentMemberId && item.trainerId === currentMemberId));
   // 通常レッスンの編集可否（管理者 or 追加した本人）
   const canEditLesson = item.type === "regular" && (isAdmin || (!!item.createdById && item.createdById === currentMemberId));
+  // 記録（備考）だけは担当トレーナーも書ける。
+  // 予定を入れたのが別の人でも、担当した本人が書けないと引き継ぎにならないため
+  const canWriteNote = item.type === "regular" && canWriteLessonNote(
+    currentMemberId ? { id: currentMemberId, isAdmin } : null,
+    { trainerMemberId: item.trainerId, createdById: item.createdById },
+  );
   // 完了/予定に戻すは「担当トレーナー本人」のみ
   const canCompleteLesson = item.type === "regular" && !!currentMemberId && item.trainerId === currentMemberId;
   // キャンセル・当日キャンセルへの変更も担当トレーナー本人のみ（すでにキャンセル系のときは表示しない）
@@ -663,6 +671,7 @@ function LessonCard({
           {open && item.type === "regular" && item.handover && (
             <Handover trial={item.handover.trial} history={item.handover.history} />
           )}
+          {open && canWriteNote && <LessonNoteEditor lessonId={item.id} note={item.note} />}
           <AuthorStamp
             createdByName={item.createdByName}
             createdAt={item.createdAt}
