@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { ClipboardList, Target, History } from "lucide-react";
-import type { Lesson } from "@/lib/lessons-types";
-import type { TrialLesson } from "@/lib/trial-lessons-types";
 import { parseTrialNote } from "@/lib/trial-note";
 
 /**
@@ -21,7 +19,24 @@ import { parseTrialNote } from "@/lib/trial-note";
  */
 const SKIP = /フリガナ|ふりがな|氏名|名前|電話|メール|住所|郵便|生年月日|年齢|性別|支払|料金|プラン|紹介|予約|希望日|店舗/;
 
-function handoverItems(trial: TrialLesson | null) {
+/**
+ * 必要な項目だけを受け取る形にしておく。
+ * 予定の詳細ページ（Lesson）からも、スケジュール一覧の展開カード（ScheduleItem）からも
+ * 同じ見た目で出せるようにするため。
+ */
+export interface HandoverLesson {
+  id: string;
+  scheduledAt: string;
+  /** 誰が書いたか。引き継ぎでは「前回だれが見たか」が要る */
+  trainerName?: string;
+  note?: string;
+}
+export interface HandoverTrial {
+  id: string;
+  note?: string;
+}
+
+function handoverItems(trial?: HandoverTrial | null) {
   if (!trial?.note) return [];
   return parseTrialNote(trial.note).items.filter((i) => !SKIP.test(i.label) && i.value);
 }
@@ -32,7 +47,7 @@ function fmtShort(iso: string) {
   });
 }
 
-export function Handover({ trial, history }: { trial: TrialLesson | null; history: Lesson[] }) {
+export function Handover({ trial, history }: { trial?: HandoverTrial | null; history: HandoverLesson[] }) {
   const items = handoverItems(trial);
   // 備考が書いてある回だけ出す。空の回を並べても引き継ぎの役に立たないため
   const withNote = history.filter((l) => l.note?.trim());
@@ -91,7 +106,7 @@ export function Handover({ trial, history }: { trial: TrialLesson | null; histor
                 <p className="text-[11px] text-gray-500">
                   {fmtShort(l.scheduledAt)}
                   <span className="mx-1 text-gray-300">/</span>
-                  {l.trainerMemberName ?? "担当未設定"}
+                  {l.trainerName ?? "担当未設定"}
                 </p>
                 <p className="text-xs text-gray-800 whitespace-pre-wrap mt-0.5">{l.note}</p>
               </Link>

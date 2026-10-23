@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { Handover, type HandoverLesson, type HandoverTrial } from "./handover";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
@@ -77,6 +78,12 @@ export type ScheduleItem = {
   notify?: boolean;
   storeId?: string;
   customerId?: string;
+  /**
+   * 引き継ぎ（前回までの記録と、最初の体験）。
+   * 絞り込む前の全部から作る。絞り込んだあとだと、他のトレーナーが担当した回が
+   * 消えてしまい引き継ぎにならない。
+   */
+  handover?: { trial?: HandoverTrial; history: HandoverLesson[] };
   isPrivate?: boolean;
 };
 
@@ -347,6 +354,36 @@ function personalTimeLabel(item: ScheduleItem): string {
 }
 
 // ─── 1件のカード（クリックでその場で展開） ───────────────
+
+/**
+ * その回の引き継ぎを組み立てる。
+ *
+ * 履歴は担当トレーナーで絞らない。相手が担当した回を読めないと引き継ぎにならないため。
+ * 実施した回（完了・当日キャンセル）だけを対象にする。予定やキャンセルは「やったこと」ではない。
+ */
+function handoverOf(
+  item: ScheduleItem,
+  byCustomer: Map<string, ScheduleItem[]>,
+): { trial?: HandoverTrial; history: HandoverLesson[] } | undefined {
+  if (!item.customerId) return undefined;
+  const all = byCustomer.get(item.customerId);
+  if (!all) return undefined;
+
+  const trial = all.find((x) => x.type === "trial" && x.note);
+  const history = all
+    .filter((x) =>
+      x.type === "regular" &&
+      x.id !== item.id &&
+      x.scheduledAt < item.scheduledAt &&
+      (x.status === "completed" || x.status === "cancelled_same_day"))
+    .slice(-3)
+    .reverse()
+    .map((x) => ({ id: x.id, scheduledAt: x.scheduledAt, trainerName: x.trainerName, note: x.note }));
+
+  if (!trial && history.length === 0) return undefined;
+  return { trial: trial ? { id: trial.id, note: trial.note } : undefined, history };
+}
+
 function LessonCard({
   item, isAdmin, currentMemberId, onEditPersonal, onEditLesson, onDuplicateLesson, onEditHourly,
 }: {
@@ -621,6 +658,10 @@ function LessonCard({
             <DetailRow icon={<StickyNote size={13} />} label={isPersonal ? "メモ" : "備考"}>
               <span className="whitespace-pre-wrap">{item.note}</span>
             </DetailRow>
+          )}
+          {/* 引き継ぎ。トレーナーが実際に見るのはこの展開カードなので、ここに出す */}
+          {open && item.type === "regular" && item.handover && (
+            <Handover trial={item.handover.trial} history={item.handover.history} />
           )}
           <AuthorStamp
             createdByName={item.createdByName}
@@ -1908,6 +1949,20 @@ export function ScheduleClient({
   const canAddLesson = customers.length > 0;
 
   // 絞り込み後のアイテム（"all" は全件）。個人予定は作成者で絞り込む。
+  // 引き継ぎ用に、お客さまごとの予定を時系列で持っておく。
+  // 必ず絞り込む前の items から作ること。絞り込んだあとだと、
+  // 他のトレーナーが担当した回が消えて引き継ぎにならない。
+  const byCustomer = useMemo(() => {
+    const m = new Map<string, ScheduleItem[]>();
+    for (const it of items) {
+      if (!it.customerId) continue;
+      const a = m.get(it.customerId);
+      if (a) a.push(it); else m.set(it.customerId, [it]);
+    }
+    for (const a of m.values()) a.sort((x, y) => x.scheduledAt.localeCompare(y.scheduledAt));
+    return m;
+  }, [items]);
+
   const visibleItems = useMemo(() => {
     // 絞り込んでいる担当者が「自分が動く予定」か「担当営業として見るだけ」かを見分ける。
     //
@@ -1932,8 +1987,10 @@ export function ScheduleClient({
         return memberOk && storeOk && customerOk;
       })
       // 「自分は教えないが担当営業の回」に目印を付ける
-      .map((it) => (filterMember !== "all" && asSalesOnly(it) ? { ...it, salesOnly: true } : it));
-  }, [items, filterMember, filterRole, filterStore, filterCustomer]);
+      .map((it) => (filterMember !== "all" && asSalesOnly(it) ? { ...it, salesOnly: true } : it))
+      // 引き継ぎを付ける。元になる履歴は絞り込み前の全部から作る
+      .map((it) => (it.type === "regular" ? { ...it, handover: handoverOf(it, byCustomer) } : it));
+  }, [items, filterMember, filterRole, filterStore, filterCustomer, byCustomer]);
 
   const openCreate = (defaultDate?: string) => setModal({ mode: "create", defaultDate });
   const openEdit = (item: ScheduleItem) => setModal({ mode: "edit", initial: item });

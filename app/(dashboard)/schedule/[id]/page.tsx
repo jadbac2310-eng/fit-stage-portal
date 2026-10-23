@@ -7,7 +7,7 @@ import {
 import { getLesson, getCustomerLessonHistory } from "@/lib/lessons";
 import { getSessionPassUsage } from "@/lib/session-passes";
 import { getTrialLesson, getFirstTrialLesson } from "@/lib/trial-lessons";
-import { Handover } from "./handover";
+import { Handover } from "../handover";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { LESSON_STATUS_LABEL } from "@/lib/lessons-types";
 import { STATUS_LABEL as TRIAL_STATUS_LABEL, CONTRACT_LABEL } from "@/lib/trial-lessons-types";
@@ -89,7 +89,12 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
           {lesson.note && <Row icon={<StickyNote size={15} />} label="備考"><span className="whitespace-pre-wrap">{lesson.note}</span></Row>}
         </div>
 
-        <Handover trial={firstTrial} history={history} />
+        <Handover
+          trial={firstTrial}
+          history={history.map((l) => ({
+            id: l.id, scheduledAt: l.scheduledAt, trainerName: l.trainerMemberName, note: l.note,
+          }))}
+        />
 
         {/* 引き継ぎを読んだあと、自分の記録を書きに行けるようにする。
             管理者だけにすると、トレーナーが読むだけで書けない片道になる。
