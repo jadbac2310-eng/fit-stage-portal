@@ -101,6 +101,26 @@ export async function getTrialLessons(): Promise<TrialLesson[]> {
   return (data as unknown as DbRow[]).map(fromDb);
 }
 
+/**
+ * そのお客さまの最初の体験レッスン。
+ *
+ * カウンセリング申込フォームの「目的・お悩み」などがこの備考に入るので、
+ * 引き継ぎのときに「そもそも何に困って来た人か」を読むのに使う。
+ */
+export async function getFirstTrialLesson(customerId: string): Promise<TrialLesson | null> {
+  if (!customerId) return null;
+  const client = createAdminClient();
+  const read = (select: string) =>
+    client.from("trial_lessons").select(select)
+      .eq("customer_id", customerId)
+      .order("scheduled_at", { ascending: true })
+      .limit(1);
+  let { data, error } = await read(SELECT);
+  if (error && isMissingAuthorColumn(error)) ({ data, error } = await read(SELECT_LEGACY));
+  if (error || !data || data.length === 0) return null;
+  return fromDb(data[0] as unknown as DbRow);
+}
+
 export async function getTrialLesson(id: string): Promise<TrialLesson | null> {
   const client = createAdminClient();
   let { data, error } = await client.from("trial_lessons").select(SELECT).eq("id", id).single();

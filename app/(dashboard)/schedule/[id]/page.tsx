@@ -4,9 +4,10 @@ import {
   ChevronLeft, Calendar, Clock, MapPin, User, Dumbbell, FlaskConical,
   CheckCircle, XCircle, StickyNote, Ticket, Pencil,
 } from "lucide-react";
-import { getLesson } from "@/lib/lessons";
+import { getLesson, getCustomerLessonHistory } from "@/lib/lessons";
 import { getSessionPassUsage } from "@/lib/session-passes";
-import { getTrialLesson } from "@/lib/trial-lessons";
+import { getTrialLesson, getFirstTrialLesson } from "@/lib/trial-lessons";
+import { Handover } from "./handover";
 import { getCurrentIsAdmin } from "@/lib/members";
 import { LESSON_STATUS_LABEL } from "@/lib/lessons-types";
 import { STATUS_LABEL as TRIAL_STATUS_LABEL, CONTRACT_LABEL } from "@/lib/trial-lessons-types";
@@ -40,9 +41,12 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
 
   // ─── 通常レッスン ───────────────────────────────────
   if (lesson) {
-    const passUsage = lesson.sessionPassId
-      ? await getSessionPassUsage(lesson.sessionPassId, lesson.id)
-      : null;
+    // 引き継ぎ用。前回までの記録と、最初の困りごと・目的（体験の申込内容）
+    const [passUsage, history, firstTrial] = await Promise.all([
+      lesson.sessionPassId ? getSessionPassUsage(lesson.sessionPassId, lesson.id) : null,
+      getCustomerLessonHistory(lesson.customerId, lesson.scheduledAt, 3),
+      getFirstTrialLesson(lesson.customerId),
+    ]);
     return (
       <div className="p-4 md:p-6 max-w-lg mx-auto">
         <Link href="/schedule" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition mb-4">
@@ -85,12 +89,17 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
           {lesson.note && <Row icon={<StickyNote size={15} />} label="備考"><span className="whitespace-pre-wrap">{lesson.note}</span></Row>}
         </div>
 
-        {isAdmin && (
-          <Link href="/lessons/regular"
-            className="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl py-2.5 transition">
-            <Pencil size={14} /> 通常レッスン管理で編集
-          </Link>
-        )}
+        <Handover trial={firstTrial} history={history} />
+
+        {/* 引き継ぎを読んだあと、自分の記録を書きに行けるようにする。
+            管理者だけにすると、トレーナーが読むだけで書けない片道になる。
+            お客さま名で絞り込んだ状態で開く。 */}
+        <Link
+          href={`/lessons/regular?q=${encodeURIComponent(lesson.customerName)}`}
+          className="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl py-2.5 transition"
+        >
+          <Pencil size={14} /> {isAdmin ? "通常レッスン管理で編集" : "今日やったことを記録する"}
+        </Link>
       </div>
     );
   }

@@ -112,6 +112,32 @@ export async function getLessons(): Promise<Lesson[]> {
   return [];
 }
 
+/**
+ * そのお客さまの、指定日時より前のレッスン（新しい順）。
+ *
+ * 引き継ぎのため。同じお客さまを複数のトレーナーで見るとき、
+ * 次に入る人が「前回なにをしたか」を読めるようにする。
+ * 担当が誰かは問わない（他のトレーナーのぶんも読めないと引き継ぎにならない）。
+ */
+export async function getCustomerLessonHistory(
+  customerId: string,
+  beforeIso: string,
+  limit = 3,
+): Promise<Lesson[]> {
+  if (!customerId) return [];
+  const client = createAdminClient();
+  for (let i = 0; i < SELECTS.length; i++) {
+    const { data, error } = await client.from("lessons").select(SELECTS[i])
+      .eq("customer_id", customerId)
+      .lt("scheduled_at", beforeIso)
+      .order("scheduled_at", { ascending: false })
+      .limit(limit);
+    if (!error) return (data as unknown as DbRow[]).map(fromDb);
+    if (!isMissingOptionalColumn(error) || i === SELECTS.length - 1) return [];
+  }
+  return [];
+}
+
 export async function getLesson(id: string): Promise<Lesson | null> {
   const client = createAdminClient();
   for (let i = 0; i < SELECTS.length; i++) {
