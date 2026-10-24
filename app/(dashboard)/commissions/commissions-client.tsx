@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks, FileText, Clock, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, Users, Award, Percent, ChevronRight, ListChecks, FileText, Clock, AlertTriangle, Wallet } from "lucide-react";
 import { MemberLabel } from "@/components/ui/member-label";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
@@ -22,6 +22,7 @@ import {
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
+import type { CommissionAdjustment } from "@/lib/commission-adjustments-types";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
 function getMonthOptions(): { value: string; label: string }[] {
@@ -388,6 +389,19 @@ function AdminLinks() {
         <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
       </Link>
       <Link
+        href="/commissions/adjustments"
+        className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
+      >
+        <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+          <Wallet size={17} className="text-indigo-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">前払い・差し引き</p>
+          <p className="text-xs text-gray-500 mt-0.5">先に渡したお金を、あとのコミッションから引く</p>
+        </div>
+        <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+      </Link>
+      <Link
         href="/commissions/rates"
         className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 hover:shadow-sm transition group"
       >
@@ -418,6 +432,7 @@ export function CommissionsClient({
   members,
   trainerRates,
   fctStores,
+  adjustments,
   isAdmin,
   currentMemberId,
 }: {
@@ -434,6 +449,8 @@ export function CommissionsClient({
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   /** FCT店舗の歩合率（FCT経由のお客さまの売上計算に使う） */
   fctStores?:   { id: string; rate?: number }[];
+  /** 前払いの差し引き・立替の精算。ページ側で見てよい人のぶんに絞り込み済み */
+  adjustments?: CommissionAdjustment[];
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {
@@ -474,6 +491,13 @@ export function CommissionsClient({
   const hourlyTotal  = hourlyEntries.reduce((s, e) => s + e.total, 0);
   const pendingTotal = hourlyEntries.reduce((s, e) => s + e.pendingTotal, 0);
   const pendingCount = hourlyEntries.reduce((s, e) => s + e.pending.length, 0);
+
+  // この月の前払いの差し引き。合計からは引かれるので、タブの数字と食い違う前に知らせる
+  const monthAdjustments = useMemo(
+    () => (adjustments ?? []).filter((a) => a.month === month),
+    [adjustments, month],
+  );
+  const adjustmentTotal = monthAdjustments.reduce((s, a) => s + a.amount, 0);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -541,6 +565,40 @@ export function CommissionsClient({
           )}
         </div>
       </div>
+
+      {/* 前払いの差し引き。下のタブの数字には出てこないので、ここで必ず見せる */}
+      {monthAdjustments.length > 0 && (
+        <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold text-indigo-600 flex items-center gap-1.5">
+              <Wallet size={12} /> 前払い・差し引き
+            </p>
+            <p className={cn("text-xl font-bold", adjustmentTotal < 0 ? "text-red-600" : "text-green-700")}>
+              {adjustmentTotal < 0 ? "−" : "＋"}{yen(Math.abs(adjustmentTotal))}
+            </p>
+          </div>
+          <ul className="mt-2 space-y-1">
+            {monthAdjustments.map((a) => (
+              <li key={a.id} className="text-xs text-indigo-700 flex items-baseline justify-between gap-3">
+                <span className="truncate">
+                  {isAdmin && a.memberName ? `${a.memberName}・` : ""}{a.label}
+                </span>
+                <span className="font-semibold tabular-nums flex-shrink-0">
+                  {a.amount < 0 ? "−" : "＋"}{yen(Math.abs(a.amount))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-indigo-500 mt-2 leading-relaxed">
+            下のタブの金額は差し引く前です。実際に振り込む額はコミッション明細に出ます。
+          </p>
+          {isAdmin && (
+            <Link href="/commissions/adjustments" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-800 underline mt-1.5">
+              登録・編集する <ChevronRight size={12} />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* タブ */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">

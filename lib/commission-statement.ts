@@ -3,6 +3,7 @@ import type { TrialLesson } from "./trial-lessons-types";
 import type { HourlyTask } from "./hourly-tasks-types";
 import { hourlyTaskHours, hourlyTaskAmount } from "./hourly-tasks-types";
 import { buildTrainerEntries, buildSalesEntries, isoToMonth, type CommissionContext } from "./commissions";
+import type { CommissionAdjustment } from "./commission-adjustments-types";
 
 /** 明細1行（単価・歩合率は含まない。支払う金額のみ） */
 export interface StatementLine {
@@ -20,6 +21,13 @@ export interface HourlyStatementLine {
   amount: number;
 }
 
+/** 調整の明細1行（前払いの差し引き・立替の精算など。マイナスもある） */
+export interface AdjustmentStatementLine {
+  label:  string;
+  amount: number;
+  note?:  string;
+}
+
 export interface TrainerStatement {
   memberId:     string;
   memberName:   string;
@@ -29,7 +37,16 @@ export interface TrainerStatement {
   salesTotal:   number;
   hourlyLines:  HourlyStatementLine[]; // 業務
   hourlyTotal:  number;
+  /**
+   * 報酬の合計（レッスン＋営業＋業務）。調整は含まない。
+   * 消費税の内訳はこの額から割り戻す。前払いの差し引きは報酬ではなく
+   * 「渡したお金を戻してもらう」だけなので、課税対象を減らしてはいけない。
+   */
   total:        number;
+  adjustmentLines: AdjustmentStatementLine[]; // 前払いの差し引き・立替の精算など
+  adjustmentTotal: number;                     // マイナス＝差し引く
+  /** 実際に振り込む額。total + adjustmentTotal */
+  payable:      number;
 }
 
 /**
@@ -44,15 +61,18 @@ export function buildTrainerStatements(
   hourlyTasks: HourlyTask[],
   month: string,
   ctx: CommissionContext,
+  /** 前払いの差し引き・立替の精算など。全月ぶん渡してよい（この月のぶんだけ使う） */
+  adjustments: CommissionAdjustment[] = [],
 ): TrainerStatement[] {
   const trainerEntries = buildTrainerEntries(lessons, completedTrialLessons, month, ctx);
   const salesEntries   = buildSalesEntries(lessons, contractedTrialLessons, month, ctx);
   const hourlyInMonth  = hourlyTasks.filter((t) => t.status === "completed" && isoToMonth(t.scheduledAt) === month);
+  const adjustInMonth  = adjustments.filter((a) => a.month === month);
 
   const map = new Map<string, TrainerStatement>();
   const ensure = (id: string, name: string) => {
     if (!map.has(id)) {
-      map.set(id, { memberId: id, memberName: name, trainerLines: [], trainerTotal: 0, salesLines: [], salesTotal: 0, hourlyLines: [], hourlyTotal: 0, total: 0 });
+      map.set(id, { memberId: id, memberName: name, trainerLines: [], trainerTotal: 0, salesLines: [], salesTotal: 0, hourlyLines: [], hourlyTotal: 0, total: 0, adjustmentLines: [], adjustmentTotal: 0, payable: 0 });
     }
     return map.get(id)!;
   };
@@ -84,7 +104,17 @@ export function buildTrainerStatements(
   }
   for (const s of map.values()) s.hourlyLines.sort((a, b) => a.date.localeCompare(b.date));
 
+  // 前払いの差し引きなど。報酬が1件も無い人にも付くことがある
+  // （先に渡したあと、その月はレッスンが無かった場合）ので ensure で行を作る
+  for (const a of adjustInMonth) {
+    const s = ensure(a.memberId, a.memberName ?? a.memberId);
+    s.adjustmentLines.push({ label: a.label, amount: a.amount, note: a.note });
+    s.adjustmentTotal += a.amount;
+  }
+
+  for (const s of map.values()) s.payable = s.total + s.adjustmentTotal;
+
   return Array.from(map.values())
-    .filter((s) => s.total > 0)
-    .sort((a, b) => b.total - a.total);
+    .filter((s) => s.total > 0 || s.adjustmentTotal !== 0)
+    .sort((a, b) => b.payable - a.payable);
 }

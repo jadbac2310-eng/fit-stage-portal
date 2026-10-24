@@ -11,10 +11,11 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
+import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { type CommissionContext } from "@/lib/commissions";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
-import { buildTrainerStatements, type StatementLine, type HourlyStatementLine } from "@/lib/commission-statement";
+import { buildTrainerStatements, type StatementLine, type HourlyStatementLine, type AdjustmentStatementLine } from "@/lib/commission-statement";
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
 import { StatementActions } from "./statement-actions";
 
@@ -98,6 +99,60 @@ function HourlyLineTable({ lines, total }: { lines: HourlyStatementLine[]; total
   );
 }
 
+/**
+ * 前払いの差し引き・立替の精算。
+ *
+ * ここを出さずに合計だけ減らすと、受け取る側は「なんで少ないの？」になる。
+ * 何がいくら引かれたのかを必ず明細に残す。
+ */
+function AdjustmentTable({
+  lines, total, rewardTotal, payable,
+}: { lines: AdjustmentStatementLine[]; total: number; rewardTotal: number; payable: number }) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <p className="text-sm font-bold text-gray-700 mb-2">調整（前払いの差し引き・立替の精算）</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b-2 border-gray-300 text-gray-500">
+            <th className="text-left py-2 font-medium">内容</th>
+            <th className="text-right py-2 font-medium w-28">金額</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l, i) => (
+            <tr key={i} className="border-b border-gray-100">
+              <td className="py-2 text-gray-800">
+                {l.label}
+                {l.note && <span className="text-xs text-gray-500 ml-1.5">{l.note}</span>}
+              </td>
+              <td className={`py-2 text-right tabular-nums ${l.amount < 0 ? "text-red-600" : "text-gray-800"}`}>
+                {l.amount < 0 ? `−${yen(Math.abs(l.amount))}` : yen(l.amount)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-b border-gray-100">
+            <td className="py-2 text-right text-sm font-bold text-gray-700">報酬合計</td>
+            <td className="py-2 text-right text-sm font-bold text-gray-700 tabular-nums">{yen(rewardTotal)}</td>
+          </tr>
+          <tr className="border-b border-gray-100">
+            <td className="py-2 text-right text-sm font-bold text-gray-700">調整 小計</td>
+            <td className={`py-2 text-right text-sm font-bold tabular-nums ${total < 0 ? "text-red-600" : "text-gray-700"}`}>
+              {total < 0 ? `−${yen(Math.abs(total))}` : yen(total)}
+            </td>
+          </tr>
+          <tr>
+            <td className="py-2 text-right text-sm font-bold text-gray-700">お支払い金額</td>
+            <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(payable)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
 export default async function CommissionStatementPrintPage({
   searchParams,
 }: {
@@ -109,7 +164,7 @@ export default async function CommissionStatementPrintPage({
   const { member: memberId, month } = await searchParams;
   if (!memberId || !month) notFound();
 
-  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -121,6 +176,7 @@ export default async function CommissionStatementPrintPage({
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
     getFctStores(),
+    getCommissionAdjustments(),
   ]);
 
   const trainer = members.find((m) => m.id === memberId);
@@ -140,13 +196,18 @@ export default async function CommissionStatementPrintPage({
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
   const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
-  const statement = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx)
+  const statement = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx, adjustments)
     .find((s) => s.memberId === memberId);
 
   const trainerLines = statement?.trainerLines ?? [];
   const salesLines = statement?.salesLines ?? [];
   const hourlyLines = statement?.hourlyLines ?? [];
+  const adjustmentLines = statement?.adjustmentLines ?? [];
+  const adjustmentTotal = statement?.adjustmentTotal ?? 0;
+  // total は報酬の合計（レッスン＋営業＋業務）。前払いの差し引きは報酬ではないので、
+  // 消費税の内訳は差し引く前の報酬から割り戻す。振り込む額は payable。
   const total = statement?.total ?? 0;
+  const payable = statement?.payable ?? 0;
   const tax = taxBreakdown(total); // 各金額は税込扱い → 税抜/消費税に割り戻す
   const stmtNo = statementNumber(month, memberId);
   const pdfHref = `/commissions/statement/print/pdf?member=${memberId}&month=${month}`;
@@ -188,15 +249,23 @@ export default async function CommissionStatementPrintPage({
         </div>
 
         {/* 合計 */}
-        <div className="bg-gray-50 print:bg-gray-100 rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-600">お支払い金額</span>
-          <span className="text-2xl font-bold text-gray-900">{yen(total)}</span>
+        <div className="bg-gray-50 print:bg-gray-100 rounded-xl px-5 py-4 mb-6">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-600">お支払い金額</span>
+            <span className="text-2xl font-bold text-gray-900">{yen(payable)}</span>
+          </div>
+          {adjustmentTotal !== 0 && (
+            <p className="text-xs text-gray-500 mt-1.5 text-right">
+              報酬 {yen(total)} {adjustmentTotal < 0 ? "−" : "＋"} 調整 {yen(Math.abs(adjustmentTotal))}
+            </p>
+          )}
         </div>
 
         {/* レッスン担当分・営業分・業務（単価・歩合率は表示しない） */}
         <LineTable title="レッスン担当分" lines={trainerLines} total={statement?.trainerTotal ?? 0} />
         <LineTable title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} total={statement?.salesTotal ?? 0} />
         <HourlyLineTable lines={hourlyLines} total={statement?.hourlyTotal ?? 0} />
+        <AdjustmentTable lines={adjustmentLines} total={adjustmentTotal} rewardTotal={total} payable={payable} />
 
         {/* 消費税の内訳（各金額を税込として税抜・消費税に割り戻し） */}
         {total > 0 && (
@@ -216,7 +285,7 @@ export default async function CommissionStatementPrintPage({
           </div>
         )}
 
-        {trainerLines.length === 0 && salesLines.length === 0 && hourlyLines.length === 0 && (
+        {trainerLines.length === 0 && salesLines.length === 0 && hourlyLines.length === 0 && adjustmentLines.length === 0 && (
           <p className="text-sm text-gray-400 text-center py-8">この月の対象レッスンはありません</p>
         )}
       </div>

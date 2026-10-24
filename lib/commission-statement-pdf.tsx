@@ -1,5 +1,5 @@
 import { Document, Page, View, Text, StyleSheet, Font } from "@react-pdf/renderer";
-import type { StatementLine, HourlyStatementLine } from "./commission-statement";
+import type { StatementLine, HourlyStatementLine, AdjustmentStatementLine } from "./commission-statement";
 
 // 日本語フォント（実行時にCDNから登録）。
 Font.register({
@@ -33,6 +33,7 @@ const s = StyleSheet.create({
   fromLine: { fontSize: 9, color: C.sub },
 
   metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 9, color: C.sub, marginBottom: 14 },
+  adjustNote: { fontSize: 9, color: C.sub, textAlign: "right", marginTop: -16, marginBottom: 18 },
 
   totalBox: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.faint, borderRadius: 6, paddingVertical: 14, paddingHorizontal: 18, marginBottom: 22 },
   totalLabel: { fontSize: 11, fontWeight: "bold", color: "#374151", lineHeight: 1 },
@@ -50,6 +51,7 @@ const s = StyleSheet.create({
   cAmount: { width: "22%", textAlign: "right" },
   cHourlyTitle: { width: "48%" },
   cHours: { width: "12%", textAlign: "right" },
+  cAdjustLabel: { width: "78%" },
 
   tfoot: { flexDirection: "row", alignItems: "center", paddingTop: 8 },
   tfootLabel: { width: "78%", textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151", paddingRight: 8, lineHeight: 1 },
@@ -118,6 +120,45 @@ function HourlyLineSection({ lines, subtotal }: { lines: HourlyStatementLine[]; 
   );
 }
 
+/**
+ * 前払いの差し引き・立替の精算。
+ *
+ * 合計だけ減らすと受け取る側は理由が分からない。何がいくら引かれたかを必ず残す。
+ */
+function AdjustmentSection({
+  lines, subtotal, rewardTotal, payable,
+}: { lines: AdjustmentStatementLine[]; subtotal: number; rewardTotal: number; payable: number }) {
+  if (lines.length === 0) return null;
+  const signed = (n: number) => (n < 0 ? `−${yen(Math.abs(n))}` : yen(n));
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle}>調整（前払いの差し引き・立替の精算）</Text>
+      <View style={s.th}>
+        <Text style={[s.thText, s.cAdjustLabel]}>内容</Text>
+        <Text style={[s.thText, s.cAmount]}>金額</Text>
+      </View>
+      {lines.map((l, i) => (
+        <View key={i} style={s.tr} wrap={false}>
+          <Text style={s.cAdjustLabel}>{l.note ? `${l.label}（${l.note}）` : l.label}</Text>
+          <Text style={s.cAmount}>{signed(l.amount)}</Text>
+        </View>
+      ))}
+      <View style={s.tfoot}>
+        <Text style={s.tfootLabel}>報酬合計</Text>
+        <Text style={s.tfootValue}>{yen(rewardTotal)}</Text>
+      </View>
+      <View style={s.tfoot}>
+        <Text style={s.tfootLabel}>調整 小計</Text>
+        <Text style={s.tfootValue}>{signed(subtotal)}</Text>
+      </View>
+      <View style={s.tfoot}>
+        <Text style={s.tfootLabel}>お支払い金額</Text>
+        <Text style={s.tfootValue}>{yen(payable)}</Text>
+      </View>
+    </View>
+  );
+}
+
 export interface CommissionStatementPdfData {
   trainerName: string;
   trainerInvoiceNumber?: string;
@@ -127,7 +168,12 @@ export interface CommissionStatementPdfData {
   salesTotal: number;
   hourlyLines: HourlyStatementLine[];
   hourlyTotal: number;
+  /** 報酬の合計（レッスン＋営業＋業務）。調整は含まない */
   total: number;
+  adjustmentLines?: AdjustmentStatementLine[];
+  adjustmentTotal?: number;
+  /** 実際に振り込む額（報酬 ＋ 調整）。未指定なら total を使う */
+  payable?: number;
   tax: { rate: number; net: number; tax: number; gross: number };
   issuer: { name: string; contact?: string; address: string; tel: string };
   statementNo: string;
@@ -135,8 +181,10 @@ export interface CommissionStatementPdfData {
 }
 
 export function CommissionStatementDocument({
-  trainerName, trainerInvoiceNumber, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total, tax, issuer, statementNo, monthLabel,
+  trainerName, trainerInvoiceNumber, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total,
+  adjustmentLines = [], adjustmentTotal = 0, payable, tax, issuer, statementNo, monthLabel,
 }: CommissionStatementPdfData) {
+  const paid = payable ?? total;
   return (
     <Document title={`コミッション明細 ${trainerName} ${monthLabel}`}>
       <Page size="A4" style={s.page}>
@@ -164,13 +212,19 @@ export function CommissionStatementDocument({
 
         <View style={s.totalBox}>
           <Text style={s.totalLabel}>お支払い金額</Text>
-          <Text style={s.totalValue}>{yen(total)}</Text>
+          <Text style={s.totalValue}>{yen(paid)}</Text>
         </View>
+        {adjustmentTotal !== 0 ? (
+          <Text style={s.adjustNote}>
+            報酬 {yen(total)} {adjustmentTotal < 0 ? "−" : "＋"} 調整 {yen(Math.abs(adjustmentTotal))}
+          </Text>
+        ) : null}
 
         {/* レッスン担当分・営業分・業務（単価・歩合率は表示しない） */}
         <LineSection title="レッスン担当分" lines={trainerLines} subtotal={trainerTotal} />
         <LineSection title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} subtotal={salesTotal} />
         <HourlyLineSection lines={hourlyLines} subtotal={hourlyTotal} />
+        <AdjustmentSection lines={adjustmentLines} subtotal={adjustmentTotal} rewardTotal={total} payable={paid} />
 
         {/* 消費税の内訳（各金額を税込として税抜・消費税に割り戻し） */}
         {total > 0 ? (

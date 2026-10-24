@@ -9,6 +9,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
+import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { buildHourlyEntries, type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
@@ -39,7 +40,7 @@ export default async function CommissionStatementPage({
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
 
-  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -51,6 +52,7 @@ export default async function CommissionStatementPage({
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
     getFctStores(),
+    getCommissionAdjustments(),
   ]);
 
   const ctx: CommissionContext = {
@@ -68,7 +70,7 @@ export default async function CommissionStatementPage({
   const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
   const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
 
-  const statements = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx);
+  const statements = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx, adjustments);
 
   // 「予定」のままの業務は明細に載らない。支払い前に気付けるよう件数と金額を渡す。
   const hourlyEntries = buildHourlyEntries(hourlyTasks, month);

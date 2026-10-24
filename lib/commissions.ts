@@ -2,7 +2,7 @@ import type { Customer, CustomerType } from "./customers-types";
 import { isFctCustomer } from "./customers-types";
 import { fctLessonPay, FCT_DEFAULT_RATE } from "./fct-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType, resolveSingleLessonAmount } from "./lessons-types";
+import { courseToPaymentType, resolveSingleLessonAmount, isFreeLesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { trialCourseLabel } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
@@ -133,6 +133,10 @@ export function isoToMonth(iso: string): string {
 
 /** 1レッスンの単価（売上計上額）を算出する */
 export function resolveLessonFee(lesson: Lesson, ctx: CommissionContext): number {
+  // 無料レッスン（サービス回）は売上0円。回数券に紐づいていても、金額欄に数字が入っていても0円。
+  // いちばん最初に見る。あとの分岐に落ちると標準単価を拾ってしまう。
+  if (isFreeLesson(lesson.course)) return 0;
+
   // FCT経由のお客さま: 売上は「お客さまが払う単価」ではなく「FCTから入る額」。
   // FCTの明細と同じく お客さまの単価の税抜 × 店舗の歩合率 で出す。
   const fctCust = ctx.customers.find((c) => c.id === lesson.customerId);

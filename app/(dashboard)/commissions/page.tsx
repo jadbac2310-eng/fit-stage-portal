@@ -8,6 +8,7 @@ import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPa
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getFctStores } from "@/lib/fct-stores";
+import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { CommissionsClient } from "./commissions-client";
 
@@ -26,7 +27,7 @@ export default async function CommissionsPage() {
     );
   }
 
-  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, allHourlyTasks, fctStores] = await Promise.all([
+  const [customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, allHourlyTasks, fctStores, allAdjustments] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -38,6 +39,7 @@ export default async function CommissionsPage() {
     getMemberCustomerRates(),
     getHourlyTasks(),
     getFctStores(),
+    getCommissionAdjustments(),
   ]);
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
@@ -51,6 +53,9 @@ export default async function CommissionsPage() {
 
   // 業務は時給が入っているので、歩合率と同じく他人ぶんは渡さない
   const hourlyTasks = allHourlyTasks.filter((t) => member.isAdmin || t.memberId === member.id);
+
+  // 前払いの差し引きも金額なので、他人ぶんは渡さない（本人は自分の分を知る必要がある）
+  const adjustments = allAdjustments.filter((a) => member.isAdmin || a.memberId === member.id);
 
   return (
     <CommissionsClient
@@ -66,6 +71,7 @@ export default async function CommissionsPage() {
       members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl, isOwner: m.isOwner }))}
       trainerRates={trainerRates}
       fctStores={fctStores.map((f) => ({ id: f.id, rate: f.rate }))}
+      adjustments={adjustments}
       isAdmin={member.isAdmin}
       currentMemberId={member.id}
     />

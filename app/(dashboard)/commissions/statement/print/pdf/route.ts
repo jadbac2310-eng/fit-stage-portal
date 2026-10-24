@@ -10,6 +10,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
+import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { type CommissionContext } from "@/lib/commissions";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month");
   if (!memberId || !month) return new Response("パラメータが不正です", { status: 400 });
 
-  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores] = await Promise.all([
+  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
     getCustomers(),
     getLessons(),
     getTrialLessons(),
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
     getAllSessionPassPrices(),
     getMemberCustomerRates(),
     getFctStores(),
+    getCommissionAdjustments(),
   ]);
 
   const trainer = members.find((m) => m.id === memberId);
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
   const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
   const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
-  const statement = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx)
+  const statement = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx, adjustments)
     .find((s) => s.memberId === memberId);
 
   const buffer = await renderToBuffer(
@@ -77,6 +79,10 @@ export async function GET(req: NextRequest) {
       hourlyLines: statement?.hourlyLines ?? [],
       hourlyTotal: statement?.hourlyTotal ?? 0,
       total: statement?.total ?? 0,
+      adjustmentLines: statement?.adjustmentLines ?? [],
+      adjustmentTotal: statement?.adjustmentTotal ?? 0,
+      payable: statement?.payable ?? 0,
+      // 消費税は「報酬」から割り戻す。前払いの差し引きは報酬ではないので課税対象を減らさない
       tax: taxBreakdown(statement?.total ?? 0),
       issuer: { name: ISSUER.name, contact: ISSUER.contact, address: ISSUER.address, tel: ISSUER.tel },
       statementNo: statementNumber(month, memberId),

@@ -124,12 +124,13 @@ export async function getSessionPassUsage(passId: string, lessonId: string): Pro
     const client = createAdminClient();
     const [passRes, lessonsRes] = await Promise.all([
       client.from("session_passes").select("total_count").eq("id", passId).single(),
-      client.from("lessons").select("id, scheduled_at, created_at").eq("session_pass_id", passId),
+      // status も読む。キャンセルした回は消費しない＝何回目かの数にも入れないため
+      client.from("lessons").select("id, scheduled_at, created_at, status").eq("session_pass_id", passId),
     ]);
     if (passRes.error || lessonsRes.error || !passRes.data) return null;
-    const rows = (lessonsRes.data ?? []) as { id: string; scheduled_at: string; created_at: string }[];
+    const rows = (lessonsRes.data ?? []) as { id: string; scheduled_at: string; created_at: string; status?: string }[];
     const ordinal = passUsageOrdinals(
-      rows.map((r) => ({ id: r.id, scheduledAt: r.scheduled_at, createdAt: r.created_at }))
+      rows.map((r) => ({ id: r.id, scheduledAt: r.scheduled_at, createdAt: r.created_at, status: r.status }))
     ).get(lessonId);
     if (!ordinal) return null;
     return { ordinal, totalCount: (passRes.data as { total_count: number }).total_count };

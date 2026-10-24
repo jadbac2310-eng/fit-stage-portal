@@ -7,7 +7,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2, FlaskConical,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, isFreeLesson, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer, isFctCustomer } from "@/lib/customers-types";
@@ -940,7 +940,18 @@ export function LessonForm({
           以前は顧客の都度単価を初期値として入れていたが、そうするとレッスン1件ごとに
           そのときの単価が焼き付き、あとから顧客マスタを変えても請求書に反映されなかった。
           既定は空欄にして、顧客マスタの単価は下に案内だけ出す。 */}
-      {courseToPaymentType(selectedCourse) === "single" && (() => {
+      {/* 無料レッスンは必ず0円。金額欄を出すと「空欄なら顧客の都度単価」になってしまうので、
+          欄自体を出さずに0円を送る。 */}
+      {isFreeLesson(selectedCourse) && (
+        <>
+          <input type="hidden" name="amount" value="0" />
+          <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+            この回は<span className="font-semibold">無料</span>です。請求書には0円で載り、売上には入りません。
+          </p>
+        </>
+      )}
+
+      {courseToPaymentType(selectedCourse) === "single" && !isFreeLesson(selectedCourse) && (() => {
         const customerPrice = customers.find((c) => c.id === selectedCustomerId)?.singleSessionPrice;
         // 金額はトレーナーには触らせない。編集で消えないよう、今の値はそのまま持っておく
         if (!isAdmin) return <input type="hidden" name="amount" defaultValue={defaultValues?.amount ?? ""} />;
@@ -1104,7 +1115,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
     : undefined;
 
   const linkedPass = lesson.sessionPassId ? sessionPasses.find((p) => p.id === lesson.sessionPassId) : undefined;
-  // この回数券レッスンが何回目か。残数はレッスン作成時に減るので、キャンセル済みも1回として数える
+  // この回数券レッスンが何回目か。キャンセルした回は消費しないので数に入らない（0になる）
   // （スケジュール画面と同じ passUsageOrdinals を使い、画面ごとに回数がズレないようにする）
   const sessionNumber = linkedPass
     ? passUsageOrdinals(allLessons.filter((l) => l.sessionPassId === linkedPass.id)).get(lesson.id) ?? 0

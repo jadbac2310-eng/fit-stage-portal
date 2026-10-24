@@ -69,6 +69,22 @@ export function isBillableLessonStatus(status: LessonStatus): boolean {
   return status === "completed" || status === "cancelled_same_day";
 }
 
+/**
+ * 無料レッスン（サービス回）のコース名。
+ *
+ * 回数券の回数を超えて実施したぶん、キャンペーン、お友達紹介のお礼など
+ * 「請求しないと決めた回」に使う。単価は必ず0円で、金額欄に何が入っていても0円にする。
+ *
+ * コース名を自由文字列にしてしまうと、courseToPaymentType が null になって
+ * 単価のフォールバック（プランマスタの標準単価）を拾ってしまい、
+ * 無料のはずが請求に乗る。だから「都度」と同じ single として正式な選択肢にしている。
+ */
+export const FREE_COURSE = "無料";
+
+export function isFreeLesson(course: string | null | undefined): boolean {
+  return course === FREE_COURSE;
+}
+
 export const COURSE_OPTIONS: { value: string; label: string; paymentType: LessonPaymentType }[] = [
   { value: "回数券", label: "回数券", paymentType: "session_pass" },
   { value: "月2回",  label: "月2回",  paymentType: "monthly"      },
@@ -76,6 +92,7 @@ export const COURSE_OPTIONS: { value: string; label: string; paymentType: Lesson
   { value: "月8回",  label: "月8回",  paymentType: "monthly"      },
   { value: "都度",   label: "都度",   paymentType: "single"       },
   { value: "オンラインパーソナル", label: "オンラインパーソナル", paymentType: "single" },
+  { value: FREE_COURSE, label: "無料（請求しない回）", paymentType: "single" },
 ];
 
 export function courseToPaymentType(course: string | undefined): LessonPaymentType | null {

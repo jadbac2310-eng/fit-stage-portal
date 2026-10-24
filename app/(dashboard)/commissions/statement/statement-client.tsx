@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
+import { FileText, Receipt, ChevronRight, AlertTriangle, Wallet } from "lucide-react";
 import type { TrainerStatement } from "@/lib/commission-statement";
 
 /** 「予定」のまま残っている業務の件数・金額（支払い前の確認用） */
@@ -31,7 +31,8 @@ function monthOptions(): { value: string; label: string }[] {
 export function StatementClient({ statements, month, pendingHourly }: { statements: TrainerStatement[]; month: string; pendingHourly?: PendingHourly }) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
-  const grandTotal = statements.reduce((s, e) => s + e.total, 0);
+  const grandTotal = statements.reduce((s, e) => s + e.payable, 0);
+  const adjustTotal = statements.reduce((s, e) => s + e.adjustmentTotal, 0);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -73,6 +74,35 @@ export function StatementClient({ statements, month, pendingHourly }: { statemen
         </div>
       )}
 
+      {/* 前払いの差し引きがある月は、払う前に気付けるように出す */}
+      {adjustTotal !== 0 && (
+        <div className="mb-5 rounded-2xl bg-indigo-50 border border-indigo-200 p-4">
+          <p className="text-sm font-bold text-indigo-800 flex items-center gap-1.5">
+            <Wallet size={15} /> この月は調整が入っています
+          </p>
+          <p className="text-xs text-indigo-700 mt-1.5 leading-relaxed">
+            前払いの差し引き・立替の精算で、合計 {adjustTotal < 0 ? "−" : "＋"}{yen(Math.abs(adjustTotal))}。
+            下の金額は差し引いたあとの「振り込む額」です。
+          </p>
+          <Link href="/commissions/adjustments" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-800 underline mt-2">
+            前払い・差し引きを見る <ChevronRight size={12} />
+          </Link>
+        </div>
+      )}
+
+      {/* 差し引きが報酬より多い人。マイナス振込はできないので先に知らせる */}
+      {statements.some((e) => e.payable < 0) && (
+        <div className="mb-5 rounded-2xl bg-red-50 border border-red-200 p-4">
+          <p className="text-sm font-bold text-red-800 flex items-center gap-1.5">
+            <AlertTriangle size={15} /> 差し引きが報酬より多い人がいます
+          </p>
+          <p className="text-xs text-red-700 mt-1.5 leading-relaxed">
+            {statements.filter((e) => e.payable < 0).map((e) => `${e.memberName}（${yen(e.payable)}）`).join("、")}。
+            この月は引ききれないので、差し引きの金額を分けて、残りを翌月に回してください。
+          </p>
+        </div>
+      )}
+
       {statements.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🧾</p>
@@ -85,6 +115,7 @@ export function StatementClient({ statements, month, pendingHourly }: { statemen
               e.trainerLines.length > 0 && "レッスン",
               e.salesLines.length > 0 && "営業",
               e.hourlyLines.length > 0 && "業務",
+              e.adjustmentLines.length > 0 && "調整",
             ].filter((v): v is string => !!v);
             return (
             <Link
@@ -98,11 +129,18 @@ export function StatementClient({ statements, month, pendingHourly }: { statemen
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm truncate">{e.memberName}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {e.trainerLines.length + e.salesLines.length + e.hourlyLines.length}件
+                  {e.trainerLines.length + e.salesLines.length + e.hourlyLines.length + e.adjustmentLines.length}件
                   {parts.length > 1 && `（${parts.join("＋")}）`}
                 </p>
               </div>
-              <p className="text-base font-bold text-gray-800">{yen(e.total)}</p>
+              <div className="text-right flex-shrink-0">
+                <p className="text-base font-bold text-gray-800">{yen(e.payable)}</p>
+                {e.adjustmentTotal !== 0 && (
+                  <p className={`text-[11px] mt-0.5 ${e.adjustmentTotal < 0 ? "text-red-600" : "text-green-600"}`}>
+                    調整 {e.adjustmentTotal < 0 ? "−" : "＋"}{yen(Math.abs(e.adjustmentTotal))}
+                  </p>
+                )}
+              </div>
               <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
             </Link>
             );

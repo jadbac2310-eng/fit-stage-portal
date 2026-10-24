@@ -71,7 +71,10 @@ export default async function SchedulePage({
   for (const [passId, passLessons] of lessonsByPass) {
     const ordinals = passUsageOrdinals(passLessons);
     for (const l of passLessons) {
-      passUsageByLessonId.set(l.id, { ordinal: ordinals.get(l.id)!, total: passTotalById.get(passId) });
+      // キャンセルした回は消費しないので序数が付かない。印を付けずに飛ばす
+      const ordinal = ordinals.get(l.id);
+      if (ordinal == null) continue;
+      passUsageByLessonId.set(l.id, { ordinal, total: passTotalById.get(passId) });
     }
   }
 

@@ -7,7 +7,7 @@ import type { CustomerMonthlyItem } from "./customer-monthly-items-types";
 import { isMonthlyItemActive } from "./customer-monthly-items-types";
 import type { Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
-import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount, DELIVERY_MODE_LABEL, type DeliveryMode } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount, isFreeLesson, DELIVERY_MODE_LABEL, type DeliveryMode } from "./lessons-types";
 import { TRIAL_LESSON_COURSE_NAME } from "./commissions-types";
 import { resolveTrialFee } from "./commissions";
 import type { PlanMaster } from "./plans-master-types";
@@ -263,6 +263,12 @@ export function buildInvoice(
     if (l.customerId !== customer.id) continue;
     if (courseToPaymentType(l.course) !== "single" || !isBillableLessonStatus(l.status)) continue;
     if (!inPeriod(l.scheduledAt, period)) continue;
+    // 無料レッスン（サービス回）は必ず0円。金額欄が空でも顧客の都度単価を拾わせない。
+    // 明細には0円で載せる（お客さまに「この回はサービス」と伝わるように）
+    if (isFreeLesson(l.course)) {
+      lines.push({ date: l.scheduledAt.slice(0, 10), label: `${deliveryLabel(l.deliveryMode)}（無料）`, amount: 0 });
+      continue;
+    }
     // この回だけの金額 → 段階単価 → 顧客の都度単価 → マスタの既定、の順で決める
     const amount = l.amount
       ?? data.tieredPrices?.[l.id]
