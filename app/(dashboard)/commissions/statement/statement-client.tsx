@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, Receipt, ChevronRight, AlertTriangle, Wallet } from "lucide-react";
 import type { TrainerStatement } from "@/lib/commission-statement";
+import { payDateShort } from "@/lib/commission-pay-date";
 
 /** 「予定」のまま残っている業務の件数・金額（支払い前の確認用） */
 export interface PendingHourly {
@@ -28,7 +29,13 @@ function monthOptions(): { value: string; label: string }[] {
   return opts;
 }
 
-export function StatementClient({ statements, month, pendingHourly }: { statements: TrainerStatement[]; month: string; pendingHourly?: PendingHourly }) {
+export function StatementClient({ statements, month, pendingHourly, payDays }: {
+  statements: TrainerStatement[];
+  month: string;
+  pendingHourly?: PendingHourly;
+  /** 担当者id → 支払日（月末じめ翌月のこの日）。人によって違う */
+  payDays?: Record<string, number>;
+}) {
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
   const grandTotal = statements.reduce((s, e) => s + e.payable, 0);
@@ -131,6 +138,7 @@ export function StatementClient({ statements, month, pendingHourly }: { statemen
                 <p className="text-xs text-gray-400 mt-0.5">
                   {e.trainerLines.length + e.salesLines.length + e.hourlyLines.length + e.adjustmentLines.length}件
                   {parts.length > 1 && `（${parts.join("＋")}）`}
+                  <span className="ml-1.5">・{payDateShort(month, payDays?.[e.memberId])} 払い</span>
                 </p>
               </div>
               <div className="text-right flex-shrink-0">

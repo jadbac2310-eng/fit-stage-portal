@@ -1,5 +1,6 @@
 import { createAdminClient, createAuthClient } from "./supabase";
 import { ActionError } from "./action-result";
+import { DEFAULT_COMMISSION_PAY_DAY, normalizePayDay } from "./commission-pay-date";
 
 export interface Member {
   id: string;
@@ -17,6 +18,8 @@ export interface Member {
   /** LINE通知そのものを受け取るか（既定true）。off にするとどの通知も送らない */
   lineNotify: boolean;
   commissionRate?: number; // トレーナー歩合率（％）。未設定は既定50%
+  /** コミッションの支払日。月末じめ翌月のこの日に振り込む（杉元さんは15日、ほかは25日） */
+  commissionPayDay?: number;
   invoiceNumber?: string;  // インボイス登録番号（コミッション明細に表示）
   lineUserId?: string;
   lineLinkCode?: string;
@@ -36,6 +39,7 @@ type DbRow = {
   lesson_reminder?: boolean | null;
   line_notify?: boolean | null;
   commission_rate?: number | null;
+  commission_pay_day?: number | null;
   invoice_number?: string | null;
   line_user_id?: string | null;
   line_link_code?: string | null;
@@ -56,6 +60,7 @@ function fromDb(row: DbRow): Member {
     lessonReminder: row.lesson_reminder ?? true,
     lineNotify:     row.line_notify ?? true,
     commissionRate: row.commission_rate ?? undefined,
+    commissionPayDay: row.commission_pay_day ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
     lineLinkCode: row.line_link_code ?? undefined,
@@ -68,6 +73,12 @@ function fromDb(row: DbRow): Member {
 function isMissingLineColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
   return /line_user_id|line_link_code/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
+}
+
+// commission_pay_day 列が未追加（マイグレーション未適用）でも担当者の登録・編集を止めないための判定
+function isMissingPayDayColumn(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return /commission_pay_day/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
 export async function getMembers(): Promise<Member[]> {
@@ -105,21 +116,23 @@ export async function getMemberByEmail(email: string): Promise<Member | null> {
 export async function addMember(
   data: Omit<Member, "id" | "createdAt">
 ): Promise<Member> {
-  const { data: row, error } = await createAdminClient()
-    .from("members")
-    .insert({
-      name:         data.name,
-      email:        data.email      ?? null,
-      role:         data.role       ?? null,
-      note:         data.note       ?? null,
-      avatar_url:   data.avatarUrl  ?? null,
-      auth_user_id: data.authUserId ?? null,
-      is_admin:     data.isAdmin,
-      commission_rate: data.commissionRate ?? null,
-      invoice_number: data.invoiceNumber ?? null,
-    })
-    .select()
-    .single();
+  const client = createAdminClient();
+  const base = {
+    name:         data.name,
+    email:        data.email      ?? null,
+    role:         data.role       ?? null,
+    note:         data.note       ?? null,
+    avatar_url:   data.avatarUrl  ?? null,
+    auth_user_id: data.authUserId ?? null,
+    is_admin:     data.isAdmin,
+    commission_rate: data.commissionRate ?? null,
+    invoice_number: data.invoiceNumber ?? null,
+  };
+  const payDay = { commission_pay_day: normalizePayDay(data.commissionPayDay ?? DEFAULT_COMMISSION_PAY_DAY) };
+  let { data: row, error } = await client.from("members").insert({ ...base, ...payDay }).select().single();
+  if (error && isMissingPayDayColumn(error)) {
+    ({ data: row, error } = await client.from("members").insert(base).select().single());
+  }
   if (error) throw error;
   return fromDb(row as DbRow);
 }
@@ -140,6 +153,7 @@ export async function updateMember(
   if (data.lessonReminder !== undefined) patch.lesson_reminder = data.lessonReminder;
   if (data.lineNotify     !== undefined) patch.line_notify     = data.lineNotify;
   if (data.commissionRate !== undefined) patch.commission_rate = data.commissionRate ?? null;
+  if (data.commissionPayDay !== undefined) patch.commission_pay_day = normalizePayDay(data.commissionPayDay);
   if (data.invoiceNumber  !== undefined) patch.invoice_number  = data.invoiceNumber  ?? null;
 
   const client = createAdminClient();
@@ -148,6 +162,12 @@ export async function updateMember(
   if (error && /line_notify/i.test(error.message ?? "")) {
     const { line_notify, ...rest } = patch;
     void line_notify;
+    ({ data: row, error } = await client.from("members").update(rest).eq("id", id).select().single());
+  }
+  // commission_pay_day 列が未適用のときも同じく、その列だけ外して再試行
+  if (error && isMissingPayDayColumn(error) && "commission_pay_day" in patch) {
+    const { commission_pay_day, ...rest } = patch;
+    void commission_pay_day;
     ({ data: row, error } = await client.from("members").update(rest).eq("id", id).select().single());
   }
   if (error) throw error;

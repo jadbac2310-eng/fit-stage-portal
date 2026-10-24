@@ -5,6 +5,14 @@ import { addMember, updateMember, deleteMember, getMember, getCurrentIsAdmin, ge
 import { saveMemberAvatar, deleteMemberAvatar } from "@/lib/upload";
 import { createAdminClient } from "@/lib/supabase";
 import { logActivity } from "@/lib/activity-logs";
+import { DEFAULT_COMMISSION_PAY_DAY, normalizePayDay } from "@/lib/commission-pay-date";
+
+/** コミッションの支払日（月末じめ翌月のこの日）。空欄や変な値は既定の25日に寄せる */
+function readPayDay(formData: FormData): number {
+  const raw = (formData.get("commissionPayDay") as string)?.trim();
+  if (!raw) return DEFAULT_COMMISSION_PAY_DAY;
+  return normalizePayDay(Number(raw));
+}
 
 export async function createMember(formData: FormData): Promise<{ error: string } | void> {
   await requireAdmin();
@@ -15,6 +23,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
   const role     = (formData.get("role")     as string)?.trim() || undefined;
   const note     = (formData.get("note")     as string)?.trim() || undefined;
   const invoiceNumber = (formData.get("invoiceNumber") as string)?.trim() || undefined;
+  const commissionPayDay = readPayDay(formData);
   const password = (formData.get("password") as string)?.trim() || undefined;
   const callerIsAdmin = await getCurrentIsAdmin();
   const isAdmin = callerIsAdmin && formData.get("isAdmin") === "on";
@@ -50,7 +59,7 @@ export async function createMember(formData: FormData): Promise<{ error: string 
     }
   }
 
-  const created = await addMember({ name, email, role, note, invoiceNumber, avatarUrl, authUserId, isAdmin, isOwner: false, lessonReminder: true, lineNotify: true });
+  const created = await addMember({ name, email, role, note, invoiceNumber, commissionPayDay, avatarUrl, authUserId, isAdmin, isOwner: false, lessonReminder: true, lineNotify: true });
   await logActivity({ action: "create", entityType: "member", entityId: created.id, summary: `担当者を追加: ${name}` });
   revalidatePath("/master/members");
 }
@@ -63,6 +72,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const role        = (formData.get("role")     as string)?.trim() || undefined;
   const note        = (formData.get("note")     as string)?.trim() || undefined;
   const invoiceNumber = (formData.get("invoiceNumber") as string)?.trim() || undefined;
+  const commissionPayDay = readPayDay(formData);
   const newPassword   = (formData.get("password") as string)?.trim() || undefined;
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
@@ -120,6 +130,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     role,
     note,
     invoiceNumber,
+    commissionPayDay,
     isAdmin,
     isOwner,
     lessonReminder,

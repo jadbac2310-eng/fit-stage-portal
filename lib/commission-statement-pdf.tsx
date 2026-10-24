@@ -178,11 +178,13 @@ export interface CommissionStatementPdfData {
   issuer: { name: string; contact?: string; address: string; tel: string };
   statementNo: string;
   monthLabel: string;
+  /** 「2026年11月15日」。支払日は人によって違う（杉元さんは15日、ほかは25日） */
+  payDateLabel?: string;
 }
 
 export function CommissionStatementDocument({
   trainerName, trainerInvoiceNumber, trainerLines, trainerTotal, salesLines, salesTotal, hourlyLines, hourlyTotal, total,
-  adjustmentLines = [], adjustmentTotal = 0, payable, tax, issuer, statementNo, monthLabel,
+  adjustmentLines = [], adjustmentTotal = 0, payable, tax, issuer, statementNo, monthLabel, payDateLabel,
 }: CommissionStatementPdfData) {
   const paid = payable ?? total;
   return (
@@ -208,6 +210,7 @@ export function CommissionStatementDocument({
         <View style={s.metaRow}>
           <Text>明細番号: {statementNo}</Text>
           <Text>対象月: {monthLabel}</Text>
+          {payDateLabel ? <Text>お支払日: {payDateLabel}</Text> : null}
         </View>
 
         <View style={s.totalBox}>

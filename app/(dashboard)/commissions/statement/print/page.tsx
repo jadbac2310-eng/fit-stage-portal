@@ -17,6 +17,7 @@ import { type CommissionContext } from "@/lib/commissions";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { buildTrainerStatements, type StatementLine, type HourlyStatementLine, type AdjustmentStatementLine } from "@/lib/commission-statement";
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
+import { payDateLabel } from "@/lib/commission-pay-date";
 import { StatementActions } from "./statement-actions";
 
 export const dynamic = "force-dynamic";
@@ -246,6 +247,7 @@ export default async function CommissionStatementPrintPage({
         <div className="flex justify-between text-xs text-gray-500 mb-4">
           <span>明細番号: {stmtNo}</span>
           <span>対象月: {monthLabel(month)}</span>
+          <span>お支払日: {payDateLabel(month, trainer.commissionPayDay)}</span>
         </div>
 
         {/* 合計 */}

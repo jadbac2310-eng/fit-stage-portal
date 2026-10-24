@@ -20,7 +20,7 @@ export default async function CommissionAdjustmentsPage() {
   return (
     <AdjustmentsClient
       adjustments={adjustments}
-      members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl }))}
+      members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl, commissionPayDay: m.commissionPayDay }))}
     />
   );
 }

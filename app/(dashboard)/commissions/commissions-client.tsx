@@ -23,6 +23,7 @@ import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import type { CommissionAdjustment } from "@/lib/commission-adjustments-types";
+import { payDayNotice } from "@/lib/commission-pay-date";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
 function getMonthOptions(): { value: string; label: string }[] {
@@ -445,7 +446,7 @@ export function CommissionsClient({
   hourlyTasks?: HourlyTask[];
   lessonFees?:  Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:      { id: string; name: string; avatarUrl?: string }[];
+  members:      { id: string; name: string; avatarUrl?: string; commissionPayDay?: number }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   /** FCT店舗の歩合率（FCT経由のお客さまの売上計算に使う） */
   fctStores?:   { id: string; rate?: number }[];
@@ -492,6 +493,13 @@ export function CommissionsClient({
   const pendingTotal = hourlyEntries.reduce((s, e) => s + e.pendingTotal, 0);
   const pendingCount = hourlyEntries.reduce((s, e) => s + e.pending.length, 0);
 
+  // 支払日は人によって違う（杉元さんは15日、ほかは25日）。
+  // 自分の分だけ見ている人には自分の支払日を、管理者には全員ぶん（例外は名前付き）を出す
+  const payNotice = useMemo(() => {
+    const self = isAdmin ? null : members.find((m) => m.id === currentMemberId) ?? null;
+    return payDayNotice(members, self);
+  }, [members, isAdmin, currentMemberId]);
+
   // この月の前払いの差し引き。合計からは引かれるので、タブの数字と食い違う前に知らせる
   const monthAdjustments = useMemo(
     () => (adjustments ?? []).filter((a) => a.month === month),
@@ -527,7 +535,7 @@ export function CommissionsClient({
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <p className="text-xs text-gray-400">翌月25日払い</p>
+        <p className="text-xs text-gray-400">{payNotice}</p>
       </div>
 
       {/* サマリーカード */}

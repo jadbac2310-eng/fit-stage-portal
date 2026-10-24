@@ -16,6 +16,7 @@ import { type CommissionContext } from "@/lib/commissions";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { buildTrainerStatements } from "@/lib/commission-statement";
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
+import { payDateLabel } from "@/lib/commission-pay-date";
 import { CommissionStatementDocument } from "@/lib/commission-statement-pdf";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +88,7 @@ export async function GET(req: NextRequest) {
       issuer: { name: ISSUER.name, contact: ISSUER.contact, address: ISSUER.address, tel: ISSUER.tel },
       statementNo: statementNumber(month, memberId),
       monthLabel: monthLabel(month),
+      payDateLabel: payDateLabel(month, trainer.commissionPayDay),
     }),
   );
 

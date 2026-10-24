@@ -68,7 +68,7 @@ export default async function CommissionsPage() {
       hourlyTasks={hourlyTasks}
       lessonFees={buildLessonFeeMap(plansMaster)}
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
-      members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl, isOwner: m.isOwner }))}
+      members={members.map((m) => ({ id: m.id, name: m.name, avatarUrl: m.avatarUrl, isOwner: m.isOwner, commissionPayDay: m.commissionPayDay }))}
       trainerRates={trainerRates}
       fctStores={fctStores.map((f) => ({ id: f.id, rate: f.rate }))}
       adjustments={adjustments}

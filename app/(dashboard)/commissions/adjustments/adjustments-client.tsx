@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { assertActionOk } from "@/lib/action-result";
 import { ADJUSTMENT_PRESETS, type CommissionAdjustment } from "@/lib/commission-adjustments-types";
+import { payDateLabel, payDateShort } from "@/lib/commission-pay-date";
 import {
   addCommissionAdjustmentAction,
   updateCommissionAdjustmentAction,
@@ -54,7 +55,7 @@ function monthLabel(month: string): string {
 const inputClass = "w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500";
 const labelClass = "block text-xs font-semibold text-gray-600 mb-1";
 
-interface Member { id: string; name: string; avatarUrl?: string }
+interface Member { id: string; name: string; avatarUrl?: string; commissionPayDay?: number }
 
 /** 追加・編集の共通フォーム */
 function AdjustmentForm({
@@ -69,9 +70,14 @@ function AdjustmentForm({
     initial ? (initial.amount < 0 ? "deduct" : "add") : "deduct",
   );
   const [label, setLabel] = useState(initial?.label ?? ADJUSTMENT_PRESETS[0].label);
+  // 「来月15日に払うぶんから引く」で考えるので、選んだ月の振込日をその場で出す。
+  // 支払日は人によって違う（杉元さんは15日、ほかは25日）
+  const [memberId, setMemberId] = useState(initial?.memberId ?? "");
+  const [month, setMonth] = useState(initial?.month ?? currentMonth());
   const [error, setError] = useState("");
   const { locked, run } = useSubmitLock();
   const options = useMemo(() => monthOptions(), []);
+  const payDay = memberId ? members.find((m) => m.id === memberId)?.commissionPayDay ?? 25 : null;
 
   async function submit(formData: FormData) {
     setError("");
@@ -116,18 +122,27 @@ function AdjustmentForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>誰の</label>
-          <select name="memberId" required defaultValue={initial?.memberId ?? ""} className={inputClass}>
+          <select name="memberId" required value={memberId}
+            onChange={(e) => setMemberId(e.target.value)} className={inputClass}>
             <option value="">選択...</option>
             {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
         <div>
           <label className={labelClass}>どの月のコミッションから</label>
-          <select name="month" required defaultValue={initial?.month ?? currentMonth()} className={inputClass}>
+          <select name="month" required value={month}
+            onChange={(e) => setMonth(e.target.value)} className={inputClass}>
             {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
       </div>
+
+      {payDay != null && (
+        <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
+          <span className="font-semibold">{payDateLabel(month, payDay)}</span>に振り込むぶんから
+          {kind === "deduct" ? "引きます" : "足します"}。
+        </p>
+      )}
 
       <div>
         <label className={labelClass}>内容（明細に出ます）</label>
@@ -198,7 +213,7 @@ function AdjustmentForm({
   );
 }
 
-function AdjustmentRow({ a, onEdit }: { a: CommissionAdjustment; onEdit: () => void }) {
+function AdjustmentRow({ a, payDay, onEdit }: { a: CommissionAdjustment; payDay?: number; onEdit: () => void }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const { locked, run } = useSubmitLock();
@@ -223,6 +238,7 @@ function AdjustmentRow({ a, onEdit }: { a: CommissionAdjustment; onEdit: () => v
           <p className="text-sm font-semibold text-gray-900 truncate">{a.label}</p>
           <p className="text-xs text-gray-500 mt-0.5">
             {a.memberName ?? "（担当者不明）"} ・ {monthLabel(a.month)}のコミッションから
+            <span className="text-gray-400">（{payDateShort(a.month, payDay)} 払い）</span>
           </p>
           {a.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{a.note}</p>}
         </div>
@@ -344,7 +360,9 @@ export function AdjustmentsClient({
                       <AdjustmentForm key={a.id} members={members} initial={a}
                         onDone={done} onCancel={() => setEditingId(null)} />
                     ) : (
-                      <AdjustmentRow key={a.id} a={a} onEdit={() => setEditingId(a.id)} />
+                      <AdjustmentRow key={a.id} a={a}
+                        payDay={members.find((m) => m.id === a.memberId)?.commissionPayDay}
+                        onEdit={() => setEditingId(a.id)} />
                     )
                   ))}
                 </div>

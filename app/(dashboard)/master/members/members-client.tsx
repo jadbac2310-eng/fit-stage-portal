@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing, CalendarClock,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -254,6 +254,28 @@ function MemberForm({
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <p className="text-xs text-gray-400 mt-1">コミッション明細に表示されます</p>
+      </div>
+
+      {/* 支払日は人によって違う（杉元さんは15日、ほかは25日）。
+          画面に決め打ちで書くと、違う人の振込日を間違えるのでここで持たせる。 */}
+      <div>
+        <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+          <CalendarClock size={12} /> コミッションの支払日
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">月末じめ 翌月</span>
+          <input
+            name="commissionPayDay"
+            type="number"
+            min="1"
+            max="31"
+            inputMode="numeric"
+            defaultValue={defaultValues?.commissionPayDay ?? 25}
+            className="w-20 px-3 py-2.5 rounded-xl border border-gray-300 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-500">日払い</span>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">コミッション明細に振込日として出ます（既定は25日）</p>
       </div>
 
       <div>

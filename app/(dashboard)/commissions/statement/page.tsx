@@ -13,6 +13,7 @@ import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { buildHourlyEntries, type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
+import { DEFAULT_COMMISSION_PAY_DAY } from "@/lib/commission-pay-date";
 import { StatementClient } from "./statement-client";
 
 export const dynamic = "force-dynamic";
@@ -80,5 +81,8 @@ export default async function CommissionStatementPage({
     names: hourlyEntries.filter((e) => e.pending.length > 0).map((e) => e.memberName),
   };
 
-  return <StatementClient statements={statements} month={month} pendingHourly={pendingHourly} />;
+  // 支払日は人によって違う（杉元さんは15日、ほかは25日）
+  const payDays = Object.fromEntries(members.map((m) => [m.id, m.commissionPayDay ?? DEFAULT_COMMISSION_PAY_DAY]));
+
+  return <StatementClient statements={statements} month={month} pendingHourly={pendingHourly} payDays={payDays} />;
 }
