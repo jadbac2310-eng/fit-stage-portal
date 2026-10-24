@@ -23,6 +23,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-10-23｜`20261023000001_sales_targets.sql`・`20261023000002_sales_targets_handover.sql`（ホテル営業ページ。18軒投入済み）
 - 2026-10-23｜`20261023000003_sales_flow_companions.sql`（ホテル営業：状況を テレアポ→企画書作成→訪問 に整理、訪問の付き添い companion_ids）
 - 2026-10-24｜`20261024000001_pass_cancel_not_consumed.sql`（キャンセルで戻し忘れていた回数券の残回数を数え直し。全回数より多く紐づいている券は対象外のまま）
+- 2026-10-24｜`20261024000005_catch_up_all.sql`（下の3本をまとめた1本を実行。確認用の表は 無料5本／杉元15日／回数を超えたままの券0）
+  - `20261024000002_commission_adjustments.sql`（コミッションの前払い・差し引き）
+  - `20261024000004_member_commission_pay_day.sql`（支払日を担当者ごとに。杉元さんは翌月15日、ほかは25日）
+  - `20261024000003_pass_overflow_to_free_lessons.sql`（回数券の回数を超えたレッスンを無料レッスンへ。堀さん3本・新森さん2本）
 
 ## セッションの担当分け（2つのリポジトリ）
 
