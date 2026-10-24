@@ -21,3 +21,6 @@ update public.members
    set commission_pay_day = 15
  where name like '%杉元%'
    and commission_pay_day is distinct from 15;
+
+-- 列を足した直後は Supabase が古い形を覚えたままのことがあるので、覚え直させる
+notify pgrst, 'reload schema';

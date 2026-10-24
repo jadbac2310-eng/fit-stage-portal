@@ -38,3 +38,7 @@ create index if not exists commission_adjustments_month_idx
   on public.commission_adjustments (month);
 create index if not exists commission_adjustments_member_idx
   on public.commission_adjustments (member_id);
+
+-- Supabase は「どんな表があるか」を別に覚えていて、作った直後はそれが古いままのことがある。
+-- そのままだとアプリから PGRST205（表が見つからない）になるので、覚え直させる。
+notify pgrst, 'reload schema';

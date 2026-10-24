@@ -79,7 +79,16 @@ function AdjustmentForm({
   const options = useMemo(() => monthOptions(), []);
   const payDay = memberId ? members.find((m) => m.id === memberId)?.commissionPayDay ?? 25 : null;
 
-  async function submit(formData: FormData) {
+  /**
+   * 送信は onSubmit で行う。
+   *
+   * <form action={...}> にすると、アクションが終わったあとフォームが自動でリセットされる。
+   * 保存に失敗したときまで中身が消えてしまい、入れ直しになる（実際に起きた）。
+   * しかも選択中の項目は見た目だけ先頭に戻り、中の値とズレるので何が選ばれているか分からなくなる。
+   */
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     setError("");
     await run(async () => {
       try {
@@ -96,7 +105,7 @@ function AdjustmentForm({
   }
 
   return (
-    <form action={submit} className="bg-white rounded-2xl border border-indigo-200 p-4 space-y-3">
+    <form onSubmit={submit} className="bg-white rounded-2xl border border-indigo-200 p-4 space-y-3">
       <input type="hidden" name="kind" value={kind} />
 
       {/* 引く／足す。符号を手で打たせない */}

@@ -1,5 +1,6 @@
 import { createAdminClient, fetchAllRows } from "./supabase";
 import { currentMemberId, isMissingAuthorColumn } from "./audit";
+import { ActionError } from "./action-result";
 import type { CommissionAdjustment } from "./commission-adjustments-types";
 
 export type { CommissionAdjustment } from "./commission-adjustments-types";
@@ -41,6 +42,17 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
   return err.code === "42P01" || err.code === "PGRST205"
     || /commission_adjustments|does not exist|could not find the table/i.test(err.message ?? "");
 }
+
+/**
+ * 表が無い（または Supabase がまだ見つけられない）ときに出す文言。
+ *
+ * 「処理に失敗しました（コード: PGRST205）」だけだと、尚樹が何をすればいいか分からない。
+ * 読むだけの画面は空で通すが、登録しようとしたときははっきり理由を出す。
+ */
+const MISSING_TABLE_MESSAGE =
+  "「前払い・差し引き」の置き場所がまだデータベースにありません。"
+  + "Supabase の SQL Editor で 20261024000002_commission_adjustments.sql を流してください"
+  + "（流したのにこれが出る場合は、同じ画面で notify pgrst, 'reload schema'; だけ実行してください）";
 
 const SELECT = "*, members(name)";
 
@@ -85,6 +97,7 @@ export async function addCommissionAdjustment(input: {
   if (error && isMissingAuthorColumn(error)) {
     ({ error } = await client.from("commission_adjustments").insert(base));
   }
+  if (error && isMissingTable(error)) throw new ActionError(MISSING_TABLE_MESSAGE);
   if (error) throw error;
 }
 
@@ -107,11 +120,13 @@ export async function updateCommissionAdjustment(
     void updated_by;
     ({ error } = await client.from("commission_adjustments").update(rest).eq("id", id));
   }
+  if (error && isMissingTable(error)) throw new ActionError(MISSING_TABLE_MESSAGE);
   if (error) throw error;
 }
 
 export async function deleteCommissionAdjustment(id: string): Promise<void> {
   const { error } = await createAdminClient()
     .from("commission_adjustments").delete().eq("id", id);
+  if (error && isMissingTable(error)) throw new ActionError(MISSING_TABLE_MESSAGE);
   if (error) throw error;
 }
