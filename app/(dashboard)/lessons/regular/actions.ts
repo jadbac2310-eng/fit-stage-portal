@@ -5,6 +5,7 @@ import { toDeliveryMode, canWriteLessonNote } from "@/lib/lessons-types";
 import { revalidatePath } from "next/cache";
 import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons";
 import { addSessionPass, deleteSessionPass, reserveSessionPass, releaseSessionPass } from "@/lib/session-passes";
+import { passHeldByStatus } from "@/lib/session-passes-types";
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
@@ -226,10 +227,19 @@ export async function updateLessonAction(id: string, formData: FormData): Promis
 
     const oldPassId = existing?.sessionPassId ?? null;
 
-    if (oldPassId !== sessionPassId) {
-      // 新しい回数券の確保を先に行う（残数不足ならここで中断し、元の回数券は消費したまま保つ）
-      if (sessionPassId && paymentType === "session_pass") await reserveSessionPass(sessionPassId, 1);
-      if (oldPassId) await releaseSessionPass(oldPassId, 1);
+    // 回数券を押さえているかどうかは「どの回数券か」と「状態」の両方で決まる。
+    // 状態がキャンセルに変わったときも戻さないと、残回数が減ったままになる。
+    const wasHeld  = !!oldPassId && existing.paymentType === "session_pass" && passHeldByStatus(existing.status);
+    const willHold = !!sessionPassId && paymentType === "session_pass" && passHeldByStatus(status);
+
+    if (wasHeld && willHold && oldPassId !== sessionPassId) {
+      // 付け替え。新しいほうの確保を先に行う（残数不足ならここで中断し、元の回数券は押さえたまま保つ）
+      await reserveSessionPass(sessionPassId!, 1);
+      await releaseSessionPass(oldPassId!, 1);
+    } else if (!wasHeld && willHold) {
+      await reserveSessionPass(sessionPassId!, 1);
+    } else if (wasHeld && !willHold) {
+      await releaseSessionPass(oldPassId!, 1);
     }
 
     await updateLesson(id, { trainerMemberId, scheduledAt, endAt, location, course, paymentType, status, sessionPassId, amount, note, rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode });
@@ -249,8 +259,19 @@ export async function setLessonStatusAction(id: string, status: LessonStatus): P
     if (!lesson.trainerMemberId || lesson.trainerMemberId !== member.id) {
       throw new ActionError("完了にできるのは担当者本人のみです");
     }
+    // キャンセルにしたら回数券を1回ぶん戻す。キャンセルから戻したら取り直す。
+    // 当日キャンセルは消費する約束なので、押さえたままにする。
+    if (lesson.sessionPassId && lesson.paymentType === "session_pass") {
+      const was  = passHeldByStatus(lesson.status);
+      const will = passHeldByStatus(status);
+      if (was && !will) await releaseSessionPass(lesson.sessionPassId, 1);
+      if (!was && will) await reserveSessionPass(lesson.sessionPassId, 1);
+    }
+
     await updateLesson(id, { status });
-    const label = status === "completed" ? "完了" : status === "cancelled" ? "キャンセル" : "予定";
+    const label = status === "completed" ? "完了"
+      : status === "cancelled" ? "キャンセル"
+      : status === "cancelled_same_day" ? "当日キャンセル" : "予定";
     await logActivity({ action: "update", entityType: "lesson", entityId: id, summary: `レッスンを${label}に変更: ${lesson.customerName}` });
     revalidatePath("/lessons/regular");
     revalidatePath("/schedule");
@@ -260,7 +281,9 @@ export async function setLessonStatusAction(id: string, status: LessonStatus): P
 export async function deleteLessonAction(id: string): Promise<ActionResult> {
   return runAction(async () => {
     const { lesson: existing } = await assertCanEditLesson(id);
-    if (existing?.sessionPassId && existing.paymentType === "session_pass") {
+    // すでにキャンセルで戻してあるぶんを、削除でもう一度戻すと二重に増えてしまう
+    if (existing?.sessionPassId && existing.paymentType === "session_pass"
+        && passHeldByStatus(existing.status)) {
       await releaseSessionPass(existing.sessionPassId, 1);
     }
     await deleteLesson(id);
