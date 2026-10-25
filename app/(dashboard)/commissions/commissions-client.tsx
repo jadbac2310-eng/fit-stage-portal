@@ -598,7 +598,7 @@ export function CommissionsClient({
             ))}
           </ul>
           <p className="text-[11px] text-indigo-500 mt-2 leading-relaxed">
-            下のタブの金額は差し引く前です。実際に振り込む額はコミッション明細に出ます。
+            総支給額（下のタブの金額）は変わりません。支給日に振り込む額だけが変わります。
           </p>
           {isAdmin && (
             <Link href="/commissions/adjustments" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-800 underline mt-1.5">

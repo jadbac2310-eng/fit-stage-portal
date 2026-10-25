@@ -61,7 +61,7 @@ export function StatementClient({ statements, month, pendingHourly, payDays }: {
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <span className="text-sm text-gray-500 ml-auto">
-          {statements.length}名 ・ 合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
+          {statements.length}名 ・ 振込合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
         </span>
       </div>
 
@@ -89,7 +89,8 @@ export function StatementClient({ statements, month, pendingHourly, payDays }: {
           </p>
           <p className="text-xs text-indigo-700 mt-1.5 leading-relaxed">
             前払いの差し引き・立替の精算で、合計 {adjustTotal < 0 ? "−" : "＋"}{yen(Math.abs(adjustTotal))}。
-            下の金額は差し引いたあとの「振り込む額」です。
+            <span className="font-bold">総支給額は変わりません。</span>
+            支給日に振り込む額だけが変わります（下の金額は振り込む額です）。
           </p>
           <Link href="/commissions/adjustments" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-800 underline mt-2">
             前払い・差し引きを見る <ChevronRight size={12} />
@@ -97,11 +98,11 @@ export function StatementClient({ statements, month, pendingHourly, payDays }: {
         </div>
       )}
 
-      {/* 差し引きが報酬より多い人。マイナス振込はできないので先に知らせる */}
+      {/* 差し引きが総支給額より多い人。マイナス振込はできないので先に知らせる */}
       {statements.some((e) => e.payable < 0) && (
         <div className="mb-5 rounded-2xl bg-red-50 border border-red-200 p-4">
           <p className="text-sm font-bold text-red-800 flex items-center gap-1.5">
-            <AlertTriangle size={15} /> 差し引きが報酬より多い人がいます
+            <AlertTriangle size={15} /> 差し引きが総支給額より多い人がいます
           </p>
           <p className="text-xs text-red-700 mt-1.5 leading-relaxed">
             {statements.filter((e) => e.payable < 0).map((e) => `${e.memberName}（${yen(e.payable)}）`).join("、")}。
@@ -141,11 +142,15 @@ export function StatementClient({ statements, month, pendingHourly, payDays }: {
                   <span className="ml-1.5">・{payDateShort(month, payDays?.[e.memberId])} 払い</span>
                 </p>
               </div>
+              {/* 出すのは振り込む額。総支給は変わらないので、引かれている月だけ並べて出す */}
               <div className="text-right flex-shrink-0">
+                {e.adjustmentTotal !== 0 && (
+                  <p className="text-[11px] text-gray-400 line-through">{yen(e.total)}</p>
+                )}
                 <p className="text-base font-bold text-gray-800">{yen(e.payable)}</p>
                 {e.adjustmentTotal !== 0 && (
                   <p className={`text-[11px] mt-0.5 ${e.adjustmentTotal < 0 ? "text-red-600" : "text-green-600"}`}>
-                    調整 {e.adjustmentTotal < 0 ? "−" : "＋"}{yen(Math.abs(e.adjustmentTotal))}
+                    {e.adjustmentTotal < 0 ? "−" : "＋"}{yen(Math.abs(e.adjustmentTotal))} 調整
                   </p>
                 )}
               </div>

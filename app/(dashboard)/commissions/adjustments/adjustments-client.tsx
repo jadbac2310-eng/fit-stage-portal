@@ -147,9 +147,10 @@ function AdjustmentForm({
       </div>
 
       {payDay != null && (
-        <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
+        <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2 leading-relaxed">
           <span className="font-semibold">{payDateLabel(month, payDay)}</span>に振り込むぶんから
           {kind === "deduct" ? "引きます" : "足します"}。
+          <br />総支給額は変わりません。
         </p>
       )}
 
@@ -318,6 +319,11 @@ export function AdjustmentsClient({
           ここに入れておけば、<span className="font-bold">その月のコミッション明細に自動で載って差し引かれます</span>。
           覚えておかなくて大丈夫です。受け取る側の明細にも「何がいくら引かれたか」が出ます。
         </p>
+        <p className="text-xs text-indigo-800 leading-relaxed mt-2">
+          <span className="font-bold">総支給額は減りません。</span>
+          減るのは支給日に振り込む額だけです（前払いは、すでに渡したぶんを戻してもらうだけなので）。
+          消費税の内訳も総支給額から計算します。
+        </p>
       </div>
 
       {/* これから差し引く分の合計。払う前にここを見れば足りる */}
@@ -383,7 +389,7 @@ export function AdjustmentsClient({
 
       <p className="text-xs text-gray-400 mt-6 leading-relaxed flex items-start gap-1.5">
         <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
-        差し引く額がその月の報酬より多いと振込額がマイナスになります。
+        差し引く額がその月の総支給額より多いと振込額がマイナスになります。
         その場合は金額を分けて、残りを翌月のぶんとして登録してください。
       </p>
     </div>

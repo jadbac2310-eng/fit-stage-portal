@@ -38,14 +38,16 @@ export interface TrainerStatement {
   hourlyLines:  HourlyStatementLine[]; // 業務
   hourlyTotal:  number;
   /**
-   * 報酬の合計（レッスン＋営業＋業務）。調整は含まない。
-   * 消費税の内訳はこの額から割り戻す。前払いの差し引きは報酬ではなく
-   * 「渡したお金を戻してもらう」だけなので、課税対象を減らしてはいけない。
+   * 総支給額（レッスン＋営業＋業務）。調整は含まない。
+   *
+   * 前払いを差し引いても、この額は絶対に変えない。
+   * 前払いは「すでに渡したお金を戻してもらう」だけで、働いた対価そのものは減らないため。
+   * 消費税の内訳もこの額から割り戻す（課税対象を減らしてはいけない）。
    */
   total:        number;
   adjustmentLines: AdjustmentStatementLine[]; // 前払いの差し引き・立替の精算など
   adjustmentTotal: number;                     // マイナス＝差し引く
-  /** 実際に振り込む額。total + adjustmentTotal */
+  /** 支給日に振り込む額。total + adjustmentTotal。減るのはここだけ */
   payable:      number;
 }
 

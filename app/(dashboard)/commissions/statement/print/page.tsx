@@ -105,6 +105,9 @@ function HourlyLineTable({ lines, total }: { lines: HourlyStatementLine[]; total
  *
  * ここを出さずに合計だけ減らすと、受け取る側は「なんで少ないの？」になる。
  * 何がいくら引かれたのかを必ず明細に残す。
+ *
+ * 総支給額は減らさない。減るのは支給日に振り込む額だけ。
+ * 前払いは「すでに渡したぶんを戻してもらう」だけで、働いた対価そのものは変わらないため。
  */
 function AdjustmentTable({
   lines, total, rewardTotal, payable,
@@ -135,7 +138,7 @@ function AdjustmentTable({
         </tbody>
         <tfoot>
           <tr className="border-b border-gray-100">
-            <td className="py-2 text-right text-sm font-bold text-gray-700">報酬合計</td>
+            <td className="py-2 text-right text-sm font-bold text-gray-700">総支給額</td>
             <td className="py-2 text-right text-sm font-bold text-gray-700 tabular-nums">{yen(rewardTotal)}</td>
           </tr>
           <tr className="border-b border-gray-100">
@@ -145,7 +148,7 @@ function AdjustmentTable({
             </td>
           </tr>
           <tr>
-            <td className="py-2 text-right text-sm font-bold text-gray-700">お支払い金額</td>
+            <td className="py-2 text-right text-sm font-bold text-gray-700">お振込額</td>
             <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(payable)}</td>
           </tr>
         </tfoot>
@@ -250,16 +253,33 @@ export default async function CommissionStatementPrintPage({
           <span>お支払日: {payDateLabel(month, trainer.commissionPayDay)}</span>
         </div>
 
-        {/* 合計 */}
+        {/* 合計。前払いの差し引きがある月は「総支給額」と「お振込額」を分けて出す。
+            総支給額は減らさない。減るのは振り込む額だけ。 */}
         <div className="bg-gray-50 print:bg-gray-100 rounded-xl px-5 py-4 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-600">お支払い金額</span>
-            <span className="text-2xl font-bold text-gray-900">{yen(payable)}</span>
-          </div>
-          {adjustmentTotal !== 0 && (
-            <p className="text-xs text-gray-500 mt-1.5 text-right">
-              報酬 {yen(total)} {adjustmentTotal < 0 ? "−" : "＋"} 調整 {yen(Math.abs(adjustmentTotal))}
-            </p>
+          {adjustmentTotal === 0 ? (
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-600">お支払い金額</span>
+              <span className="text-2xl font-bold text-gray-900">{yen(total)}</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between py-0.5">
+                <span className="text-sm text-gray-600">総支給額</span>
+                <span className="text-base font-bold text-gray-900 tabular-nums">{yen(total)}</span>
+              </div>
+              {adjustmentLines.map((l, i) => (
+                <div key={i} className="flex items-center justify-between py-0.5">
+                  <span className="text-sm text-gray-600">{l.label}</span>
+                  <span className={`text-base font-bold tabular-nums ${l.amount < 0 ? "text-red-600" : "text-gray-900"}`}>
+                    {l.amount < 0 ? `−${yen(Math.abs(l.amount))}` : yen(l.amount)}
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between border-t border-gray-300 mt-2 pt-2">
+                <span className="text-sm font-semibold text-gray-600">お振込額</span>
+                <span className="text-2xl font-bold text-gray-900">{yen(payable)}</span>
+              </div>
+            </>
           )}
         </div>
 
@@ -269,9 +289,10 @@ export default async function CommissionStatementPrintPage({
         <HourlyLineTable lines={hourlyLines} total={statement?.hourlyTotal ?? 0} />
         <AdjustmentTable lines={adjustmentLines} total={adjustmentTotal} rewardTotal={total} payable={payable} />
 
-        {/* 消費税の内訳（各金額を税込として税抜・消費税に割り戻し） */}
+        {/* 消費税の内訳。割り戻す元は総支給額（前払いの差し引きは報酬ではないので含めない） */}
         {total > 0 && (
           <div className="ml-auto w-full sm:w-1/2 border border-gray-300 rounded-xl px-4 py-3 text-sm">
+            <p className="text-xs text-gray-400 mb-1">総支給額の内訳</p>
             <div className="flex justify-between text-gray-600 py-0.5">
               <span>{tax.rate}% 対象（税抜）</span>
               <span className="tabular-nums">{yen(tax.net)}</span>

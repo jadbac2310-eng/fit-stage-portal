@@ -33,7 +33,11 @@ const s = StyleSheet.create({
   fromLine: { fontSize: 9, color: C.sub },
 
   metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 9, color: C.sub, marginBottom: 14 },
-  adjustNote: { fontSize: 9, color: C.sub, textAlign: "right", marginTop: -16, marginBottom: 18 },
+  totalBoxStacked: { backgroundColor: C.faint, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 18, marginBottom: 22 },
+  totalLine: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3 },
+  totalLineFinal: { borderTopWidth: 0.5, borderTopColor: "#9ca3af", marginTop: 6, paddingTop: 8 },
+  totalSubLabel: { fontSize: 10, color: "#374151", lineHeight: 1 },
+  totalSubValue: { fontSize: 12, fontWeight: "bold", lineHeight: 1 },
 
   totalBox: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.faint, borderRadius: 6, paddingVertical: 14, paddingHorizontal: 18, marginBottom: 22 },
   totalLabel: { fontSize: 11, fontWeight: "bold", color: "#374151", lineHeight: 1 },
@@ -62,6 +66,7 @@ const s = StyleSheet.create({
   taxKey: { fontSize: 9, color: C.sub },
   taxVal: { fontSize: 9, textAlign: "right" },
   taxTotalRow: { borderTopWidth: 0.5, borderTopColor: "#d1d5db", marginTop: 3, paddingTop: 4 },
+  taxCaption: { fontSize: 8, color: C.sub, marginBottom: 3 },
   taxKeyBold: { fontSize: 10, fontWeight: "bold", color: "#374151" },
   taxValBold: { fontSize: 11, fontWeight: "bold", textAlign: "right" },
 });
@@ -124,6 +129,8 @@ function HourlyLineSection({ lines, subtotal }: { lines: HourlyStatementLine[]; 
  * 前払いの差し引き・立替の精算。
  *
  * 合計だけ減らすと受け取る側は理由が分からない。何がいくら引かれたかを必ず残す。
+ *
+ * 総支給額は減らさない。減るのは支給日に振り込む額だけ。
  */
 function AdjustmentSection({
   lines, subtotal, rewardTotal, payable,
@@ -144,7 +151,7 @@ function AdjustmentSection({
         </View>
       ))}
       <View style={s.tfoot}>
-        <Text style={s.tfootLabel}>報酬合計</Text>
+        <Text style={s.tfootLabel}>総支給額</Text>
         <Text style={s.tfootValue}>{yen(rewardTotal)}</Text>
       </View>
       <View style={s.tfoot}>
@@ -152,7 +159,7 @@ function AdjustmentSection({
         <Text style={s.tfootValue}>{signed(subtotal)}</Text>
       </View>
       <View style={s.tfoot}>
-        <Text style={s.tfootLabel}>お支払い金額</Text>
+        <Text style={s.tfootLabel}>お振込額</Text>
         <Text style={s.tfootValue}>{yen(payable)}</Text>
       </View>
     </View>
@@ -213,15 +220,33 @@ export function CommissionStatementDocument({
           {payDateLabel ? <Text>お支払日: {payDateLabel}</Text> : null}
         </View>
 
-        <View style={s.totalBox}>
-          <Text style={s.totalLabel}>お支払い金額</Text>
-          <Text style={s.totalValue}>{yen(paid)}</Text>
-        </View>
-        {adjustmentTotal !== 0 ? (
-          <Text style={s.adjustNote}>
-            報酬 {yen(total)} {adjustmentTotal < 0 ? "−" : "＋"} 調整 {yen(Math.abs(adjustmentTotal))}
-          </Text>
-        ) : null}
+        {/* 前払いの差し引きがある月は「総支給額」と「お振込額」を分けて出す。
+            総支給額は減らさない。減るのは振り込む額だけ。 */}
+        {adjustmentTotal === 0 ? (
+          <View style={s.totalBox}>
+            <Text style={s.totalLabel}>お支払い金額</Text>
+            <Text style={s.totalValue}>{yen(total)}</Text>
+          </View>
+        ) : (
+          <View style={s.totalBoxStacked}>
+            <View style={s.totalLine}>
+              <Text style={s.totalSubLabel}>総支給額</Text>
+              <Text style={s.totalSubValue}>{yen(total)}</Text>
+            </View>
+            {adjustmentLines.map((l, i) => (
+              <View key={i} style={s.totalLine}>
+                <Text style={s.totalSubLabel}>{l.label}</Text>
+                <Text style={s.totalSubValue}>
+                  {l.amount < 0 ? `−${yen(Math.abs(l.amount))}` : yen(l.amount)}
+                </Text>
+              </View>
+            ))}
+            <View style={[s.totalLine, s.totalLineFinal]}>
+              <Text style={s.totalLabel}>お振込額</Text>
+              <Text style={s.totalValue}>{yen(paid)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* レッスン担当分・営業分・業務（単価・歩合率は表示しない） */}
         <LineSection title="レッスン担当分" lines={trainerLines} subtotal={trainerTotal} />
@@ -229,9 +254,10 @@ export function CommissionStatementDocument({
         <HourlyLineSection lines={hourlyLines} subtotal={hourlyTotal} />
         <AdjustmentSection lines={adjustmentLines} subtotal={adjustmentTotal} rewardTotal={total} payable={paid} />
 
-        {/* 消費税の内訳（各金額を税込として税抜・消費税に割り戻し） */}
+        {/* 消費税の内訳。割り戻す元は総支給額（前払いの差し引きは報酬ではないので含めない） */}
         {total > 0 ? (
           <View style={s.taxBox}>
+            <Text style={s.taxCaption}>総支給額の内訳</Text>
             <View style={s.taxRow}>
               <Text style={s.taxKey}>{tax.rate}% 対象（税抜）</Text>
               <Text style={s.taxVal}>{yen(tax.net)}</Text>
