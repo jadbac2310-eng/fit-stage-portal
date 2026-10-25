@@ -11,6 +11,7 @@ import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
 import { getAvenirStores } from "@/lib/avenir-stores";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
+import { withinRecentMonths } from "@/lib/recent-months";
 import { DetailsClient } from "./details-client";
 
 export const dynamic = "force-dynamic";
@@ -43,8 +44,11 @@ export default async function CommissionDetailsPage() {
     getAvenirStores(),
   ]);
 
-  const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
-  const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
+  // 画面で選べるのは直近12か月だけ。それより古いぶんは端末に送らない
+  const completedLessons = withinRecentMonths(lessons, (l) => l.scheduledAt)
+    .filter((l) => isBillableLessonStatus(l.status));
+  const completedTrialLessons = withinRecentMonths(trialLessons, (l) => l.scheduledAt)
+    .filter((l) => l.status === "completed");
 
   return (
     <DetailsClient

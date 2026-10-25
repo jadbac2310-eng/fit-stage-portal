@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient, fetchAllRows } from "./supabase";
 import type { CustomerPlan } from "./customers-types";
 export type { TrialLessonStatus, TrialLesson } from "./trial-lessons-types";
@@ -81,7 +82,7 @@ const SELECT = "*, customers(full_name), sales_member:members!sales_member_id(na
 // members への JOIN 関連がスキーマキャッシュで解決できない(PGRST200)場合の退避（担当者名は空になるが描画は継続）
 const SELECT_LEGACY = "*, customers(full_name)";
 
-export async function getTrialLessons(): Promise<TrialLesson[]> {
+async function getTrialLessonsUncached(): Promise<TrialLesson[]> {
   const client = createAdminClient();
   // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
   const read = (select: string) => fetchAllRows((from, to) =>
@@ -268,3 +269,12 @@ export async function deleteTrialLesson(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getTrialLessons = cache(getTrialLessonsUncached);

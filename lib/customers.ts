@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient, fetchAllRows } from "./supabase";
 import { normalizeTiers } from "./session-tiers-types";
 export type { CustomerPlan, CustomerStatus, CustomerType, SalesChannel, Customer } from "./customers-types";
@@ -59,7 +60,7 @@ function fromDb(row: DbRow): Customer {
   };
 }
 
-export async function getCustomers(): Promise<Customer[]> {
+async function getCustomersUncached(): Promise<Customer[]> {
   const client = createAdminClient();
   const { data, error } = await fetchAllRows((from, to) => client
     .from("customers")
@@ -233,3 +234,12 @@ export async function getCustomersCount(): Promise<number> {
   if (error) throw error;
   return count ?? 0;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getCustomers = cache(getCustomersUncached);

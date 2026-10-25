@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient, fetchAllRows } from "./supabase";
 export type { SessionPass } from "./session-passes-types";
 import type { SessionPass } from "./session-passes-types";
@@ -39,7 +40,7 @@ function fromDb(row: DbRow): SessionPass {
   };
 }
 
-export async function getAllSessionPasses(): Promise<SessionPass[]> {
+async function getAllSessionPassesUncached(): Promise<SessionPass[]> {
   const client = createAdminClient();
   // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
   const { data, error } = await fetchAllRows((from, to) => client
@@ -197,3 +198,12 @@ export async function releaseSessionPass(id: string, count = 1): Promise<void> {
 function shortageMessage(remaining: number, needed: number): string {
   return `回数券の残数が足りません（残り${remaining}回・必要${needed}回）。登録する件数を減らすか、回数券を追加してください。`;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getAllSessionPasses = cache(getAllSessionPassesUncached);

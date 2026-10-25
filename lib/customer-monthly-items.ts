@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient, fetchAllRows } from "./supabase";
 import type { CustomerMonthlyItem } from "./customer-monthly-items-types";
 
@@ -37,7 +38,7 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
     || /customer_monthly_items|does not exist|could not find the table/i.test(err.message ?? "");
 }
 
-export async function getCustomerMonthlyItems(): Promise<CustomerMonthlyItem[]> {
+async function getCustomerMonthlyItemsUncached(): Promise<CustomerMonthlyItem[]> {
   const client = createAdminClient();
   // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
   const { data, error } = await fetchAllRows((from, to) => client
@@ -93,3 +94,12 @@ export async function deleteCustomerMonthlyItem(id: string): Promise<void> {
     .from("customer_monthly_items").delete().eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getCustomerMonthlyItems = cache(getCustomerMonthlyItemsUncached);

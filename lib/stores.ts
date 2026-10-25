@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "./supabase";
 
 // 店舗（自社/提携の店舗）。店舗によっては1回あたりの利用料がかかる（江坂店は0円、庄内店・曽根城山店は2,500円など）
@@ -33,7 +34,7 @@ function fromDb(row: DbRow): Store {
   };
 }
 
-export async function getStores(): Promise<Store[]> {
+async function getStoresUncached(): Promise<Store[]> {
   const { data, error } = await createAdminClient()
     .from("stores")
     .select("*")
@@ -94,3 +95,12 @@ export async function getStoresCount(): Promise<number> {
   if (error) return 0;
   return count ?? 0;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getStores = cache(getStoresUncached);

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "./supabase";
 
 export interface RentalGym {
@@ -32,7 +33,7 @@ function fromDb(row: DbRow): RentalGym {
   };
 }
 
-export async function getRentalGyms(): Promise<RentalGym[]> {
+async function getRentalGymsUncached(): Promise<RentalGym[]> {
   const { data, error } = await createAdminClient()
     .from("rental_gyms")
     .select("*")
@@ -87,3 +88,12 @@ export async function getRentalGymsCount(): Promise<number> {
   if (error) return 0;
   return count ?? 0;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getRentalGyms = cache(getRentalGymsUncached);

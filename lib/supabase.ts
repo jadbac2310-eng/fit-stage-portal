@@ -41,6 +41,8 @@ export function createAdminClient() {
 export const ROWS_PER_PAGE = 1000;
 // 無限ループの保険（20万行）。実データでここに当たることはない
 const MAX_PAGES = 200;
+// 2ページ目以降をまとめて投げる枚数。多すぎるとSupabase側を一気に叩くので控えめに
+const PAGES_AT_ONCE = 4;
 
 type PageResult<T> = { data: T[] | null; error: PostgrestError | null };
 
@@ -54,13 +56,26 @@ export async function fetchAllRows<T>(
   page: (from: number, to: number) => PromiseLike<PageResult<T>>,
 ): Promise<PageResult<T>> {
   const all: T[] = [];
-  for (let i = 0; i < MAX_PAGES; i++) {
-    const from = i * ROWS_PER_PAGE;
-    const { data, error } = await page(from, from + ROWS_PER_PAGE - 1);
-    if (error) return { data: null, error };
-    const rows = data ?? [];
-    all.push(...rows);
-    if (rows.length < ROWS_PER_PAGE) break;
+  let next = 0;
+  // 1ページずつ順番に待つと、行数が増えるほど待ち時間がそのまま足し算になる。
+  // 2ページ目からは PAGES_AT_ONCE 枚まとめて投げて、往復の回数を減らす。
+  // 最後のまとまりで空振りが出ても、行数は 0 件で返るだけなので害はない。
+  while (next < MAX_PAGES) {
+    const count = next === 0 ? 1 : Math.min(PAGES_AT_ONCE, MAX_PAGES - next);
+    const results = await Promise.all(
+      Array.from({ length: count }, (_, k) => {
+        const from = (next + k) * ROWS_PER_PAGE;
+        return page(from, from + ROWS_PER_PAGE - 1);
+      }),
+    );
+    for (const { data, error } of results) {
+      if (error) return { data: null, error };
+      all.push(...(data ?? []));
+    }
+    // 最後のページが埋まりきっていなければ、そこで全部読み終えている
+    const last = results[results.length - 1];
+    if ((last.data?.length ?? 0) < ROWS_PER_PAGE) break;
+    next += count;
   }
   return { data: all, error: null };
 }

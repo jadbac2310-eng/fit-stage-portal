@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "./supabase";
 
 /**
@@ -45,7 +46,7 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
 }
 
 /** 全組み合わせの歩合率を取得。テーブル未作成時は空配列（既定50%扱い）。 */
-export async function getMemberCustomerRates(): Promise<MemberCustomerRate[]> {
+async function getMemberCustomerRatesUncached(): Promise<MemberCustomerRate[]> {
   const { data, error } = await createAdminClient()
     .from("member_customer_commission_rates")
     .select("*")
@@ -97,3 +98,12 @@ export async function deleteMemberCustomerRate(memberId: string, customerId: str
     .eq("customer_id", customerId);
   if (error) throw error;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getMemberCustomerRates = cache(getMemberCustomerRatesUncached);

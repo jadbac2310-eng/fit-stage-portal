@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient, fetchAllRows } from "./supabase";
 import type { HourlyTask, HourlyTaskStatus } from "./hourly-tasks-types";
 export type { HourlyTask, HourlyTaskStatus } from "./hourly-tasks-types";
@@ -44,7 +45,7 @@ const SELECT = "*, member:members!member_id(name)";
 // members への JOIN 関連が解決できない(PGRST200)場合の退避（担当者名は空になるが描画は継続）
 const SELECT_LEGACY = "*";
 
-export async function getHourlyTasks(): Promise<HourlyTask[]> {
+async function getHourlyTasksUncached(): Promise<HourlyTask[]> {
   const client = createAdminClient();
   // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
   const read = (select: string) => fetchAllRows((from, to) =>
@@ -145,3 +146,12 @@ export async function deleteHourlyTask(id: string): Promise<void> {
   const { error } = await createAdminClient().from("hourly_tasks").delete().eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getHourlyTasks = cache(getHourlyTasksUncached);

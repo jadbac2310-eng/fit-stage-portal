@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient, createAuthClient } from "./supabase";
 import { ActionError } from "./action-result";
 import { DEFAULT_COMMISSION_PAY_DAY, normalizePayDay } from "./commission-pay-date";
@@ -81,7 +82,7 @@ function isMissingPayDayColumn(err: { code?: string; message?: string } | null):
   return /commission_pay_day/i.test(err.message ?? "") || err.code === "PGRST204" || err.code === "42703";
 }
 
-export async function getMembers(): Promise<Member[]> {
+async function getMembersUncached(): Promise<Member[]> {
   const { data, error } = await createAdminClient()
     .from("members")
     .select("*")
@@ -186,7 +187,7 @@ export async function getMemberByAuthUserId(authUserId: string): Promise<Member 
   return fromDb(data[0] as DbRow);
 }
 
-export async function getCurrentMember(): Promise<Member | null> {
+async function getCurrentMemberUncached(): Promise<Member | null> {
   const supabase = await createAuthClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -266,3 +267,21 @@ export async function deleteMember(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getMembers = cache(getMembersUncached);
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getCurrentMember = cache(getCurrentMemberUncached);

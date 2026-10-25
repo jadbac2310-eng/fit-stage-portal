@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "./supabase";
 export type { PlanMaster, PlanPaymentType, SessionPassPrice } from "./plans-master-types";
 export {
@@ -29,7 +30,7 @@ function fromDb(row: DbRow): PlanMaster {
   };
 }
 
-export async function getAllPlans(): Promise<PlanMaster[]> {
+async function getAllPlansUncached(): Promise<PlanMaster[]> {
   const { data, error } = await createAdminClient()
     .from("plans")
     .select("*")
@@ -73,7 +74,7 @@ function sppFromDb(row: SppDbRow): SessionPassPrice {
   };
 }
 
-export async function getAllSessionPassPrices(): Promise<SessionPassPrice[]> {
+async function getAllSessionPassPricesUncached(): Promise<SessionPassPrice[]> {
   const { data, error } = await createAdminClient()
     .from("session_pass_prices")
     .select("*")
@@ -92,3 +93,21 @@ export async function updateSessionPassPriceAmount(id: string, amount: number): 
   if (error) throw error;
   return sppFromDb(data as SppDbRow);
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getAllPlans = cache(getAllPlansUncached);
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getAllSessionPassPrices = cache(getAllSessionPassPricesUncached);

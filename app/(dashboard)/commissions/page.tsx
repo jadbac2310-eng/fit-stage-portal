@@ -10,6 +10,7 @@ import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getFctStores } from "@/lib/fct-stores";
 import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
+import { withinRecentMonths } from "@/lib/recent-months";
 import { CommissionsClient } from "./commissions-client";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +43,14 @@ export default async function CommissionsPage() {
     getCommissionAdjustments(),
   ]);
 
-  const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
-  const contractedTrials = trialLessons.filter((l) => l.contracted === true);
-  const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
+  // 画面で選べるのは直近12か月だけ。それより古いぶんは端末に送らない
+  // （開業からの全レッスンを毎回送っていたので、開くのが遅かった）
+  const recentLessons = withinRecentMonths(lessons, (l) => l.scheduledAt);
+  const recentTrials  = withinRecentMonths(trialLessons, (l) => l.scheduledAt);
+
+  const completedLessons = recentLessons.filter((l) => isBillableLessonStatus(l.status));
+  const contractedTrials = recentTrials.filter((l) => l.contracted === true);
+  const completedTrialLessons = recentTrials.filter((l) => l.status === "completed");
 
   // 歩合率は他人ぶんを渡さない（管理者は全件、それ以外は自分ぶんのみ）
   const trainerRates = allRates
@@ -52,7 +58,8 @@ export default async function CommissionsPage() {
     .map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount }));
 
   // 業務は時給が入っているので、歩合率と同じく他人ぶんは渡さない
-  const hourlyTasks = allHourlyTasks.filter((t) => member.isAdmin || t.memberId === member.id);
+  const hourlyTasks = withinRecentMonths(allHourlyTasks, (t) => t.scheduledAt)
+    .filter((t) => member.isAdmin || t.memberId === member.id);
 
   // 前払いの差し引きも金額なので、他人ぶんは渡さない（本人は自分の分を知る必要がある）
   const adjustments = allAdjustments.filter((a) => member.isAdmin || a.memberId === member.id);

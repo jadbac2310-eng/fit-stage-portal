@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "./supabase";
 import { FCT_DEFAULT_RATE } from "./fct-types";
 import { ActionError } from "./action-result";
@@ -41,7 +42,7 @@ function fromDb(row: DbRow): FctStore {
   };
 }
 
-export async function getFctStores(): Promise<FctStore[]> {
+async function getFctStoresUncached(): Promise<FctStore[]> {
   const { data, error } = await createAdminClient()
     .from("fct_stores")
     .select("*")
@@ -112,3 +113,12 @@ export async function getFctStoresCount(): Promise<number> {
   if (error) return 0;
   return count ?? 0;
 }
+
+/**
+ * 同じリクエストの中では1回だけ読む（React の cache）。
+ *
+ * 1ページ表示するのに、レイアウト・ページ・サーバーアクションが
+ * それぞれ同じ表を取りに行っていた。中身は同じなので、最初の1回を使い回す。
+ * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
+ */
+export const getFctStores = cache(getFctStoresUncached);
