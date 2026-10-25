@@ -13,11 +13,13 @@ import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { shrinkImage, setInputFile } from "@/lib/image-resize";
 
 // ─── アバター選択 ─────────────────────────────────────
 function AvatarPicker({ currentSrc, name }: { currentSrc?: string; name?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(currentSrc ?? null);
+  const [working, setWorking] = useState(false);
   const initials = (name ?? "").split(/\s+/).map((s) => s[0]).filter(Boolean).slice(0, 2).join("");
 
   return (
@@ -50,11 +52,26 @@ function AvatarPicker({ currentSrc, name }: { currentSrc?: string; name?: string
         name="avatar"
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) setPreview(URL.createObjectURL(f));
+        onChange={async (e) => {
+          const input = e.currentTarget;
+          const f = input.files?.[0];
+          if (!f) return;
+          setPreview(URL.createObjectURL(f));
+          // iPhoneの写真はそのままだと大きすぎてサーバーに弾かれる。
+          // アイコンに元の解像度はいらないので、送る前にここで縮める。
+          setWorking(true);
+          try {
+            const small = await shrinkImage(f, { maxSize: 512, quality: 0.85, targetBytes: 300 * 1024 });
+            if (small !== f) {
+              setInputFile(input, small);   // 入れ替えに失敗したら元のまま送る
+              setPreview(URL.createObjectURL(small));
+            }
+          } finally {
+            setWorking(false);
+          }
         }}
       />
+      {working && <span className="text-xs text-gray-400">写真を準備しています...</span>}
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { createAdminClient } from "./supabase";
 
 const BUCKET = "member-avatars";
-const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+/** 受け付ける写真の形式。画面のエラー文言でも使うので外に出してある */
+export const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 // ─── 素材画像 ─────────────────────────────────────────
 const MATERIAL_BUCKET = "material-images";
@@ -43,8 +44,8 @@ export async function saveMemberAvatar(
   file: File,
   memberId: string
 ): Promise<string | null> {
-  if (!ALLOWED.includes(file.type)) return null;
-  if (file.size > MAX_SIZE) return null;
+  if (!AVATAR_TYPES.includes(file.type)) return null;
+  if (file.size > AVATAR_MAX_SIZE) return null;
 
   const supabase = createAdminClient();
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";

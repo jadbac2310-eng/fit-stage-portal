@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useState } from "react";
+import { shrinkImage, setInputFile } from "@/lib/image-resize";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Download,
@@ -34,6 +35,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 // ─── 画像アップロード ──────────────────────────────────
 function ImageUpload({ currentSrc, required }: { currentSrc?: string; required?: boolean }) {
   const [preview, setPreview] = useState<string | null>(currentSrc ?? null);
+  const [working, setWorking] = useState(false);
 
   return (
     <div className="space-y-2">
@@ -58,13 +60,29 @@ function ImageUpload({ currentSrc, required }: { currentSrc?: string; required?:
         name="image"
         required={required && !preview}
         accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) setPreview(URL.createObjectURL(f));
+        onChange={async (e) => {
+          const input = e.currentTarget;
+          const f = input.files?.[0];
+          if (!f) return;
+          setPreview(URL.createObjectURL(f));
+          // スマホで撮った写真はそのままだと大きすぎてサーバーに弾かれる。
+          // 送る前にここで縮める（GIF・SVGは中で素通しになる）
+          setWorking(true);
+          try {
+            const small = await shrinkImage(f, { maxSize: 1600, quality: 0.85, targetBytes: 1.5 * 1024 * 1024 });
+            if (small !== f) {
+              setInputFile(input, small);   // 入れ替えに失敗したら元のまま送る
+              setPreview(URL.createObjectURL(small));
+            }
+          } finally {
+            setWorking(false);
+          }
         }}
         className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border file:border-gray-200 file:text-xs file:font-medium file:text-gray-600 file:bg-gray-50 hover:file:bg-gray-100 file:transition cursor-pointer"
       />
-      <p className="text-xs text-gray-400">JPEG / PNG / WebP / GIF / SVG・最大10MB</p>
+      <p className="text-xs text-gray-400">
+        {working ? "画像を準備しています..." : "JPEG / PNG / WebP / GIF / SVG。大きい写真は送る前に自動で縮めます"}
+      </p>
     </div>
   );
 }

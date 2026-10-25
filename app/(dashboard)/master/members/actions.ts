@@ -6,6 +6,25 @@ import { saveMemberAvatar, deleteMemberAvatar } from "@/lib/upload";
 import { createAdminClient } from "@/lib/supabase";
 import { logActivity } from "@/lib/activity-logs";
 import { DEFAULT_COMMISSION_PAY_DAY, normalizePayDay } from "@/lib/commission-pay-date";
+import { AVATAR_TYPES, AVATAR_MAX_SIZE } from "@/lib/upload";
+
+/** 写真が保存できなかったときに、何が悪かったのか分かる文言にする */
+function avatarFailureMessage(file: File): string {
+  const mb = (file.size / 1024 / 1024).toFixed(1);
+  if (!AVATAR_TYPES.includes(file.type)) {
+    return `この写真の形式（${file.type || "不明"}）には対応していません。JPEG・PNG・WebP のいずれかを選んでください`;
+  }
+  if (file.size > AVATAR_MAX_SIZE) {
+    return `写真が大きすぎます（${mb}MB）。5MB以下の写真を選んでください`;
+  }
+  return "写真を保存できませんでした。もう一度お試しください（何度も出る場合は別の写真でお試しください）";
+}
+
+/** 同じ場所に上書きしたか。上書きなら消してはいけない（消すと今入れた写真が消える） */
+function sameStoragePath(oldUrl: string, newUrl: string): boolean {
+  const strip = (u: string) => u.split("?")[0];
+  return strip(oldUrl) === strip(newUrl);
+}
 
 /** コミッションの支払日（月末じめ翌月のこの日）。空欄や変な値は既定の25日に寄せる */
 function readPayDay(formData: FormData): number {
@@ -36,6 +55,9 @@ export async function createMember(formData: FormData): Promise<{ error: string 
   let avatarUrl: string | undefined;
   if (avatarFile && avatarFile.size > 0) {
     avatarUrl = (await saveMemberAvatar(avatarFile, crypto.randomUUID())) ?? undefined;
+    // 保存できなかったときに黙って写真なしで登録すると、
+    // 「何回やっても写真が付かない」のに理由が分からない状態になる
+    if (!avatarUrl) return { error: avatarFailureMessage(avatarFile) };
   }
 
   let authUserId: string | undefined;
@@ -90,8 +112,12 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const avatarFile = formData.get("avatar") as File | null;
   let avatarUrl: string | undefined;
   if (avatarFile && avatarFile.size > 0) {
-    if (existing?.avatarUrl) await deleteMemberAvatar(existing.avatarUrl);
+    // 先に消すと、保存に失敗したときに元の写真まで無くなる。新しいのが入ってから消す
     avatarUrl = (await saveMemberAvatar(avatarFile, id)) ?? undefined;
+    if (!avatarUrl) return { error: avatarFailureMessage(avatarFile) };
+    if (existing?.avatarUrl && !sameStoragePath(existing.avatarUrl, avatarUrl)) {
+      await deleteMemberAvatar(existing.avatarUrl);
+    }
   }
 
   let authUserId = existing?.authUserId;
