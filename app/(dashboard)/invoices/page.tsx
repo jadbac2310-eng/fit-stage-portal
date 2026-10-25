@@ -10,6 +10,7 @@ import { getCurrentMember } from "@/lib/members";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, fctLessonSummary } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { courseToPaymentType, isBillableLessonStatus } from "@/lib/lessons-types";
+import { monthReadStart } from "@/lib/recent-months";
 import { InvoicesClient } from "./invoices-client";
 
 export const dynamic = "force-dynamic";
@@ -37,13 +38,15 @@ export default async function InvoicesPage({
 
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
+  // 請求書はその月だけ見るもの。締日ずれのための前月まで読めば足りる
+  const since = monthReadStart(month);
 
   const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems, fctStores] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
-    getLessons(),
-    getTrialLessons(),
+    getLessons(since),
+    getTrialLessons(since),
     getAllPlans(),
     getCustomerMonthlyItems(),
     getFctStores(),

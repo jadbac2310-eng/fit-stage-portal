@@ -80,8 +80,41 @@ function fromDb(row: DbRow): Lesson {
 // JOIN 段階を順に落としていく SELECT のカスケード。
 // members/customers への JOIN 関連がスキーマキャッシュで解決できない(PGRST200)本番でも、
 // 最終的に JOIN 無し("*")まで退避して「絶対に描画は落とさない」ことを保証する（名前は空になる）。
+/**
+ * 一覧で読む列。
+ *
+ * レポート系（exercises＝種目ログ・training_content・customer_impression）は
+ * わざと外してある。1レッスンに何種目も入るJSONなので、全レッスンぶん運ぶと重い。
+ * しかも一覧・歩合・請求のどれも使っていない（必要になるのは1件を開いたときだけ）。
+ * 1件取得の getLesson は今までどおり全部の列を読む。
+ */
+const LIST_COLUMNS =
+  "id, customer_id, trainer_member_id, scheduled_at, end_at, location, course, payment_type, status,"
+  + " delivery_mode, session_pass_id, amount, note, rental_gym_id, rental_gym_fee, store_id, store_fee,"
+  + " fct_store_id, fct_store_fee, avenir_store_id, avenir_store_fee, created_by, updated_by, created_at, updated_at";
+
+const JOINS = "customers(full_name), trainer_member:members!trainer_member_id(name), created_by_member:members!created_by(name)";
+
+// JOIN 段階を順に落としていく SELECT のカスケード。
+// members/customers への JOIN 関連がスキーマキャッシュで解決できない(PGRST200)本番でも、
+// 最終的に JOIN 無し("*")まで退避して「絶対に描画は落とさない」ことを保証する（名前は空になる）。
+//
+// 列を名指しした段を前に置き、うしろに "*" の段を残してある。
+// 名指しした列が未作成の環境では前半が落ちるが、そのときは "*" の段が拾うので描画は止まらない。
 const SELECTS = [
-  "*, customers(full_name), trainer_member:members!trainer_member_id(name), created_by_member:members!created_by(name)",
+  `${LIST_COLUMNS}, ${JOINS}`,
+  `${LIST_COLUMNS}, customers(full_name), trainer_member:members!trainer_member_id(name)`,
+  `${LIST_COLUMNS}, customers(full_name)`,
+  LIST_COLUMNS,
+  `*, ${JOINS}`,
+  "*, customers(full_name), trainer_member:members!trainer_member_id(name)",
+  "*, customers(full_name)",
+  "*",
+];
+
+/** 1件だけ開くとき用。レポート（種目ログなど）も含めて全部読む */
+const SINGLE_SELECTS = [
+  `*, ${JOINS}`,
   "*, customers(full_name), trainer_member:members!trainer_member_id(name)",
   "*, customers(full_name)",
   "*",
@@ -96,16 +129,29 @@ function isMissingOptionalColumn(err: { code?: string; message?: string } | null
     || err.code === "PGRST200" || err.code === "42703" || err.code === "PGRST204";
 }
 
-async function getLessonsUncached(): Promise<Lesson[]> {
+/**
+ * レッスンを読む。
+ *
+ * fromDate（YYYY-MM-DD）を渡すと、その日以降のぶんだけ読む。
+ * 1か月ぶんしか見ない画面でも開業からの全レッスンを読んでいたので、
+ * 件数が増えるほど表示が遅くなっていた。
+ * 引数は文字列ひとつにしてある（オブジェクトで渡すと毎回別物と見なされ、
+ * 同じリクエスト内で使い回せなくなるため）。
+ */
+async function getLessonsUncached(fromDate?: string): Promise<Lesson[]> {
   const client = createAdminClient();
+  // 日本時間のその日の0時から。UTCで切ると前日の夜ぶんが落ちる
+  const since = fromDate ? `${fromDate}T00:00:00+09:00` : null;
   for (let i = 0; i < SELECTS.length; i++) {
     // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
-    const { data, error } = await fetchAllRows((from, to) =>
-      client.from("lessons").select(SELECTS[i])
+    const { data, error } = await fetchAllRows((from, to) => {
+      let q = client.from("lessons").select(SELECTS[i]);
+      if (since) q = q.gte("scheduled_at", since);
+      return q
         .order("scheduled_at", { ascending: false })
         .order("id", { ascending: true })
-        .range(from, to),
-    );
+        .range(from, to);
+    });
     if (!error) return (data as unknown as DbRow[]).map(fromDb);
     // JOIN/列に由来しないエラーで、まだ後段が残っていないなら投げる
     if (!isMissingOptionalColumn(error) || i === SELECTS.length - 1) throw error;
@@ -141,10 +187,10 @@ export async function getCustomerLessonHistory(
 
 export async function getLesson(id: string): Promise<Lesson | null> {
   const client = createAdminClient();
-  for (let i = 0; i < SELECTS.length; i++) {
-    const { data, error } = await client.from("lessons").select(SELECTS[i]).eq("id", id).single();
+  for (let i = 0; i < SINGLE_SELECTS.length; i++) {
+    const { data, error } = await client.from("lessons").select(SINGLE_SELECTS[i]).eq("id", id).single();
     if (!error && data) return fromDb(data as unknown as DbRow);
-    if (error && (!isMissingOptionalColumn(error) || i === SELECTS.length - 1)) return null;
+    if (error && (!isMissingOptionalColumn(error) || i === SINGLE_SELECTS.length - 1)) return null;
     if (!error) return null; // data が無い（該当なし）
   }
   return null;

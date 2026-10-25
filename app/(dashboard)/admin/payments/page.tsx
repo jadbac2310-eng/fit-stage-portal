@@ -8,6 +8,7 @@ import { getAllPlans, getAllSessionPassPrices, planUnitPrice, buildSessionPassPr
 import { getPayments, buildReceivables } from "@/lib/payments";
 import { billingGroups, billingName } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
+import { monthReadStart } from "@/lib/recent-months";
 import { PaymentsClient } from "./payments-client";
 
 export const dynamic = "force-dynamic";
@@ -34,9 +35,11 @@ export default async function PaymentsPage({
 
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
+  // 入金管理もその月だけ見るもの。締日ずれのための前月まで読めば足りる
+  const since = monthReadStart(month);
 
   const [customers, passes, plans, lessons, trialLessons, plansMaster, sppPrices, payments] = await Promise.all([
-    getCustomers(), getAllSessionPasses(), getAllCustomerPlans(), getLessons(), getTrialLessons(),
+    getCustomers(), getAllSessionPasses(), getAllCustomerPlans(), getLessons(since), getTrialLessons(since),
     getAllPlans(), getAllSessionPassPrices(), getPayments(),
   ]);
 

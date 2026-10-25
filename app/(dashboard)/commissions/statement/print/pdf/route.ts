@@ -18,6 +18,7 @@ import { buildTrainerStatements } from "@/lib/commission-statement";
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
 import { payDateLabel } from "@/lib/commission-pay-date";
 import { CommissionStatementDocument } from "@/lib/commission-statement-pdf";
+import { monthReadStart } from "@/lib/recent-months";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,12 +34,14 @@ export async function GET(req: NextRequest) {
   const memberId = req.nextUrl.searchParams.get("member");
   const month = req.nextUrl.searchParams.get("month");
   if (!memberId || !month) return new Response("パラメータが不正です", { status: 400 });
+  // その月（と締日ずれのための前月）だけ読む
+  const since = monthReadStart(month);
 
   const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
     getCustomers(),
-    getLessons(),
-    getTrialLessons(),
-    getHourlyTasks(),
+    getLessons(since),
+    getTrialLessons(since),
+    getHourlyTasks(since),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),

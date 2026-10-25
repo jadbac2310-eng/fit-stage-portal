@@ -19,6 +19,7 @@ import { buildTrainerStatements, type StatementLine, type HourlyStatementLine, t
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
 import { payDateLabel } from "@/lib/commission-pay-date";
 import { StatementActions } from "./statement-actions";
+import { monthReadStart } from "@/lib/recent-months";
 
 export const dynamic = "force-dynamic";
 
@@ -167,12 +168,14 @@ export default async function CommissionStatementPrintPage({
 
   const { member: memberId, month } = await searchParams;
   if (!memberId || !month) notFound();
+  // その月（と締日ずれのための前月）だけ読む
+  const since = monthReadStart(month);
 
   const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
     getCustomers(),
-    getLessons(),
-    getTrialLessons(),
-    getHourlyTasks(),
+    getLessons(since),
+    getTrialLessons(since),
+    getHourlyTasks(since),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),

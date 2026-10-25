@@ -45,15 +45,20 @@ const SELECT = "*, member:members!member_id(name)";
 // members への JOIN 関連が解決できない(PGRST200)場合の退避（担当者名は空になるが描画は継続）
 const SELECT_LEGACY = "*";
 
-async function getHourlyTasksUncached(): Promise<HourlyTask[]> {
+/** fromDate（YYYY-MM-DD）を渡すと、その日以降のぶんだけ読む */
+async function getHourlyTasksUncached(fromDate?: string): Promise<HourlyTask[]> {
   const client = createAdminClient();
+  // 日本時間のその日の0時から。UTCで切ると前日の夜ぶんが落ちる
+  const since = fromDate ? `${fromDate}T00:00:00+09:00` : null;
   // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
-  const read = (select: string) => fetchAllRows((from, to) =>
-    client.from("hourly_tasks").select(select)
+  const read = (select: string) => fetchAllRows((from, to) => {
+    let q = client.from("hourly_tasks").select(select);
+    if (since) q = q.gte("scheduled_at", since);
+    return q
       .order("scheduled_at", { ascending: false })
       .order("id", { ascending: true })
-      .range(from, to),
-  );
+      .range(from, to);
+  });
   let { data, error } = await read(SELECT);
   if (error && isMissingAuthorColumn(error)) {
     ({ data, error } = await read(SELECT_LEGACY));

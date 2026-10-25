@@ -38,3 +38,21 @@ export function withinRecentMonths<T>(
     return iso != null && iso.slice(0, 10) >= from;
   });
 }
+
+/**
+ * その月のぶんを計算するのに最低限いる、いちばん古い日（YYYY-MM-DD）。
+ *
+ * 請求の締日が月初でない契約があるので、前月ぶんも読めるように1か月さかのぼる。
+ * 「2026-10」→「2026-09-01」。
+ */
+export function monthReadStart(month: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return "1970-01-01";
+  const d = new Date(Number(m[1]), Number(m[2]) - 1 - 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+/** 直近12か月を見る画面が読むべき、いちばん古い日（余白1か月を含む） */
+export function recentReadStart(now: Date = new Date()): string {
+  return monthsAgoStart(now, SELECTABLE_MONTHS);
+}

@@ -6,6 +6,7 @@ import { getAllSessionPasses } from "@/lib/session-passes";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
+import { monthReadStart } from "@/lib/recent-months";
 import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
@@ -26,13 +27,15 @@ export async function GET(req: NextRequest) {
   const customerId = req.nextUrl.searchParams.get("customer");
   const month = req.nextUrl.searchParams.get("month");
   if (!customerId || !month) return new Response("パラメータが不正です", { status: 400 });
+  // その月（と締日ずれのための前月）だけ読む
+  const since = monthReadStart(month);
 
   const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
-    getLessons(),
-    getTrialLessons(),
+    getLessons(since),
+    getTrialLessons(since),
     getAllPlans(),
     getCustomerMonthlyItems(),
   ]);

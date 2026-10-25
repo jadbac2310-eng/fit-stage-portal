@@ -15,6 +15,7 @@ import { buildHourlyEntries, type CommissionContext } from "@/lib/commissions";
 import { buildTrainerStatements } from "@/lib/commission-statement";
 import { DEFAULT_COMMISSION_PAY_DAY } from "@/lib/commission-pay-date";
 import { StatementClient } from "./statement-client";
+import { monthReadStart } from "@/lib/recent-months";
 
 export const dynamic = "force-dynamic";
 
@@ -40,12 +41,14 @@ export default async function CommissionStatementPage({
 
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
+  // その月（と締日ずれのための前月）だけ読む
+  const since = monthReadStart(month);
 
   const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
     getCustomers(),
-    getLessons(),
-    getTrialLessons(),
-    getHourlyTasks(),
+    getLessons(since),
+    getTrialLessons(since),
+    getHourlyTasks(since),
     getAllSessionPasses(),
     getAllCustomerPlans(),
     getMembers(),

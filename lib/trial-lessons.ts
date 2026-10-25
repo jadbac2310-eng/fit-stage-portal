@@ -78,25 +78,57 @@ function fromDb(row: DbRow): TrialLesson {
   };
 }
 
-const SELECT = "*, customers(full_name), sales_member:members!sales_member_id(name), trainer_member:members!trainer_member_id(name)";
+const JOINS = "customers(full_name), sales_member:members!sales_member_id(name), trainer_member:members!trainer_member_id(name)";
+const SELECT = `*, ${JOINS}`;
 // members への JOIN 関連がスキーマキャッシュで解決できない(PGRST200)場合の退避（担当者名は空になるが描画は継続）
 const SELECT_LEGACY = "*, customers(full_name)";
 
-async function getTrialLessonsUncached(): Promise<TrialLesson[]> {
+/**
+ * 一覧で読む列。
+ *
+ * レポート系（exercises＝種目ログ・training_content・customer_impression）は外してある。
+ * 1件に何種目も入るJSONで、全件ぶん運ぶと重いわりに、どの画面でも読んでいない。
+ * 1件取得（getTrialLesson）は今までどおり全部の列を読む。
+ */
+const LIST_COLUMNS =
+  "id, customer_id, sales_member_id, trainer_member_id, scheduled_at, location, rental_gym_id, rental_gym_fee,"
+  + " store_id, store_fee, fct_store_id, fct_store_fee, avenir_store_id, avenir_store_fee, course, amount,"
+  + " status, delivery_mode, contracted, contract_plan, note, created_by, updated_by, created_at, updated_at";
+
+// 列を名指しした段を前に、"*" の段をうしろに置く。
+// 名指しした列が未作成の環境では前半が落ちるので、そのときは "*" の段が拾う。
+const LIST_SELECTS = [
+  `${LIST_COLUMNS}, ${JOINS}`,
+  `${LIST_COLUMNS}, customers(full_name)`,
+  LIST_COLUMNS,
+  SELECT,
+  SELECT_LEGACY,
+];
+
+/** fromDate（YYYY-MM-DD）を渡すと、その日以降のぶんだけ読む */
+async function getTrialLessonsUncached(fromDate?: string): Promise<TrialLesson[]> {
   const client = createAdminClient();
   // 1000行ずつ全件読む。id を並び順の最後に足して、ページの境目で行がぶれないようにする
-  const read = (select: string) => fetchAllRows((from, to) =>
-    client.from("trial_lessons").select(select)
+  // 日本時間のその日の0時から。UTCで切ると前日の夜ぶんが落ちる
+  const since = fromDate ? `${fromDate}T00:00:00+09:00` : null;
+  const read = (select: string) => fetchAllRows((from, to) => {
+    let q = client.from("trial_lessons").select(select);
+    if (since) q = q.gte("scheduled_at", since);
+    return q
       .order("scheduled_at", { ascending: false })
       .order("id", { ascending: true })
-      .range(from, to),
-  );
-  let { data, error } = await read(SELECT);
-  if (error && isMissingAuthorColumn(error)) {
-    ({ data, error } = await read(SELECT_LEGACY));
+      .range(from, to);
+  });
+  type ReadResult = { data: unknown[] | null; error: { code?: string; message?: string } | null };
+  let data: ReadResult["data"] = null;
+  let error: ReadResult["error"] = null;
+  for (const select of LIST_SELECTS) {
+    ({ data, error } = await read(select) as ReadResult);
+    if (!error) break;
+    if (!isMissingAuthorColumn(error)) break;
   }
   if (error) {
-    if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
+    if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message ?? "")) return [];
     throw error;
   }
   return (data as unknown as DbRow[]).map(fromDb);
