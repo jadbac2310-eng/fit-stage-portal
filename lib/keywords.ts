@@ -63,3 +63,32 @@ export async function getKeywordCategories(): Promise<string[]> {
     .filter(Boolean)
     .sort() as string[];
 }
+
+/**
+ * 指定した言葉だけ、ラッコで調べた月間検索数・難易度を引く。
+ *
+ * サーチコンソールの一覧に「この言葉は月に何回調べられているか」を並べると、
+ * 「順位は低いが需要がある＝伸ばす価値がある」が一目で分かる。
+ * keywords の表は件数が多いので、画面に出す言葉だけ名指しで引く（全件は読まない）。
+ */
+export async function getKeywordVolumes(
+  words: string[],
+): Promise<Record<string, { searchVolume: number | null; seoDifficulty: number | null }>> {
+  const unique = [...new Set(words.map((w) => w.trim()).filter(Boolean))];
+  if (unique.length === 0) return {};
+  const supabase = createAdminClient();
+  const out: Record<string, { searchVolume: number | null; seoDifficulty: number | null }> = {};
+  // URL が長くなりすぎないよう小分けにして引く
+  const CHUNK = 100;
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from("keywords")
+      .select("keyword, search_volume, seo_difficulty")
+      .in("keyword", unique.slice(i, i + CHUNK));
+    if (error) return out;   // 引けなくても画面は出す（数字が出ないだけ）
+    for (const r of (data ?? []) as { keyword: string; search_volume: number | null; seo_difficulty: number | null }[]) {
+      out[r.keyword] = { searchVolume: r.search_volume, seoDifficulty: r.seo_difficulty };
+    }
+  }
+  return out;
+}
