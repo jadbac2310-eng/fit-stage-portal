@@ -43,6 +43,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
   1時間エラーのままになるため（`lib/search-console.ts` は失敗時に投げる）。
 - 画面から `lib/search-console.ts` を import しないこと。Google認証ライブラリごと
   端末に送られてビルドも落ちる。型と絞り込みは `lib/search-console-types.ts` にある。
+- **クロードのセッションから直接読むには** `scripts/seo-brief.mts` を使う。
+  セッションの環境設定に `GA4_CLIENT_EMAIL` と `GA4_PRIVATE_KEY`（Vercelと同じ値）が入っていれば動く。
+  `npx jiti scripts/seo-brief.mts`（一覧）／`/store/esaka/`（そのページの指示文）／`--q "江坂 パーソナルジム"`（言葉の順位）。
+  鍵が無ければ、画面の「HP側のクロードに渡す指示をコピー」を尚樹に貼ってもらう。
+- 店舗ページの順位を見るときの注意：Google は検索した人が少ない言葉を伏せるので、地域の言葉は
+  「出ている言葉」に出てこない。ページの順位・表示はページ別の集計（伏せた分も含む）で見る。
+  表示が少ない言葉の「1位」は当てにならない（出たときしか記録されない）。
 
 ## セッションの担当分け（2つのリポジトリ）
 

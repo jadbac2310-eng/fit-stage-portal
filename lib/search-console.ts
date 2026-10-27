@@ -428,10 +428,15 @@ export async function lookupKeyword(days: number, q: string): Promise<KeywordLoo
     const rows = await cachedPageQueries(days);
     const titleOf = (url: string) => KNOWN_PAGES[pathOf(url)]?.title ?? pathOf(url);
     const matches = groupKeywordMatches(rows, trimmed, titleOf);
-    // ラッコの月間検索数が分かれば「検索されたうち何%で出たか」まで言える
-    const { getKeywordVolumes } = await import("./keywords");
-    const volumes = await getKeywordVolumes(matches.map((m) => m.query));
-    for (const m of matches) m.monthlyVolume = volumes[m.query]?.searchVolume ?? null;
+    // ラッコの月間検索数が分かれば「検索されたうち何%で出たか」まで言える。
+    // 引けない環境（Supabaseの鍵が無いスクリプト実行など）でも順位は出す
+    try {
+      const { getKeywordVolumes } = await import("./keywords");
+      const volumes = await getKeywordVolumes(matches.map((m) => m.query));
+      for (const m of matches) m.monthlyVolume = volumes[m.query]?.searchVolume ?? null;
+    } catch {
+      for (const m of matches) m.monthlyVolume = null;
+    }
     if (matches.length === 0) {
       return {
         q: trimmed, matches,
