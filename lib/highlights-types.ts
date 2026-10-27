@@ -237,10 +237,25 @@ export function followUps(
   for (const l of lessons)      mark(l.customerId, l.scheduledAt, l.status);
   for (const t of trialLessons) mark(t.customerId, t.scheduledAt, t.status);
 
-  const passLeft = new Map<string, number>();
+  // 回数券の残り。remainingCount は「予約を入れた時点で減る」数なので、
+  // 今日の時点の残りは「remainingCount ＋ 明日以降の予約」で数え直す。
+  // 声をかける目安（PASS_LOW）は予約を引いたあとの数で見る（予約で使い切るなら更新の話はもう必要）。
+  // 画面には今日の残りと、そのうち予約済みの回数を出す。
+  const bookedOnPass = new Map<string, number>();
+  for (const l of lessons) {
+    if (!l.sessionPassId || l.status !== "scheduled") continue;
+    if (jstDay(l.scheduledAt) <= today) continue;
+    bookedOnPass.set(l.sessionPassId, (bookedOnPass.get(l.sessionPassId) ?? 0) + 1);
+  }
+  const passLeft = new Map<string, { afterBooked: number; booked: number }>();
   for (const p of sessionPasses) {
-    if (p.remainingCount <= 0) continue;
-    passLeft.set(p.customerId, (passLeft.get(p.customerId) ?? 0) + p.remainingCount);
+    const booked = bookedOnPass.get(p.id) ?? 0;
+    if (p.remainingCount <= 0 && booked === 0) continue;
+    const cur = passLeft.get(p.customerId) ?? { afterBooked: 0, booked: 0 };
+    passLeft.set(p.customerId, {
+      afterBooked: cur.afterBooked + Math.max(p.remainingCount, 0),
+      booked: cur.booked + booked,
+    });
   }
 
   const activePlan = new Set(
@@ -272,11 +287,16 @@ export function followUps(
       });
       continue;
     }
-    // ③ 回数券の残りが少ない
-    if (left != null && left <= PASS_LOW) {
+    // ③ 回数券の残りが少ない（予約を引いたあとの数で判断。表示は今日の残り）
+    if (left != null && left.afterBooked <= PASS_LOW) {
+      const todayLeft = left.afterBooked + left.booked;
       out.push({
         customerId: c.id, customerName: c.fullName, salesMemberId: c.salesMemberId, kind: "passLow", priority: 3,
-        reason: `回数券の残りが${left}回です`,
+        reason: left.booked > 0
+          ? (left.afterBooked === 0
+              ? `回数券の残り${todayLeft}回は予約で使い切ります`
+              : `回数券の残りが${todayLeft}回（うち${left.booked}回は予約済み）`)
+          : `回数券の残りが${todayLeft}回です`,
       });
       continue;
     }
