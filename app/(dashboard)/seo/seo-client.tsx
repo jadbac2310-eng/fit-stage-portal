@@ -11,7 +11,7 @@ import { Delta } from "@/components/ui/delta";
 // 型と絞り込みだけを読む。lib/search-console.ts を読むと
 // Google認証ライブラリまで端末に送られてしまう
 import {
-  PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, buildPageBrief,
+  PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, buildPageBrief, keywordReliability,
   type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type SearchPeriod, type KeywordLookup,
 } from "@/lib/search-console-types";
 
@@ -384,13 +384,28 @@ function KeywordLookupBox({ days, lookup }: { days: number; lookup: KeywordLooku
       {lookup && (
         <div className="mt-3">
           {lookup.note && <p className="text-xs text-gray-500 leading-relaxed">{lookup.note}</p>}
-          {lookup.matches.map((m) => (
+          {lookup.matches.map((m) => {
+            const rel = keywordReliability(m.impressions, days, m.monthlyVolume);
+            return (
             <div key={m.query} className="mt-3 first:mt-0">
               <p className="text-sm font-bold text-gray-900">
                 「{m.query}」
-                <span className="text-xs font-normal text-gray-400 ml-1.5 tabular-nums">表示 {num(m.impressions)}・クリック {num(m.clicks)}</span>
+                <span className="text-xs font-normal text-gray-400 ml-1.5 tabular-nums">
+                  {days}日で表示 {num(m.impressions)}・クリック {num(m.clicks)}
+                  {m.monthlyVolume != null && `・月間検索 ${num(m.monthlyVolume)}`}
+                </span>
               </p>
-              <ul className="mt-1 divide-y divide-gray-100">
+              {/* 表示が少ない順位は当てにならない。順位の前にこれを出す */}
+              {rel.text && (
+                <p className={cn(
+                  "text-xs mt-1.5 px-2.5 py-2 rounded-lg leading-relaxed",
+                  rel.level === "none" ? "bg-rose-50 text-rose-800 font-semibold" :
+                  rel.level === "low"  ? "bg-amber-50 text-amber-800" : "bg-green-50 text-green-800",
+                )}>
+                  {rel.level === "none" ? "ほぼ圏外：" : ""}{rel.text}
+                </p>
+              )}
+              <ul className={cn("mt-1 divide-y divide-gray-100", rel.level === "none" && "opacity-50")}>
                 {m.pages.map((pg) => (
                   <li key={pg.path} className="py-1.5 flex items-center gap-2">
                     <span className={cn("flex-shrink-0 w-14 text-center px-1 py-0.5 rounded-md text-xs font-bold tabular-nums", positionTone(pg.position))}>
@@ -402,7 +417,8 @@ function KeywordLookupBox({ days, lookup }: { days: number; lookup: KeywordLooku
                 ))}
               </ul>
             </div>
-          ))}
+            );
+          })}
           {lookup.matches.length > 0 && (
             <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
               自分で検索して見つからない場合、上に<span className="font-semibold">地図（3件）と広告</span>が入って押し下げられているか、

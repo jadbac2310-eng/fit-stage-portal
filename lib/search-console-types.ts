@@ -286,6 +286,43 @@ export interface KeywordMatch {
   impressions: number;
   clicks: number;
   pages: { path: string; title: string; position: number; impressions: number; clicks: number }[];
+  /** ラッコで調べた月間検索数（分かるときだけ） */
+  monthlyVolume?: number | null;
+}
+
+/**
+ * 表示回数が少ない順位は当てにならない。
+ *
+ * サーチコンソールは「出たとき」しか記録しない。月に何百回も検索される言葉で
+ * 表示が6回なら、残りの何百回は出ていない＝ほぼ圏外。
+ * そのときの「1位」は、前にサイトを見た2人に出ただけ、ということが多い。
+ */
+export const RELIABLE_IMPRESSIONS = 30;
+
+export type Reliability =
+  | { level: "none";  text: string }   // ほぼ出ていない
+  | { level: "low";   text: string }   // 出てはいるが少ない
+  | { level: "ok";    text: string };
+
+export function keywordReliability(
+  impressions: number, days: number, monthlyVolume?: number | null,
+): Reliability {
+  // 月間検索数が分かれば「検索されたうち何%で出たか」まで言える
+  if (monthlyVolume != null && monthlyVolume > 0) {
+    const expected = monthlyVolume * (days / 30);
+    const coverage = Math.min(100, Math.round((impressions / expected) * 100));
+    if (coverage < 10) {
+      return { level: "none", text: `この言葉は月に約${monthlyVolume.toLocaleString("ja-JP")}回検索されますが、出たのは${impressions}回（約${coverage}%）。ほぼ圏外です。上の順位は、出た数回ぶんの位置で、当てになりません。` };
+    }
+    if (coverage < 50) {
+      return { level: "low", text: `検索されたうち約${coverage}%でしか出ていません。順位より「出る回数を増やす」段階です。` };
+    }
+    return { level: "ok", text: `検索されたうち約${coverage}%で出ています。` };
+  }
+  if (impressions < RELIABLE_IMPRESSIONS) {
+    return { level: "none", text: `${days}日で表示が${impressions}回しかありません。ほとんどの検索では出ていない（ほぼ圏外）と考えてください。上の順位は出た数回ぶんの位置で、当てになりません。` };
+  }
+  return { level: "ok", text: "" };
 }
 
 export interface KeywordLookup {
