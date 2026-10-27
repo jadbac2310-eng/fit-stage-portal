@@ -79,3 +79,21 @@ input[type="month"] {
 .markdown td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; vertical-align: top; }
 .markdown tbody tr:nth-child(even) { background: #f9fafb; }
 .markdown a { color: #2563eb; text-decoration: underline; }
+
+/* ── ビジョン・ルール（ハンドブック）の読むページ ──
+   HPと同じ世界観：見出しはセリフ体、差し色は金。本文は読みやすさ優先で Geist のまま。 */
+.wiki-article .markdown { font-size: 0.95rem; line-height: 1.9; color: #1f2937; }
+.wiki-article .markdown h1,
+.wiki-article .markdown h2,
+.wiki-article .markdown h3 { font-family: var(--font-handbook-serif), "Noto Serif JP", serif; letter-spacing: 0.01em; }
+.wiki-article .markdown h1 { font-size: 1.45rem; border-bottom: 1px solid #C9A84C; padding-bottom: 0.6rem; margin: 0.25rem 0 1.25rem; }
+.wiki-article .markdown h2 { font-size: 1.15rem; margin: 2.25rem 0 0.75rem; padding-left: 0.75rem; border-left: 3px solid #C9A84C; }
+.wiki-article .markdown h3 { font-size: 1rem; margin: 1.5rem 0 0.5rem; color: #111827; }
+.wiki-article .markdown blockquote { border-left: 3px solid #C9A84C; background: #faf6ea; color: #4b3f1f; font-size: 0.95rem; }
+.wiki-article .markdown blockquote strong { color: #3f3416; }
+.wiki-article .markdown table { font-size: 0.85rem; }
+.wiki-article .markdown th { background: #faf6ea; color: #3f3416; border-color: #eadfbf; }
+.wiki-article .markdown td { border-color: #eee8d8; }
+.wiki-article .markdown tbody tr:nth-child(even) { background: #fcfaf4; }
+.wiki-article .markdown a { color: #a8883a; }
+.wiki-article .markdown hr { border-top: 1px solid #eadfbf; }

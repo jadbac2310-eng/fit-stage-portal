@@ -27,6 +27,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `20261024000002_commission_adjustments.sql`（コミッションの前払い・差し引き）
   - `20261024000004_member_commission_pay_day.sql`（支払日を担当者ごとに。杉元さんは翌月15日、ほかは25日）
   - `20261024000003_pass_overflow_to_free_lessons.sql`（回数券の回数を超えたレッスンを無料レッスンへ。堀さん3本・新森さん2本）
+- 2026-10-27｜`20261027000001_wiki_company_seed.sql`（ビジョン・ルールの初期9ページ。章＝ビジョン／会社のこと／ルール／手順）
+
+## ビジョン・ルール（ハンドブック）
+
+`/wiki` は社内ハンドブック。黒×金（HPと同じ #C9A84C）の表紙と、章ごとの目次。
+- 章の順番・英語の小見出し・ひとことは `app/(dashboard)/wiki/handbook.ts` の `CHAPTERS`。
+  新しい章（フォルダ）はここに足さないと「その他」として後ろに並ぶ。
+- 表紙の言葉（`COVER`）はHPの会社概要と同じ文。変えるならHP側も一緒に。
+- 見出しだけセリフ体（`fonts.ts` の Noto Serif JP）。本文は読みやすさ優先で Geist のまま。
+  記事の見た目は `app/globals.css` の `.wiki-article .markdown`。
 
 ## SEO（サーチコンソール連携）
 
