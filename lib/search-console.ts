@@ -182,35 +182,54 @@ async function fetchDaily(from: string, to: string): Promise<SearchDailyRow[]> {
 /** 表に出す件数。多すぎても読めないし、端末に送る量も増える */
 const ROW_LIMIT = 100;
 
+/**
+ * 読めたぶんを返す。読めなかったときは投げる。
+ *
+ * ここでエラーを「値」として返すとキャッシュに乗ってしまい、
+ * サーチコンソールで権限を足しても最大1時間エラーのままになる。
+ * 投げればキャッシュされないので、権限を足した次の表示で出る。
+ */
 async function fetchOverview(days: number): Promise<SearchOverview> {
   const { current, previous } = searchPeriods(days);
+  const site = await resolveSite();
+  const [queries, pages, daily, prevQueries] = await Promise.all([
+    fetchRows("query", current.from, current.to, ROW_LIMIT),
+    fetchRows("page",  current.from, current.to, ROW_LIMIT),
+    fetchDaily(current.from, current.to),
+    fetchRows("query", previous.from, previous.to, ROW_LIMIT),
+  ]);
+  return {
+    period: current,
+    site,
+    totals: sumTotals(queries),
+    prevTotals: sumTotals(prevQueries),
+    queries, pages, daily,
+  };
+}
+
+/** 1時間キャッシュ。サーチコンソールの数字は日単位なので、これで十分新しい */
+const cachedOverview = unstable_cache(fetchOverview, ["search-console-overview"], { revalidate: 3600 });
+
+/**
+ * 画面用。読めなければ、理由と「貼るアドレス」を添えた空の結果を返す。
+ * 失敗はキャッシュに乗せない（権限を足した直後に出るようにするため）。
+ */
+export async function getSearchOverview(days: number): Promise<SearchOverview> {
   const empty: SearchTotals = { clicks: 0, impressions: 0, ctr: 0, position: 0 };
-  const base = { period: current, totals: empty, prevTotals: empty, queries: [], pages: [], daily: [],
-                 serviceAccount: serviceAccountEmail() };
+  const base = {
+    period: searchPeriods(days).current,
+    totals: empty, prevTotals: empty,
+    queries: [], pages: [], daily: [],
+    serviceAccount: serviceAccountEmail(),
+  };
   if (!isSearchConsoleConfigured()) {
     return { ...base, error: "Googleの鍵（GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY）が設定されていません" };
   }
   try {
-    const site = await resolveSite();
-    const [queries, pages, daily, prevQueries] = await Promise.all([
-      fetchRows("query", current.from, current.to, ROW_LIMIT),
-      fetchRows("page",  current.from, current.to, ROW_LIMIT),
-      fetchDaily(current.from, current.to),
-      fetchRows("query", previous.from, previous.to, ROW_LIMIT),
-    ]);
-    return {
-      period: current,
-      site,
-      totals: sumTotals(queries),
-      prevTotals: sumTotals(prevQueries),
-      queries, pages, daily,
-    };
+    return await cachedOverview(days);
   } catch (e) {
     console.error("[search-console]", e);
     return { ...base, error: e instanceof Error ? e.message : "読み込みに失敗しました" };
   }
 }
-
-/** 1時間キャッシュ。サーチコンソールの数字は日単位なので、これで十分新しい */
-export const getSearchOverview = unstable_cache(fetchOverview, ["search-console-overview"], { revalidate: 3600 });
 
