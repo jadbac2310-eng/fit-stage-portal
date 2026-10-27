@@ -28,6 +28,22 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `20261024000004_member_commission_pay_day.sql`（支払日を担当者ごとに。杉元さんは翌月15日、ほかは25日）
   - `20261024000003_pass_overflow_to_free_lessons.sql`（回数券の回数を超えたレッスンを無料レッスンへ。堀さん3本・新森さん2本）
 
+## SEO（サーチコンソール連携）
+
+`/seo` で、fitstage.jp がどの言葉で検索され何位に出ているかを見る（管理者のみ）。
+
+- 認証は **GA4と同じサービスアカウント**（`GA4_CLIENT_EMAIL` / `GA4_PRIVATE_KEY`）を使い回す。
+  サーチコンソール側で、そのアドレスを「設定 → ユーザーと権限」に**制限付き**で追加してある。
+  （2026-10-27 設定済み。プロパティは `https://www.fitstage.jp/` ＝www付きのURL登録）
+- **環境変数は足していない。** 見るサイトは、権限のあるサイトをGoogleに問い合わせて自動で決める。
+  複数登録されて選べないときだけ `SEARCH_CONSOLE_SITE_URL` で指定する。
+- **データは溜め込まない。** サーチコンソール側に16か月ぶん残っているので、
+  見るときに読んで1時間キャッシュする。毎日取りに行く仕掛けも専用テーブルも無い。
+- **読めなかったときの結果はキャッシュしない。** 値で返すと、権限を直しても
+  1時間エラーのままになるため（`lib/search-console.ts` は失敗時に投げる）。
+- 画面から `lib/search-console.ts` を import しないこと。Google認証ライブラリごと
+  端末に送られてビルドも落ちる。型と絞り込みは `lib/search-console-types.ts` にある。
+
 ## セッションの担当分け（2つのリポジトリ）
 
 FIT STAGE には2つのリポジトリがあり、セッションを分けて作業している。
