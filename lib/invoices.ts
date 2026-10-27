@@ -20,7 +20,7 @@ export const ISSUER = {
   registrationNumber: "T2810714106494",      // 適格請求書発行事業者 登録番号（インボイス）
   address: "大阪府吹田市豊津町5-27\nドムス江坂II - A",
   tel: "TEL: 070-2397-1822",
-  email: "fitstage.000@gmail.com",
+  email: "info@fitstage.jp",
 };
 
 // 消費税率（パーソナル指導は標準税率10%）
