@@ -4,15 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, MousePointerClick, Eye, Trophy, Settings, Copy, Check,
-  ChevronDown, ChevronUp, ExternalLink, TrendingUp, AlertTriangle, CircleDashed, ClipboardCopy,
+  ChevronDown, ChevronUp, ExternalLink, TrendingUp, AlertTriangle, CircleDashed,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Delta } from "@/components/ui/delta";
 // 型と絞り込みだけを読む。lib/search-console.ts を読むと
 // Google認証ライブラリまで端末に送られてしまう
 import {
-  PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, buildPageBrief, keywordReliability,
-  type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type SearchPeriod, type KeywordLookup,
+  PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, keywordReliability,
+  type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type KeywordLookup,
 } from "@/lib/search-console-types";
 
 type Volumes = Record<string, { searchVolume: number | null; seoDifficulty: number | null }>;
@@ -120,40 +120,10 @@ function KeywordRows({ rows, volumes, emphasis }: { rows: PageKeyword[]; volumes
   );
 }
 
-/** HP側のクロードに貼る指示文をコピーする。この画面のいちばんの出口 */
-function BriefButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold transition"
-      >
-        {copied ? <><Check size={13} /> コピーしました。HPのセッションに貼ってください</> : <><ClipboardCopy size={13} /> HP側のクロードに渡す指示をコピー</>}
-      </button>
-      <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
-        数字と「何を直すか」が入った指示文です。HPを担当しているクロードコードにそのまま貼ると、作業が始まります。
-      </p>
-    </div>
-  );
-}
-
-function PageCard({ page, volumes, period }: { page: PageReport; volumes: Volumes; period: SearchPeriod }) {
+function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const none = page.impressions === 0;
   const todo = page.almost.length + page.weak.length;
-
-  /** HP側のクロードに貼る指示文。数字を人が読み直すより、そのまま渡す方が速くて漏れない */
-  async function copyBrief() {
-    try {
-      await navigator.clipboard.writeText(buildPageBrief(page, period, volumes));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -212,25 +182,19 @@ function PageCard({ page, volumes, period }: { page: PageReport; volumes: Volume
       </button>
 
       {open && none && (
-        <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-3">
-          <p className="text-xs text-gray-500 leading-relaxed">
-            この期間、検索結果に一度も出ていません。出ていない原因（登録されていない・内容が薄い・リンクが無い）をHP側で調べる必要があります。
-          </p>
-          <BriefButton copied={copied} onClick={copyBrief} />
+        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+          <p className="text-xs text-gray-500">この期間、検索結果に一度も出ていません。</p>
         </div>
       )}
 
       {open && !none && (
         <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-4">
-          <BriefButton copied={copied} onClick={copyBrief} />
           {page.almost.length > 0 && (
             <div>
               <p className="text-xs font-bold text-amber-700 flex items-center gap-1">
                 <TrendingUp size={12} /> あと一歩（11〜20位）
               </p>
-              <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
-                2ページ目に出ている言葉。<span className="font-semibold">この言葉を見出しと本文に入れて内容を厚くする</span>と、1ページ目に上がりやすい。
-              </p>
+              <p className="text-[11px] text-gray-500 mt-0.5">2ページ目。本文を厚くすれば1ページ目に上がりやすい言葉</p>
               <KeywordRows rows={page.almost} volumes={volumes} emphasis="amber" />
             </div>
           )}
@@ -239,14 +203,12 @@ function PageCard({ page, volumes, period }: { page: PageReport; volumes: Volume
               <p className="text-xs font-bold text-violet-700 flex items-center gap-1">
                 <AlertTriangle size={12} /> 出ているのに押されていない
               </p>
-              <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
-                10位以内なのにクリック率{WEAK_CTR}%未満。順位ではなく<span className="font-semibold">検索結果に出るタイトルと説明文</span>の問題。この言葉を入れて書き直すと今日から効く。
-              </p>
+              <p className="text-[11px] text-gray-500 mt-0.5">10位以内なのにクリック率{WEAK_CTR}%未満。タイトル・説明文の問題</p>
               <KeywordRows rows={page.weak} volumes={volumes} emphasis="violet" />
             </div>
           )}
           <div>
-            <p className="text-xs font-bold text-gray-600">この言葉で出ています（表示の多い順）</p>
+            <p className="text-xs font-bold text-gray-600">出ている言葉（表示の多い順）</p>
             {page.keywords.length > 0
               ? <KeywordRows rows={page.keywords} volumes={volumes} />
               : <p className="text-xs text-gray-400 py-2">Googleが言葉を出していません</p>}
@@ -254,11 +216,8 @@ function PageCard({ page, volumes, period }: { page: PageReport; volumes: Volume
               <p className="text-[11px] text-gray-400 mt-1">ほか {page.keywordCount - page.keywords.length}語</p>
             )}
             {page.hiddenImpressions > 0 && (
-              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed bg-gray-50 rounded-lg px-2.5 py-2">
-                表示 {num(page.impressions)}回のうち <span className="font-semibold">{num(page.hiddenImpressions)}回は言葉が伏せられています</span>。
-                Googleは検索する人が少ない言葉を出しません（個人が特定されないように）。
-                「{page.title}」のような地域の言葉はほとんどこれに当たるので、出ている言葉が少なく見えます。
-                上の順位・クリックは伏せられた分も含めた数字です。
+              <p className="text-[11px] text-gray-400 mt-2">
+                ほか {num(page.hiddenImpressions)}回分はGoogleが言葉を伏せています（検索する人が少ない言葉）。順位・クリックはその分も含んだ数字です。
               </p>
             )}
           </div>
@@ -274,7 +233,7 @@ function PageCard({ page, volumes, period }: { page: PageReport; volumes: Volume
   );
 }
 
-function PageSection({ group, pages, volumes, period }: { group: PageGroup; pages: PageReport[]; volumes: Volumes; period: SearchPeriod }) {
+function PageSection({ group, pages, volumes }: { group: PageGroup; pages: PageReport[]; volumes: Volumes }) {
   const [showAll, setShowAll] = useState(false);
   if (pages.length === 0) return null;
   // 記事は本数が多いので、最初は表示の多い10本だけ
@@ -287,7 +246,7 @@ function PageSection({ group, pages, volumes, period }: { group: PageGroup; page
         <span className="text-xs font-normal text-gray-400 ml-1.5">{pages.length}ページ</span>
       </h2>
       <div className="space-y-2">
-        {shown.map((p) => <PageCard key={p.path} page={p} volumes={volumes} period={period} />)}
+        {shown.map((p) => <PageCard key={p.path} page={p} volumes={volumes} />)}
       </div>
       {pages.length > limit && !showAll && (
         <button type="button" onClick={() => setShowAll(true)}
@@ -420,10 +379,8 @@ function KeywordLookupBox({ days, lookup }: { days: number; lookup: KeywordLooku
             );
           })}
           {lookup.matches.length > 0 && (
-            <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
-              自分で検索して見つからない場合、上に<span className="font-semibold">地図（3件）と広告</span>が入って押し下げられているか、
-              検索した場所が違う（Googleは今いる場所で結果を変える）ことがほとんどです。
-              この順位は、実際に検索した人たちに見えた位置の平均です。
+            <p className="text-[11px] text-gray-400 mt-3">
+              実際に検索した人に見えた位置の平均。自分の検索と違うのは、地図・広告が上に入るか、場所が違うため。
             </p>
           )}
         </div>
@@ -448,7 +405,6 @@ export function SeoClient({ overview, days, periods, volumes, lookup }: {
     if (arr) arr.push(pg);
     else byGroup.set(pg.group, [pg]);
   }
-  const todoPages = overview.pages.filter((pg) => pg.almost.length + pg.weak.length > 0).length;
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -457,7 +413,7 @@ export function SeoClient({ overview, days, periods, volumes, lookup }: {
           <Search size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">SEO</h1>
         </div>
-        <p className="text-sm text-gray-500 mt-0.5">ページごとに、何位で・どの言葉で出ているか</p>
+        <p className="text-sm text-gray-500 mt-0.5">ページごとの順位とクリック</p>
       </div>
 
       {/* 期間 */}
@@ -500,21 +456,12 @@ export function SeoClient({ overview, days, periods, volumes, lookup }: {
 
           <DailyChart rows={overview.daily} />
 
-          <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3 mb-5 text-xs text-blue-900 leading-relaxed">
-            <span className="font-bold">見方：</span>
-            右の順位は<span className="font-semibold">そのページが出た検索ぜんぶの平均</span>です（狙っている言葉で何位かは、タップした中の言葉ごとの順位を見てください）。
-            タップすると「何をすれば上がるか」と、<span className="font-semibold">HP側のクロードに貼る指示文のコピー</span>が出ます。
-            <span className="inline-block px-1.5 rounded bg-amber-100 text-amber-800 font-semibold mx-0.5">あと一歩</span>
-            が付いているページから手を付けるのがいちばん効きます（いま {todoPages}ページ）。
-          </div>
-
           {PAGE_GROUP_ORDER.map((g) => (
-            <PageSection key={g} group={g} pages={byGroup.get(g) ?? []} volumes={volumes} period={overview.period} />
+            <PageSection key={g} group={g} pages={byGroup.get(g) ?? []} volumes={volumes} />
           ))}
 
-          <p className="text-[11px] text-gray-400 leading-relaxed">
-            サーチコンソールは数日遅れるので、直近3日は含めていません。
-            「月間」はラッコキーワードで調べた月間検索数です（マスタ管理のキーワードに入っている言葉だけ出ます）。
+          <p className="text-[11px] text-gray-400">
+            順位はそのページが出た検索ぜんぶの平均。直近3日は含みません（サーチコンソールが遅れるため）。
           </p>
         </>
       )}
