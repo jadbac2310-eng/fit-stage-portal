@@ -20,7 +20,7 @@ export default async function WikiPage() {
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       <div className="mb-5 hidden md:flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Wiki</h1>
+          <h1 className="text-xl font-bold text-gray-900">ビジョン・ルール</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {folders.length}フォルダ · {pages.length}件のページ
           </p>

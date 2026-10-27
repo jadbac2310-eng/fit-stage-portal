@@ -354,7 +354,7 @@ export function WikiAgentClient() {
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Bot size={28} className="text-white" />
             </div>
-            <p className="text-base font-semibold text-gray-800">WikiエージェントにAIの質問を<br/>してみましょう</p>
+            <p className="text-base font-semibold text-gray-800">会社のビジョンやルールを<br/>ページにまとめてもらえます</p>
             <p className="text-xs text-gray-400 mt-2 flex items-center justify-center gap-1">
               <Paperclip size={11} /> 画像やテキストファイルを添付できます
             </p>
@@ -362,7 +362,8 @@ export function WikiAgentClient() {
               {[
                 "トレーナー向けガイドラインを作って",
                 "会員対応マニュアルを作成して",
-                "施設の利用ルールをWikiにまとめて",
+                "会社のビジョンのページを作って",
+                "施設の利用ルールをまとめて",
               ].map((s) => (
                 <button
                   key={s}
@@ -430,7 +431,7 @@ export function WikiAgentClient() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
             }}
-            placeholder="Wikiページの作成・編集を依頼する..."
+            placeholder="例）キャンセルのルールをページにして"
             rows={2}
             disabled={loading}
             className="flex-1 resize-none px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"

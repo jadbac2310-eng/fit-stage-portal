@@ -43,7 +43,7 @@ export default async function WikiFolderPage({
           href="/wiki"
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition mb-4"
         >
-          <ChevronLeft size={15} /> Wiki
+          <ChevronLeft size={15} /> ビジョン・ルール
         </Link>
 
         <div className="flex items-center justify-between">
