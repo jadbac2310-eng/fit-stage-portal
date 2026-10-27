@@ -39,6 +39,8 @@ export interface SearchDailyRow {
 
 export interface SearchOverview {
   period:     SearchPeriod;
+  /** どのサイトの数字か（www あり/なしの取り違えに気付けるように画面へ出す） */
+  site?:      string;
   totals:     SearchTotals;
   prevTotals: SearchTotals;
   queries:    SearchRow[];

@@ -169,22 +169,25 @@ function SetupCard({ error }: { error: string }) {
         <Settings size={15} /> サーチコンソールにつながっていません
       </p>
       <p className="text-xs text-gray-500 mt-1 break-all">{error}</p>
-      <ol className="mt-3 space-y-2 text-xs text-gray-700 list-decimal list-inside leading-relaxed">
+      <p className="text-xs font-semibold text-gray-700 mt-3">やること（1回だけ）</p>
+      <ol className="mt-1.5 space-y-2 text-xs text-gray-700 list-decimal list-inside leading-relaxed">
         <li>
-          サーチコンソールを開き、fitstage.jp のプロパティで
+          Vercel の <span className="font-mono font-semibold">GA4_CLIENT_EMAIL</span> の値をコピー
+          （<span className="font-mono">…@….iam.gserviceaccount.com</span> という形）
+        </li>
+        <li>
+          サーチコンソールを開いて
           <span className="font-semibold">「設定 → ユーザーと権限 → ユーザーを追加」</span>
         </li>
         <li>
-          ポータルがGA4で使っているサービスアカウントのメールアドレスを、
-          <span className="font-semibold">権限「制限付き」</span>で追加
+          そのアドレスを貼って、権限は<span className="font-semibold">「制限付き」</span>で追加
         </li>
-        <li>
-          Vercel の環境変数に <span className="font-mono font-semibold">SEARCH_CONSOLE_SITE_URL</span> を追加
-          （ドメイン全体なら <span className="font-mono">sc-domain:fitstage.jp</span>、
-          URLプレフィックスなら <span className="font-mono">https://fitstage.jp/</span>）
-        </li>
-        <li>デプロイし直すと、ここに数字が出ます</li>
+        <li>この画面を開き直すと数字が出ます</li>
       </ol>
+      <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+        どのサイトを見るかは自動で決まります。サーチコンソールに複数のサイトが登録してあって
+        選べないときだけ、上のメッセージにサイト名が並びます。
+      </p>
     </div>
   );
 }
@@ -236,6 +239,7 @@ export function SeoClient({ overview, days, periods, volumes }: {
         <p className="text-xs text-gray-400">
           {fmtDate(overview.period.from)}〜{fmtDate(overview.period.to)}
           <span className="ml-1">（サーチコンソールは数日遅れます）</span>
+          {overview.site && <span className="ml-1 break-all">／{overview.site}</span>}
         </p>
       </div>
 

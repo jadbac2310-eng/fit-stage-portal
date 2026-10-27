@@ -45,9 +45,9 @@ export function searchPeriods(days: number, now: Date = new Date()): { current: 
   };
 }
 
-/** 設定が入っているか。入っていなければ画面に案内を出す */
+/** 鍵が入っているか。入っていなければ画面に案内を出す */
 export function isSearchConsoleConfigured(): boolean {
-  return !!(process.env.GA4_CLIENT_EMAIL && process.env.GA4_PRIVATE_KEY && process.env.SEARCH_CONSOLE_SITE_URL);
+  return !!(process.env.GA4_CLIENT_EMAIL && process.env.GA4_PRIVATE_KEY);
 }
 
 async function getToken(): Promise<string> {
@@ -66,8 +66,49 @@ async function getToken(): Promise<string> {
 
 type ApiRow = { keys?: string[]; clicks?: number; impressions?: number; ctr?: number; position?: number };
 
+/** このサービスアカウントが見られるサイト（＝サーチコンソールで権限を足したもの） */
+export async function listSites(): Promise<string[]> {
+  const token = await getToken();
+  const res = await fetch("https://searchconsole.googleapis.com/webmasters/v3/sites", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error(`サーチコンソールに接続できませんでした（${res.status}）: ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return ((data.siteEntry ?? []) as { siteUrl?: string }[])
+    .map((s) => s.siteUrl ?? "")
+    .filter(Boolean);
+}
+
+/**
+ * どのサイトの数字を見るかを決める。
+ *
+ * 環境変数 SEARCH_CONSOLE_SITE_URL があればそれ。
+ * 無ければ、権限を足したサイトを自分で探す。
+ * 尚樹に環境変数を触ってもらう手間をなくすため（権限を足すだけで動く）。
+ * 複数あってどれか分からないときだけ、名前を並べて選んでもらう。
+ */
+async function resolveSite(): Promise<string> {
+  const fromEnv = process.env.SEARCH_CONSOLE_SITE_URL?.trim();
+  if (fromEnv) return fromEnv;
+
+  const sites = await listSites();
+  if (sites.length === 0) {
+    throw new Error(
+      "このサービスアカウントに見えるサイトがありません。"
+      + "サーチコンソールの「設定 → ユーザーと権限 → ユーザーを追加」で、"
+      + "ポータルのサービスアカウント（GA4_CLIENT_EMAIL の値）を追加してください",
+    );
+  }
+  if (sites.length === 1) return sites[0];
+  throw new Error(
+    `見えるサイトが複数あります。環境変数 SEARCH_CONSOLE_SITE_URL でどれかを指定してください: ${sites.join(" / ")}`,
+  );
+}
+
 async function query(body: Record<string, unknown>): Promise<ApiRow[]> {
-  const site = encodeURIComponent(process.env.SEARCH_CONSOLE_SITE_URL!);
+  const site = encodeURIComponent(await resolveSite());
   const token = await getToken();
   const res = await fetch(
     `https://searchconsole.googleapis.com/webmasters/v3/sites/${site}/searchAnalytics/query`,
@@ -134,9 +175,10 @@ async function fetchOverview(days: number): Promise<SearchOverview> {
   const empty: SearchTotals = { clicks: 0, impressions: 0, ctr: 0, position: 0 };
   if (!isSearchConsoleConfigured()) {
     return { period: current, totals: empty, prevTotals: empty, queries: [], pages: [], daily: [],
-             error: "まだ設定されていません" };
+             error: "Googleの鍵（GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY）が設定されていません" };
   }
   try {
+    const site = await resolveSite();
     const [queries, pages, daily, prevQueries] = await Promise.all([
       fetchRows("query", current.from, current.to, ROW_LIMIT),
       fetchRows("page",  current.from, current.to, ROW_LIMIT),
@@ -145,6 +187,7 @@ async function fetchOverview(days: number): Promise<SearchOverview> {
     ]);
     return {
       period: current,
+      site,
       totals: sumTotals(queries),
       prevTotals: sumTotals(prevQueries),
       queries, pages, daily,
