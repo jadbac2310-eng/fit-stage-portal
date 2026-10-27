@@ -213,7 +213,65 @@ export function weakCtr<T extends { position: number; impressions: number; ctr: 
 export function positionWord(p: number): string {
   if (p <= 0)  return "—";
   if (p <= 3)  return "上位";
-  if (p <= 10) return "1ページ目";
-  if (p <= 20) return "2ページ目";
+  if (p <= ALMOST_FROM) return "1ページ目";
+  if (p <= ALMOST_TO)   return "2ページ目";
   return "圏外";
+}
+
+// ─── HP側のクロードに渡す指示文 ──────────────────────
+//
+// この画面を読んで直すのは人ではなく、HPのリポジトリを担当するクロードコード。
+// 数字を眺めて人が言い直すより、そのまま貼れる指示文を作った方が速くて漏れない。
+
+function fmtKw(k: PageKeyword, volume?: number | null): string {
+  const v = volume != null ? `・月間検索 ${volume.toLocaleString("ja-JP")}` : "";
+  return `「${k.key}」（${k.position}位・表示 ${k.impressions.toLocaleString("ja-JP")}・クリック ${k.clicks}・CTR ${k.ctr}%${v}）`;
+}
+
+export function buildPageBrief(
+  page: PageReport,
+  period: SearchPeriod,
+  volumes: Record<string, { searchVolume: number | null }> = {},
+): string {
+  const vol = (k: PageKeyword) => volumes[k.key]?.searchVolume;
+  const lines: string[] = [];
+  lines.push(`fitstage.jp の ${page.path}（${page.title}）のSEOを改善してください。`);
+  lines.push("");
+  lines.push(`■ サーチコンソールの数字（${period.from}〜${period.to}）`);
+  if (page.impressions === 0) {
+    lines.push("- この期間、検索結果に一度も出ていません。");
+  } else {
+    const pos = page.prevPosition != null ? `（前の期間 ${page.prevPosition}位）` : "";
+    lines.push(`- 平均順位 ${page.position}位${pos}、表示 ${page.impressions.toLocaleString("ja-JP")}回、クリック ${page.clicks}回（前の期間 ${page.prevClicks}回）`);
+    if (page.hiddenImpressions > 0) {
+      lines.push(`- 表示のうち ${page.hiddenImpressions.toLocaleString("ja-JP")}回は Google が言葉を伏せている（地域の言葉はほぼこれ）。下の言葉は見えている分だけ。`);
+    }
+  }
+  if (page.weak.length > 0) {
+    lines.push("");
+    lines.push(`■ 10位以内なのに押されていない言葉（CTR ${WEAK_CTR}%未満）→ title と meta description にこの言葉を入れて書き直す`);
+    for (const k of page.weak) lines.push(`- ${fmtKw(k, vol(k))}`);
+  }
+  if (page.almost.length > 0) {
+    lines.push("");
+    lines.push("■ 11〜20位の言葉 → 見出し(h2/h3)と本文にこの言葉を入れ、その言葉で検索する人の疑問に答える段落を足す");
+    for (const k of page.almost) lines.push(`- ${fmtKw(k, vol(k))}`);
+  }
+  if (page.keywords.length > 0) {
+    lines.push("");
+    lines.push("■ 参考：いま出ている言葉（表示の多い順）");
+    for (const k of page.keywords) lines.push(`- ${fmtKw(k, vol(k))}`);
+  }
+  lines.push("");
+  lines.push("■ お願い");
+  if (page.impressions === 0) {
+    lines.push("1. このページが検索に出ていない原因を調べる（noindex・サイトマップ未登録・内部リンクが無い・内容が薄い）");
+    lines.push("2. 上の店舗名／サービス名＋地域名で検索されたときに出る内容にする（title・h1・本文）");
+  } else {
+    lines.push("1. 「押されていない言葉」が自然に入るように title（30文字前後）と meta description（80〜120文字）を書き直す。店名と地域名は残す");
+    lines.push("2. 「11〜20位の言葉」を h2/h3 と本文に入れ、内容を厚くする（その言葉で探している人が知りたいことに答える）");
+    lines.push("3. 言葉を無理に詰め込まない。読んで自然な文にする");
+  }
+  lines.push("4. 変更したら、何をどう変えたかを一覧で報告する");
+  return lines.join("\n");
 }

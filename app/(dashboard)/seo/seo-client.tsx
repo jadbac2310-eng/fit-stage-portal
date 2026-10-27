@@ -4,15 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, MousePointerClick, Eye, Trophy, Settings, Copy, Check,
-  ChevronDown, ChevronUp, ExternalLink, TrendingUp, AlertTriangle, CircleDashed,
+  ChevronDown, ChevronUp, ExternalLink, TrendingUp, AlertTriangle, CircleDashed, ClipboardCopy,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Delta } from "@/components/ui/delta";
 // 型と絞り込みだけを読む。lib/search-console.ts を読むと
 // Google認証ライブラリまで端末に送られてしまう
 import {
-  PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR,
-  type SearchOverview, type PageReport, type PageKeyword, type PageGroup,
+  PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, buildPageBrief,
+  type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type SearchPeriod,
 } from "@/lib/search-console-types";
 
 type Volumes = Record<string, { searchVolume: number | null; seoDifficulty: number | null }>;
@@ -120,17 +120,47 @@ function KeywordRows({ rows, volumes, emphasis }: { rows: PageKeyword[]; volumes
   );
 }
 
-function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
+/** HP側のクロードに貼る指示文をコピーする。この画面のいちばんの出口 */
+function BriefButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold transition"
+      >
+        {copied ? <><Check size={13} /> コピーしました。HPのセッションに貼ってください</> : <><ClipboardCopy size={13} /> HP側のクロードに渡す指示をコピー</>}
+      </button>
+      <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
+        数字と「何を直すか」が入った指示文です。HPを担当しているクロードコードにそのまま貼ると、作業が始まります。
+      </p>
+    </div>
+  );
+}
+
+function PageCard({ page, volumes, period }: { page: PageReport; volumes: Volumes; period: SearchPeriod }) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const none = page.impressions === 0;
   const todo = page.almost.length + page.weak.length;
+
+  /** HP側のクロードに貼る指示文。数字を人が読み直すより、そのまま渡す方が速くて漏れない */
+  async function copyBrief() {
+    try {
+      await navigator.clipboard.writeText(buildPageBrief(page, period, volumes));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
       <button
         type="button"
-        onClick={() => !none && setOpen(!open)}
-        className={cn("w-full text-left px-4 py-3", !none && "hover:bg-gray-50 transition")}
+        onClick={() => setOpen(!open)}
+        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition"
       >
         <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
@@ -153,7 +183,7 @@ function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
           {!none && (
             <div className="text-right flex-shrink-0">
               <span className={cn("inline-block px-2 py-1 rounded-lg text-sm font-bold tabular-nums", positionTone(page.position))}>
-                {page.position}位
+                <span className="text-[10px] font-semibold opacity-70 mr-0.5">平均</span>{page.position}位
               </span>
               <p className="text-[10px] text-gray-400 mt-0.5">
                 {positionWord(page.position)}
@@ -161,9 +191,9 @@ function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
               </p>
             </div>
           )}
-          {!none && (open
+          {open
             ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" />
-            : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />)}
+            : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
         </div>
         {!none && todo > 0 && !open && (
           <div className="flex gap-1.5 mt-2">
@@ -181,8 +211,18 @@ function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
         )}
       </button>
 
+      {open && none && (
+        <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-3">
+          <p className="text-xs text-gray-500 leading-relaxed">
+            この期間、検索結果に一度も出ていません。出ていない原因（登録されていない・内容が薄い・リンクが無い）をHP側で調べる必要があります。
+          </p>
+          <BriefButton copied={copied} onClick={copyBrief} />
+        </div>
+      )}
+
       {open && !none && (
         <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-4">
+          <BriefButton copied={copied} onClick={copyBrief} />
           {page.almost.length > 0 && (
             <div>
               <p className="text-xs font-bold text-amber-700 flex items-center gap-1">
@@ -234,7 +274,7 @@ function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
   );
 }
 
-function PageSection({ group, pages, volumes }: { group: PageGroup; pages: PageReport[]; volumes: Volumes }) {
+function PageSection({ group, pages, volumes, period }: { group: PageGroup; pages: PageReport[]; volumes: Volumes; period: SearchPeriod }) {
   const [showAll, setShowAll] = useState(false);
   if (pages.length === 0) return null;
   // 記事は本数が多いので、最初は表示の多い10本だけ
@@ -247,7 +287,7 @@ function PageSection({ group, pages, volumes }: { group: PageGroup; pages: PageR
         <span className="text-xs font-normal text-gray-400 ml-1.5">{pages.length}ページ</span>
       </h2>
       <div className="space-y-2">
-        {shown.map((p) => <PageCard key={p.path} page={p} volumes={volumes} />)}
+        {shown.map((p) => <PageCard key={p.path} page={p} volumes={volumes} period={period} />)}
       </div>
       {pages.length > limit && !showAll && (
         <button type="button" onClick={() => setShowAll(true)}
@@ -382,13 +422,14 @@ export function SeoClient({ overview, days, periods, volumes }: {
 
           <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3 mb-5 text-xs text-blue-900 leading-relaxed">
             <span className="font-bold">見方：</span>
-            ページをタップすると、そのページが出ている言葉と「何をすれば上がるか」が出ます。
+            右の順位は<span className="font-semibold">そのページが出た検索ぜんぶの平均</span>です（狙っている言葉で何位かは、タップした中の言葉ごとの順位を見てください）。
+            タップすると「何をすれば上がるか」と、<span className="font-semibold">HP側のクロードに貼る指示文のコピー</span>が出ます。
             <span className="inline-block px-1.5 rounded bg-amber-100 text-amber-800 font-semibold mx-0.5">あと一歩</span>
             が付いているページから手を付けるのがいちばん効きます（いま {todoPages}ページ）。
           </div>
 
           {PAGE_GROUP_ORDER.map((g) => (
-            <PageSection key={g} group={g} pages={byGroup.get(g) ?? []} volumes={volumes} />
+            <PageSection key={g} group={g} pages={byGroup.get(g) ?? []} volumes={volumes} period={overview.period} />
           ))}
 
           <p className="text-[11px] text-gray-400 leading-relaxed">
