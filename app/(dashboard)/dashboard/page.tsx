@@ -217,11 +217,11 @@ export default async function DashboardPage() {
         mission={mission} tip={tip} fortune={fortune}
         follows={follows} unassigned={unassigned} />
 
-      {/* 連続記録と称号（トレーナーとして） */}
-      <StreakBadges streak={streak} badges={badges} />
+      {/* 連続記録と称号（レッスンの連続と成約の連続を1枚に） */}
+      <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} />
 
-      {/* 営業の自分 */}
-      <SalesCard coverage={coverage} month={sMonth} streak={sStreak} badges={sBadges} />
+      {/* 営業の自分（名前は出さない。声かけリストと同じ人になるため） */}
+      <SalesCard coverage={coverage} month={sMonth} />
 
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}

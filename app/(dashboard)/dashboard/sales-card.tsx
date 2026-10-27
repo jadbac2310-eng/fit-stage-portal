@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { Handshake, Users, TrendingUp } from "lucide-react";
-import type { Coverage, SalesMonth, SalesStreak } from "@/lib/sales-stats";
-import type { Badge } from "@/lib/badges-types";
+import type { Coverage, SalesMonth } from "@/lib/sales-stats";
 import { CountUp } from "./count-up";
 import { Delta } from "@/components/ui/delta";
 
@@ -11,28 +9,13 @@ import { Delta } from "@/components/ui/delta";
  * 売上は結果なので時間差が出る。ここでは「次の予約が入っている状態をつくれているか」を
  * いちばん大きく見せる。今日の行動がそのまま数字に出るため。
  * 担当のお客さまも成約もまだ無い人には出さない。
+ *
+ * 次の予定が入っていない人の名前はここには出さない。
+ * 同じ人が「声をかけたほうがいい人」にも並んで二重になるため、名前はそちらだけに出す。
+ * 成約の連続記録と称号も、レッスンの連続と同じ1枚（StreakBadges）にまとめた。
  */
-/** 次の予定が入っていない人の名札。最初の6名と「ほか◯名」で同じ見た目にする */
-function UncoveredChip({ name }: { name: string }) {
-  return (
-    <Link
-      href={`/lessons/regular?q=${encodeURIComponent(name)}`}
-      className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:border-blue-300 hover:text-blue-700"
-    >
-      {name}
-    </Link>
-  );
-}
-
-export function SalesCard({
-  coverage, month, streak, badges,
-}: {
-  coverage: Coverage;
-  month: SalesMonth;
-  streak: SalesStreak;
-  badges: Badge[];
-}) {
-  if (coverage.total === 0 && month.contracts === 0 && badges.length === 0) return null;
+export function SalesCard({ coverage, month }: { coverage: Coverage; month: SalesMonth }) {
+  if (coverage.total === 0 && month.contracts === 0) return null;
 
   const diff = coverage.lastRate == null ? null : coverage.rate - coverage.lastRate;
   const mDiff = month.contracts - month.lastContracts;
@@ -72,32 +55,10 @@ export function SalesCard({
                 {diff === 0 ? "　先週と同じ" : `　先週より ${diff > 0 ? "+" : ""}${diff}pt`}
               </span>
             )}
+            {coverage.uncovered.length > 0 && (
+              <span className="text-gray-400">　入っていない{coverage.uncovered.length}名は上の「声をかけたほうがいい人」に</span>
+            )}
           </p>
-
-          {/* 次の予定が入っていない人。ここは「声をかける相手」の名簿なので、
-              「ほか◯名」で隠すと誰に連絡すればいいか分からなくなる。
-              その場で開けるようにする（details なので JavaScript は要らない）。 */}
-          {coverage.uncovered.length > 0 && (
-            <div className="mt-2">
-              <div className="flex flex-wrap gap-1">
-                {coverage.uncovered.slice(0, 6).map((u) => (
-                  <UncoveredChip key={u.customerId} name={u.customerName} />
-                ))}
-              </div>
-              {coverage.uncovered.length > 6 && (
-                <details className="mt-1">
-                  <summary className="cursor-pointer list-none text-[11px] font-semibold text-blue-600 hover:underline">
-                    ほか{coverage.uncovered.length - 6}名を表示
-                  </summary>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {coverage.uncovered.slice(6).map((u) => (
-                      <UncoveredChip key={u.customerId} name={u.customerName} />
-                    ))}
-                  </div>
-                </details>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -133,36 +94,6 @@ export function SalesCard({
           )}
         </div>
       </div>
-
-      {/* 連続記録と称号 */}
-      {(streak.weeks > 0 || badges.length > 0) && (
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          {streak.weeks > 0 && (
-            <p className="text-sm font-bold text-gray-900 mb-2">
-              🔥 {streak.weeks}週連続で成約が出ています
-              {streak.best > streak.weeks && (
-                <span className="ml-1 text-xs font-normal text-gray-400">自己ベストは{streak.best}週</span>
-              )}
-            </p>
-          )}
-          {badges.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {badges.map((b) => (
-                <span
-                  key={b.id}
-                  title={b.note}
-                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700"
-                >
-                  <span>{b.emoji}</span>{b.label}
-                  {b.isNew && (
-                    <span className="ml-0.5 rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white">NEW</span>
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
