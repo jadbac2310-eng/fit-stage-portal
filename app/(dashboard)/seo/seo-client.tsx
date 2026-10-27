@@ -12,7 +12,7 @@ import { Delta } from "@/components/ui/delta";
 // Google認証ライブラリまで端末に送られてしまう
 import {
   PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, buildPageBrief,
-  type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type SearchPeriod,
+  type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type SearchPeriod, type KeywordLookup,
 } from "@/lib/search-console-types";
 
 type Volumes = Record<string, { searchVolume: number | null; seoDifficulty: number | null }>;
@@ -355,11 +355,73 @@ function SetupCard({ error, serviceAccount }: { error: string; serviceAccount?: 
 
 // ─── 本体 ─────────────────────────────────────────────
 
-export function SeoClient({ overview, days, periods, volumes }: {
+/**
+ * 「この言葉で何位？」
+ *
+ * 自分で検索して「出てこない」と感じたとき、ページの平均順位では答えにならない。
+ * その言葉そのものの順位を、ページごとに出す。
+ */
+function KeywordLookupBox({ days, lookup }: { days: number; lookup: KeywordLookup | null }) {
+  const [q, setQ] = useState(lookup?.q ?? "");
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-5">
+      <p className="text-xs font-semibold text-gray-500 mb-2">この言葉で何位？</p>
+      <form action="/seo" method="get" className="flex gap-2">
+        <input type="hidden" name="days" value={days} />
+        <input
+          name="q"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="例：江坂 パーソナルジム"
+          className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button type="submit"
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition flex-shrink-0">
+          調べる
+        </button>
+      </form>
+
+      {lookup && (
+        <div className="mt-3">
+          {lookup.note && <p className="text-xs text-gray-500 leading-relaxed">{lookup.note}</p>}
+          {lookup.matches.map((m) => (
+            <div key={m.query} className="mt-3 first:mt-0">
+              <p className="text-sm font-bold text-gray-900">
+                「{m.query}」
+                <span className="text-xs font-normal text-gray-400 ml-1.5 tabular-nums">表示 {num(m.impressions)}・クリック {num(m.clicks)}</span>
+              </p>
+              <ul className="mt-1 divide-y divide-gray-100">
+                {m.pages.map((pg) => (
+                  <li key={pg.path} className="py-1.5 flex items-center gap-2">
+                    <span className={cn("flex-shrink-0 w-14 text-center px-1 py-0.5 rounded-md text-xs font-bold tabular-nums", positionTone(pg.position))}>
+                      {pg.position}位
+                    </span>
+                    <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">{pg.title}</span>
+                    <span className="flex-shrink-0 text-[11px] text-gray-400 tabular-nums">表示 {num(pg.impressions)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          {lookup.matches.length > 0 && (
+            <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+              自分で検索して見つからない場合、上に<span className="font-semibold">地図（3件）と広告</span>が入って押し下げられているか、
+              検索した場所が違う（Googleは今いる場所で結果を変える）ことがほとんどです。
+              この順位は、実際に検索した人たちに見えた位置の平均です。
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SeoClient({ overview, days, periods, volumes, lookup }: {
   overview: SearchOverview;
   days: number;
   periods: number[];
   volumes: Volumes;
+  lookup?: KeywordLookup | null;
 }) {
   const router = useRouter();
   const t = overview.totals;
@@ -389,7 +451,7 @@ export function SeoClient({ overview, days, periods, volumes }: {
             <button
               key={d}
               type="button"
-              onClick={() => router.push(`/seo?days=${d}`)}
+              onClick={() => router.push(`/seo?days=${d}${lookup?.q ? `&q=${encodeURIComponent(lookup.q)}` : ""}`)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-sm font-semibold transition",
                 d === days ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
@@ -417,6 +479,8 @@ export function SeoClient({ overview, days, periods, volumes }: {
             <StatCard icon={<Trophy size={12} />} label="平均順位" value={String(t.position)} suffix="位"
               now={-t.position} prev={-p.position} note={positionWord(t.position)} />
           </div>
+
+          <KeywordLookupBox days={days} lookup={lookup ?? null} />
 
           <DailyChart rows={overview.daily} />
 

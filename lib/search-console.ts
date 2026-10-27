@@ -1,9 +1,9 @@
 import { unstable_cache } from "next/cache";
 import type {
-  SearchRow, SearchTotals, SearchPeriod, SearchDailyRow, SearchOverview, PageReport, PageKeyword,
+  SearchRow, SearchTotals, SearchPeriod, SearchDailyRow, SearchOverview, PageReport, PageKeyword, KeywordLookup,
 } from "./search-console-types";
 import {
-  KNOWN_PAGES, PAGE_GROUP_ORDER, pageGroupOf, pathOf, shortTitle, almostThere, weakCtr,
+  KNOWN_PAGES, PAGE_GROUP_ORDER, pageGroupOf, pathOf, shortTitle, almostThere, weakCtr, groupKeywordMatches,
 } from "./search-console-types";
 
 export type {
@@ -345,11 +345,21 @@ export function buildPageReports(
  * サーチコンソールで権限を足しても最大1時間エラーのままになる。
  * 投げればキャッシュされないので、権限を足した次の表示で出る。
  */
+/**
+ * ページ×キーワードの生データ。いちばん大きい問い合わせなので別に1時間キャッシュし、
+ * 画面のまとめと「この言葉で何位？」の両方から使い回す。
+ */
+async function fetchPageQueriesForDays(days: number) {
+  const { current } = searchPeriods(days);
+  return fetchPageQueries(current.from, current.to);
+}
+const cachedPageQueries = unstable_cache(fetchPageQueriesForDays, ["search-console-page-queries"], { revalidate: 3600 });
+
 async function fetchOverview(days: number): Promise<SearchOverview> {
   const { current, previous } = searchPeriods(days);
   const site = await resolveSite();
   const [pageQueries, pagesNow, pagesPrev, daily] = await Promise.all([
-    fetchPageQueries(current.from, current.to),
+    cachedPageQueries(days),
     fetchRows("page", current.from,  current.to,  1000),
     fetchRows("page", previous.from, previous.to, 1000),
     fetchDaily(current.from, current.to),
@@ -402,3 +412,32 @@ export async function getSearchOverview(days: number): Promise<SearchOverview> {
   }
 }
 
+
+/**
+ * 「この言葉で何位？」
+ *
+ * 自分で検索して「出てこない」と感じたとき、ページの平均順位では答えにならない。
+ * その言葉そのものの順位をページごとに出す。
+ * 見つからないときは、Google が伏せている可能性を添える（地域の言葉はよく伏せられる）。
+ */
+export async function lookupKeyword(days: number, q: string): Promise<KeywordLookup> {
+  const trimmed = q.trim();
+  if (!trimmed) return { q: trimmed, matches: [] };
+  if (!isSearchConsoleConfigured()) return { q: trimmed, matches: [], note: "サーチコンソールにつながっていません" };
+  try {
+    const rows = await cachedPageQueries(days);
+    const titleOf = (url: string) => KNOWN_PAGES[pathOf(url)]?.title ?? pathOf(url);
+    const matches = groupKeywordMatches(rows, trimmed, titleOf);
+    if (matches.length === 0) {
+      return {
+        q: trimmed, matches,
+        note: "この期間、この言葉では見つかりませんでした。検索する人が少ない言葉は Google が伏せるので、"
+          + "実際には出ていても見えないことがあります。言葉を短くして（例：地名だけ）もう一度試してください。",
+      };
+    }
+    return { q: trimmed, matches };
+  } catch (e) {
+    console.error("[search-console lookup]", e);
+    return { q: trimmed, matches: [], note: e instanceof Error ? e.message : "読み込みに失敗しました" };
+  }
+}

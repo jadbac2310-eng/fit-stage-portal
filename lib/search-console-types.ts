@@ -275,3 +275,62 @@ export function buildPageBrief(
   lines.push("4. 変更したら、何をどう変えたかを一覧で報告する");
   return lines.join("\n");
 }
+
+// ─── 「この言葉で何位？」 ──────────────────────────────
+//
+// 尚樹が自分で検索して「出てこない」と感じたとき、ページの平均順位では答えにならない。
+// その言葉そのものの順位を、ページごとに出す。
+
+export interface KeywordMatch {
+  query: string;
+  impressions: number;
+  clicks: number;
+  pages: { path: string; title: string; position: number; impressions: number; clicks: number }[];
+}
+
+export interface KeywordLookup {
+  q: string;
+  matches: KeywordMatch[];
+  /** 見つからなかった・読めなかったときの理由 */
+  note?: string;
+}
+
+/** 空白や全角半角の揺れを吸収して比べる */
+export function normalizeQuery(s: string): string {
+  return (s ?? "")
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[\s　]+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * ページ×キーワードの行から、q を含む言葉だけを拾って言葉ごとにまとめる。
+ * 完全一致を先頭に、あとは表示回数の多い順。多すぎると読めないので上限を置く。
+ */
+export function groupKeywordMatches(
+  rows: { page: string; q: PageKeyword }[],
+  q: string,
+  titleOf: (url: string) => string,
+  limit = 20,
+): KeywordMatch[] {
+  const needle = normalizeQuery(q);
+  if (!needle) return [];
+  const byQuery = new Map<string, KeywordMatch>();
+  for (const { page, q: k } of rows) {
+    if (!normalizeQuery(k.key).includes(needle)) continue;
+    const m = byQuery.get(k.key) ?? { query: k.key, impressions: 0, clicks: 0, pages: [] };
+    m.impressions += k.impressions;
+    m.clicks += k.clicks;
+    m.pages.push({ path: pathOf(page), title: titleOf(page), position: k.position, impressions: k.impressions, clicks: k.clicks });
+    byQuery.set(k.key, m);
+  }
+  const out = Array.from(byQuery.values());
+  for (const m of out) m.pages.sort((a, b) => a.position - b.position);
+  out.sort((a, b) => {
+    const ea = normalizeQuery(a.query) === needle ? 1 : 0;
+    const eb = normalizeQuery(b.query) === needle ? 1 : 0;
+    return (eb - ea) || (b.impressions - a.impressions);
+  });
+  return out.slice(0, limit);
+}
