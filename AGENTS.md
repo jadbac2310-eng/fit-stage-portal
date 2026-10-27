@@ -37,6 +37,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 表紙の言葉（`COVER`）はHPの会社概要と同じ文。変えるならHP側も一緒に。
 - 見出しだけセリフ体（`fonts.ts` の Noto Serif JP）。本文は読みやすさ優先で Geist のまま。
   記事の見た目は `app/globals.css` の `.wiki-article .markdown`。
+- ページは **`wiki_pages.sort_order` の小さい順 → 作った順**（本のように読む順）。無指定は 100 で後ろ。
+  順番を変えるのはSQLで（画面にはまだ無い）。列が無いDBでも作った順で動く（`lib/wiki.ts`）。
+- ページを増やすSQLは、scratchpad の `wiki/gen*.py` のように Markdown を書いて `E'...'` に変換して作る。
 
 ## SEO（サーチコンソール連携）
 

@@ -57,22 +57,33 @@ function withAuthor(page: WikiPage, authorMap: Map<string, { name: string; avata
   return { ...page, authorName: author?.name, authorAvatarUrl: author?.avatarUrl };
 }
 
+/**
+ * ページは本のように「決めた順」で並べる（sort_order 小さい順 → 作った順）。
+ * sort_order の列をまだ足していないDBでは（列が無い 42703）、作った順だけで並べる。
+ */
+async function listPages(folder?: string): Promise<DbRow[]> {
+  const base = () => {
+    const q = createAdminClient().from("wiki_pages").select("*");
+    return folder === undefined ? q : q.eq("folder", folder);
+  };
+  const ordered = await base()
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+  if (!ordered.error) return ordered.data as DbRow[];
+  if (ordered.error.code !== "42703") throw ordered.error;
+  const fallback = await base().order("created_at", { ascending: true });
+  if (fallback.error) throw fallback.error;
+  return fallback.data as DbRow[];
+}
+
 export async function getWikiPages(): Promise<WikiPage[]> {
-  const [pagesRes, authorMap] = await Promise.all([
-    createAdminClient().from("wiki_pages").select("*").order("updated_at", { ascending: false }),
-    buildAuthorMap(),
-  ]);
-  if (pagesRes.error) throw pagesRes.error;
-  return (pagesRes.data as DbRow[]).map(fromDb).map((p) => withAuthor(p, authorMap));
+  const [rows, authorMap] = await Promise.all([listPages(), buildAuthorMap()]);
+  return rows.map(fromDb).map((p) => withAuthor(p, authorMap));
 }
 
 export async function getWikiPagesByFolder(folder: string): Promise<WikiPage[]> {
-  const [pagesRes, authorMap] = await Promise.all([
-    createAdminClient().from("wiki_pages").select("*").eq("folder", folder).order("updated_at", { ascending: false }),
-    buildAuthorMap(),
-  ]);
-  if (pagesRes.error) throw pagesRes.error;
-  return (pagesRes.data as DbRow[]).map(fromDb).map((p) => withAuthor(p, authorMap));
+  const [rows, authorMap] = await Promise.all([listPages(folder), buildAuthorMap()]);
+  return rows.map(fromDb).map((p) => withAuthor(p, authorMap));
 }
 
 export async function getWikiPage(slug: string): Promise<WikiPage | null> {
