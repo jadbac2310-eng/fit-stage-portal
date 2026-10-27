@@ -40,6 +40,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - ページは **`wiki_pages.sort_order` の小さい順 → 作った順**（本のように読む順）。無指定は 100 で後ろ。
   順番を変えるのはSQLで（画面にはまだ無い）。列が無いDBでも作った順で動く（`lib/wiki.ts`）。
 - ページを増やすSQLは、scratchpad の `wiki/gen*.py` のように Markdown を書いて `E'...'` に変換して作る。
+- 代表の言葉から書いたページ（ビジョンの章）は、まだ尚樹が画面で直していない間は
+  `on conflict do update` で本文ごと差し替えてよい。尚樹が画面で直し始めたら `do nothing` に戻す。
 
 ## SEO（サーチコンソール連携）
 
