@@ -28,7 +28,8 @@ export default async function SeoPage({
 
   const overview = await getSearchOverview(days);
   // 画面に出すキーワードぶんだけ、ラッコで調べた月間検索数を引く
-  const volumes = await getKeywordVolumes(overview.queries.map((q) => q.key));
+  const words = overview.pages.flatMap((pg) => [...pg.keywords, ...pg.almost, ...pg.weak].map((k) => k.key));
+  const volumes = await getKeywordVolumes(words);
 
   return <SeoClient overview={overview} days={days} periods={PERIODS} volumes={volumes} />;
 }

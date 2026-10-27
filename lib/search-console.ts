@@ -1,7 +1,14 @@
 import { unstable_cache } from "next/cache";
-import type { SearchRow, SearchTotals, SearchPeriod, SearchDailyRow, SearchOverview } from "./search-console-types";
+import type {
+  SearchRow, SearchTotals, SearchPeriod, SearchDailyRow, SearchOverview, PageReport, PageKeyword,
+} from "./search-console-types";
+import {
+  KNOWN_PAGES, PAGE_GROUP_ORDER, pageGroupOf, pathOf, shortTitle, almostThere, weakCtr,
+} from "./search-console-types";
 
-export type { SearchRow, SearchTotals, SearchPeriod, SearchDailyRow, SearchOverview } from "./search-console-types";
+export type {
+  SearchRow, SearchTotals, SearchPeriod, SearchDailyRow, SearchOverview, PageReport, PageKeyword,
+} from "./search-console-types";
 export { almostThere, weakCtr, ALMOST_FROM, ALMOST_TO, WEAK_CTR } from "./search-console-types";
 
 /**
@@ -179,8 +186,140 @@ async function fetchDaily(from: string, to: string): Promise<SearchDailyRow[]> {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** 表に出す件数。多すぎても読めないし、端末に送る量も増える */
-const ROW_LIMIT = 100;
+/**
+ * ページ×キーワードを全部読む。
+ *
+ * 1回の問い合わせで返るのは最大 25,000 行。小さいサイトなので普通は1回で足りるが、
+ * 期間を長くすると超えることがあるので、足りなければ続きを読む（上限3回）。
+ */
+const PAGE_QUERY_ROWS = 5000;
+const PAGE_QUERY_MAX_CALLS = 3;
+
+async function fetchPageQueries(from: string, to: string): Promise<{ page: string; q: PageKeyword }[]> {
+  const out: { page: string; q: PageKeyword }[] = [];
+  for (let i = 0; i < PAGE_QUERY_MAX_CALLS; i++) {
+    const rows = await query({
+      startDate: from, endDate: to,
+      dimensions: ["page", "query"],
+      rowLimit: PAGE_QUERY_ROWS,
+      startRow: i * PAGE_QUERY_ROWS,
+    });
+    for (const r of rows) {
+      const page = r.keys?.[0] ?? "";
+      const key  = r.keys?.[1] ?? "";
+      if (!page || !key) continue;
+      out.push({ page, q: { ...toRow({ ...r, keys: [key] }) } });
+    }
+    if (rows.length < PAGE_QUERY_ROWS) break;
+  }
+  return out;
+}
+
+// ─── ページの題名 ─────────────────────────────────────
+//
+// 主要ページは KNOWN_PAGES の呼び名を使う。それ以外（主に記事）はページを読んで <title> を拾う。
+// 1ページずつ1日キャッシュするので、重いのは最初の1回だけ。
+
+const TITLE_TIMEOUT_MS = 4000;
+/** 題名を取りに行くページの上限。記事が多いので、表示回数の多いものだけ */
+const TITLE_FETCH_MAX = 30;
+const TITLE_CONCURRENCY = 6;
+
+async function fetchTitleUncached(url: string): Promise<string> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), TITLE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: { "User-Agent": "fit-stage-portal/seo" } });
+    if (!res.ok) return "";
+    const html = (await res.text()).slice(0, 200_000);
+    const m = /<title[^>]*>([^<]*)<\/title>/i.exec(html);
+    return m?.[1]?.trim() ?? "";
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const fetchTitle = unstable_cache(fetchTitleUncached, ["page-title"], { revalidate: 86400 });
+
+/** 同時に投げる数を抑えながら全部の題名を集める */
+async function fetchTitles(urls: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  for (let i = 0; i < urls.length; i += TITLE_CONCURRENCY) {
+    const chunk = urls.slice(i, i + TITLE_CONCURRENCY);
+    const titles = await Promise.all(chunk.map((u) => fetchTitle(u)));
+    chunk.forEach((u, k) => out.set(u, titles[k]));
+  }
+  return out;
+}
+
+// ─── ページごとのまとめ ───────────────────────────────
+
+/** 1ページに出す言葉の数。多すぎると読めない */
+const KEYWORDS_PER_PAGE = 8;
+
+function totalsOf(rows: { clicks: number; impressions: number; position: number }[]): SearchTotals {
+  return sumTotals(rows.map((r) => ({ key: "", ctr: 0, ...r })));
+}
+
+/**
+ * ページ×キーワードの行を、ページごとにまとめる。
+ * 前の期間のページ別の数字（prev）があれば、前期間比も付ける。
+ */
+export function buildPageReports(
+  rows: { page: string; q: PageKeyword }[],
+  prevByPage: Map<string, SearchRow>,
+  titles: Map<string, string>,
+): PageReport[] {
+  const byPage = new Map<string, PageKeyword[]>();
+  for (const { page, q } of rows) {
+    const arr = byPage.get(page);
+    if (arr) arr.push(q);
+    else byPage.set(page, [q]);
+  }
+
+  const reports: PageReport[] = [];
+  for (const [url, qs] of byPage) {
+    const path = pathOf(url);
+    const known = KNOWN_PAGES[path];
+    const t = totalsOf(qs);
+    const prev = prevByPage.get(url);
+    const sorted = [...qs].sort((a, b) => b.impressions - a.impressions);
+    reports.push({
+      url, path,
+      title: known?.title ?? shortTitle(titles.get(url), path),
+      group: known?.group ?? pageGroupOf(path),
+      clicks: t.clicks, impressions: t.impressions, ctr: t.ctr, position: t.position,
+      prevClicks:      prev?.clicks ?? 0,
+      prevImpressions: prev?.impressions ?? 0,
+      prevPosition:    prev && prev.impressions > 0 ? prev.position : null,
+      keywords:     sorted.slice(0, KEYWORDS_PER_PAGE),
+      keywordCount: qs.length,
+      almost:       almostThere(qs),
+      weak:         weakCtr(qs),
+    });
+  }
+
+  // 上げたいページなのに、まだ一度も検索結果に出ていないページも並べる。
+  // 無いと「江坂店が無い＝データの不備」に見える。「まだ出ていない」こと自体が大事な情報。
+  const present = new Set(reports.map((r) => r.path));
+  for (const [path, known] of Object.entries(KNOWN_PAGES)) {
+    if (present.has(path)) continue;
+    if (!["store", "service", "recruit", "en"].includes(known.group)) continue;
+    reports.push({
+      url: "", path, title: known.title, group: known.group,
+      clicks: 0, impressions: 0, ctr: 0, position: 0,
+      prevClicks: 0, prevImpressions: 0, prevPosition: null,
+      keywords: [], keywordCount: 0, almost: [], weak: [],
+    });
+  }
+
+  // 上げたいページ（店舗→サービス→求人→英語）を先に。同じまとまりの中では表示回数の多い順
+  const rank = new Map(PAGE_GROUP_ORDER.map((g, i) => [g, i]));
+  return reports.sort((a, b) =>
+    (rank.get(a.group)! - rank.get(b.group)!) || (b.impressions - a.impressions));
+}
 
 /**
  * 読めたぶんを返す。読めなかったときは投げる。
@@ -192,18 +331,30 @@ const ROW_LIMIT = 100;
 async function fetchOverview(days: number): Promise<SearchOverview> {
   const { current, previous } = searchPeriods(days);
   const site = await resolveSite();
-  const [queries, pages, daily, prevQueries] = await Promise.all([
-    fetchRows("query", current.from, current.to, ROW_LIMIT),
-    fetchRows("page",  current.from, current.to, ROW_LIMIT),
+  const [pageQueries, pagesNow, pagesPrev, daily] = await Promise.all([
+    fetchPageQueries(current.from, current.to),
+    fetchRows("page", current.from,  current.to,  1000),
+    fetchRows("page", previous.from, previous.to, 1000),
     fetchDaily(current.from, current.to),
-    fetchRows("query", previous.from, previous.to, ROW_LIMIT),
   ]);
+
+  // 題名が要るのは KNOWN_PAGES に無いページだけ。表示回数の多いものから上限まで
+  const unknown = pagesNow
+    .filter((p) => !KNOWN_PAGES[pathOf(p.key)])
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, TITLE_FETCH_MAX)
+    .map((p) => p.key);
+  const titles = await fetchTitles(unknown);
+
+  const prevByPage = new Map(pagesPrev.map((p) => [p.key, p]));
   return {
     period: current,
     site,
-    totals: sumTotals(queries),
-    prevTotals: sumTotals(prevQueries),
-    queries, pages, daily,
+    // 合計はページ別の集計から出す（キーワード別は匿名化で抜ける言葉があり、合計が小さく出る）
+    totals: sumTotals(pagesNow),
+    prevTotals: sumTotals(pagesPrev),
+    daily,
+    pages: buildPageReports(pageQueries, prevByPage, titles),
   };
 }
 
@@ -219,7 +370,7 @@ export async function getSearchOverview(days: number): Promise<SearchOverview> {
   const base = {
     period: searchPeriods(days).current,
     totals: empty, prevTotals: empty,
-    queries: [], pages: [], daily: [],
+    pages: [], daily: [],
     serviceAccount: serviceAccountEmail(),
   };
   if (!isSearchConsoleConfigured()) {
