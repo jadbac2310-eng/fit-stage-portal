@@ -50,6 +50,18 @@ export function isSearchConsoleConfigured(): boolean {
   return !!(process.env.GA4_CLIENT_EMAIL && process.env.GA4_PRIVATE_KEY);
 }
 
+/**
+ * ポータルがGoogleに名乗っているアドレス（サービスアカウント）。
+ *
+ * サーチコンソールに権限を足すとき、これを貼る必要がある。
+ * Vercelの設定画面を探してもらうのは手間なので、つながっていないときに
+ * 画面へ出してコピーできるようにする。
+ * 秘密なのは鍵（GA4_PRIVATE_KEY）の方で、このアドレスは貼る先に見せるもの。
+ */
+export function serviceAccountEmail(): string | undefined {
+  return process.env.GA4_CLIENT_EMAIL?.trim() || undefined;
+}
+
 async function getToken(): Promise<string> {
   const { GoogleAuth } = await import("google-auth-library");
   const auth = new GoogleAuth({
@@ -173,9 +185,10 @@ const ROW_LIMIT = 100;
 async function fetchOverview(days: number): Promise<SearchOverview> {
   const { current, previous } = searchPeriods(days);
   const empty: SearchTotals = { clicks: 0, impressions: 0, ctr: 0, position: 0 };
+  const base = { period: current, totals: empty, prevTotals: empty, queries: [], pages: [], daily: [],
+                 serviceAccount: serviceAccountEmail() };
   if (!isSearchConsoleConfigured()) {
-    return { period: current, totals: empty, prevTotals: empty, queries: [], pages: [], daily: [],
-             error: "Googleの鍵（GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY）が設定されていません" };
+    return { ...base, error: "Googleの鍵（GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY）が設定されていません" };
   }
   try {
     const site = await resolveSite();
@@ -194,8 +207,7 @@ async function fetchOverview(days: number): Promise<SearchOverview> {
     };
   } catch (e) {
     console.error("[search-console]", e);
-    return { period: current, totals: empty, prevTotals: empty, queries: [], pages: [], daily: [],
-             error: e instanceof Error ? e.message : "読み込みに失敗しました" };
+    return { ...base, error: e instanceof Error ? e.message : "読み込みに失敗しました" };
   }
 }
 

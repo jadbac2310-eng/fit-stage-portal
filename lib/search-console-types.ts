@@ -48,6 +48,8 @@ export interface SearchOverview {
   daily:      SearchDailyRow[];
   /** 読めなかったときの理由（権限不足など）。画面にそのまま出して直せるようにする */
   error?:     string;
+  /** ポータルがGoogleに名乗っているアドレス。サーチコンソールに貼ってもらうために出す */
+  serviceAccount?: string;
 }
 
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, MousePointerClick, Eye, Trophy, AlertTriangle, TrendingUp, Settings } from "lucide-react";
+import { Search, MousePointerClick, Eye, Trophy, AlertTriangle, TrendingUp, Settings, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Delta } from "@/components/ui/delta";
 // 型と絞り込みだけを読む。lib/search-console.ts を読むと
@@ -162,26 +162,52 @@ function ActionCard({ title, why, rows, tone, volumes }: {
 }
 
 /** つながっていないときの案内。何をすれば直るかを画面に出す */
-function SetupCard({ error }: { error: string }) {
+function SetupCard({ error, serviceAccount }: { error: string; serviceAccount?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (!serviceAccount) return;
+    try {
+      await navigator.clipboard.writeText(serviceAccount);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // コピーできない端末もある。そのときは長押しで選んでもらう
+      setCopied(false);
+    }
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5">
       <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
         <Settings size={15} /> サーチコンソールにつながっていません
       </p>
       <p className="text-xs text-gray-500 mt-1 break-all">{error}</p>
-      <p className="text-xs font-semibold text-gray-700 mt-3">やること（1回だけ）</p>
+
+      {/* Vercelの設定画面を探しに行かなくていいように、ここに出す。
+          秘密なのは鍵の方で、このアドレスは貼る先に見せるもの。 */}
+      {serviceAccount && (
+        <div className="mt-4 rounded-xl bg-gray-50 border border-gray-200 p-3">
+          <p className="text-[11px] font-semibold text-gray-500">サーチコンソールに追加するアドレス</p>
+          <p className="text-xs font-mono text-gray-900 break-all mt-1 select-all">{serviceAccount}</p>
+          <button
+            type="button"
+            onClick={copy}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold transition"
+          >
+            {copied ? <><Check size={13} /> コピーしました</> : <><Copy size={13} /> コピーする</>}
+          </button>
+        </div>
+      )}
+
+      <p className="text-xs font-semibold text-gray-700 mt-4">やること（1回だけ）</p>
       <ol className="mt-1.5 space-y-2 text-xs text-gray-700 list-decimal list-inside leading-relaxed">
-        <li>
-          Vercel の <span className="font-mono font-semibold">GA4_CLIENT_EMAIL</span> の値をコピー
-          （<span className="font-mono">…@….iam.gserviceaccount.com</span> という形）
-        </li>
+        <li>上のアドレスをコピー</li>
         <li>
           サーチコンソールを開いて
           <span className="font-semibold">「設定 → ユーザーと権限 → ユーザーを追加」</span>
         </li>
-        <li>
-          そのアドレスを貼って、権限は<span className="font-semibold">「制限付き」</span>で追加
-        </li>
+        <li>貼り付けて、権限は<span className="font-semibold">「制限付き」</span>のまま追加</li>
         <li>この画面を開き直すと数字が出ます</li>
       </ol>
       <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
@@ -244,7 +270,7 @@ export function SeoClient({ overview, days, periods, volumes }: {
       </div>
 
       {overview.error ? (
-        <SetupCard error={overview.error} />
+        <SetupCard error={overview.error} serviceAccount={overview.serviceAccount} />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 mb-4">
