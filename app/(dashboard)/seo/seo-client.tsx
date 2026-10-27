@@ -146,7 +146,7 @@ function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
                 <span className="mx-1.5 text-gray-300">・</span>
                 表示 {num(page.impressions)}
                 <span className="mx-1.5 text-gray-300">・</span>
-                {page.keywordCount}語
+                {page.keywordCount > 0 ? `${page.keywordCount}語` : "言葉は伏せられています"}
               </p>
             )}
           </div>
@@ -207,9 +207,19 @@ function PageCard({ page, volumes }: { page: PageReport; volumes: Volumes }) {
           )}
           <div>
             <p className="text-xs font-bold text-gray-600">この言葉で出ています（表示の多い順）</p>
-            <KeywordRows rows={page.keywords} volumes={volumes} />
+            {page.keywords.length > 0
+              ? <KeywordRows rows={page.keywords} volumes={volumes} />
+              : <p className="text-xs text-gray-400 py-2">Googleが言葉を出していません</p>}
             {page.keywordCount > page.keywords.length && (
               <p className="text-[11px] text-gray-400 mt-1">ほか {page.keywordCount - page.keywords.length}語</p>
+            )}
+            {page.hiddenImpressions > 0 && (
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed bg-gray-50 rounded-lg px-2.5 py-2">
+                表示 {num(page.impressions)}回のうち <span className="font-semibold">{num(page.hiddenImpressions)}回は言葉が伏せられています</span>。
+                Googleは検索する人が少ない言葉を出しません（個人が特定されないように）。
+                「{page.title}」のような地域の言葉はほとんどこれに当たるので、出ている言葉が少なく見えます。
+                上の順位・クリックは伏せられた分も含めた数字です。
+              </p>
             )}
           </div>
           {page.url && (

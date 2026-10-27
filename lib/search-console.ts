@@ -267,8 +267,17 @@ function totalsOf(rows: { clicks: number; impressions: number; position: number 
  * ページ×キーワードの行を、ページごとにまとめる。
  * 前の期間のページ別の数字（prev）があれば、前期間比も付ける。
  */
+/**
+ * ページ×キーワードの行を、ページごとにまとめる。
+ *
+ * ページ全体の数字（クリック・表示・順位）は nowByPage（ページ別の集計）から取る。
+ * ページ×キーワードの行から足し上げてはいけない。Google は「検索した人が少ない言葉」を
+ * 伏せるので、言葉別の行には出てこない表示がある。地域の言葉（「庄内 パーソナルジム」など）は
+ * ほとんどこれに当たり、足し上げると表示が減り、残った大きい言葉だけで順位が決まって変になる。
+ */
 export function buildPageReports(
   rows: { page: string; q: PageKeyword }[],
+  nowByPage: Map<string, SearchRow>,
   prevByPage: Map<string, SearchRow>,
   titles: Map<string, string>,
 ): PageReport[] {
@@ -278,14 +287,21 @@ export function buildPageReports(
     if (arr) arr.push(q);
     else byPage.set(page, [q]);
   }
+  // 言葉が全部伏せられて byPage に無いページも、ページ別の集計には居る
+  for (const url of nowByPage.keys()) {
+    if (!byPage.has(url)) byPage.set(url, []);
+  }
 
   const reports: PageReport[] = [];
   for (const [url, qs] of byPage) {
     const path = pathOf(url);
     const known = KNOWN_PAGES[path];
-    const t = totalsOf(qs);
+    const now = nowByPage.get(url);
+    // ページ別の集計があればそれ。無ければ言葉別の足し上げ（通常は無い）
+    const t = now ?? totalsOf(qs);
     const prev = prevByPage.get(url);
     const sorted = [...qs].sort((a, b) => b.impressions - a.impressions);
+    const shownImpressions = qs.reduce((s, q) => s + q.impressions, 0);
     reports.push({
       url, path,
       title: known?.title ?? shortTitle(titles.get(url), path),
@@ -296,6 +312,7 @@ export function buildPageReports(
       prevPosition:    prev && prev.impressions > 0 ? prev.position : null,
       keywords:     sorted.slice(0, KEYWORDS_PER_PAGE),
       keywordCount: qs.length,
+      hiddenImpressions: Math.max(0, t.impressions - shownImpressions),
       almost:       almostThere(qs),
       weak:         weakCtr(qs),
     });
@@ -311,7 +328,7 @@ export function buildPageReports(
       url: "", path, title: known.title, group: known.group,
       clicks: 0, impressions: 0, ctr: 0, position: 0,
       prevClicks: 0, prevImpressions: 0, prevPosition: null,
-      keywords: [], keywordCount: 0, almost: [], weak: [],
+      keywords: [], keywordCount: 0, hiddenImpressions: 0, almost: [], weak: [],
     });
   }
 
@@ -346,6 +363,7 @@ async function fetchOverview(days: number): Promise<SearchOverview> {
     .map((p) => p.key);
   const titles = await fetchTitles(unknown);
 
+  const nowByPage  = new Map(pagesNow.map((p) => [p.key, p]));
   const prevByPage = new Map(pagesPrev.map((p) => [p.key, p]));
   return {
     period: current,
@@ -354,7 +372,7 @@ async function fetchOverview(days: number): Promise<SearchOverview> {
     totals: sumTotals(pagesNow),
     prevTotals: sumTotals(pagesPrev),
     daily,
-    pages: buildPageReports(pageQueries, prevByPage, titles),
+    pages: buildPageReports(pageQueries, nowByPage, prevByPage, titles),
   };
 }
 

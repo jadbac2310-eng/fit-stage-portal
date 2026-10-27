@@ -146,6 +146,12 @@ export interface PageReport {
   /** このページが出ている言葉（表示回数の多い順・上位だけ） */
   keywords:     PageKeyword[];
   keywordCount: number;
+  /**
+   * 言葉が伏せられている表示回数。
+   * Google は検索した人が少ない言葉を出さない（個人が特定されないように）。
+   * 地域の言葉はほぼこれに当たるので、店舗ページは「出ている言葉」が少なく見える。
+   */
+  hiddenImpressions: number;
   /** 11〜20位。あと少しで1ページ目 */
   almost:       PageKeyword[];
   /** 10位以内なのに押されていない */
