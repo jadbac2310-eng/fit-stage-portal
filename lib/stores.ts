@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { createAdminClient } from "./supabase";
 
-// 店舗（自社/提携の店舗）。店舗によっては1回あたりの利用料がかかる（江坂店は0円、庄内店・曽根城山店は2,500円など）
+// 店舗（自社/提携の店舗）。店舗によっては1回あたりの利用料がかかる（江坂店は0円、曽根城山店は2,500円、庄内店は2026-10-28から2,250円など）
 export interface Store {
   id:        string;
   name:      string;

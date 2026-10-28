@@ -1,8 +1,6 @@
 import { Building2, Sparkles, Users, TrendingUp } from "lucide-react";
 import type { CompanyStats } from "@/lib/company-stats";
-import type { FollowUp } from "@/lib/highlights-types";
 import { Delta } from "@/components/ui/delta";
-import { FollowUpsSection } from "./follow-ups-section";
 
 /**
  * 「FIT STAGE のいま」。全員が見る。
@@ -16,15 +14,7 @@ import { FollowUpsSection } from "./follow-ups-section";
 /** 棒グラフの高さ（px）。CSSクラスではなく数で持つ（棒の高さを px で計算するため） */
 const BAR_AREA = 64;
 
-export function CompanyCard({
-  stats, follows = [], unassigned = [],
-}: {
-  stats: CompanyStats;
-  /** 自分の担当で声をかけたい人（画面側で絞り込み済み） */
-  follows?: FollowUp[];
-  /** 担当営業が未設定で誰の画面にも出ていない人（管理者のみ） */
-  unassigned?: FollowUp[];
-}) {
+export function CompanyCard({ stats }: { stats: CompanyStats }) {
   const s = stats;
   const max = Math.max(...s.monthlyCounts.map((m) => m.count), 1);
   const remaining = s.nextMilestone ? s.nextMilestone - s.totalLessons : 0;
@@ -167,9 +157,6 @@ export function CompanyCard({
           )}
         </p>
       </div>
-
-      {/* 声をかけたい人（閉じた状態では人数と内訳だけ） */}
-      <FollowUpsSection follows={follows} unassigned={unassigned} />
     </div>
   );
 }

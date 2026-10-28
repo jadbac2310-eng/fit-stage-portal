@@ -1,7 +1,9 @@
 import { Handshake, Users, TrendingUp } from "lucide-react";
 import type { Coverage, SalesMonth } from "@/lib/sales-stats";
+import type { FollowUp } from "@/lib/highlights-types";
 import { CountUp } from "./count-up";
 import { Delta } from "@/components/ui/delta";
+import { FollowUpsSection } from "./follow-ups-section";
 
 /**
  * 営業のための1枚。
@@ -10,12 +12,21 @@ import { Delta } from "@/components/ui/delta";
  * いちばん大きく見せる。今日の行動がそのまま数字に出るため。
  * 担当のお客さまも成約もまだ無い人には出さない。
  *
- * 次の予定が入っていない人の名前はここには出さない。
- * 同じ人が「声をかけたほうがいい人」にも並んで二重になるため、名前はそちらだけに出す。
- * 成約の連続記録と称号も、レッスンの連続と同じ1枚（StreakBadges）にまとめた。
+ * 「声をかけたい人」はこの中の一番下にたたんで置く（営業の仕事なので営業カードに）。
+ * 次の予定が入っていない人の名前も、上には出さずそこだけに出す。
+ * 成約の連続記録と称号は、レッスンの連続と同じ1枚（StreakBadges）にまとめた。
  */
-export function SalesCard({ coverage, month }: { coverage: Coverage; month: SalesMonth }) {
-  if (coverage.total === 0 && month.contracts === 0) return null;
+export function SalesCard({
+  coverage, month, follows = [], unassigned = [],
+}: {
+  coverage: Coverage;
+  month: SalesMonth;
+  /** 自分の担当で声をかけたい人（画面側で絞り込み済み） */
+  follows?: FollowUp[];
+  /** 担当営業が未設定で誰の画面にも出ていない人（管理者のみ） */
+  unassigned?: FollowUp[];
+}) {
+  if (coverage.total === 0 && month.contracts === 0 && follows.length === 0 && unassigned.length === 0) return null;
 
   const diff = coverage.lastRate == null ? null : coverage.rate - coverage.lastRate;
   const mDiff = month.contracts - month.lastContracts;
@@ -56,7 +67,7 @@ export function SalesCard({ coverage, month }: { coverage: Coverage; month: Sale
               </span>
             )}
             {coverage.uncovered.length > 0 && (
-              <span className="text-gray-400">　入っていない{coverage.uncovered.length}名は上の「声をかけたほうがいい人」に</span>
+              <span className="text-gray-400">　入っていない{coverage.uncovered.length}名は下の「声をかけたい人」に</span>
             )}
           </p>
         </div>
@@ -94,6 +105,9 @@ export function SalesCard({ coverage, month }: { coverage: Coverage; month: Sale
           )}
         </div>
       </div>
+
+      {/* 声をかけたい人（閉じた状態では人数と内訳だけ） */}
+      <FollowUpsSection follows={follows} unassigned={unassigned} />
     </div>
   );
 }
