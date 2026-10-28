@@ -28,6 +28,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `20261024000004_member_commission_pay_day.sql`（支払日を担当者ごとに。杉元さんは翌月15日、ほかは25日）
   - `20261024000003_pass_overflow_to_free_lessons.sql`（回数券の回数を超えたレッスンを無料レッスンへ。堀さん3本・新森さん2本）
 - 2026-10-27｜`20261027000001_wiki_company_seed.sql`（ビジョン・ルールの初期9ページ。章＝ビジョン／会社のこと／ルール／手順）
+- 2026-10-28｜`20261027000004_wiki_handbook_catch_up.sql`（sort_order 列、ビジョン5ページ、ルール「仲間との約束」、手順「体験の流れ」「回数券のすすめ方」「出張の準備」「事故・ケガ」。全18ページ）
 - 2026-10-28｜`20261028000001_shonai_store_fee_2250.sql`（庄内店の利用料を 10/28 から 2,250円。確認の表は 10/27まで 2500×4・10/28から 2250×7）
 
 ## ビジョン・ルール（ハンドブック）
