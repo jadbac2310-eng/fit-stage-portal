@@ -239,8 +239,9 @@ export function followUps(
 
   // 回数券の残り。remainingCount は「予約を入れた時点で減る」数なので、
   // 今日の時点の残りは「remainingCount ＋ 明日以降の予約」で数え直す。
-  // 声をかける目安（PASS_LOW）は予約を引いたあとの数で見る（予約で使い切るなら更新の話はもう必要）。
-  // 画面には今日の残りと、そのうち予約済みの回数を出す。
+  // 声をかける目安（PASS_LOW）も今日の残りで見る
+  // （残り7回で5回予約済みの人まで出ていて「おかしい」と言われたため。予約はまだ使っていない）。
+  // 画面には今日の残りと、そのうち予約済みの回数を添える。
   const bookedOnPass = new Map<string, number>();
   for (const l of lessons) {
     if (!l.sessionPassId || l.status !== "scheduled") continue;
@@ -287,15 +288,13 @@ export function followUps(
       });
       continue;
     }
-    // ③ 回数券の残りが少ない（予約を引いたあとの数で判断。表示は今日の残り）
-    if (left != null && left.afterBooked <= PASS_LOW) {
-      const todayLeft = left.afterBooked + left.booked;
+    // ③ 回数券の残りが少ない（今日の残りで判断）
+    const todayLeft = left == null ? null : left.afterBooked + left.booked;
+    if (left != null && todayLeft != null && todayLeft <= PASS_LOW) {
       out.push({
         customerId: c.id, customerName: c.fullName, salesMemberId: c.salesMemberId, kind: "passLow", priority: 3,
         reason: left.booked > 0
-          ? (left.afterBooked === 0
-              ? `回数券の残り${todayLeft}回は予約で使い切ります`
-              : `回数券の残りが${todayLeft}回（うち${left.booked}回は予約済み）`)
+          ? `回数券の残りが${todayLeft}回（うち${left.booked}回は予約済み）`
           : `回数券の残りが${todayLeft}回です`,
       });
       continue;

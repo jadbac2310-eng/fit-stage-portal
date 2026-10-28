@@ -214,8 +214,7 @@ export default async function DashboardPage() {
 
       {/* 日替わりの1枚・今日のひとこと・節目 */}
       <TodayCard headline={headline} teamHeadline={teamHeadline} milestones={milestones} quote={quote}
-        mission={mission} tip={tip} fortune={fortune}
-        follows={follows} unassigned={unassigned} />
+        mission={mission} tip={tip} fortune={fortune} />
 
       {/* 連続記録と称号（レッスンの連続と成約の連続を1枚に） */}
       <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} />
@@ -226,8 +225,8 @@ export default async function DashboardPage() {
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
 
-      {/* FIT STAGE のいま（全員に見せる。金額は出さない） */}
-      <CompanyCard stats={company} />
+      {/* FIT STAGE のいま（全員に見せる。金額は出さない）。声をかけたい人もこの中に小さく */}
+      <CompanyCard stats={company} follows={follows} unassigned={unassigned} />
 
       {/* 今月の自分 */}
       <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
