@@ -4,10 +4,8 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, MonitorSmartphone, Smartphone, Monitor, Tablet, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
-import type { PageViewRow, TrafficSourceRow, DeviceRow, DailyPageViewRow } from "@/lib/analytics";
-import { DailyTrendChart, TrafficPieChart, PopularPagesChart } from "../../dashboard/analytics-charts";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import type { SessionPass } from "@/lib/session-passes-types";
@@ -279,77 +277,6 @@ function byDate<T extends { scheduledAt: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 }
 
-interface AnalyticsData {
-  popularPages:    PageViewRow[];
-  trafficSources:  TrafficSourceRow[];
-  deviceBreakdown: DeviceRow[];
-  dailyPageViews:  DailyPageViewRow[];
-  analyticsError:  string | null;
-}
-
-const DEVICE_META: Record<string, { label: string; Icon: React.ComponentType<{ size: number; className: string }> }> = {
-  mobile:  { label: "スマートフォン", Icon: Smartphone },
-  desktop: { label: "デスクトップ",   Icon: Monitor },
-  tablet:  { label: "タブレット",     Icon: Tablet },
-};
-
-function SiteAnalytics({ data }: { data: AnalyticsData }) {
-  const { popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError } = data;
-  const deviceTotal = deviceBreakdown.reduce((sum, d) => sum + d.sessions, 0);
-  const hasData = dailyPageViews.length > 0 || trafficSources.length > 0 || popularPages.length > 0;
-
-  if (!analyticsError && !hasData) return null;
-
-  return (
-    <div className="mt-6">
-      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-        サイト分析 <span className="normal-case font-normal text-gray-300">（過去28日間）</span>
-      </h2>
-
-      {analyticsError && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
-          <p className="text-xs font-bold text-red-600 mb-2">GA4 エラー</p>
-          <pre className="text-xs text-red-500 whitespace-pre-wrap break-all">{analyticsError}</pre>
-        </div>
-      )}
-
-      {dailyPageViews.length > 0 && <DailyTrendChart data={dailyPageViews} />}
-      {trafficSources.length > 0 && <TrafficPieChart data={trafficSources} />}
-      {popularPages.length > 0 && <PopularPagesChart data={popularPages} />}
-
-      {deviceBreakdown.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <MonitorSmartphone size={14} className="text-gray-400" />
-            <p className="text-xs font-bold text-gray-500">デバイス別</p>
-          </div>
-          <div className="space-y-2.5">
-            {deviceBreakdown.map((d) => {
-              const meta = DEVICE_META[d.device];
-              const pct  = deviceTotal > 0 ? Math.round((d.sessions / deviceTotal) * 100) : 0;
-              const Icon = meta?.Icon;
-              return (
-                <div key={d.device}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="flex items-center gap-1 text-xs text-gray-600">
-                      {Icon && <Icon size={11} className="text-gray-400 flex-shrink-0" />}
-                      {meta?.label ?? d.device}
-                    </span>
-                    <span className="text-xs font-semibold text-gray-500">{pct}%</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function KpiCard({
   icon, label, value, prev, goodWhenUp, accent, sub, onClick,
 }: {
@@ -561,7 +488,7 @@ function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, 
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, payments, rentalGyms, fctStores, avenirStores, stores, analytics,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, payments, rentalGyms, fctStores, avenirStores, stores,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -580,7 +507,6 @@ export function RevenueDashboardClient({
   fctStores?:    { id: string; name: string; rate?: number }[];
   avenirStores?: { id: string; name: string }[];
   stores?:       { id: string; name: string }[];
-  analytics?:    AnalyticsData;
 }) {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(currentMonth);
@@ -887,9 +813,6 @@ export function RevenueDashboardClient({
           </tbody>
         </table>
       </div>
-
-      {/* サイト分析（GA4） */}
-      {analytics && <SiteAnalytics data={analytics} />}
     </div>
   );
 }

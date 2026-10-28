@@ -14,6 +14,7 @@ import {
   PAGE_GROUP_LABEL, PAGE_GROUP_ORDER, positionWord, WEAK_CTR, keywordReliability,
   type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type KeywordLookup,
 } from "@/lib/search-console-types";
+import { SiteAnalytics, type AnalyticsData } from "./site-analytics";
 
 type Volumes = Record<string, { searchVolume: number | null; seoDifficulty: number | null }>;
 
@@ -389,12 +390,14 @@ function KeywordLookupBox({ days, lookup }: { days: number; lookup: KeywordLooku
   );
 }
 
-export function SeoClient({ overview, days, periods, volumes, lookup }: {
+export function SeoClient({ overview, days, periods, volumes, lookup, analytics }: {
   overview: SearchOverview;
   days: number;
   periods: number[];
   volumes: Volumes;
   lookup?: KeywordLookup | null;
+  /** GA4（サイトに来た人）。サーチコンソールが読めないときも出す */
+  analytics?: AnalyticsData;
 }) {
   const router = useRouter();
   const t = overview.totals;
@@ -465,6 +468,8 @@ export function SeoClient({ overview, days, periods, volumes, lookup }: {
           </p>
         </>
       )}
+
+      {analytics && <SiteAnalytics data={analytics} days={days} />}
     </div>
   );
 }

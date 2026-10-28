@@ -14,9 +14,6 @@ import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { getExpenses } from "@/lib/expenses";
 import { getPayments } from "@/lib/payments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
-import {
-  getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
-} from "@/lib/analytics";
 import { RevenueDashboardClient } from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +33,6 @@ export default async function AdminDashboardPage() {
   const [
     customers, lessons, trialLessons, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, rentalGyms, fctStores, avenirStores, storesMaster,
     hourlyTasks, expenses, payments,
-    popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError,
   ] = await Promise.all([
     getCustomers(),
     getLessons(),
@@ -54,11 +50,6 @@ export default async function AdminDashboardPage() {
     getHourlyTasks(),
     getExpenses(),
     getPayments(),
-    getPopularPages(28, 5),
-    getTrafficSources(28, 6),
-    getDeviceBreakdown(28),
-    getDailyPageViews(28),
-    getAnalyticsDiagnostic(),
   ]);
 
   const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
@@ -84,7 +75,6 @@ export default async function AdminDashboardPage() {
       fctStores={fctStores.map((f) => ({ id: f.id, name: f.name, rate: f.rate }))}
       avenirStores={avenirStores.map((a) => ({ id: a.id, name: a.name }))}
       stores={storesMaster.map((v) => ({ id: v.id, name: v.name }))}
-      analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}
     />
   );
 }

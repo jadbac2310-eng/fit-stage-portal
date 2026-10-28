@@ -46,6 +46,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## SEO（サーチコンソール連携）
 
 `/seo` で、fitstage.jp がどの言葉で検索され何位に出ているかを見る（管理者のみ）。
+**GA4（サイトに来た人：日別PV・流入元・人気ページ・デバイス）も同じ画面の下に出す**（2026-10-28 に管理者機能から移した。
+`app/(dashboard)/seo/site-analytics.tsx`、読み込みは `lib/analytics.ts`、期間はサーチコンソールと同じ日数）。
 
 - 認証は **GA4と同じサービスアカウント**（`GA4_CLIENT_EMAIL` / `GA4_PRIVATE_KEY`）を使い回す。
   サーチコンソール側で、そのアドレスを「設定 → ユーザーと権限」に**制限付き**で追加してある。

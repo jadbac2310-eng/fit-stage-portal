@@ -1,6 +1,9 @@
 import { getCurrentMember } from "@/lib/members";
 import { getSearchOverview, lookupKeyword } from "@/lib/search-console";
 import { getKeywordVolumes } from "@/lib/keywords";
+import {
+  getPopularPages, getTrafficSources, getDeviceBreakdown, getDailyPageViews, getAnalyticsDiagnostic,
+} from "@/lib/analytics";
 import { SeoClient } from "./seo-client";
 
 export const dynamic = "force-dynamic";
@@ -26,14 +29,28 @@ export default async function SeoPage({
   const { days: daysParam, q } = await searchParams;
   const days = PERIODS.includes(Number(daysParam)) ? Number(daysParam) : PERIODS[0];
 
-  const [overview, lookup] = await Promise.all([
+  const [
+    overview, lookup,
+    popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError,
+  ] = await Promise.all([
     getSearchOverview(days),
     // 「この言葉で何位？」。ページの平均順位では答えにならないときに使う
     q?.trim() ? lookupKeyword(days, q) : Promise.resolve(null),
+    // GA4（サイトに来た人）。期間はサーチコンソールと同じにそろえる
+    getPopularPages(days, 5),
+    getTrafficSources(days, 6),
+    getDeviceBreakdown(days),
+    getDailyPageViews(days),
+    getAnalyticsDiagnostic(),
   ]);
   // 画面に出すキーワードぶんだけ、ラッコで調べた月間検索数を引く
   const words = overview.pages.flatMap((pg) => [...pg.keywords, ...pg.almost, ...pg.weak].map((k) => k.key));
   const volumes = await getKeywordVolumes(words);
 
-  return <SeoClient overview={overview} days={days} periods={PERIODS} volumes={volumes} lookup={lookup} />;
+  return (
+    <SeoClient
+      overview={overview} days={days} periods={PERIODS} volumes={volumes} lookup={lookup}
+      analytics={{ popularPages, trafficSources, deviceBreakdown, dailyPageViews, analyticsError }}
+    />
+  );
 }
