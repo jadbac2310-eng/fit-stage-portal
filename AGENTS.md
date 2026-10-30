@@ -106,5 +106,9 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
   （入会申し込みで実際に起きた。2026-10-18 修正）
 - 応募の通知は管理者（LINE連携済み）へ送る。`RECRUIT_NOTIFY_MEMBER_IDS` で送信先を指定、`LINE_NOTIFY_RECRUIT=off` で停止できる。
   応募者はお客様ではないので、顧客データには入れない。
+- **申込の「経路」**（2026-10-30）：HPの `/entry.js` が最初に外から来たときの 参照元・最初のページ・UTM を覚え、体験予約フォームが
+  隠し項目で送ってくる。`api/reserve.js` → `source_referrer / source_landing / source_utm` → こちらは `lib/acquisition-channel.ts` の
+  `channelLabel` で「Google検索」「Googleマップ」「LINE」などにまとめ、体験レッスンの備考に「経路: …」として残す。
+  経路別に数えるときは備考の「経路:」の行を読む（専用の列は作っていない）。
 - フォームの項目名（日本語）→ こちらの項目名（英語）の変換は、HP側 `api/*.js` の1か所だけで行う。
   **項目が増えたら、HP側の変換・こちらの受け口・DBの列の3つをまとめて直す。**

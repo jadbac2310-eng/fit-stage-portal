@@ -5,6 +5,7 @@ import { getStores } from "@/lib/stores";
 import { getMembers } from "@/lib/members";
 import { pushLineMessage } from "@/lib/line";
 import { portalUrl, canNotifyByLine } from "@/lib/line-notify";
+import { channelLabel } from "@/lib/acquisition-channel";
 
 /**
  * HPの体験予約フォーム（/store/reserve/）からの申込を受け取る。
@@ -36,7 +37,12 @@ type Body = {
   goals?: string;            // 複数選択。HP側で「、」つなぎにしてある
   habit?: string;
   goal?: string;
+  /** どこから来た人か。HPの entry.js が覚えた「最初に外から来たとき」の参照元ホスト・最初のページ・UTM */
+  source_referrer?: string;
+  source_landing?: string;
+  source_utm?: string;
 };
+
 
 /** datetime-local の値（日本時間）を UTC の ISO 文字列にする */
 function jstLocalToISO(value?: string): string | null {
@@ -68,6 +74,7 @@ function buildNote(b: Body, secondISO: string | null): string {
     ["お悩み・目的", b.goals],
     ["運動習慣", b.habit],
     ["詳しい内容・ご要望", b.goal],
+    ["経路", channelLabel(b)],
   ];
   return lines
     .filter(([, v]) => v && v.trim())
