@@ -42,7 +42,10 @@ export function TodayCard({
             <p className="text-lg font-bold mt-1">今日の予定は入っていません</p>
           ) : (
             <p className="text-lg font-bold mt-1 flex items-start gap-1">
-              <span>今日は {teamHeadline.lessonCount}レッスン・{teamHeadline.customerCount}名が来ます</span>
+              <span>
+                今日のレッスンは {teamHeadline.lessonCount}本
+                {teamHeadline.customerCount !== teamHeadline.lessonCount && `（お客さま${teamHeadline.customerCount}名）`}
+              </span>
               <ChevronRight size={18} className="mt-1 flex-shrink-0 text-blue-100" />
             </p>
           )}
@@ -63,7 +66,7 @@ export function TodayCard({
             <span>
               {headline.lessonCount === 0
                 ? "今日の予定はありません"
-                : `今日は ${headline.lessonCount}レッスン・${headline.customerCount}名`}
+                : `今日 ${headline.lessonCount}本${headline.customerCount !== headline.lessonCount ? `（${headline.customerCount}名）` : ""}`}
               <span className="font-semibold text-blue-100"> ／ 今月{headline.monthCount}本</span>
             </span>
             <ChevronRight size={15} className="mt-0.5 flex-shrink-0 text-blue-100" />
