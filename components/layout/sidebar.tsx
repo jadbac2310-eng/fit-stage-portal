@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, X } from "lucide-react";
+import { ExternalLink, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { NAV_TREE, getActiveHref } from "./nav-config";
 import { Avatar } from "@/components/ui/avatar";
@@ -57,21 +57,31 @@ export function Sidebar({
           {NAV_TREE.filter((node) => !node.adminOnly || isAdmin).map((node) => {
             const Icon = node.icon;
             const isActive = node.href === activeHref;
+            const className = cn(
+              "flex items-center rounded-xl transition-colors font-medium",
+              mobile ? "gap-3.5 py-3.5 px-4 text-[15px]" : "gap-2.5 py-2 px-3 text-sm",
+              isActive
+                ? "bg-blue-50 text-blue-700"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100",
+            );
+            const inner = (
+              <>
+                {Icon && <Icon size={mobile ? 22 : 17} className="flex-shrink-0" />}
+                <span className="truncate">{node.label}</span>
+                {node.external && <ExternalLink size={mobile ? 16 : 13} className="flex-shrink-0 ml-auto text-gray-400" />}
+              </>
+            );
             return (
               <li key={node.href}>
-                <Link
-                  href={node.href}
-                  className={cn(
-                    "flex items-center rounded-xl transition-colors font-medium",
-                    mobile ? "gap-3.5 py-3.5 px-4 text-[15px]" : "gap-2.5 py-2 px-3 text-sm",
-                    isActive
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-100",
-                  )}
-                >
-                  {Icon && <Icon size={mobile ? 22 : 17} className="flex-shrink-0" />}
-                  <span className="truncate">{node.label}</span>
-                </Link>
+                {node.external ? (
+                  <a href={node.href} target="_blank" rel="noopener noreferrer" className={className}>
+                    {inner}
+                  </a>
+                ) : (
+                  <Link href={node.href} className={className}>
+                    {inner}
+                  </Link>
+                )}
               </li>
             );
           })}

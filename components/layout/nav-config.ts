@@ -10,6 +10,7 @@ import {
   FileSignature,
   Building2,
   Search,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,6 +19,8 @@ export type NavNode = {
   href:       string;
   icon?:      LucideIcon;
   adminOnly?: boolean;
+  /** 外部サイト（別タブで開く。目次の選択中・パンくずには使わない） */
+  external?:  boolean;
 };
 
 export const NAV_TREE: NavNode[] = [
@@ -32,6 +35,8 @@ export const NAV_TREE: NavNode[] = [
   { label: "SEO",            href: "/seo",         icon: Search, adminOnly: true },
   { label: "マスタ管理",     href: "/master",      icon: Database },
   { label: "管理者機能",     href: "/admin",       icon: ShieldCheck, adminOnly: true },
+  // 代表個人の米国株ポータル（別リポジトリ invest-portal / Vercel）。事業データとは分離、管理者のみ表示
+  { label: "米国株ポータル", href: "https://invest-portal-ten.vercel.app", icon: TrendingUp, adminOnly: true, external: true },
 ];
 
 /**
@@ -45,8 +50,9 @@ export function getAncestors(pathname: string): NavNode[] {
   return NAV_TREE
     .filter(
       (node) =>
-        pathname === node.href ||
-        (node.href !== "/dashboard" && pathname.startsWith(node.href + "/")),
+        !node.external &&
+        (pathname === node.href ||
+        (node.href !== "/dashboard" && pathname.startsWith(node.href + "/"))),
     )
     .sort((a, b) => a.href.length - b.href.length);
 }
