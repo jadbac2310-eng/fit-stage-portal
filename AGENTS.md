@@ -112,12 +112,15 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
 | 体験予約 | `api/reserve.js` | `app/api/reserve-webhook/route.ts` |
 | 入会申し込み | `api/join.js` | `app/api/join-webhook/route.ts` |
 | 英語トレーナーの応募（LINE通知のみ・DB保存なし） | `api/recruit.js` | `app/api/recruit-webhook/route.ts` |
+| お問い合わせ（LINE通知のみ・DB保存なし） | `api/contact.js` | `app/api/contact-webhook/route.ts` |
 
 - 合言葉はHP側の環境変数 `PORTAL_WEBHOOK_SECRET`、ポータル側は `RESERVE_WEBHOOK_SECRET`。
   **同じ文字列**にすること。ヘッダ `x-webhook-secret` で検証する。
 - **受け口を増やしたら、必ず `middleware.ts` の `PUBLIC_PATHS` に追加する。**
   入れ忘れるとログイン画面へ転送され、転送先が正常に返るのでHP側からは成功に見えてしまう。
   （入会申し込みで実際に起きた。2026-10-18 修正）
+- お問い合わせ（/contact/）も管理者のLINEへ届く（2026-11-01。Formspree のメールが尚樹のGmailに一度も届いていないと分かったため）。
+  `LINE_NOTIFY_CONTACT=off` で停止、`CONTACT_NOTIFY_MEMBER_IDS` で送信先を指定。経路（Google検索など）も添える。
 - 応募の通知は管理者（LINE連携済み）へ送る。`RECRUIT_NOTIFY_MEMBER_IDS` で送信先を指定、`LINE_NOTIFY_RECRUIT=off` で停止できる。
   応募者はお客様ではないので、顧客データには入れない。
 - **申込の「経路」**（2026-10-30）：HPの `/entry.js` が最初に外から来たときの 参照元・最初のページ・UTM を覚え、体験予約フォームが
