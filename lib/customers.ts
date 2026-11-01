@@ -3,6 +3,7 @@ import { createAdminClient, fetchAllRows } from "./supabase";
 import { normalizeTiers } from "./session-tiers-types";
 export type { CustomerPlan, CustomerStatus, CustomerType, SalesChannel, Customer } from "./customers-types";
 export { STATUS_LABEL, CUSTOMER_TYPE_LABEL, isFctCustomer } from "./customers-types";
+import { toPaymentDueMonth } from "./customers-types";
 import type { Customer, CustomerStatus, CustomerType, PaymentDueMonth, SalesChannel } from "./customers-types";
 
 type DbRow = {
@@ -49,7 +50,7 @@ function fromDb(row: DbRow): Customer {
     sessionTiers:     normalizeTiers(row.session_tiers),
     billingCutoffDay: row.billing_cutoff_day ?? undefined,
     invoiceSendDay:   row.invoice_send_day ?? undefined,
-    paymentDueMonth:  row.payment_due_month === "same" ? "same" : "next",
+    paymentDueMonth:  toPaymentDueMonth(row.payment_due_month),
     paymentDueDay:    row.payment_due_day ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,

@@ -1,5 +1,5 @@
 import type { Customer, CustomerType, PaymentDueMonth } from "./customers-types";
-import { isFctCustomer } from "./customers-types";
+import { isFctCustomer, PAYMENT_DUE_MONTH_OFFSET } from "./customers-types";
 import { fctLessonPay, fctPayBreakdown, FCT_DEFAULT_RATE, type FctPayBreakdown } from "./fct-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { SessionPass } from "./session-passes-types";
@@ -150,14 +150,16 @@ export interface PaymentDueRule {
  * 支払期限を求める。戻り値は YYYY-MM-DD。
  *
  * 既定は対象月の翌月末日（例: 6月分 → 7月31日）。
- * 顧客に「当月末」「翌月25日」などのルールが設定されていればそれに従う。
+ * 顧客に「当月末」「翌月25日」「翌々月10日」などのルールが設定されていればそれに従う。
  * 指定日がその月に無いとき（2月の31日など）は、その月の末日に寄せる。
  */
 export function defaultDueDate(month: string, rule?: PaymentDueRule): string {
   const [y, m] = month.split("-").map((x) => parseInt(x, 10));
-  const sameMonth = rule?.paymentDueMonth === "same";
-  const year = sameMonth ? y : (m === 12 ? y + 1 : y);
-  const mon  = sameMonth ? m : (m === 12 ? 1 : m + 1);
+  const offset = PAYMENT_DUE_MONTH_OFFSET[rule?.paymentDueMonth ?? "next"];
+  // 月をずらす（12月の翌々月は翌年2月、など）
+  const total = (m - 1) + offset;
+  const year = y + Math.floor(total / 12);
+  const mon  = (total % 12) + 1;
   const lastDay = new Date(year, mon, 0).getDate(); // new Date(年, mon, 0) = mon月（1始まり）の末日
   const day = rule?.paymentDueDay == null ? lastDay : Math.min(rule.paymentDueDay, lastDay);
   return `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;

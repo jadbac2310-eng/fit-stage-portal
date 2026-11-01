@@ -2,8 +2,14 @@
 export type CustomerPlan = "monthly" | "pay_as_you_go";
 export type CustomerStatus = "active" | "inactive" | "pending" | "trial";
 export type CustomerType = "individual" | "corporate";
-/** 支払期限を、対象月の当月で見るか翌月で見るか */
-export type PaymentDueMonth = "same" | "next";
+/** 支払期限を、対象月の当月・翌月・翌々月のどれで見るか */
+export type PaymentDueMonth = "same" | "next" | "next2";
+/** 対象月から何か月後か */
+export const PAYMENT_DUE_MONTH_OFFSET: Record<PaymentDueMonth, number> = { same: 0, next: 1, next2: 2 };
+/** DBや画面から来た文字列を PaymentDueMonth にそろえる（知らない値は翌月） */
+export function toPaymentDueMonth(v: unknown): PaymentDueMonth {
+  return v === "same" || v === "next2" ? v : "next";
+}
 /**
  * そのお客さまをどこから受けているか。
  * - own: 自社のお客さま（これまでどおり。担当営業が付く）
@@ -74,6 +80,7 @@ export function isFctCustomer(c?: Pick<Customer, "salesChannel"> | null): boolea
 export const PAYMENT_DUE_MONTH_LABEL: Record<PaymentDueMonth, string> = {
   same: "当月",
   next: "翌月",
+  next2: "翌々月",
 };
 
 /** 「翌月末」「当月25日」のような表示用ラベル */

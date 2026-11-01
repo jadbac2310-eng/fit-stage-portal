@@ -507,6 +507,7 @@ function CustomerForm({
                 className={inputClass}
               >
                 <option value="next">翌月</option>
+                <option value="next2">翌々月</option>
                 <option value="same">当月</option>
               </select>
               <select
@@ -521,7 +522,7 @@ function CustomerForm({
               </select>
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              請求書の支払期限に使います（既定は翌月末）。月ごとに違う期限にしたいときは、請求書の画面で個別に変えられます。
+              請求書の支払期限に使います（既定は翌月末。「月末締め・翌々月10日払い」なら 翌々月＋10日）。月ごとに違う期限にしたいときは、請求書の画面で個別に変えられます。
             </p>
           </div>
           </>

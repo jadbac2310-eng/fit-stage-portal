@@ -5,7 +5,7 @@ import { addCustomer, updateCustomer, deleteCustomer } from "@/lib/customers";
 import { requireAdmin } from "@/lib/members";
 import { logActivity } from "@/lib/activity-logs";
 import { normalizeTiers } from "@/lib/session-tiers-types";
-import { STATUS_LABEL, FCT_SALES_VALUE, type CustomerStatus, type CustomerType, type SalesChannel } from "@/lib/customers-types";
+import { STATUS_LABEL, FCT_SALES_VALUE, toPaymentDueMonth, type CustomerStatus, type CustomerType, type SalesChannel } from "@/lib/customers-types";
 
 /**
  * 担当営業のプルダウンは「自社の営業」と「FCT」を1つの欄にまとめている。
@@ -44,7 +44,7 @@ function readBilling(formData: FormData) {
     billingCutoffDay:    readDay(formData, "billingCutoffDay"),
     invoiceSendDay:      readDay(formData, "invoiceSendDay"),
     // 支払期限ルール（例: 翌月末 / 当月末 / 翌月25日）
-    paymentDueMonth:     (formData.get("paymentDueMonth") as string) === "same" ? "same" as const : "next" as const,
+    paymentDueMonth:     toPaymentDueMonth(formData.get("paymentDueMonth")),
     paymentDueDay:       readDay(formData, "paymentDueDay"),
   };
 }
