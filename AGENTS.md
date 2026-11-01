@@ -119,7 +119,7 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
 - **受け口を増やしたら、必ず `middleware.ts` の `PUBLIC_PATHS` に追加する。**
   入れ忘れるとログイン画面へ転送され、転送先が正常に返るのでHP側からは成功に見えてしまう。
   （入会申し込みで実際に起きた。2026-10-18 修正）
-- お問い合わせ（/contact/）も管理者のLINEへ届く（2026-11-01。Formspree のメールが尚樹のGmailに一度も届いていないと分かったため）。
+- お問い合わせ（/contact/）も管理者のLINEへ届く（2026-11-01 追加。Formspree のメールは FIT STAGE のGmail（jadbac.2310 ではない方）に届いていて正常。LINEのほうが早く気づけるため）。
   `LINE_NOTIFY_CONTACT=off` で停止、`CONTACT_NOTIFY_MEMBER_IDS` で送信先を指定。経路（Google検索など）も添える。
 - 応募の通知は管理者（LINE連携済み）へ送る。`RECRUIT_NOTIFY_MEMBER_IDS` で送信先を指定、`LINE_NOTIFY_RECRUIT=off` で停止できる。
   応募者はお客様ではないので、顧客データには入れない。

@@ -10,8 +10,7 @@ import { channelLabel } from "@/lib/acquisition-channel";
  * 呼び出し元は fit-stage サイトの Vercel Function（api/contact.js）で、
  * ブラウザからは直接呼ばれない（秘密キーをHTMLに置かずに済むため）。
  *
- * 2026-11-01：Formspree のメールが届いていないことが分かったので、
- * 問い合わせを取りこぼさないよう LINE にも届ける。
+ * 2026-11-01：メール（Formspree）より早く気づけるよう LINE にも届ける。
  * 問い合わせの段階ではお客様ではないので、顧客データやDBには保存しない（通知するだけ）。
  */
 
@@ -84,7 +83,7 @@ export async function POST(req: NextRequest) {
       channel ? `経路: ${clip(channel, 120)}` : null,
       body.message ? `\n内容:\n${clip(body.message, 1500)}` : null,
       "",
-      "※ メール（Formspree）が届いていないときは、このLINEから返信してください。",
+      "※ 同じ内容がメール（Formspree）にも届いています。",
     ].filter((l) => l !== null).join("\n");
 
     const results = await Promise.all(targets.map((m) => pushLineMessage(m.lineUserId!, text)));
