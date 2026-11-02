@@ -9,46 +9,71 @@ import Link from "next/link";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 type TextPart = { kind: "text"; text: string };
-type ToolPart = { kind: "tool"; name: string };
+type ToolPart = { kind: "tool"; name: string; hint?: string };
 type MessagePart = TextPart | ToolPart;
 type Message = { role: "user" | "assistant"; parts: MessagePart[] };
 
 const TOOL_LABELS: Record<string, string> = {
   get_business_summary: "経営サマリーを集計",
+  get_monthly_trend: "月ごとの推移を集計",
   list_customers: "顧客を検索",
   get_customer: "顧客詳細を取得",
   list_lessons: "レッスンを集計",
+  get_venue_summary: "店舗・会場ごとに集計",
+  get_trial_summary: "体験レッスンを集計",
   get_commissions: "歩合を集計",
   list_members: "担当者を取得",
   get_member_activity: "担当者の稼働を集計",
   get_activity_logs: "操作ログを確認",
-  get_venue_summary: "店舗・会場ごとに集計",
+  list_session_passes: "回数券を確認",
+  list_customer_plans: "月プランを確認",
+  get_follow_ups: "声かけ候補を確認",
+  get_sales_targets: "ホテル営業を確認",
+  list_tasks: "やることを確認",
 };
 const TOOL_ICONS: Record<string, React.ReactNode> = {
   get_business_summary: <BarChart3 size={12} />,
+  get_monthly_trend: <BarChart3 size={12} />,
   list_customers: <Users size={12} />,
   get_customer: <Users size={12} />,
   list_lessons: <Dumbbell size={12} />,
+  get_venue_summary: <Building2 size={12} />,
+  get_trial_summary: <Dumbbell size={12} />,
   get_commissions: <PiggyBank size={12} />,
   list_members: <Users size={12} />,
   get_member_activity: <History size={12} />,
   get_activity_logs: <History size={12} />,
-  get_venue_summary: <Building2 size={12} />,
+  list_session_passes: <PiggyBank size={12} />,
+  list_customer_plans: <PiggyBank size={12} />,
+  get_follow_ups: <Users size={12} />,
+  get_sales_targets: <Building2 size={12} />,
+  list_tasks: <History size={12} />,
 };
 
+/** 道具に渡した条件を、チップに添える短い文字にする（「2026-10」「坂根」「江坂」など） */
+function toolHint(input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const i = input as Record<string, unknown>;
+  const s = (k: string) => (typeof i[k] === "string" && (i[k] as string).trim() ? (i[k] as string).trim() : undefined);
+  const period = s("from") || s("to") ? `${s("from") ?? ""}〜${s("to") ?? ""}` : s("month") || s("createdMonth");
+  const who = s("name") || s("trainer") || s("member") || s("customer") || s("query") || s("sales") || s("assignee");
+  const where = s("venue");
+  return [period, who, where].filter(Boolean).join(" / ") || undefined;
+}
+
 const SUGGESTIONS = [
-  { icon: <PiggyBank size={14} />, text: "今月の利益はいくら？" },
-  { icon: <BarChart3 size={14} />, text: "今月の売上・支払・利益を教えて" },
+  { icon: <BarChart3 size={14} />, text: "今月の売上・利益は？先月と比べてどう？" },
   { icon: <Building2 size={14} />, text: "先月の店舗ごとのレッスン数と売上は？" },
-  { icon: <Users size={14} />, text: "在籍中の顧客は何人？" },
-  { icon: <Dumbbell size={14} />, text: "今月のトレーナー別の歩合は？" },
+  { icon: <Dumbbell size={14} />, text: "今月の体験の成約率と、どこから来てるか" },
+  { icon: <Users size={14} />, text: "声をかけたほうがいいお客さんは？" },
+  { icon: <PiggyBank size={14} />, text: "今月のトレーナー別の歩合は？" },
 ];
 
-function ToolChip({ name, loading }: { name: string; loading?: boolean }) {
+function ToolChip({ name, hint, loading }: { name: string; hint?: string; loading?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg font-medium bg-slate-100 text-slate-600">
-      {loading ? <Loader2 size={11} className="animate-spin" /> : (TOOL_ICONS[name] ?? <Building2 size={12} />)}
-      {TOOL_LABELS[name] ?? name}
+    <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg font-medium bg-slate-100 text-slate-600 max-w-full">
+      {loading ? <Loader2 size={11} className="animate-spin flex-shrink-0" /> : <span className="flex-shrink-0">{TOOL_ICONS[name] ?? <Building2 size={12} />}</span>}
+      <span className="truncate">{TOOL_LABELS[name] ?? name}{hint ? <span className="text-slate-400 font-normal">（{hint}）</span> : null}</span>
     </span>
   );
 }
@@ -56,7 +81,7 @@ function ToolChip({ name, loading }: { name: string; loading?: boolean }) {
 function AssistantBubble({ parts, streaming }: { parts: MessagePart[]; streaming?: boolean }) {
   const textParts = parts.filter((p): p is TextPart => p.kind === "text");
   const toolParts = parts.filter((p): p is ToolPart => p.kind === "tool");
-  const fullText = textParts.map((p) => p.text).join("");
+  const fullText = textParts.map((p) => p.text.trim()).filter(Boolean).join("\n\n");
   return (
     <div className="flex gap-2.5">
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
@@ -66,7 +91,7 @@ function AssistantBubble({ parts, streaming }: { parts: MessagePart[]; streaming
         {toolParts.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {toolParts.map((t, i) => (
-              <ToolChip key={i} name={t.name} loading={streaming && i === toolParts.length - 1 && !fullText} />
+              <ToolChip key={i} name={t.name} hint={t.hint} loading={streaming && i === toolParts.length - 1 && parts[parts.length - 1]?.kind === "tool"} />
             ))}
           </div>
         )}
@@ -127,7 +152,7 @@ export function AssistantClient() {
               if (lp?.kind === "text") last.parts[last.parts.length - 1] = { kind: "text", text: lp.text + event.text };
               else last.parts.push({ kind: "text", text: event.text });
             } else if (event.type === "tool") {
-              last.parts.push({ kind: "tool", name: event.name });
+              last.parts.push({ kind: "tool", name: event.name, hint: toolHint(event.input) });
             } else if (event.type === "error") {
               last.parts.push({ kind: "text", text: `⚠️ エラー: ${event.message}` });
             }
@@ -209,7 +234,7 @@ export function AssistantClient() {
               <Bot size={32} className="text-white" />
             </div>
             <p className="text-lg font-bold text-gray-900">何でも聞いてください</p>
-            <p className="text-sm text-gray-500 mt-1.5 max-w-xs">売上・顧客・レッスン・歩合・操作ログなどを、最新データから集計して答えます。</p>
+            <p className="text-sm text-gray-500 mt-1.5 max-w-xs">売上・利益・店舗別・体験の成約・顧客・回数券・歩合・ホテル営業・やること・操作ログを、最新データから集計して答えます。</p>
             <div className="mt-6 w-full max-w-md grid gap-2">
               {SUGGESTIONS.map((s) => (
                 <button

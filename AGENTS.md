@@ -48,6 +48,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 未設定のときは「Gmailで開く」（mail.google.com の作成画面に本文入り）と「PDFと本文を共有」（iPhoneの共有シート）だけが出る。
 - 明細を税抜で出す顧客は `customers.invoice_tax_excluded`。同じ日付・品目は「数量」でまとめる（`invoiceRows`）。
 
+## データアシスタント（管理者機能）
+
+`/admin/assistant` で、管理者が話し言葉で聞くと社内データを集計して答える（閲覧専用）。
+- 本体は `app/api/admin/agent/route.ts`（Claude を呼ぶループ・文章は出た端から流す）、
+  **道具（ツール）は `lib/assistant-tools.ts`**、案内文は `lib/assistant-prompt.ts`。画面は `app/(dashboard)/admin/assistant/`。
+- モデルは Vercel の環境変数 `ASSISTANT_MODEL` で切り替え（既定 `claude-sonnet-5-5`。安くするなら `claude-haiku-5-5`）。
+- **数字は各画面と同じ関数で出す**（売上・利益は経営サマリーの式、歩合は歩合画面の式、声かけは `followUps`）。
+  アシスタント専用の計算を増やさない。画面と食い違うと信用を失う。
+- 道具を足すときは、`ASSISTANT_TOOLS` の定義と `run()` の case、画面の `TOOL_LABELS` の3か所。
+- 道具の動作確認は、DB無しでも scratchpad の `assistant-test/run.mts` のように、`lib/*` の getter を jiti の alias で偽データに差し替えて全道具を呼べる。
+- 店舗ごとの集計は `get_venue_summary`。会場を選ばず「場所」に手打ちした回は、その文字がそのまま会場名になる。
+- 体験の「経路」は備考の「経路: …」を読む（2026-10-30 以降のHP申込だけ）。
+
 ## やること（会社のタスク一覧）
 
 `/tasks` は経営まわりの「やること」。ログインした全員が見て、追加・編集・完了にできる。
