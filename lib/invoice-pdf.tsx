@@ -28,12 +28,14 @@ const C = {
  */
 const s = StyleSheet.create({
   page: { fontFamily: "NotoSansJP", fontSize: 9, color: C.ink, paddingTop: 32, paddingBottom: 32, paddingHorizontal: 42, lineHeight: 1.3 },
-  title: { fontSize: 20, fontWeight: "bold", textAlign: "center", letterSpacing: 8, marginBottom: 12 },
+  title: { fontSize: 20, fontWeight: "bold", textAlign: "center", letterSpacing: 8, marginBottom: 22 },
 
-  headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
-  toBox: { width: "55%" },
-  toName: { fontSize: 13, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#9ca3af", paddingBottom: 3 },
-  toAddr: { fontSize: 8.5, color: C.sub, marginTop: 5 },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 },
+  // 宛名は発行元の「FIT STAGE」の行と高さをそろえ、下に「下記のとおり…」を置いて左右の釣り合いをとる
+  toBox: { width: "55%", paddingTop: 2 },
+  toName: { fontSize: 14, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#9ca3af", paddingBottom: 5 },
+  toAddr: { fontSize: 8.5, color: C.sub, marginTop: 6 },
+  toNote: { fontSize: 9, color: "#374151", marginTop: 10 },
   fromBox: { width: "42%", alignItems: "flex-end" },
   fromName: { fontSize: 11, fontWeight: "bold" },
   fromLine: { fontSize: 8.5, color: C.sub },
@@ -108,6 +110,7 @@ export function InvoiceDocument({
           <View style={s.toBox}>
             <Text style={s.toName}>{invoice.customerName} {addresseeSuffix}</Text>
             {address ? <Text style={s.toAddr}>{address}</Text> : null}
+            <Text style={s.toNote}>下記のとおりご請求申し上げます。</Text>
           </View>
           <View style={s.fromBox}>
             <Text style={s.fromName}>{issuer.name}</Text>
