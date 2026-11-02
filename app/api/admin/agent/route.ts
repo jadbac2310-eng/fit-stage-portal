@@ -11,8 +11,11 @@ import { getMembers } from "@/lib/members";
 import { getAllPlans, getAllSessionPassPrices, buildLessonFeeMap, buildSessionPassPriceMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
+import { getStores } from "@/lib/stores";
+import { getRentalGyms } from "@/lib/rental-gyms";
+import { getAvenirStores } from "@/lib/avenir-stores";
 import { getActivityLogs } from "@/lib/activity-logs";
-import { isBillableLessonStatus } from "@/lib/lessons-types";
+import { isBillableLessonStatus, venueKindOf, DELIVERY_MODE_LABEL, type Lesson } from "@/lib/lessons-types";
 import {
   resolveLessonFee, buildTrainerEntries, buildSalesEntries, isoToMonth, type CommissionContext,
 } from "@/lib/commissions";
@@ -37,6 +40,9 @@ const SYSTEM = `あなたはFIT STAGE（パーソナルジム）の管理者向�
 - 「担当者（スタッフ）」= トレーナー・営業などの社員。氏名で扱う（例: 坂根尚樹）。list_members / get_member_activity / get_commissions / get_activity_logs で調べる。
 - 「顧客（会員）」= サービスを受けるお客様。list_customers / get_customer で調べる。
 - 担当者と顧客は別物。人名が出たら、文脈から担当者か顧客かを判断し、該当するツールで調べること。
+- 「店舗・会場」= レッスンをどこでやったか。FIT STAGEの店舗（江坂店・庄内店・曽根城山店など）、FCT店舗、アヴニール店舗、レンタルジム、出張、オンラインがある。
+  **店舗ごと・会場ごとの質問（「店舗別に」「江坂は何件」「FCTは」など）は get_venue_summary を使う。** 担当者名を渡せばその人の店舗別内訳になる。
+- 「FCT」は2つの意味がある。① FCT店舗（会場。get_venue_summary / list_lessons の venue で調べる）② FCT経由のお客様（list_customers の sales が "FCT"）。どちらか迷うときは両方示す。
 
 ## 最重要: 必ず自分で調べてから答える
 - どんな質問でも、まずツールでデータを取得してから答える。**推測や「登録されていないかも」で即答しない。**
@@ -93,8 +99,21 @@ const TOOLS: Anthropic.Tool[] = [
         month: { type: "string", description: "対象月 YYYY-MM" },
         customer: { type: "string", description: "顧客名の部分一致" },
         trainer: { type: "string", description: "トレーナー名の部分一致" },
+        venue: { type: "string", description: "店舗・会場名の部分一致（例: 江坂、庄内、FCT、レンタル、出張、オンライン）" },
         status: { type: "string", description: "scheduled / completed / cancelled" },
         limit: { type: "number", description: "最大件数（既定40）" },
+      },
+    },
+  },
+  {
+    name: "get_venue_summary",
+    description: "店舗・会場ごとの集計を取得します。対象月のレッスン数（完了/予定/キャンセル）・売上・会場利用料・利用した顧客数・担当トレーナー別の件数を、店舗（江坂・庄内・曽根城山など）、FCT店舗、アヴニール店舗、レンタルジム、出張、オンラインごとに返します。「店舗別に」「○○店は何件」「坂根の店舗ごとの内訳」等に使う。",
+    input_schema: {
+      type: "object",
+      properties: {
+        month: { type: "string", description: "対象月 YYYY-MM（省略時は今月）" },
+        trainer: { type: "string", description: "担当者名の部分一致（指定するとその人の分だけ）" },
+        venue: { type: "string", description: "店舗・会場名の部分一致で絞る（省略時は全会場）" },
       },
     },
   },
@@ -164,6 +183,44 @@ async function buildCtx(): Promise<{
 
 type ToolInput = Record<string, string | number | undefined>;
 
+type VenueMasters = {
+  stores: { id: string; name: string }[];
+  rentalGyms: { id: string; name: string }[];
+  fctStores: { id: string; name: string }[];
+  avenirStores: { id: string; name: string }[];
+};
+
+async function loadVenueMasters(): Promise<VenueMasters> {
+  const [stores, rentalGyms, fctStores, avenirStores] = await Promise.all([
+    getStores(), getRentalGyms(), getFctStores(), getAvenirStores(),
+  ]);
+  return { stores, rentalGyms, fctStores, avenirStores };
+}
+
+/**
+ * レッスンの「どこでやったか」を1つの名前にする。
+ * 会場マスタ（店舗・FCT・アヴニール・レンタル）が付いていればその名前、
+ * 付いていなければ実施形態（出張・オンライン）か、手入力の場所。
+ */
+function venueOf(l: Lesson, m: VenueMasters): { kind: string; name: string; fee: number } {
+  const kind = venueKindOf(l);
+  const fee = (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0) + (l.storeFee ?? 0);
+  const find = (list: { id: string; name: string }[], id?: string) => list.find((x) => x.id === id)?.name;
+  if (kind === "store")  return { kind: "FIT STAGE店舗", name: find(m.stores, l.storeId) ?? "店舗（マスタ未登録）", fee };
+  if (kind === "fct")    return { kind: "FCT店舗", name: `FCT ${find(m.fctStores, l.fctStoreId) ?? "（マスタ未登録）"}`, fee };
+  if (kind === "avenir") return { kind: "アヴニール店舗", name: `アヴニール ${find(m.avenirStores, l.avenirStoreId) ?? "（マスタ未登録）"}`, fee };
+  if (kind === "gym")    return { kind: "レンタルジム", name: `レンタル ${find(m.rentalGyms, l.rentalGymId) ?? "（マスタ未登録）"}`, fee };
+  if (l.deliveryMode === "online") return { kind: "オンライン", name: "オンライン", fee };
+  if (l.deliveryMode === "onsite") return { kind: "出張", name: `出張${l.location ? `（${l.location}）` : ""}`, fee };
+  return { kind: DELIVERY_MODE_LABEL[l.deliveryMode] ?? "その他", name: l.location?.trim() || "会場未設定", fee };
+}
+
+function venueMatches(v: { kind: string; name: string }, q?: string): boolean {
+  if (!q) return true;
+  const t = q.trim().toLowerCase();
+  return v.name.toLowerCase().includes(t) || v.kind.toLowerCase().includes(t);
+}
+
 async function runTool(name: string, input: ToolInput): Promise<string> {
   try {
     switch (name) {
@@ -232,27 +289,83 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
         });
       }
       case "list_lessons": {
-        const lessons = await getLessons();
+        const [lessons, masters] = await Promise.all([getLessons(), loadVenueMasters()]);
         const month = (input.month as string)?.trim();
         const cust = (input.customer as string)?.trim();
         const trainer = (input.trainer as string)?.trim();
+        const venueQ = (input.venue as string)?.trim();
         const status = (input.status as string)?.trim();
         const limit = Number(input.limit) || 40;
-        const rows = lessons
+        const matched = lessons
           .filter((l) =>
             (!month || isoToMonth(l.scheduledAt) === month) &&
             (!cust || l.customerName.includes(cust)) &&
             (!trainer || (l.trainerMemberName ?? "").includes(trainer)) &&
-            (!status || l.status === status))
+            (!status || l.status === status) &&
+            venueMatches(venueOf(l, masters), venueQ));
+        const rows = matched
           .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))
           .slice(0, limit)
-          .map((l) => ({
-            date: l.scheduledAt.slice(0, 16).replace("T", " "),
-            customer: l.customerName, course: l.course, status: l.status,
-            trainer: l.trainerMemberName, location: l.location,
-            rentalGymFee: l.rentalGymFee ?? undefined,
+          .map((l) => {
+            const v = venueOf(l, masters);
+            return {
+              date: l.scheduledAt.slice(0, 16).replace("T", " "),
+              customer: l.customerName, course: l.course, status: l.status,
+              trainer: l.trainerMemberName, venue: v.name, venueFee: v.fee || undefined,
+            };
+          });
+        return JSON.stringify({ totalMatched: matched.length, count: rows.length, lessons: rows });
+      }
+      case "get_venue_summary": {
+        const month = (input.month as string)?.trim() || thisMonth();
+        const trainer = (input.trainer as string)?.trim();
+        const venueQ = (input.venue as string)?.trim();
+        const [{ ctx, lessons }, masters] = await Promise.all([buildCtx(), loadVenueMasters()]);
+        const inMonth = lessons.filter((l) =>
+          isoToMonth(l.scheduledAt) === month &&
+          (!trainer || (l.trainerMemberName ?? "").includes(trainer)));
+        type Acc = {
+          kind: string; name: string; total: number; completed: number; scheduled: number; cancelled: number; cancelledSameDay: number;
+          revenue: number; venueFee: number; customers: Set<string>; trainers: Map<string, number>;
+        };
+        const acc = new Map<string, Acc>();
+        for (const l of inMonth) {
+          const v = venueOf(l, masters);
+          if (!venueMatches(v, venueQ)) continue;
+          let a = acc.get(v.name);
+          if (!a) {
+            a = { kind: v.kind, name: v.name, total: 0, completed: 0, scheduled: 0, cancelled: 0, cancelledSameDay: 0, revenue: 0, venueFee: 0, customers: new Set(), trainers: new Map() };
+            acc.set(v.name, a);
+          }
+          a.total++;
+          if (l.status === "completed") a.completed++;
+          else if (l.status === "scheduled") a.scheduled++;
+          else if (l.status === "cancelled") a.cancelled++;
+          else if (l.status === "cancelled_same_day") a.cancelledSameDay++;
+          if (isBillableLessonStatus(l.status)) {
+            a.revenue += resolveLessonFee(l, ctx);
+            a.venueFee += v.fee;
+          }
+          a.customers.add(l.customerId);
+          const tn = l.trainerMemberName ?? "担当未設定";
+          a.trainers.set(tn, (a.trainers.get(tn) ?? 0) + 1);
+        }
+        const venues = Array.from(acc.values())
+          .sort((x, y) => y.total - x.total)
+          .map((a) => ({
+            venue: a.name, kind: a.kind,
+            lessons: { total: a.total, completed: a.completed, scheduled: a.scheduled, cancelled: a.cancelled, cancelledSameDay: a.cancelledSameDay },
+            revenue: yen(a.revenue), venueFee: yen(a.venueFee),
+            customers: a.customers.size,
+            trainers: Array.from(a.trainers.entries()).sort((x, y) => y[1] - x[1]).map(([name, n]) => `${name} ${n}件`),
           }));
-        return JSON.stringify({ count: rows.length, lessons: rows });
+        const sum = (f: (a: Acc) => number) => Array.from(acc.values()).reduce((s, a) => s + f(a), 0);
+        return JSON.stringify({
+          month, trainer: trainer || "全員", venueFilter: venueQ || "全会場",
+          venues,
+          totals: { lessons: sum((a) => a.total), completed: sum((a) => a.completed), scheduled: sum((a) => a.scheduled), revenue: yen(sum((a) => a.revenue)), venueFee: yen(sum((a) => a.venueFee)) },
+          note: "売上・会場利用料は完了と当日キャンセル（実施扱い）のぶん。予定中は含まない。FCT店舗の利用料は0円（FCTが場所を用意）。",
+        });
       }
       case "get_commissions": {
         const month = (input.month as string) || thisMonth();
@@ -271,8 +384,8 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
       case "get_member_activity": {
         const nm = (input.name as string)?.trim();
         const month = (input.month as string) || thisMonth();
-        const [{ ctx, lessons, trialLessons }, members, logs] = await Promise.all([
-          buildCtx(), getMembers(), getActivityLogs({ limit: 500 }),
+        const [{ ctx, lessons, trialLessons }, members, logs, masters] = await Promise.all([
+          buildCtx(), getMembers(), getActivityLogs({ limit: 500 }), loadVenueMasters(),
         ]);
         const member = members.find((m) => m.name.includes(nm)) ?? members.find((m) => nm.includes(m.name));
         if (!member) {
@@ -290,6 +403,16 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
         );
         const myLogs = logs.filter((l) => l.memberId === member.id);
         const lastLogin = myLogs.find((l) => l.action === "login")?.createdAt;
+        // 店舗・会場ごとの内訳（「どこで何件やったか」）
+        const byVenue = new Map<string, { total: number; completed: number; scheduled: number }>();
+        for (const l of monthLessons) {
+          const v = venueOf(l, masters).name;
+          const a = byVenue.get(v) ?? { total: 0, completed: 0, scheduled: 0 };
+          a.total++;
+          if (l.status === "completed" || l.status === "cancelled_same_day") a.completed++;
+          if (l.status === "scheduled") a.scheduled++;
+          byVenue.set(v, a);
+        }
         return JSON.stringify({
           name: member.name,
           role: member.role,
@@ -301,6 +424,9 @@ async function runTool(name: string, input: ToolInput): Promise<string> {
             cancelled: monthLessons.filter((l) => l.status === "cancelled").length,
             cancelledSameDay: monthLessons.filter((l) => l.status === "cancelled_same_day").length,
           },
+          monthLessonsByVenue: Array.from(byVenue.entries())
+            .sort((x, y) => y[1].total - x[1].total)
+            .map(([venue, a]) => ({ venue, ...a })),
           totalLessonsAllTime: myLessons.length,
           recentLessons: myLessons
             .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))

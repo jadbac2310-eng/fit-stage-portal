@@ -22,6 +22,7 @@ const TOOL_LABELS: Record<string, string> = {
   list_members: "担当者を取得",
   get_member_activity: "担当者の稼働を集計",
   get_activity_logs: "操作ログを確認",
+  get_venue_summary: "店舗・会場ごとに集計",
 };
 const TOOL_ICONS: Record<string, React.ReactNode> = {
   get_business_summary: <BarChart3 size={12} />,
@@ -32,14 +33,15 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   list_members: <Users size={12} />,
   get_member_activity: <History size={12} />,
   get_activity_logs: <History size={12} />,
+  get_venue_summary: <Building2 size={12} />,
 };
 
 const SUGGESTIONS = [
   { icon: <PiggyBank size={14} />, text: "今月の利益はいくら？" },
   { icon: <BarChart3 size={14} />, text: "今月の売上・支払・利益を教えて" },
+  { icon: <Building2 size={14} />, text: "先月の店舗ごとのレッスン数と売上は？" },
   { icon: <Users size={14} />, text: "在籍中の顧客は何人？" },
   { icon: <Dumbbell size={14} />, text: "今月のトレーナー別の歩合は？" },
-  { icon: <Building2 size={14} />, text: "レンタルジムの利用状況は？" },
 ];
 
 function ToolChip({ name, loading }: { name: string; loading?: boolean }) {
