@@ -12,7 +12,7 @@ import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
-  monthLabel, billingPeriodLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown,
+  monthLabel, billingPeriodLabel, dueDateLabel, defaultDueDate, invoiceNumber, addresseeSuffix, taxBreakdown, invoiceRows,
 } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
@@ -67,6 +67,8 @@ export default async function InvoicePrintPage({
   const invoiceNo = invoiceNumber(month, customer.id);
   const suffix = addresseeSuffix(customer.customerType);
   const tax = taxBreakdown(invoice.total);
+  const taxExcluded = customer.invoiceTaxExcluded;
+  const rows = invoiceRows(invoice, taxExcluded);
   const pdfHref = `/invoices/print/pdf?customer=${customer.id}&month=${month}`;
   const pdfFilename = `請求書_${invoice.customerName}_${month}.pdf`;
 
@@ -79,7 +81,7 @@ export default async function InvoicePrintPage({
         </Link>
         <InvoiceActions pdfHref={pdfHref} filename={pdfFilename} billerId={customer.id} month={month} />
       </div>
-      <p className="text-xs text-gray-400 mb-4">下はプレビューです。宛名を編集して保存後、「LINEで送る」で内訳＋お振込先の文面を作って送れます（PDFを送る場合は「PDF共有」）。</p>
+      <p className="text-xs text-gray-400 mb-4">下はプレビューです。「メール文」で件名・本文を作ってPDFと一緒に送れます。LINEのお客さまは「LINEで送る」。</p>
 
       {/* 請求書本体 */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 print:border-0 print:p-0 print:rounded-none">
@@ -117,29 +119,50 @@ export default async function InvoicePrintPage({
           <span className="text-2xl font-bold text-gray-900">{yen(invoice.total)}</span>
         </div>
 
-        {/* 明細 */}
+        {/* 明細（同じ日付・品目は「数量」でまとめる。税抜表示のお客さまは単価・金額が税抜） */}
         <table className="w-full text-sm mb-6">
           <thead>
             <tr className="border-b-2 border-gray-300 text-gray-500">
-              <th className="text-left py-2 font-medium w-28">日付</th>
+              <th className="text-left py-2 font-medium w-24">日付</th>
               <th className="text-left py-2 font-medium">品目</th>
-              <th className="text-right py-2 font-medium w-28">金額</th>
+              <th className="text-right py-2 font-medium w-12">数量</th>
+              <th className="text-right py-2 font-medium w-24">{taxExcluded ? "単価（税抜）" : "単価"}</th>
+              <th className="text-right py-2 font-medium w-24">{taxExcluded ? "金額（税抜）" : "金額"}</th>
             </tr>
           </thead>
           <tbody>
-            {invoice.lines.map((l, i) => (
+            {rows.map((r, i) => (
               <tr key={i} className="border-b border-gray-100">
-                <td className="py-2 text-gray-500">{l.noDate ? "" : l.date}</td>
-                <td className="py-2 text-gray-800">{l.label}</td>
-                <td className="py-2 text-right text-gray-800 tabular-nums">{yen(l.amount)}</td>
+                <td className="py-2 text-gray-500">{r.noDate ? "" : r.date}</td>
+                <td className="py-2 text-gray-800">{r.label}</td>
+                <td className="py-2 text-right text-gray-800 tabular-nums">{r.count}</td>
+                <td className="py-2 text-right text-gray-800 tabular-nums">{yen(r.unit)}</td>
+                <td className="py-2 text-right text-gray-800 tabular-nums">{yen(r.amount)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr>
-              <td colSpan={2} className="py-2 text-right text-sm font-bold text-gray-700">合計</td>
-              <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(invoice.total)}</td>
-            </tr>
+            {taxExcluded ? (
+              <>
+                <tr>
+                  <td colSpan={4} className="pt-2 text-right text-xs text-gray-500">小計（税抜）</td>
+                  <td className="pt-2 text-right text-sm text-gray-800 tabular-nums">{yen(tax.net)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="py-0.5 text-right text-xs text-gray-500">消費税（{tax.rate}%）</td>
+                  <td className="py-0.5 text-right text-sm text-gray-800 tabular-nums">{yen(tax.tax)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} className="py-2 text-right text-sm font-bold text-gray-700">合計（税込）</td>
+                  <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(tax.gross)}</td>
+                </tr>
+              </>
+            ) : (
+              <tr>
+                <td colSpan={4} className="py-2 text-right text-sm font-bold text-gray-700">合計</td>
+                <td className="py-2 text-right text-base font-bold text-gray-900 tabular-nums">{yen(invoice.total)}</td>
+              </tr>
+            )}
           </tfoot>
         </table>
 

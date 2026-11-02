@@ -46,6 +46,9 @@ function readBilling(formData: FormData) {
     // 支払期限ルール（例: 翌月末 / 当月末 / 翌月25日）
     paymentDueMonth:     toPaymentDueMonth(formData.get("paymentDueMonth")),
     paymentDueDay:       readDay(formData, "paymentDueDay"),
+    // 請求書の明細を税抜で出すか（法人向け）、メールの宛名（ご担当者名）
+    invoiceTaxExcluded:  formData.get("invoiceTaxExcluded") === "on",
+    billingContactName:  (formData.get("billingContactName") as string)?.trim() || null,
   };
 }
 

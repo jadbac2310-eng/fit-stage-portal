@@ -39,8 +39,12 @@ export interface Customer {
   sessionTiers?: { fromCount: number; unitPrice: number }[];
   billingCutoffDay?: number;        // 請求の締日。未設定なら月末締め（暦の月）
   invoiceSendDay?: number;          // 請求書を送る日（毎月）。未設定なら決まりなし
-  paymentDueMonth: PaymentDueMonth; // 支払期限が当月か翌月か
+  paymentDueMonth: PaymentDueMonth; // 支払期限が当月・翌月・翌々月か
   paymentDueDay?: number;           // 支払期限の日。未設定は末日
+  /** 請求書の明細を税抜で出す（法人向け。合計欄で税抜・消費税・税込を分けて出す） */
+  invoiceTaxExcluded: boolean;
+  /** 請求書を送るメールの宛名（ご担当者名）。未設定なら「ご担当者様」 */
+  billingContactName?: string;
   agreedToTerms: boolean;
   status: CustomerStatus;
   customerType: CustomerType;

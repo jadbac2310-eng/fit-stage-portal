@@ -51,6 +51,60 @@ export function taxBreakdown(totalIncluding: number): { rate: number; net: numbe
   return { rate: TAX_RATE, net, tax: totalIncluding - net, gross: totalIncluding };
 }
 
+/**
+ * 請求書に並べる行。同じ日付・品目・単価のレッスンは1行にまとめて「数量」で出す
+ * （14本を14行で出すと1枚に収まらない。京阪総合サービスの要望）。
+ *
+ * taxExcluded のときは 単価・金額を税抜にする。1行ずつ割って丸めると合計が
+ * 請求書全体の税抜（taxBreakdown）と1円ずれることがあるので、差は最後の行で合わせる
+ * （手書きの請求書と同じやり方：最後の1本だけ ¥9,090 になる）。
+ */
+export interface InvoiceRow {
+  date:   string;
+  noDate: boolean;
+  label:  string;
+  count:  number;
+  /** 1件あたり（税込、taxExcluded なら税抜） */
+  unit:   number;
+  /** 行の金額（税込、taxExcluded なら税抜） */
+  amount: number;
+}
+
+export function invoiceRows(invoice: Pick<CustomerInvoice, "lines" | "total">, taxExcluded = false): InvoiceRow[] {
+  const rows: InvoiceRow[] = [];
+  for (const l of invoice.lines) {
+    const last = rows[rows.length - 1];
+    if (last && last.date === l.date && last.label === l.label && last.unit === l.amount && !l.noDate && !last.noDate) {
+      last.count += 1;
+      last.amount += l.amount;
+    } else {
+      rows.push({ date: l.date, noDate: !!l.noDate, label: l.label, count: 1, unit: l.amount, amount: l.amount });
+    }
+  }
+  if (!taxExcluded || rows.length === 0) return rows;
+
+  const toNet = (n: number) => Math.round(n / (1 + TAX_RATE / 100));
+  const netRows = rows.map((r) => ({ ...r, unit: toNet(r.unit), amount: toNet(r.unit) * r.count }));
+  const wantNet = taxBreakdown(invoice.total).net;
+  const diff = wantNet - netRows.reduce((sum, r) => sum + r.amount, 0);
+  if (diff !== 0) {
+    // 最後のレッスンの行で合わせる（月額項目は割り切れる金額が多く、そこを崩すと不自然なため）。
+    // 数量が複数のときは「単価×数量」が崩れるので、1件ぶんを分けて出す
+    let idx = netRows.length - 1;
+    for (let i = netRows.length - 1; i >= 0; i--) if (!netRows[i].noDate) { idx = i; break; }
+    const last = netRows[idx];
+    if (last.count > 1) {
+      last.count -= 1;
+      last.amount = last.unit * last.count;
+      netRows.splice(idx + 1, 0, { ...last, count: 1, unit: last.unit + diff, amount: last.unit + diff });
+    } else {
+      last.unit += diff;
+      last.amount += diff;
+    }
+  }
+  return netRows;
+}
+
 export const BANK_INFO = {
   bankName: "池田泉州銀行 桃山台支店",
   accountType: "普通",

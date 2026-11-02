@@ -24,6 +24,8 @@ type DbRow = {
   invoice_send_day?: number | null;
   payment_due_month?: string | null;
   payment_due_day?: number | null;
+  invoice_tax_excluded?: boolean | null;
+  billing_contact_name?: string | null;
   agreed_to_terms: boolean;
   electronic_signature: string | null;
   status: CustomerStatus;
@@ -52,6 +54,8 @@ function fromDb(row: DbRow): Customer {
     invoiceSendDay:   row.invoice_send_day ?? undefined,
     paymentDueMonth:  toPaymentDueMonth(row.payment_due_month),
     paymentDueDay:    row.payment_due_day ?? undefined,
+    invoiceTaxExcluded: row.invoice_tax_excluded === true,
+    billingContactName: row.billing_contact_name ?? undefined,
     agreedToTerms:    row.agreed_to_terms,
     status:           row.status,
     customerType:     row.customer_type ?? "individual",
@@ -91,8 +95,10 @@ export async function addCustomer(
   // 請求まわりは画面で「未設定」を選べるので、undefined だけでなく null も受ける
   input: Omit<Customer, "id" | "createdAt" | "updatedAt"
     | "paymentDueMonth" | "paymentDueDay" | "invoiceSendDay" | "billingCutoffDay"
-    | "billingName" | "billingToCustomerId" | "sessionTiers">
+    | "billingName" | "billingToCustomerId" | "sessionTiers" | "invoiceTaxExcluded" | "billingContactName">
     & Partial<{
+      invoiceTaxExcluded:  boolean;
+      billingContactName:  string | null;
       paymentDueMonth:     PaymentDueMonth;
       paymentDueDay:       number | null;
       invoiceSendDay:      number | null;
@@ -108,6 +114,8 @@ export async function addCustomer(
       ...(input.invoiceSendDay  !== undefined && { invoice_send_day:  input.invoiceSendDay }),
       ...(input.paymentDueMonth !== undefined && { payment_due_month: input.paymentDueMonth }),
       ...(input.paymentDueDay   !== undefined && { payment_due_day:   input.paymentDueDay }),
+      ...(input.invoiceTaxExcluded !== undefined && { invoice_tax_excluded: input.invoiceTaxExcluded }),
+      ...(input.billingContactName !== undefined && { billing_contact_name: input.billingContactName }),
       email:              input.email       ?? null,
       full_name:          input.fullName,
       date_of_birth:      input.dateOfBirth  ?? null,
@@ -168,6 +176,8 @@ export async function updateCustomer(
     invoiceSendDay: number | null;
     paymentDueMonth: PaymentDueMonth;
     paymentDueDay: number | null;
+    invoiceTaxExcluded: boolean;
+    billingContactName: string | null;
     agreedToTerms: boolean;
     status: CustomerStatus;
     customerType: CustomerType;
@@ -191,6 +201,8 @@ export async function updateCustomer(
   if (input.invoiceSendDay   !== undefined) patch.invoice_send_day  = input.invoiceSendDay ?? null;
   if (input.paymentDueMonth  !== undefined) patch.payment_due_month = input.paymentDueMonth;
   if (input.paymentDueDay    !== undefined) patch.payment_due_day   = input.paymentDueDay ?? null;
+  if (input.invoiceTaxExcluded !== undefined) patch.invoice_tax_excluded = input.invoiceTaxExcluded;
+  if (input.billingContactName !== undefined) patch.billing_contact_name = input.billingContactName ?? null;
   if (input.agreedToTerms    !== undefined) patch.agreed_to_terms    = input.agreedToTerms;
   if (input.status           !== undefined) patch.status             = input.status;
   if (input.customerType     !== undefined) patch.customer_type      = input.customerType;

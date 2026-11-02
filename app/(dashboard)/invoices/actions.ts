@@ -10,7 +10,7 @@ import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
 import { getAllPlans } from "@/lib/plans-master";
-import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, billingPeriodLabel, dueDateLabel, formatDueDate, BANK_INFO } from "@/lib/invoices";
+import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, billingPeriodLabel, dueDateLabel, formatDueDate, BANK_INFO, ISSUER } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 
@@ -116,4 +116,73 @@ export async function createInvoiceShareAction(
   });
 
   return { ok: true, message };
+}
+
+
+/**
+ * 請求書をメールで送るときの 件名・本文 を作る。
+ *
+ * 尚樹が毎月手で打っていた文面（宛名＋「〇月に実施した健康運動指導の請求書を添付」）をそのまま出す。
+ * 宛名は顧客マスタの「請求メールの宛名」。未設定なら「ご担当者様」。
+ * PDFはメールアプリ側で添付する（iPhoneの共有シートなら本文と一緒に渡せる）。
+ */
+export async function createInvoiceEmailAction(
+  billerId: string,
+  month: string,
+): Promise<{ ok: true; to: string; subject: string; body: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!billerId || !month) return { ok: false, error: "対象が不正です" };
+
+  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
+    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getTrialLessons(), getAllPlans(), getCustomerMonthlyItems(),
+  ]);
+  const groups = billingGroups(customers);
+  const group = groups.find((g) => g.biller.id === billerId)
+    ?? groups.find((g) => g.members.some((m) => m.id === billerId));
+  if (!group) return { ok: false, error: "顧客が見つかりません" };
+  const biller = group.biller;
+
+  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
+  const invoice = buildGroupInvoice(
+    biller, group.members, month,
+    { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, invoiceFeesFromPlans(plansMaster),
+  );
+  if (invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
+  const dueOverride = await getInvoiceDueDate(biller.id, month);
+
+  const [y, mm] = month.split("-");
+  const ym = `${y}年${parseInt(mm, 10)}月`;
+  const contact = biller.billingContactName?.trim();
+  const subject = `請求書送付のご連絡｜健康運動指導（${ym}実施分）`;
+  const body = [
+    billingName(biller),
+    contact ? `${contact} 様` : "ご担当者様",
+    "",
+    "いつもお世話になっております。FIT STAGEの坂根です。",
+    "",
+    `${ym}に実施いたしました健康運動指導につきまして、請求書を添付にてお送りいたします。`,
+    "ご確認のうえ、お振込みいただけますと幸いです。",
+    "",
+    `ご請求金額：${yen(invoice.total)}（税込）`,
+    `お支払期限：${dueDateLabel(month, dueOverride, biller)}`,
+    "",
+    "ご不明点等ございましたらお知らせください。",
+    "何卒よろしくお願い申し上げます。",
+    "",
+    "――――――――――――",
+    ISSUER.name,
+    "坂根 尚樹",
+    "〒564-0051",
+    ISSUER.address.split("\n").join(" "),
+    ISSUER.tel,
+    `Mail：${ISSUER.email}`,
+    "――――――――――――",
+  ].join("\n");
+
+  await logActivity({
+    action: "create", entityType: "invoice", entityId: biller.id,
+    summary: `請求メール文面を作成: ${billingName(biller)} ${month}`,
+  });
+
+  return { ok: true, to: biller.email ?? "", subject, body };
 }

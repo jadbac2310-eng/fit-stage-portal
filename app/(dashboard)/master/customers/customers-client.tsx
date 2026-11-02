@@ -402,6 +402,8 @@ function CustomerForm({
             <input type="hidden" name="invoiceSendDay"   defaultValue={defaultValues?.invoiceSendDay?.toString() ?? ""} />
             <input type="hidden" name="paymentDueMonth"  defaultValue={defaultValues?.paymentDueMonth ?? "next"} />
             <input type="hidden" name="paymentDueDay"    defaultValue={defaultValues?.paymentDueDay?.toString() ?? ""} />
+            <input type="hidden" name="invoiceTaxExcluded" defaultValue={defaultValues?.invoiceTaxExcluded ? "on" : ""} />
+            <input type="hidden" name="billingContactName" defaultValue={defaultValues?.billingContactName ?? ""} />
           </>
         ) : (
           <>
@@ -414,6 +416,28 @@ function CustomerForm({
               className={inputClass}
             />
           </div>
+          <div>
+            <label className={labelClass}>請求メールの宛名（ご担当者名・任意）</label>
+            <input
+              name="billingContactName"
+              defaultValue={defaultValues?.billingContactName ?? ""}
+              placeholder="例: 川﨑 征喜（未設定なら「ご担当者様」）"
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-400 mt-1">請求書の「メール文」で「〇〇 様」として使います。</p>
+          </div>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="invoiceTaxExcluded"
+              defaultChecked={defaultValues?.invoiceTaxExcluded ?? false}
+              className="mt-1"
+            />
+            <span className="text-sm text-gray-700">
+              請求書の明細を税抜で出す
+              <span className="block text-xs text-gray-400">法人向け。1回あたりを税抜単価（例 ¥9,091）で並べ、最後に 税抜合計・消費税・税込合計 を出します。</span>
+            </span>
+          </label>
           {/* 段階単価。「この請求先にまとめた人数の合計で、◯回目から単価が変わる」契約に使う。
               例) 井上塗装店＝2名合わせて4回目まで9,200円、5回目から9,000円 */}
           <div>

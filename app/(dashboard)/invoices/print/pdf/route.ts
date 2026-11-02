@@ -11,7 +11,7 @@ import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
 import {
   billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
-  monthLabel, billingPeriodLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown,
+  monthLabel, billingPeriodLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown, invoiceRows,
 } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
@@ -59,6 +59,8 @@ export async function GET(req: NextRequest) {
   const buffer = await renderToBuffer(
     InvoiceDocument({
       invoice,
+      rows: invoiceRows(invoice, biller.invoiceTaxExcluded),
+      taxExcluded: biller.invoiceTaxExcluded,
       address: biller.address,
       issuer: ISSUER,
       bank: BANK_INFO,
