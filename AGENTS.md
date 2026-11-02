@@ -39,6 +39,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-02｜`20261102000001_payment_due_next2.sql`（支払期限に「翌々月」を追加。京阪総合サービスを翌々月10日に、毎月の固定項目「HP運用代行費用 ¥5,500」を追加）
 - 2026-11-02｜`20261102000002_invoice_tax_excluded_and_contact.sql`（customers に 明細を税抜で出す invoice_tax_excluded・請求メールの宛名 billing_contact_name。京阪を税抜表示に）
 
+## 請求書（メールで送る）
+
+`/invoices/print` の「メール文」で、件名・本文（宛名は顧客マスタの「請求メールの宛名」）を作る。
+- **Gmailから直接送る**には Vercel の環境変数 `GMAIL_USER`（送信元の Gmail）と `GMAIL_APP_PASSWORD`
+  （Google アカウント → セキュリティ → 2段階認証 → アプリパスワード の16文字）を入れる。`MAIL_FROM_NAME` で差出人名（省略時 FIT STAGE 坂根尚樹）。
+  送信は `lib/mailer.ts`（nodemailer・smtp.gmail.com:465）。PDFは `lib/invoice-render.ts` で作って添付。送ったメールは Gmail の送信済みにも残る。
+- 未設定のときは「Gmailで開く」（mail.google.com の作成画面に本文入り）と「PDFと本文を共有」（iPhoneの共有シート）だけが出る。
+- 明細を税抜で出す顧客は `customers.invoice_tax_excluded`。同じ日付・品目は「数量」でまとめる（`invoiceRows`）。
+
 ## やること（会社のタスク一覧）
 
 `/tasks` は経営まわりの「やること」。ログインした全員が見て、追加・編集・完了にできる。

@@ -1,21 +1,6 @@
-import { renderToBuffer } from "@react-pdf/renderer";
 import type { NextRequest } from "next/server";
-import { getCustomers } from "@/lib/customers";
-import { getAllCustomerPlans } from "@/lib/customer-plans";
-import { getAllSessionPasses } from "@/lib/session-passes";
-import { getLessons } from "@/lib/lessons";
-import { getTrialLessons } from "@/lib/trial-lessons";
-import { getCustomerMonthlyItems } from "@/lib/customer-monthly-items";
-import { monthReadStart } from "@/lib/recent-months";
-import { getAllPlans } from "@/lib/plans-master";
 import { getCurrentMember } from "@/lib/members";
-import {
-  billingGroups, buildGroupInvoice, invoiceFeesFromPlans, ISSUER, BANK_INFO,
-  monthLabel, billingPeriodLabel, dueDateLabel, invoiceNumber, addresseeSuffix, taxBreakdown, invoiceRows,
-} from "@/lib/invoices";
-import { tieredLessonPricesAll } from "@/lib/session-tiers";
-import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
-import { InvoiceDocument } from "@/lib/invoice-pdf";
+import { loadGroupInvoice, renderInvoicePdf, invoiceFilename } from "@/lib/invoice-render";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,53 +12,12 @@ export async function GET(req: NextRequest) {
   const customerId = req.nextUrl.searchParams.get("customer");
   const month = req.nextUrl.searchParams.get("month");
   if (!customerId || !month) return new Response("パラメータが不正です", { status: 400 });
-  // その月（と締日ずれのための前月）だけ読む
-  const since = monthReadStart(month);
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
-    getCustomers(),
-    getAllCustomerPlans(),
-    getAllSessionPasses(),
-    getLessons(since),
-    getTrialLessons(since),
-    getAllPlans(),
-    getCustomerMonthlyItems(),
-  ]);
+  const loaded = await loadGroupInvoice(customerId, month);
+  if (!loaded) return new Response("顧客が見つかりません", { status: 404 });
 
-  // まとめ先(biller)のグループを解決
-  const groups = billingGroups(customers);
-  const group = groups.find((g) => g.biller.id === customerId)
-    ?? groups.find((g) => g.members.some((m) => m.id === customerId));
-  if (!group) return new Response("顧客が見つかりません", { status: 404 });
-  const biller = group.biller;
-
-  // 段階単価（まとめた人数の合計で単価が変わる契約）をレッスンごとに当てはめる
-  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
-
-  const invoice = buildGroupInvoice(
-    biller, group.members, month,
-    { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, invoiceFeesFromPlans(plansMaster),
-  );
-  const dueOverride = await getInvoiceDueDate(biller.id, month);
-
-  const buffer = await renderToBuffer(
-    InvoiceDocument({
-      invoice,
-      rows: invoiceRows(invoice, biller.invoiceTaxExcluded),
-      taxExcluded: biller.invoiceTaxExcluded,
-      address: biller.address,
-      issuer: ISSUER,
-      bank: BANK_INFO,
-      invoiceNo: invoiceNumber(month, biller.id),
-      monthLabel: monthLabel(month),
-      periodLabel: billingPeriodLabel(month, biller.billingCutoffDay),
-      dueDateLabel: dueDateLabel(month, dueOverride, biller),
-      addresseeSuffix: addresseeSuffix(biller.customerType),
-      tax: taxBreakdown(invoice.total),
-    }),
-  );
-
-  const filename = `請求書_${invoice.customerName}_${month}.pdf`;
+  const buffer = await renderInvoicePdf(loaded, month);
+  const filename = invoiceFilename(loaded.invoice, month);
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",

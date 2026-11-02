@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Download, Share2, Send, Copy, Check, X, Mail } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { createInvoiceShareAction, createInvoiceEmailAction } from "../actions";
+import { createInvoiceShareAction, createInvoiceEmailAction, sendInvoiceEmailAction } from "../actions";
 
 /**
  * 請求書の送付。
@@ -19,8 +19,9 @@ export function InvoiceActions({
   const [busy, setBusy] = useState<"share" | "download" | "line" | "mail" | "mailshare" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [mail, setMail] = useState<{ to: string; subject: string; body: string } | null>(null);
+  const [mail, setMail] = useState<{ to: string; subject: string; body: string; canSend: boolean; from: string | null } | null>(null);
   const [mailCopied, setMailCopied] = useState<"subject" | "body" | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
 
   async function fetchFile(): Promise<File> {
     const res = await fetch(pdfHref);
@@ -90,8 +91,9 @@ export function InvoiceActions({
     try {
       const res = await createInvoiceEmailAction(billerId, month);
       if (res.ok) {
-        setMail({ to: res.to, subject: res.subject, body: res.body });
+        setMail({ to: res.to, subject: res.subject, body: res.body, canSend: res.canSend, from: res.from });
         setMailCopied(null);
+        setSent(null);
       } else {
         alert(res.error);
       }
@@ -121,6 +123,28 @@ export function InvoiceActions({
     } finally {
       setBusy(null);
     }
+  }
+
+  /** Gmail から直接送る（PDF添付・サーバー側で送信。送信済みにも残る） */
+  async function sendFromGmail() {
+    if (!mail) return;
+    if (!confirm(`${mail.to} に請求書PDFを添付して送ります。よろしいですか？`)) return;
+    setBusy("mailshare");
+    try {
+      const res = await sendInvoiceEmailAction(billerId, month, { to: mail.to, subject: mail.subject, body: mail.body });
+      if (res.ok) setSent(res.to);
+      else alert(res.error);
+    } catch {
+      alert("送信に失敗しました");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Gmail の作成画面を開く（本文・件名・宛先入り。PDFは手で添付） */
+  function gmailHref(): string {
+    if (!mail) return "#";
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(mail.to)}&su=${encodeURIComponent(mail.subject)}&body=${encodeURIComponent(mail.body)}`;
   }
 
   function mailtoHref(): string {
@@ -203,31 +227,59 @@ export function InvoiceActions({
               <h3 className="text-base font-bold text-gray-900">メールで送る文面</h3>
               <button onClick={() => setMail(null)} className="p-1 text-gray-400 hover:text-gray-700 rounded-lg"><X size={18} /></button>
             </div>
-            <p className="text-xs text-gray-500 mb-2">
-              「PDFと本文を共有」→ メールアプリを選ぶと、請求書が添付され本文が入ります。件名は貼ってください。
-              {mail.to ? ` 宛先: ${mail.to}` : " 宛先のメールは顧客マスタに未登録です。"}
-            </p>
+            {sent ? (
+              <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 mb-3">
+                送信しました（{sent}）。Gmail の「送信済み」にも残っています。
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mb-2">
+                {mail.canSend
+                  ? `「Gmailから送信」で、${mail.from ?? "Gmail"} から請求書PDFを添付して送ります。`
+                  : "Gmail の送信設定がまだ無いので、「Gmailで開く」か「PDFと本文を共有」で送ってください。"}
+              </p>
+            )}
+            <label className="block text-[11px] font-semibold text-gray-500 mb-1">宛先</label>
+            <input
+              value={mail.to}
+              onChange={(e) => setMail({ ...mail, to: e.target.value })}
+              placeholder="example@example.com（顧客マスタのメール）"
+              className="w-full text-xs text-gray-800 border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-blue-400 mb-3"
+            />
             <label className="block text-[11px] font-semibold text-gray-500 mb-1">件名</label>
             <div className="flex gap-2 mb-3">
-              <input readOnly value={mail.subject} className="flex-1 text-xs text-gray-800 border border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:outline-none" />
-              <button onClick={() => copyMail("subject")} className="inline-flex items-center gap-1 border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold px-3 rounded-xl text-xs transition">
+              <input
+                value={mail.subject}
+                onChange={(e) => setMail({ ...mail, subject: e.target.value })}
+                className="flex-1 text-xs text-gray-800 border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:border-blue-400"
+              />
+              <button onClick={() => copyMail("subject")} className="inline-flex items-center gap-1 border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold px-3 rounded-xl text-xs transition" aria-label="件名をコピー">
                 {mailCopied === "subject" ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
               </button>
             </div>
             <label className="block text-[11px] font-semibold text-gray-500 mb-1">本文</label>
             <textarea
-              readOnly
               value={mail.body}
-              className="w-full h-56 text-xs text-gray-800 border border-gray-200 rounded-xl p-3 bg-gray-50 resize-none focus:outline-none"
+              onChange={(e) => setMail({ ...mail, body: e.target.value })}
+              className="w-full h-48 text-xs text-gray-800 border border-gray-200 rounded-xl p-3 bg-white resize-none focus:outline-none focus:border-blue-400"
             />
             <div className="flex gap-2 mt-3">
-              <button
-                onClick={shareMailWithPdf}
-                disabled={busy !== null}
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-              >
-                {busy === "mailshare" ? <Spinner size={16} /> : <Share2 size={16} />} PDFと本文を共有
-              </button>
+              {mail.canSend ? (
+                <button
+                  onClick={sendFromGmail}
+                  disabled={busy !== null || !!sent}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+                >
+                  {busy === "mailshare" ? <Spinner size={16} /> : <Send size={16} />} {sent ? "送信済み" : "Gmailから送信（PDF添付）"}
+                </button>
+              ) : (
+                <button
+                  onClick={shareMailWithPdf}
+                  disabled={busy !== null}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+                >
+                  {busy === "mailshare" ? <Spinner size={16} /> : <Share2 size={16} />} PDFと本文を共有
+                </button>
+              )}
               <button
                 onClick={() => copyMail("body")}
                 className="inline-flex items-center justify-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold px-4 py-2.5 rounded-xl text-sm transition"
@@ -235,9 +287,13 @@ export function InvoiceActions({
                 {mailCopied === "body" ? <Check size={16} className="text-green-600" /> : <Copy size={16} />} 本文
               </button>
             </div>
-            <a href={mailtoHref()} className="block text-center text-xs text-blue-600 hover:underline mt-3">
-              メールアプリを開く（本文入り・PDFは手で添付）
-            </a>
+            <div className="flex justify-center gap-4 mt-3 text-xs">
+              <a href={gmailHref()} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Gmailで開く（PDFは手で添付）</a>
+              {mail.canSend && (
+                <button onClick={shareMailWithPdf} disabled={busy !== null} className="text-blue-600 hover:underline">PDFと本文を共有</button>
+              )}
+              <a href={mailtoHref()} className="text-gray-500 hover:underline">メールアプリ</a>
+            </div>
           </div>
         </div>
       )}

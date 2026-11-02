@@ -13,6 +13,8 @@ import { getAllPlans } from "@/lib/plans-master";
 import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, billingName, monthLabel, billingPeriodLabel, dueDateLabel, formatDueDate, BANK_INFO, ISSUER } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
+import { loadGroupInvoice, renderInvoicePdf, invoiceFilename } from "@/lib/invoice-render";
+import { isMailConfigured, mailFromAddress, sendMail } from "@/lib/mailer";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
 export async function updateBillingNameAction(customerId: string, name: string) {
@@ -97,9 +99,14 @@ export async function createInvoiceShareAction(
   lines.push(`${monthLabel(month)}分のご請求をお送りします。`);
   if (periodLabel) lines.push(`対象期間：${periodLabel}`);
   lines.push("");
-  lines.push("【ご請求の内訳】");
-  for (const l of invoice.lines) lines.push(l.noDate ? `${l.label}　${yen(l.amount)}` : `${l.date}　${l.label}　${yen(l.amount)}`);
-  lines.push(`合計　${yen(invoice.total)}`);
+  // 内訳は「何回・いくら」だけ。1本ずつ並べると長くて読まれない（PDFに全部載っている）
+  const counts = new Map<string, { count: number; amount: number }>();
+  for (const l of invoice.lines) {
+    const cur = counts.get(l.label) ?? { count: 0, amount: 0 };
+    counts.set(l.label, { count: cur.count + 1, amount: cur.amount + l.amount });
+  }
+  for (const [label, c] of counts) lines.push(c.count > 1 ? `${label}　${c.count}回　${yen(c.amount)}` : `${label}　${yen(c.amount)}`);
+  lines.push(`合計　${yen(invoice.total)}（税込）`);
   lines.push("");
   lines.push("【お振込先】");
   lines.push(`${BANK_INFO.bankName}　${BANK_INFO.accountType}　${BANK_INFO.accountNumber}`);
@@ -129,26 +136,17 @@ export async function createInvoiceShareAction(
 export async function createInvoiceEmailAction(
   billerId: string,
   month: string,
-): Promise<{ ok: true; to: string; subject: string; body: string } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; to: string; subject: string; body: string; canSend: boolean; from: string | null }
+  | { ok: false; error: string }
+> {
   await requireAdmin();
   if (!billerId || !month) return { ok: false, error: "対象が不正です" };
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems] = await Promise.all([
-    getCustomers(), getAllCustomerPlans(), getAllSessionPasses(), getLessons(), getTrialLessons(), getAllPlans(), getCustomerMonthlyItems(),
-  ]);
-  const groups = billingGroups(customers);
-  const group = groups.find((g) => g.biller.id === billerId)
-    ?? groups.find((g) => g.members.some((m) => m.id === billerId));
-  if (!group) return { ok: false, error: "顧客が見つかりません" };
-  const biller = group.biller;
-
-  const tieredPrices = tieredLessonPricesAll({ customers, lessons });
-  const invoice = buildGroupInvoice(
-    biller, group.members, month,
-    { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, invoiceFeesFromPlans(plansMaster),
-  );
+  const loaded = await loadGroupInvoice(billerId, month);
+  if (!loaded) return { ok: false, error: "顧客が見つかりません" };
+  const { biller, invoice, dueOverride } = loaded;
   if (invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
-  const dueOverride = await getInvoiceDueDate(biller.id, month);
 
   const [y, mm] = month.split("-");
   const ym = `${y}年${parseInt(mm, 10)}月`;
@@ -184,5 +182,41 @@ export async function createInvoiceEmailAction(
     summary: `請求メール文面を作成: ${billingName(biller)} ${month}`,
   });
 
-  return { ok: true, to: biller.email ?? "", subject, body };
+  return { ok: true, to: biller.email ?? "", subject, body, canSend: isMailConfigured(), from: mailFromAddress() };
+}
+
+/**
+ * 請求書PDFを添付して、Gmail から送る（lib/mailer.ts）。
+ * 宛先・件名・本文は画面で直したものを受け取る。送れたら活動ログに残す。
+ */
+export async function sendInvoiceEmailAction(
+  billerId: string,
+  month: string,
+  mail: { to: string; subject: string; body: string },
+): Promise<{ ok: true; to: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!billerId || !month) return { ok: false, error: "対象が不正です" };
+  const to = mail.to.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { ok: false, error: "宛先のメールアドレスを確認してください" };
+  if (!mail.subject.trim()) return { ok: false, error: "件名が空です" };
+  if (!isMailConfigured()) return { ok: false, error: "Gmail の送信設定がまだありません（Vercel に GMAIL_USER と GMAIL_APP_PASSWORD を入れてください）" };
+
+  const loaded = await loadGroupInvoice(billerId, month);
+  if (!loaded) return { ok: false, error: "顧客が見つかりません" };
+  if (loaded.invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
+
+  const pdf = await renderInvoicePdf(loaded, month);
+  const sent = await sendMail({
+    to,
+    subject: mail.subject.trim(),
+    text: mail.body,
+    attachments: [{ filename: invoiceFilename(loaded.invoice, month), content: pdf }],
+  });
+  if (!sent.ok) return sent;
+
+  await logActivity({
+    action: "create", entityType: "invoice", entityId: loaded.biller.id,
+    summary: `請求書をメール送信: ${billingName(loaded.biller)} ${month} → ${to}`,
+  });
+  return { ok: true, to };
 }
