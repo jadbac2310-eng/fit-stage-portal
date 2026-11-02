@@ -61,12 +61,19 @@ function toolHint(input: unknown): string | undefined {
   return [period, who, where].filter(Boolean).join(" / ") || undefined;
 }
 
-const SUGGESTIONS = [
+const ADMIN_SUGGESTIONS = [
   { icon: <BarChart3 size={14} />, text: "今月の売上・利益は？先月と比べてどう？" },
   { icon: <Building2 size={14} />, text: "先月の店舗ごとのレッスン数と売上は？" },
   { icon: <Dumbbell size={14} />, text: "今月の体験の成約率と、どこから来てるか" },
   { icon: <Users size={14} />, text: "声をかけたほうがいいお客さんは？" },
   { icon: <PiggyBank size={14} />, text: "今月のトレーナー別の歩合は？" },
+];
+const STAFF_SUGGESTIONS = [
+  { icon: <Dumbbell size={14} />, text: "今月の自分のレッスン数、店舗ごとに" },
+  { icon: <Users size={14} />, text: "声をかけたほうがいいお客さんは？" },
+  { icon: <BarChart3 size={14} />, text: "今月の体験の成約率は？" },
+  { icon: <PiggyBank size={14} />, text: "今月の自分の歩合はいくら？" },
+  { icon: <Building2 size={14} />, text: "ホテル営業、期日が過ぎてるのは？" },
 ];
 
 function ToolChip({ name, hint, loading }: { name: string; hint?: string; loading?: boolean }) {
@@ -110,7 +117,8 @@ function AssistantBubble({ parts, streaming }: { parts: MessagePart[]; streaming
   );
 }
 
-export function AssistantClient() {
+export function AssistantClient({ isAdmin, userName }: { isAdmin: boolean; userName: string }) {
+  const SUGGESTIONS = isAdmin ? ADMIN_SUGGESTIONS : STAFF_SUGGESTIONS;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -179,7 +187,7 @@ export function AssistantClient() {
     }));
 
     try {
-      const res = await fetch("/api/admin/agent", {
+      const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages }),
@@ -205,7 +213,7 @@ export function AssistantClient() {
     <div className="fixed top-[3.25rem] md:top-0 inset-x-0 bottom-0 md:left-60 z-20 flex flex-col bg-gray-50">
       {/* ヘッダー */}
       <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 bg-white border-b border-gray-200">
-        <Link href="/admin" className="md:hidden p-1 -ml-1 text-gray-400 hover:text-gray-700" aria-label="戻る">
+        <Link href="/dashboard" className="md:hidden p-1 -ml-1 text-gray-400 hover:text-gray-700" aria-label="戻る">
           <ArrowLeft size={18} />
         </Link>
         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center flex-shrink-0">
@@ -213,7 +221,7 @@ export function AssistantClient() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900 leading-tight">データアシスタント</p>
-          <p className="text-[11px] text-gray-400 leading-tight">売上・顧客・歩合などをデータから回答（閲覧専用）</p>
+          <p className="text-[11px] text-gray-400 leading-tight">{isAdmin ? "売上・利益・顧客・歩合などをデータから回答（閲覧専用）" : `${userName ? userName + "さん" : "スタッフ"}向け。レッスン・顧客・体験・自分の歩合をデータから回答（閲覧専用）`}</p>
         </div>
         {!empty && (
           <button
@@ -234,7 +242,7 @@ export function AssistantClient() {
               <Bot size={32} className="text-white" />
             </div>
             <p className="text-lg font-bold text-gray-900">何でも聞いてください</p>
-            <p className="text-sm text-gray-500 mt-1.5 max-w-xs">売上・利益・店舗別・体験の成約・顧客・回数券・歩合・ホテル営業・やること・操作ログを、最新データから集計して答えます。</p>
+            <p className="text-sm text-gray-500 mt-1.5 max-w-xs">{isAdmin ? "売上・利益・店舗別・体験の成約・顧客・回数券・歩合・ホテル営業・やること・操作ログを、最新データから集計して答えます。" : "レッスン数・店舗別・体験の成約・お客様の状況・回数券の残り・自分の歩合・ホテル営業・やることを、最新データから集計して答えます。"}</p>
             <div className="mt-6 w-full max-w-md grid gap-2">
               {SUGGESTIONS.map((s) => (
                 <button

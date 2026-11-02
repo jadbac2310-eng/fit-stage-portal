@@ -12,6 +12,7 @@ import {
   Search,
   TrendingUp,
   ListChecks,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,6 +28,7 @@ export type NavNode = {
 export const NAV_TREE: NavNode[] = [
   { label: "ダッシュボード", href: "/dashboard",  icon: LayoutDashboard },
   { label: "スケジュール",   href: "/schedule",    icon: CalendarDays },
+  { label: "アシスタント",   href: "/assistant",   icon: Sparkles },
   { label: "やること",       href: "/tasks",       icon: ListChecks },
   { label: "ビジョン・ルール", href: "/wiki",        icon: BookOpen },
   { label: "レッスン",       href: "/lessons",     icon: Dumbbell },

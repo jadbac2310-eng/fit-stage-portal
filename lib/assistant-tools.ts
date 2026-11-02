@@ -485,18 +485,64 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
+// ─── 誰が聞いているか（管理者／スタッフ） ────────────────
+
+/**
+ * 管理者は全部見られる。スタッフ（管理者でない人）には、
+ *   ・会社の売上・利益・経費・会場利用料の金額
+ *   ・他の人の歩合の金額・歩合率（フィーの配分）
+ *   ・他の人の操作ログ・ログイン時刻
+ * を出さない。件数・割合・自分の歩合は出す。歩合ページ・ダッシュボードと同じ線引き。
+ */
+export interface AssistantScope {
+  isAdmin: boolean;
+  memberId: string;
+  memberName: string;
+  role?: string;
+}
+
+/** 管理者だけが使える道具 */
+const ADMIN_ONLY_TOOLS = new Set(["get_activity_logs"]);
+
+export function assistantToolsFor(scope: AssistantScope): Anthropic.Tool[] {
+  return scope.isAdmin ? ASSISTANT_TOOLS : ASSISTANT_TOOLS.filter((t) => !ADMIN_ONLY_TOOLS.has(t.name));
+}
+
+/** スタッフには見せない項目（どの道具の結果でも、この名前の項目は丸ごと落とす） */
+const STAFF_HIDDEN_KEYS = new Set([
+  "revenue", "revenueBreakdown", "lessonRevenue", "trialRevenue", "profit", "profitMargin",
+  "trainerPayout", "salesPayout", "venueCost", "venueFee", "hourlyPayout", "expenses", "cardFees",
+  "commissionRate", "billing", "lastLoginAt", "recentActivity",
+]);
+
+function stripForStaff(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(stripForStaff);
+  if (v && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+      if (STAFF_HIDDEN_KEYS.has(k)) continue;
+      out[k] = stripForStaff(x);
+    }
+    return out;
+  }
+  return v;
+}
+
 // ─── 実行 ───────────────────────────────────────────────
 
-export async function runAssistantTool(name: string, input: ToolInput): Promise<string> {
+export async function runAssistantTool(name: string, input: ToolInput, scope: AssistantScope): Promise<string> {
   try {
-    const out = await run(name, input);
-    return JSON.stringify(out);
+    if (!scope.isAdmin && ADMIN_ONLY_TOOLS.has(name)) {
+      return JSON.stringify({ error: "この道具は管理者だけが使えます" });
+    }
+    const out = await run(name, input, scope);
+    return JSON.stringify(scope.isAdmin ? out : stripForStaff(out));
   } catch (e) {
     return JSON.stringify({ error: String(e) });
   }
 }
 
-async function run(name: string, input: ToolInput): Promise<unknown> {
+async function run(name: string, input: ToolInput, scope: AssistantScope): Promise<unknown> {
   switch (name) {
     case "get_business_summary": {
       const month = str(input.month) || thisMonthJst();
@@ -504,6 +550,23 @@ async function run(name: string, input: ToolInput): Promise<unknown> {
       const cur = monthFigures(month, c, extras);
       const prev = monthFigures(addMonths(month, -1), c, extras);
       const isCurrent = month === thisMonthJst();
+      if (!scope.isAdmin) {
+        // スタッフ向け：件数と割合だけ（ダッシュボードの「FIT STAGE のいま」と同じ線引き。金額は出さない）
+        const counts = (f: typeof cur) => ({
+          month: f.month, completedLessons: f.completedLessons, scheduledLessons: f.scheduledLessons,
+          trialsHeld: f.trialsHeld, trialsContracted: f.trialsContracted, trialRate: f.trialRate,
+          newCustomers: f.newCustomers, customersWithLessons: f.activeCustomerIds,
+        });
+        return {
+          period: month,
+          ...(isCurrent ? { note: `今月は ${todayJst()} 時点の途中経過。` } : {}),
+          current: counts(cur), previousMonth: counts(prev),
+          diff: { completedLessons: diffLine(cur.completedLessons, prev.completedLessons), trialsHeld: diffLine(cur.trialsHeld, prev.trialsHeld), newCustomers: diffLine(cur.newCustomers, prev.newCustomers) },
+          revenueGrowth: prev.revenue > 0 ? `${Math.round(((cur.revenue - prev.revenue) / prev.revenue) * 100)}%` : null,
+          activeCustomers: c.customers.filter((x) => x.status === "active").length,
+          note2: "売上・利益の金額は管理者だけが見られる。伸び率（%）だけ出している。",
+        };
+      }
       return {
         period: month,
         ...(isCurrent ? { note: `今月は ${todayJst()} 時点の途中経過。予定中のレッスン ${cur.scheduledLessons} 件は売上に入っていない。` } : {}),
@@ -805,8 +868,14 @@ async function run(name: string, input: ToolInput): Promise<unknown> {
       const c = await buildCtx();
       const { ctx, lessons, trialLessons, members } = c;
       const memberQ = str(input.member);
-      const member = findMember(members, memberQ);
+      let member = findMember(members, memberQ);
       if (memberQ && !member) return { error: "担当者が見つかりません", availableMembers: members.map((m) => m.name) };
+      if (!scope.isAdmin) {
+        // スタッフは自分の歩合だけ（歩合ページと同じ）
+        if (member && member.id !== scope.memberId) return { error: "他の人の歩合は管理者だけが見られます。自分の分なら出せます" };
+        member = members.find((m) => m.id === scope.memberId);
+        if (!member) return { error: "担当者の情報が見つかりません" };
+      }
       const completed = lessons.filter((l) => isBillableLessonStatus(l.status));
       const completedTrials = trialLessons.filter((t) => t.status === "completed");
       const contractedTrials = trialLessons.filter((t) => t.contracted === true);
@@ -826,7 +895,7 @@ async function run(name: string, input: ToolInput): Promise<unknown> {
       const owner = members.find((m) => m.isOwner);
       return {
         month, trainer, sales,
-        totals: { trainer: yen(trainerEntries.reduce((s, e) => s + e.total, 0)), sales: yen(salesEntries.reduce((s, e) => s + e.total, 0)) },
+        ...(scope.isAdmin ? { totals: { trainer: yen(trainerEntries.reduce((s, e) => s + e.total, 0)), sales: yen(salesEntries.reduce((s, e) => s + e.total, 0)) } } : {}),
         note: `${owner ? `${owner.name}（オーナー）` : "オーナー"}のレッスンには歩合が付かない（売上はそのまま利益）。`,
       };
     }
@@ -885,7 +954,12 @@ async function run(name: string, input: ToolInput): Promise<unknown> {
           rate: pct(heldTrials.filter((t) => t.contracted === true).length, heldTrials.length),
           scheduled: myTrials.filter((t) => t.status === "scheduled").length,
         },
-        commission: member.isOwner ? "オーナーなので歩合なし" : { month, trainer: yen(trainerComm?.total ?? 0), sales: yen(salesComm?.total ?? 0), total: yen((trainerComm?.total ?? 0) + (salesComm?.total ?? 0)) },
+        // 歩合は管理者か本人にだけ。他人の分は「管理者のみ」とだけ返す
+        commission: member.isOwner ? "オーナーなので歩合なし"
+          : (scope.isAdmin || member.id === scope.memberId)
+            ? { month, trainer: yen(trainerComm?.total ?? 0), sales: yen(salesComm?.total ?? 0), total: yen((trainerComm?.total ?? 0) + (salesComm?.total ?? 0)) }
+            : "他の人の歩合は管理者だけが見られる",
+        ...(scope.isAdmin || member.id === scope.memberId ? {} : { note_privacy: "他の人の最終ログイン・操作履歴・歩合は出さない" }),
         totalLessonsAllTime: myLessons.filter((l) => isBillableLessonStatus(l.status)).length,
         upcoming: myLessons.filter((l) => l.status === "scheduled" && jstDay(l.scheduledAt) >= today).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)).slice(0, 5)
           .map((l) => ({ date: dayTime(l.scheduledAt), customer: l.customerName, venue: venueOf(l, masters).name })),
@@ -957,8 +1031,11 @@ async function run(name: string, input: ToolInput): Promise<unknown> {
       const salesQ = str(input.sales);
       const sales = findMember(members, salesQ);
       if (salesQ && !sales) return { error: "担当者が見つかりません", availableMembers: members.map((m) => m.name) };
+      // スタッフは自分のお客様（担当営業が自分、または自分が担当したことがある人）だけ。ダッシュボードと同じ
+      const trainedByMe = new Set(lessons.filter((l) => l.trainerMemberId === scope.memberId).map((l) => l.customerId));
       const rows = followUps(customers, lessons, trialLessons, ctx.sessionPasses, ctx.customerPlans)
         .filter((f) => !sales || f.salesMemberId === sales.id)
+        .filter((f) => scope.isAdmin || f.salesMemberId === scope.memberId || trainedByMe.has(f.customerId))
         .map((f) => ({ customer: f.customerName, reason: f.reason, kind: f.kind, sales: members.find((m) => m.id === f.salesMemberId)?.name }));
       return { count: rows.length, followUps: rows, note: "kind: away=しばらく来ていない / passLow=回数券の残り少 / planUnused=月プランなのに今月まだ / noNext=次の予定なし" };
     }

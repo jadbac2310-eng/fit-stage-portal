@@ -48,11 +48,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 未設定のときは「Gmailで開く」（mail.google.com の作成画面に本文入り）と「PDFと本文を共有」（iPhoneの共有シート）だけが出る。
 - 明細を税抜で出す顧客は `customers.invoice_tax_excluded`。同じ日付・品目は「数量」でまとめる（`invoiceRows`）。
 
-## データアシスタント（管理者機能）
+## データアシスタント
 
-`/admin/assistant` で、管理者が話し言葉で聞くと社内データを集計して答える（閲覧専用）。
-- 本体は `app/api/admin/agent/route.ts`（Claude を呼ぶループ・文章は出た端から流す）、
-  **道具（ツール）は `lib/assistant-tools.ts`**、案内文は `lib/assistant-prompt.ts`。画面は `app/(dashboard)/admin/assistant/`。
+`/assistant` で、話し言葉で聞くと社内データを集計して答える（閲覧専用）。**ログインした全員が使える**（2026-11-02 に管理者限定から広げた。`/admin/assistant` は転送）。
+- 本体は `app/api/assistant/route.ts`（Claude を呼ぶループ・文章は出た端から流す）、
+  **道具（ツール）は `lib/assistant-tools.ts`**、案内文は `lib/assistant-prompt.ts`。画面は `app/(dashboard)/assistant/`。
+- **管理者とスタッフで見せるものが違う**（`AssistantScope`）。スタッフには、会社の売上・利益・経費・会場利用料の金額、
+  他の人の歩合の金額・歩合率（フィーの配分）、他の人の操作ログ・ログイン時刻を出さない。件数・割合・伸び率・自分の歩合は出す。
+  営業インセンティブの決まり（個人10%・法人12%・成約ボーナス）は言ってよい（尚樹の指示）。
+  仕組みは3段：道具そのものを隠す（`ADMIN_ONLY_TOOLS`）、結果から金額の項目を落とす（`STAFF_HIDDEN_KEYS`）、
+  歩合と声かけは自分の分だけに絞る。金額の項目を増やしたら `STAFF_HIDDEN_KEYS` にも足すこと。
 - モデルは Vercel の環境変数 `ASSISTANT_MODEL` で切り替え（既定 `claude-sonnet-5-5`。安くするなら `claude-haiku-5-5`）。
 - **数字は各画面と同じ関数で出す**（売上・利益は経営サマリーの式、歩合は歩合画面の式、声かけは `followUps`）。
   アシスタント専用の計算を増やさない。画面と食い違うと信用を失う。

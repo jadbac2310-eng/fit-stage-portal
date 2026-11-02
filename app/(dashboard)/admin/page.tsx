@@ -25,7 +25,7 @@ export default async function AdminPage() {
 
       <div className="space-y-2">
         <Link
-          href="/admin/assistant"
+          href="/assistant"
           className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
         >
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -33,7 +33,7 @@ export default async function AdminPage() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 text-sm">データアシスタント</p>
-            <p className="text-xs text-gray-500 mt-0.5">売上・顧客・歩合などをAIに質問（閲覧専用）</p>
+            <p className="text-xs text-gray-500 mt-0.5">売上・利益・顧客・歩合などをAIに質問（全員が使える。売上・利益は管理者だけ）</p>
           </div>
           <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
         </Link>

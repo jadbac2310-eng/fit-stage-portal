@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
-import { getCurrentIsAdmin } from "@/lib/members";
-import { ASSISTANT_TOOLS, runAssistantTool, type ToolInput } from "@/lib/assistant-tools";
+import { getCurrentMember } from "@/lib/members";
+import { assistantToolsFor, runAssistantTool, type ToolInput, type AssistantScope } from "@/lib/assistant-tools";
 import { assistantSystemPrompt } from "@/lib/assistant-prompt";
 
 export const dynamic = "force-dynamic";
@@ -21,15 +21,19 @@ const MODEL = process.env.ASSISTANT_MODEL?.trim() || "claude-sonnet-5-5";
 const MAX_TOOL_ROUNDS = 12;
 
 export async function POST(request: NextRequest) {
-  if (!(await getCurrentIsAdmin())) {
-    return new Response(JSON.stringify({ error: "権限がありません（管理者のみ）" }), {
-      status: 403, headers: { "Content-Type": "application/json" },
+  // ログインした全員が使える。管理者かどうかで、見せるデータが変わる（lib/assistant-tools.ts）
+  const me = await getCurrentMember();
+  if (!me) {
+    return new Response(JSON.stringify({ error: "ログインが必要です" }), {
+      status: 401, headers: { "Content-Type": "application/json" },
     });
   }
+  const scope: AssistantScope = { isAdmin: me.isAdmin, memberId: me.id, memberName: me.name, role: me.role };
 
   const { messages } = await request.json();
   const encoder = new TextEncoder();
-  const system = assistantSystemPrompt();
+  const system = assistantSystemPrompt(scope);
+  const tools = assistantToolsFor(scope);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
             output_config: { effort: "medium" },
             // 案内文と道具の定義は毎回同じなので、ここまでをキャッシュする（道具→案内文の順に前置きになる）
             system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-            tools: ASSISTANT_TOOLS,
+            tools,
             messages: currentMessages,
           });
           // 文章は出た端から画面へ流す（道具を使う前の一言も含む）
@@ -75,7 +79,7 @@ export async function POST(request: NextRequest) {
           const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
             toolUseBlocks.map(async (block) => {
               send({ type: "tool", name: block.name, input: block.input });
-              const result = await runAssistantTool(block.name, block.input as ToolInput);
+              const result = await runAssistantTool(block.name, block.input as ToolInput, scope);
               return { type: "tool_result" as const, tool_use_id: block.id, content: result };
             }),
           );
