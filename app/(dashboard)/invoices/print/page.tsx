@@ -75,7 +75,8 @@ export default async function InvoicePrintPage({
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       {/* 操作バー */}
-      <div className="flex items-center justify-between mb-4">
+      {/* スマホでは「請求書一覧」を上に、ボタンは2列に並べる（1列に詰めると文字が縦になる） */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
         <Link href={`/invoices?month=${month}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 transition">
           <ChevronLeft size={15} /> 請求書一覧
         </Link>
@@ -119,8 +120,10 @@ export default async function InvoicePrintPage({
           <span className="text-2xl font-bold text-gray-900">{yen(invoice.total)}</span>
         </div>
 
-        {/* 明細（同じ日付・品目は「数量」でまとめる。税抜表示のお客さまは単価・金額が税抜） */}
-        <table className="w-full text-sm mb-6">
+        {/* 明細（同じ日付・品目は「数量」でまとめる。税抜表示のお客さまは単価・金額が税抜）。
+            スマホでは横にスクロールして見る（列を無理に詰めると品目が1文字ずつ折れる） */}
+        <div className="overflow-x-auto -mx-2 px-2 mb-6">
+        <table className="w-full min-w-[540px] text-sm">
           <thead>
             <tr className="border-b-2 border-gray-300 text-gray-500">
               <th className="text-left py-2 font-medium w-24">日付</th>
@@ -165,6 +168,7 @@ export default async function InvoicePrintPage({
             )}
           </tfoot>
         </table>
+        </div>
 
         {/* 消費税の内訳（インボイス制度対応） */}
         <div className="ml-auto w-full sm:w-1/2 border border-gray-300 rounded-xl px-4 py-3 text-sm">

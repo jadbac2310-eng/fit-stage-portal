@@ -165,34 +165,34 @@ export function InvoiceActions({
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
         <button
           onClick={handleLine}
           disabled={busy !== null}
-          className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
         >
           {busy === "line" ? <Spinner size={16} /> : <Send size={16} />} LINEで送る
         </button>
         <button
           onClick={handleMail}
           disabled={busy !== null}
-          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
         >
           {busy === "mail" ? <Spinner size={16} /> : <Mail size={16} />} メール文
         </button>
         <button
           onClick={handleShare}
           disabled={busy !== null}
-          className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 font-semibold px-3.5 py-2.5 rounded-xl text-sm transition"
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 font-semibold px-3.5 py-2.5 rounded-xl text-sm transition"
         >
           <Share2 size={16} /> {busy === "share" ? "準備中…" : "PDF共有"}
         </button>
         <button
           onClick={handleDownload}
           disabled={busy !== null}
-          className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 font-semibold px-3.5 py-2.5 rounded-xl text-sm transition"
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 font-semibold px-3.5 py-2.5 rounded-xl text-sm transition"
         >
-          <Download size={16} /> {busy === "download" ? "準備中…" : "PDF"}
+          <Download size={16} /> {busy === "download" ? "準備中…" : "PDF保存"}
         </button>
       </div>
 
