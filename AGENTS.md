@@ -39,6 +39,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-02｜`20261102000001_payment_due_next2.sql`（支払期限に「翌々月」を追加。京阪総合サービスを翌々月10日に、毎月の固定項目「HP運用代行費用 ¥5,500」を追加）
 - 2026-11-02｜`20261102000002_invoice_tax_excluded_and_contact.sql`（customers に 明細を税抜で出す invoice_tax_excluded・請求メールの宛名 billing_contact_name。京阪を税抜表示に）
 - 2026-11-03｜`20261103000001_sone_store_fee_2250.sql`（曽根城山店の利用料を 11/3 から 2,250円。11/2 までは 2,500円のまま）
+- 2026-11-03｜`20261103000004_fortune_catch_up.sql`（星まわり用。下の2本をまとめて実行）
+  - `20261103000002_member_birth_date.sql`（members.birth_date）
+  - `20261103000003_fortune_notes.sql`（代表からのひとこと fortune_notes）
 
 ## 星まわり（六星占術の考え方をもとにした運気）
 
