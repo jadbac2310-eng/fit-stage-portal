@@ -4,8 +4,7 @@
  * 仕組み（複数の解説サイトと Wikipedia で裏取り済み）：
  *   ・運命星 … 生まれた「日」の六十干支の番号（甲子=1 … 癸亥=60）を10ずつ区切る。
  *              1〜10 土星人／11〜20 金星人／21〜30 火星人／31〜40 天王星人／41〜50 木星人／51〜60 水星人
- *   ・＋／− … 生まれた「年」の十二支。子寅辰午申戌＝プラス、丑卯巳未酉亥＝マイナス。
- *              立春（2月4日ごろ）より前の生まれは前の年で見る。
+ *   ・＋／− … 生まれた「年」（暦の年。1月1日で切る）の十二支。子寅辰午申戌＝プラス、丑卯巳未酉亥＝マイナス。
  *   ・運気の周期 … 種子→緑生→立花→健弱→達成→乱気→再会→財成→安定→陰影→停止→減退 の12段階が
  *              十二支に1つずつ対応する。どの支が「陰影」かは星と＋−で決まる（下の INYO_BRANCH）。
  *              年は年の十二支、月は月の十二支（1月=丑 … 12月=子）、日は日の十二支で見る。
@@ -112,9 +111,10 @@ export function starTypeOf(birth: string): StarType | null {
   const idx = dayKanshiIndex(p.y, p.m, p.d);
   const seisu = idx + 1;
   const star = STARS[Math.floor(idx / 10)];
-  // 立春より前の生まれは前の年の十二支で見る
-  const beforeRisshun = p.m === 1 || (p.m === 2 && p.d < risshunDay(p.y));
-  const yearBranch = yearBranchOf(beforeRisshun ? p.y - 1 : p.y);
+  // ＋−は「暦の年」の十二支で見る（1月1日から年が変わる）。
+  // 立春で切る流派もあるが、細木系の有名人一覧（hosokikazuko.com の天王星人＋ 59人）と突き合わせると
+  // 1月生まれも暦の年で判定されていた（立春で切ると7人が食い違う）。星（干支番号）は59人全員一致。
+  const yearBranch = yearBranchOf(p.y);
   const polarity: Polarity = yearBranch % 2 === 0 ? "+" : "-";
   const reigo = yearBranch === stopBranchOf(star, polarity);
   return {
