@@ -64,6 +64,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - お客様の星は出さない（顧客の生年月日は使わない）。チームの星と相性だけ。
 - 外部API・AI・新しい読み込みは増やしていない（軽さ優先）。
 
+## 店舗レッスンの前日通知（庄内店・曽根城山店 → 代表へLINE）
+
+`app/api/cron/store-tomorrow/route.ts`。前日の18時台に、翌日の庄内店・曽根城山店のレッスン（体験も）を店舗ごと・時刻順にまとめて、
+オーナー（`members.is_owner`）へ LINE で1通送る。無い日は送らない。Vercel の cron（`vercel.json`、`0 9 * * *` UTC＝18時JST）から叩く。
+- 対象店舗は `STORE_TOMORROW_STORES`（店舗名の一部。既定 `庄内,曽根`）、宛先は `STORE_TOMORROW_NOTIFY_MEMBER_IDS`、時刻は `STORE_TOMORROW_HOUR`（既定18）、
+  止めるときは `LINE_NOTIFY_STORE_TOMORROW=off`。
+- 重複は `line_notifications`（kind `store-tomorrow`、ref `store-tomorrow:YYYY-MM-DD`）で防ぐので、外部の定期アクセスで数分おきに叩いても1日1通。
+- Hobby プランの cron は「指定の1時間のどこか」で動く。きっちり18:00にしたいなら、line-reminders と同じ外部の定期アクセスにこのURL（`?secret=`）も足す。
+
 ## 入会金（2026-11-03 から）
 
 店舗で体験レッスンをして入会（契約成功）したお客様から **入会金 ¥5,500** をいただく。体験料 ¥6,600 は成約してもしなくても別にいただく。
