@@ -33,7 +33,7 @@ export function BirthForm({ current, compact = false }: { current?: string; comp
         className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
       >
         {pending && <Loader2 size={14} className="animate-spin" />}
-        {current ? "変更" : "運勢を見る"}
+        {current ? "変更" : "今日の一手を見る"}
       </button>
       {error && <p className="text-xs text-red-600">{error}</p>}
     </form>
