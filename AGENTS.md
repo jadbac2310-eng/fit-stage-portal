@@ -17,6 +17,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
   `on conflict do nothing` など）を用意し、尚樹に **Supabase の SQL Editor に貼って Run** してもらう。
   アプリのデプロイとは別作業なので、反映が必要なことを最後に必ず伝える。
 - SQL Editor で反映したら、下の「反映済みのDB変更」に日付とファイル名を書き足す。
+- **新しいテーブルを作ったら、必ず `alter table ... enable row level security;` も書く。** ポリシーは作らない（ポータルは service role で読むので RLS を無視する）。
+  RLS が切れていると、ブラウザに渡している公開キーだけで誰でも読み書きできてしまう（2026-11-04 に Supabase から警告が来て全テーブルを有効化）。
 
 ### 反映済みのDB変更（SQL Editor で手動適用したもの）
 
