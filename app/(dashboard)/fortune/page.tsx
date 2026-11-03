@@ -43,7 +43,7 @@ export default async function FortunePage() {
         <Header />
         <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 mb-4 shadow-md">
           <p className="text-[11px] tracking-widest text-indigo-200">はじめに</p>
-          <p className="text-xl font-bold mt-1">🔒 生年月日を入れないと、星まわりは見られません</p>
+          <p className="text-xl font-bold mt-1">🔒 生年月日を入れないと、運勢は見られません</p>
           <p className="text-sm text-indigo-100 mt-2 leading-relaxed">
             生まれた日から星が決まるので、生年月日が無いと何も計算できません。入れるのは1回だけ。{me.name}さん本人だけが入れられます。
           </p>
@@ -158,7 +158,7 @@ export default async function FortunePage() {
             <p className="text-xs font-bold text-gray-700">チームを導く <span className="font-normal text-gray-400">（管理者だけに見える）</span></p>
           </div>
           <p className="text-[11px] text-gray-500 mb-1">今日のそれぞれの運気と、会ったときにかける言葉の例。いちばん効くのは、ここを見て<span className="font-semibold">その場で一言</span>かけること（名前は出さなくていい。言葉が届けば十分）。</p>
-          <p className="text-[11px] text-gray-500 mb-3">ひとことを書くと、その人の星まわりに静かなメモとして出ます（見出しなし・最後に「— {ownerFirst}」だけ）。月に1〜2回、短く、その人の具体的な行動に触れるのがコツ。</p>
+          <p className="text-[11px] text-gray-500 mb-3">ひとことを書くと、その人の運勢ページに静かなメモとして出ます（見出しなし・最後に「— {ownerFirst}」だけ）。月に1〜2回、短く、その人の具体的な行動に触れるのがコツ。</p>
           <ul className="divide-y divide-gray-100">
             {members.filter((x) => x.id !== me.id).map((x) => {
               const type = x.birthDate ? starTypeOf(x.birthDate) : null;
@@ -166,7 +166,7 @@ export default async function FortunePage() {
               if (!type) {
                 return (
                   <li key={x.id} className="py-2.5">
-                    <p className="text-sm font-semibold text-gray-900">{x.name} <span className="text-xs font-normal text-gray-400">生年月日 未入力（本人が星まわりで入れる／担当者マスタでも可）</span></p>
+                    <p className="text-sm font-semibold text-gray-900">{x.name} <span className="text-xs font-normal text-gray-400">生年月日 未入力（本人が「今日の運勢」で入れる／担当者マスタでも可）</span></p>
                     <NoteForm memberId={x.id} month={ym} current={note?.body} placeholder={`${x.name.split(/[\s　]/)[0]}さんへのひとこと`} />
                   </li>
                 );
@@ -263,7 +263,7 @@ function Header() {
     <div className="mb-4">
       <div className="hidden md:flex items-center gap-2">
         <MoonStar size={20} className="text-indigo-600" />
-        <h1 className="text-xl font-bold text-gray-900">星まわり</h1>
+        <h1 className="text-xl font-bold text-gray-900">今日の運勢</h1>
       </div>
       <p className="text-sm text-gray-500 mt-0.5">今日の運気と、今日のひとつ。読んだら、ひとつだけ動く。</p>
     </div>

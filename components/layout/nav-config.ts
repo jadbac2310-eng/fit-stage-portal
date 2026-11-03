@@ -32,7 +32,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "アシスタント",   href: "/assistant",   icon: Sparkles },
   { label: "やること",       href: "/tasks",       icon: ListChecks },
   { label: "ビジョン・ルール", href: "/wiki",        icon: BookOpen },
-  { label: "星まわり",       href: "/fortune",     icon: MoonStar },
+  { label: "今日の運勢",     href: "/fortune",     icon: MoonStar },
   { label: "レッスン",       href: "/lessons",     icon: Dumbbell },
   { label: "歩合",           href: "/commissions", icon: PiggyBank },
   { label: "プラン管理",     href: "/plans",       icon: CreditCard },

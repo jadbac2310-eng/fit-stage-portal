@@ -117,7 +117,7 @@ export function QuoteCard({
 
         {tab === "fortune" && fortune.star && (
           <div>
-            <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日の星まわり・{fortune.star.type}</p>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日の運勢・{fortune.star.type}</p>
             <p className="text-lg font-bold text-gray-900 mt-1">
               <span className="mr-1.5">{fortune.emoji}</span>{fortune.star.phase}
               <span className="text-sm font-semibold text-gray-500 ml-2">{fortune.star.name}</span>
@@ -143,7 +143,7 @@ export function QuoteCard({
               ラッキー種目：<span className="font-bold text-gray-700">{fortune.item}</span>
             </p>
             <p className="text-xs text-indigo-600 mt-2">
-              <Link href="/fortune" className="underline">生年月日を入れると、あなた専用の星まわりに変わります</Link>
+              <Link href="/fortune" className="underline">生年月日を入れると、あなた専用の運勢に変わります</Link>
             </p>
           </div>
         )}

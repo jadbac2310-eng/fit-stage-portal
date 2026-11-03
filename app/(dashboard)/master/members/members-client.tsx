@@ -270,7 +270,7 @@ function MemberForm({
           defaultValue={defaultValues?.birthDate ?? ""}
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <p className="text-xs text-gray-400 mt-1">「星まわり」（運気）を出すのに使います。本人も星まわりのページから入れられます</p>
+        <p className="text-xs text-gray-400 mt-1">「今日の運勢」を出すのに使います。本人も運勢のページから入れられます</p>
       </div>
 
       <div>
