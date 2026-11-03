@@ -95,6 +95,9 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const note        = (formData.get("note")     as string)?.trim() || undefined;
   const invoiceNumber = (formData.get("invoiceNumber") as string)?.trim() || undefined;
   const commissionPayDay = readPayDay(formData);
+  // 生年月日は空なら消す（null）。欄が無いフォームからは触らない
+  const birthRaw = formData.get("birthDate");
+  const birthDate = birthRaw === null ? undefined : ((birthRaw as string).trim() || null);
   const newPassword   = (formData.get("password") as string)?.trim() || undefined;
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
@@ -161,6 +164,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     isOwner,
     lessonReminder,
     lineNotify,
+    ...(birthDate !== undefined && { birthDate }),
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),
   });

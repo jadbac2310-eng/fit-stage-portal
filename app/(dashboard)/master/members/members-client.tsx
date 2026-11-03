@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing, CalendarClock,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing, CalendarClock, Cake,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -258,6 +258,19 @@ function MemberForm({
           placeholder="example@fitstage.jp"
           className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+          <Cake size={12} /> 生年月日 <span className="text-gray-300 font-normal">（任意）</span>
+        </label>
+        <input
+          name="birthDate"
+          type="date"
+          defaultValue={defaultValues?.birthDate ?? ""}
+          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-400 mt-1">「星まわり」（運気）を出すのに使います。本人も星まわりのページから入れられます</p>
       </div>
 
       <div>

@@ -22,6 +22,8 @@ export interface Member {
   /** コミッションの支払日。月末じめ翌月のこの日に振り込む（杉元さんは15日、ほかは25日） */
   commissionPayDay?: number;
   invoiceNumber?: string;  // インボイス登録番号（コミッション明細に表示）
+  /** 生年月日（YYYY-MM-DD）。星まわり（運気）を出すのに使う。本人か管理者が入れる */
+  birthDate?: string;
   lineUserId?: string;
   lineLinkCode?: string;
   createdAt: string;
@@ -42,6 +44,7 @@ type DbRow = {
   commission_rate?: number | null;
   commission_pay_day?: number | null;
   invoice_number?: string | null;
+  birth_date?: string | null;
   line_user_id?: string | null;
   line_link_code?: string | null;
   created_at: string;
@@ -63,6 +66,7 @@ function fromDb(row: DbRow): Member {
     commissionRate: row.commission_rate ?? undefined,
     commissionPayDay: row.commission_pay_day ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
+    birthDate:  row.birth_date   ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
     lineLinkCode: row.line_link_code ?? undefined,
     createdAt:  row.created_at,
@@ -140,7 +144,7 @@ export async function addMember(
 
 export async function updateMember(
   id: string,
-  data: Partial<Omit<Member, "id" | "createdAt" | "commissionRate">> & { commissionRate?: number | null }
+  data: Partial<Omit<Member, "id" | "createdAt" | "commissionRate" | "birthDate">> & { commissionRate?: number | null; birthDate?: string | null }
 ): Promise<Member | null> {
   const patch: Record<string, unknown> = {};
   if (data.name       !== undefined) patch.name         = data.name;
@@ -156,9 +160,16 @@ export async function updateMember(
   if (data.commissionRate !== undefined) patch.commission_rate = data.commissionRate ?? null;
   if (data.commissionPayDay !== undefined) patch.commission_pay_day = normalizePayDay(data.commissionPayDay);
   if (data.invoiceNumber  !== undefined) patch.invoice_number  = data.invoiceNumber  ?? null;
+  if (data.birthDate      !== undefined) patch.birth_date      = data.birthDate      ?? null;
 
   const client = createAdminClient();
   let { data: row, error } = await client.from("members").update(patch).eq("id", id).select().single();
+  // birth_date 列が未適用の環境では、その列を外して再試行（担当者の編集自体は止めない）
+  if (error && /birth_date/i.test(error.message ?? "") && "birth_date" in patch) {
+    const { birth_date, ...rest } = patch;
+    void birth_date;
+    ({ data: row, error } = await client.from("members").update(rest).eq("id", id).select().single());
+  }
   // line_notify 列が未適用の環境では、その列を外して再試行（担当者の編集自体は止めない）
   if (error && /line_notify/i.test(error.message ?? "")) {
     const { line_notify, ...rest } = patch;

@@ -148,7 +148,14 @@ export function tipOfTheDay(now: Date | number = Date.now()): DailyTip {
 }
 
 // ─── 今日の運勢（おみくじ） ────────────────────────────
-export interface DailyFortune { level: string; emoji: string; message: string; item: string }
+export interface DailyFortune {
+  level: string; emoji: string; message: string; item: string;
+  /**
+   * 星まわり（六星占術の考え方）で出した本人専用の運気。生年月日が入っている人だけ。
+   * 無い人はおみくじ（上の level/message）を出し、生年月日の案内を添える。
+   */
+  star?: { type: string; phase: string; name: string; month: string; monthName: string; tip: string };
+}
 
 const FORTUNE_LEVELS: { level: string; emoji: string; message: string }[] = [
   { level: "大吉", emoji: "🎊", message: "今日の提案は通る。思い切って聞いてみる日。" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Quote, Target, Lightbulb, Sparkles } from "lucide-react";
 import { secretQuote, type DailyQuote } from "@/lib/daily-quote";
 import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
@@ -114,7 +115,24 @@ export function QuoteCard({
           </div>
         )}
 
-        {tab === "fortune" && (
+        {tab === "fortune" && fortune.star && (
+          <div>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日の星まわり・{fortune.star.type}</p>
+            <p className="text-lg font-bold text-gray-900 mt-1">
+              <span className="mr-1.5">{fortune.emoji}</span>{fortune.star.phase}
+              <span className="text-sm font-semibold text-gray-500 ml-2">{fortune.star.name}</span>
+            </p>
+            <p className="text-sm text-gray-700 mt-1">{fortune.message}</p>
+            <p className="text-xs text-gray-700 mt-2">
+              今日のひとつ：<span className="font-bold">{fortune.star.tip}</span>
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              今月は {fortune.star.month}（{fortune.star.monthName}）・ラッキー種目：<span className="font-bold text-gray-700">{fortune.item}</span>
+              <Link href="/fortune" className="ml-2 underline text-indigo-600">詳しく</Link>
+            </p>
+          </div>
+        )}
+        {tab === "fortune" && !fortune.star && (
           <div>
             <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日の運勢</p>
             <p className="text-lg font-bold text-gray-900 mt-1">
@@ -123,6 +141,9 @@ export function QuoteCard({
             <p className="text-sm text-gray-700 mt-1">{fortune.message}</p>
             <p className="text-xs text-gray-500 mt-2">
               ラッキー種目：<span className="font-bold text-gray-700">{fortune.item}</span>
+            </p>
+            <p className="text-xs text-indigo-600 mt-2">
+              <Link href="/fortune" className="underline">生年月日を入れると、あなた専用の星まわりに変わります</Link>
             </p>
           </div>
         )}

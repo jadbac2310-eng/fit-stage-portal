@@ -29,6 +29,8 @@ import { randomQuote } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
 import { missionOfTheDay, tipOfTheDay, fortuneOfTheDay, greeting, seasonal } from "@/lib/daily-cards";
+import { starToday } from "@/lib/fortune-of-day";
+import { PHASE_TEXT } from "@/lib/rokusei-content";
 import { Confetti } from "@/components/ui/confetti";
 import { StreakBadges } from "./streak-badges";
 import { nextVisitCoverage, salesMonth, salesStreak, salesBadges } from "@/lib/sales-stats";
@@ -181,6 +183,16 @@ export default async function DashboardPage() {
   const mission = missionOfTheDay(now);
   const tip     = tipOfTheDay(now);
   const fortune = fortuneOfTheDay(now, myId);   // 運勢だけは人ごとに変える
+  // 生年月日が入っていれば、おみくじの代わりに本人の星まわり（六星占術の考え方）を出す
+  const st = starToday(currentMember?.birthDate, myId, now);
+  if (st) {
+    fortune.emoji = st.emoji;
+    fortune.message = st.summary;
+    fortune.star = {
+      type: st.type.label, phase: st.today, name: st.name,
+      month: st.month, monthName: PHASE_TEXT[st.month].name, tip: st.tip,
+    };
+  }
   const hello   = greeting(now);
   const season  = seasonal(now);
 
