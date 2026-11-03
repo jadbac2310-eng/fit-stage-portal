@@ -1,4 +1,4 @@
-import { MoonStar, Users, Sparkles, Info } from "lucide-react";
+import { MoonStar, Users, Sparkles, Info, MessageSquareHeart, Compass } from "lucide-react";
 import Link from "next/link";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { getCustomers } from "@/lib/customers";
@@ -11,6 +11,9 @@ import {
 import { PHASE_TEXT, starText, phaseBadge } from "@/lib/rokusei-content";
 import { starToday, jstYmd } from "@/lib/fortune-of-day";
 import { BirthForm } from "./birth-form";
+import { NoteForm } from "./note-form";
+import { getFortuneNotes } from "@/lib/fortune-notes";
+import { dayPhase } from "@/lib/rokusei";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +27,17 @@ export default async function FortunePage() {
   const me = await getCurrentMember();
   if (!me) return null;
   const now = new Date().getTime();
-  const { y, m } = jstYmd(now);
+  const { y, m, d } = jstYmd(now);
+  const ym = `${y}-${String(m).padStart(2, "0")}`;
+
+  // 言葉の出どころは代表（尚樹）。期待は、上の人の言葉として届くほど行動に出る
+  const members = await getMembers();
+  const owner = members.find((x) => x.isOwner) ?? members.find((x) => x.isAdmin);
+  const ownerFirst = owner ? owner.name.split(/[\s　]/)[0] : "代表";
+  const isOwnerSelf = !!owner && owner.id === me.id;
+  const notes = await getFortuneNotes(ym);
+  const noteForMe = notes.find((n) => n.memberId === me.id);
+  const noteForAll = notes.find((n) => n.memberId === null);
 
   if (!me.birthDate) {
     // 生年月日が無いと何も出せない。入口であることが一目で分かるように、ここで止める
@@ -64,7 +77,7 @@ export default async function FortunePage() {
   const inDecline = y >= decline.from && y <= decline.to;
 
   // チーム：生年月日が入っている人（自分以外）
-  const [members, customers] = await Promise.all([getMembers(), getCustomers()]);
+  const customers = await getCustomers();
   const team = members
     .filter((x) => x.id !== me.id && x.birthDate)
     .map((x) => ({ m: x, type: starTypeOf(x.birthDate!) }))
@@ -87,7 +100,7 @@ export default async function FortunePage() {
 
       {/* 自分の星 */}
       <section className="rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 mb-4 shadow-md">
-        <p className="text-[11px] tracking-widest text-indigo-200">{me.name}さんの星</p>
+        <p className="text-[11px] tracking-widest text-indigo-200">{isOwnerSelf ? "あなたの星" : `${ownerFirst}が読む、${me.name}さんの星`}</p>
         <p className="text-2xl font-bold mt-1">
           {t.label}
           {t.reigo && <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 align-middle">霊合星人</span>}
@@ -109,10 +122,24 @@ export default async function FortunePage() {
         </p>
         <p className="text-sm text-gray-700 mt-1">{st.summary}</p>
         <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5">
-          <p className="text-[11px] font-bold text-amber-700">今日のひとつ</p>
+          <p className="text-[11px] font-bold text-amber-700">{isOwnerSelf ? "今日のひとつ" : `${ownerFirst}からの今日のひとつ`}</p>
           <p className="text-sm font-semibold text-gray-900 mt-0.5">{st.tip}</p>
         </div>
       </section>
+
+      {/* 代表からのひとこと（今月）。本人宛と全員宛 */}
+      {(noteForMe || noteForAll) && !isOwnerSelf && (
+        <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 mb-4">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <MessageSquareHeart size={14} className="text-indigo-600" />
+            <p className="text-xs font-bold text-indigo-800">{ownerFirst}からのひとこと（{m}月）</p>
+          </div>
+          {noteForMe && <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{noteForMe.body}</p>}
+          {noteForAll && <p className={cn("text-sm text-gray-800 whitespace-pre-wrap leading-relaxed", noteForMe && "mt-2 pt-2 border-t border-indigo-100")}>
+            <span className="text-[11px] font-semibold text-indigo-500 mr-1">みんなへ</span>{noteForAll.body}
+          </p>}
+        </section>
+      )}
 
       {/* 今月・今年 */}
       <section className="grid gap-3 md:grid-cols-2 mb-4">
@@ -139,6 +166,49 @@ export default async function FortunePage() {
         </div>
         <p className="text-[11px] text-gray-400 mt-2">🌱🌿🌸 春（伸びる）・🍵🏆🌪️ 夏（勝負と揺れ）・🤝💰⚓ 秋（実り）・🌙❄️🍂 冬（充電）</p>
       </section>
+
+      {/* 管理者：チームを導く（今日の運気と、かける言葉。ひとことを書く） */}
+      {me.isAdmin && (
+        <section className="rounded-2xl border border-indigo-200 bg-white p-4 mb-4">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Compass size={14} className="text-indigo-600" />
+            <p className="text-xs font-bold text-gray-700">チームを導く <span className="font-normal text-gray-400">（管理者だけに見える）</span></p>
+          </div>
+          <p className="text-[11px] text-gray-500 mb-3">今日のそれぞれの運気と、かける言葉の例。ひとことを書くと、その人の星まわりの上に「{ownerFirst}からのひとこと」として出ます（月ごと）。</p>
+          <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 mb-3">
+            <p className="text-xs font-bold text-gray-700">みんなへ（{m}月）</p>
+            <NoteForm memberId={null} month={ym} current={noteForAll?.body} placeholder="例：今月は体験が増える月。ひとりひとりの第一印象、頼むで。" />
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {members.filter((x) => x.id !== me.id).map((x) => {
+              const type = x.birthDate ? starTypeOf(x.birthDate) : null;
+              const note = notes.find((n) => n.memberId === x.id);
+              if (!type) {
+                return (
+                  <li key={x.id} className="py-2.5">
+                    <p className="text-sm font-semibold text-gray-900">{x.name} <span className="text-xs font-normal text-gray-400">生年月日 未入力（本人が星まわりで入れる／担当者マスタでも可）</span></p>
+                    <NoteForm memberId={x.id} month={ym} current={note?.body} placeholder={`${x.name.split(/[\s　]/)[0]}さんへのひとこと`} />
+                  </li>
+                );
+              }
+              const todayP = dayPhase(type, y, m, d);
+              const monthP = monthPhase(type, m);
+              return (
+                <li key={x.id} className="py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {x.name}<span className="ml-2 text-xs font-medium text-gray-500">{type.label}</span>
+                    </p>
+                    <span className="text-xs text-gray-600 whitespace-nowrap">今日 {PHASE_TEXT[todayP].emoji}{todayP}・今月 {PHASE_TEXT[monthP].emoji}{monthP}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-0.5">かける言葉：「{PHASE_TEXT[todayP].tips[0]}」。今月は{PHASE_TEXT[monthP].name}なので、{PHASE_TEXT[monthP].work}</p>
+                  <NoteForm memberId={x.id} month={ym} current={note?.body} placeholder={`${x.name.split(/[\s　]/)[0]}さんへのひとこと（例：今月は${PHASE_TEXT[monthP].name}。${PHASE_TEXT[monthP].tips[1]}、任せた）`} />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* チーム */}
       <section className="rounded-2xl border border-gray-200 bg-white p-4 mb-4">

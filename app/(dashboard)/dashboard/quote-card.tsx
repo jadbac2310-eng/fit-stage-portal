@@ -124,7 +124,7 @@ export function QuoteCard({
             </p>
             <p className="text-sm text-gray-700 mt-1">{fortune.message}</p>
             <p className="text-xs text-gray-700 mt-2">
-              今日のひとつ：<span className="font-bold">{fortune.star.tip}</span>
+              {fortune.star.from}からの今日のひとつ：<span className="font-bold">{fortune.star.tip}</span>
             </p>
             <p className="text-xs text-gray-500 mt-1">
               今月は {fortune.star.month}（{fortune.star.monthName}）・ラッキー種目：<span className="font-bold text-gray-700">{fortune.item}</span>

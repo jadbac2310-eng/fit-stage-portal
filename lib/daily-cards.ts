@@ -154,7 +154,7 @@ export interface DailyFortune {
    * 星まわり（六星占術の考え方）で出した本人専用の運気。生年月日が入っている人だけ。
    * 無い人はおみくじ（上の level/message）を出し、生年月日の案内を添える。
    */
-  star?: { type: string; phase: string; name: string; month: string; monthName: string; tip: string };
+  star?: { type: string; phase: string; name: string; month: string; monthName: string; tip: string; from: string };
 }
 
 const FORTUNE_LEVELS: { level: string; emoji: string; message: string }[] = [
