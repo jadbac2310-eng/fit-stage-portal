@@ -149,8 +149,10 @@ export interface StarText {
   catch: string;
   /** 持ち味（＋−共通） */
   traits: string;
-  /** FIT STAGE でどう活かすか */
+  /** FIT STAGE でどう活かすか。職業を決めつけない（「参謀向き」「公務員向き」のような本の書き方は使わない。代表にもトレーナーにも当てはまるように） */
   work: string;
+  /** リーダーとしてどう出るか（代表・管理者に見せる） */
+  lead: string;
   /** ＋と−で違うところ（それぞれ一言） */
   plus: string;
   minus: string;
@@ -161,6 +163,7 @@ export const STAR_TEXT: Record<Star, StarText> = {
     catch: "筋を通す努力家",
     traits: "誠実で、約束を守る。ひとつのことを深く掘り下げる集中力がある。",
     work: "お客様の信頼を積み上げるのが得意。記録とフォームの丁寧さが武器になる。",
+    lead: "筋を通す姿そのものが、チームの基準になるリーダー。約束を守り続けるほど、言葉に重みが出る。",
     plus: "厳しさが言葉に出やすい。ひとこと柔らかくすると、誠実さがそのまま伝わる。",
     minus: "慎重で引っ込み思案になりがち。自分から一言かけるだけで、信頼が早く育つ。",
   },
@@ -168,6 +171,7 @@ export const STAR_TEXT: Record<Star, StarText> = {
     catch: "場を明るくする自由人",
     traits: "明るくて動きが早い。流行に敏感で、人に好かれる。",
     work: "体験の第一印象と、紹介づくりで力を発揮する。空気を作るのがうまい。",
+    lead: "空気を明るくして人を集めるリーダー。自分は前に立ち、細かい管理は仕組みと人に任せると全体が回る。",
     plus: "好奇心が広がりすぎてやりかけが増える。今日の1つを終えてから次へ。",
     minus: "のびのびしすぎてルーズに見られることがある。時間だけは守ると評価が一気に上がる。",
   },
@@ -175,6 +179,7 @@ export const STAR_TEXT: Record<Star, StarText> = {
     catch: "自分の軸で走るランナー",
     traits: "周りに流されない。決めたことをやり抜く。信頼した相手とは一生の付き合いになる。",
     work: "長く通う常連さんを作るのが得意。専門性を深めると強い。",
+    lead: "背中で見せるリーダー。方針をぶらさず、信頼できる少数と深く組む。外野の評価より自分の納得で決める。",
     plus: "独特さが魅力。初対面でそっけなく見えないよう、最初の笑顔だけ意識する。",
     minus: "警戒心が先に出やすい。こちらから一歩近づくと、相手も開いてくれる。",
   },
@@ -182,13 +187,15 @@ export const STAR_TEXT: Record<Star, StarText> = {
     catch: "人情あふれるロマンチスト",
     traits: "人を好きになる力が強く、愛嬌がある。場を和ませる。",
     work: "お客様に寄り添うのが得意。「また来たい」と思わせる雰囲気を作れる。",
+    lead: "人を好きになる力で、人をつなぐリーダー。情で動ける強さがある分、お金と線引きだけは仕組みで守る。",
     plus: "社交的で頼られる。頼られすぎて自分が後回しにならないように。",
     minus: "情に流されやすい。お金と時間の管理だけは仕組みで守る。",
   },
   木星: {
-    catch: "几帳面な大器晩成型",
-    traits: "真面目で粘り強く、先を読んで準備する。年々、実力と信用が育つ。",
-    work: "計画どおりに積み上げる堅実派。記録・数字の管理・参謀役で力が出る。",
+    catch: "積み上げて大きくする人",
+    traits: "真面目で粘り強く、先を読んで準備する。年々、実力と信用が育つ。時間を味方につけるタイプ。",
+    work: "先を読んで計画を立て、決めたことを粘り強く積み上げる。数字と記録に強く、長く続く仕組みを作れる。",
+    lead: "派手さより信用で引っぱるリーダー。「この人の言うことは外れない」で人が付いてくる。先を読んで備える力は、そのままチームを守る力。",
     plus: "正義感が強く、言い方がきつくなりがち。相手のやり方を一度認めてから伝える。",
     minus: "控えめで、尽くしても気づかれにくい。やったことは口に出すと報われる。",
   },
@@ -196,14 +203,15 @@ export const STAR_TEXT: Record<Star, StarText> = {
     catch: "クールな戦略家",
     traits: "冷静で判断力がある。先を読んで動ける。お金に強い。",
     work: "営業の数字づくりと提案の組み立てが得意。段取りで勝てる。",
+    lead: "先を読んで段取りで勝つリーダー。冷静さが頼りになる。ねぎらいを言葉にするほど、人が残る。",
     plus: "自立心が強く、クールに見られがち。「ありがとう」「ごめん」を言葉にすると印象が変わる。",
     minus: "クールさの奥に情熱がある。思い込んだら粘り強い。強引に見えないよう相手の間を待つ。",
   },
 };
 
-export function starText(star: Star, polarity: Polarity): { catch: string; traits: string; work: string; note: string } {
+export function starText(star: Star, polarity: Polarity): { catch: string; traits: string; work: string; lead: string; note: string } {
   const t = STAR_TEXT[star];
-  return { catch: t.catch, traits: t.traits, work: t.work, note: polarity === "+" ? t.plus : t.minus };
+  return { catch: t.catch, traits: t.traits, work: t.work, lead: t.lead, note: polarity === "+" ? t.plus : t.minus };
 }
 
 /** 殺界の表示名 */

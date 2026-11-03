@@ -108,6 +108,9 @@ export default async function FortunePage() {
         <p className="text-sm text-indigo-100 mt-0.5">{text.catch}</p>
         <p className="text-sm text-white/90 mt-3 leading-relaxed">{text.traits}</p>
         <p className="text-sm text-white/90 mt-1.5 leading-relaxed"><span className="text-indigo-200">FIT STAGEでは：</span>{text.work}</p>
+        {(me.isAdmin || isOwnerSelf) && (
+          <p className="text-sm text-white/90 mt-1.5 leading-relaxed"><span className="text-indigo-200">リーダーとして：</span>{text.lead}</p>
+        )}
         <p className="text-xs text-indigo-200 mt-2 leading-relaxed">{text.note}</p>
       </section>
 
