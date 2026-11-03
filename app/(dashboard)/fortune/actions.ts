@@ -21,13 +21,14 @@ export async function setMyBirthDateAction(formData: FormData): Promise<{ error:
   revalidatePath("/dashboard");
 }
 
-/** 代表からのひとこと（管理者だけ）。memberId が空なら全員へ */
+/** 代表からのひとこと（管理者だけ）。1人宛だけ（全員宛は使わないことにした） */
 export async function saveFortuneNoteAction(formData: FormData): Promise<{ error: string } | void> {
   const me = await getCurrentMember();
   if (!me?.isAdmin) return { error: "管理者だけが書けます" };
   const month = ((formData.get("month") as string) ?? "").trim();
   if (!/^\d{4}-\d{2}$/.test(month)) return { error: "月の形が違います" };
   const memberId = ((formData.get("memberId") as string) ?? "").trim() || null;
+  if (!memberId) return { error: "宛先の担当者がありません" };
   const body = ((formData.get("body") as string) ?? "").slice(0, 400);
   try {
     await saveFortuneNote({ memberId, month, body, createdBy: me.id });

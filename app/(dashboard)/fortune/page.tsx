@@ -1,8 +1,6 @@
-import { MoonStar, Users, Sparkles, Info, Compass } from "lucide-react";
+import { MoonStar, Users, Info, Compass } from "lucide-react";
 import Link from "next/link";
 import { getCurrentMember, getMembers } from "@/lib/members";
-import { getCustomers } from "@/lib/customers";
-import { getLessons } from "@/lib/lessons";
 import { cn } from "@/lib/cn";
 import {
   starTypeOf, monthPhase, yearCycle, monthCycle, relationPhase, nextBigDecline,
@@ -37,7 +35,6 @@ export default async function FortunePage() {
   const isOwnerSelf = !!owner && owner.id === me.id;
   const notes = await getFortuneNotes(ym);
   const noteForMe = notes.find((n) => n.memberId === me.id);
-  const noteForAll = notes.find((n) => n.memberId === null);
 
   if (!me.birthDate) {
     // 生年月日が無いと何も出せない。入口であることが一目で分かるように、ここで止める
@@ -53,7 +50,7 @@ export default async function FortunePage() {
           <ul className="text-sm text-white/90 mt-3 space-y-1">
             <li>・あなたの星（12タイプ）と持ち味、FIT STAGE での活かし方</li>
             <li>・今日／今月／今年の運気と、「今日のひとつ」（やること1つ）</li>
-            <li>・チームの星との相性、お客様との話のネタ</li>
+            <li>・チームの星との相性</li>
             <li>・ダッシュボードの「運勢」も、あなた専用に変わります</li>
           </ul>
           <div className="mt-4 rounded-xl bg-white/95 text-gray-900 p-3">
@@ -77,22 +74,10 @@ export default async function FortunePage() {
   const inDecline = y >= decline.from && y <= decline.to;
 
   // チーム：生年月日が入っている人（自分以外）
-  const customers = await getCustomers();
   const team = members
     .filter((x) => x.id !== me.id && x.birthDate)
     .map((x) => ({ m: x, type: starTypeOf(x.birthDate!) }))
     .filter((x): x is { m: typeof x.m; type: StarType } => !!x.type);
-
-  // お客様：自分のお客様（担当営業が自分か、直近半年に自分がレッスンした人）。管理者は在籍中の全員
-  const since = new Date(now - 183 * 86400000).toISOString().slice(0, 10);
-  const lessons = await getLessons(since);
-  const mine = new Set(lessons.filter((l) => l.trainerMemberId === me.id).map((l) => l.customerId));
-  const myCustomers = customers
-    .filter((c) => c.status === "active" && c.dateOfBirth && (me.isAdmin || c.salesMemberId === me.id || mine.has(c.id)))
-    .map((c) => ({ c, type: starTypeOf(c.dateOfBirth!) }))
-    .filter((x): x is { c: typeof x.c; type: StarType } => !!x.type)
-    .sort((a, b) => a.c.fullName.localeCompare(b.c.fullName, "ja"))
-    .slice(0, 60);
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
@@ -132,14 +117,9 @@ export default async function FortunePage() {
 
       {/* ひとこと（今月）。あるときだけ、静かに出す。見出しで「代表から」と言わず、最後に小さく名前だけ
           （「説得されている」と気づくと効きが落ちる。さりげない方が届く） */}
-      {(noteForMe || noteForAll) && !isOwnerSelf && (
+      {noteForMe && !isOwnerSelf && (
         <section className="rounded-2xl border border-amber-100 bg-[#fffdf5] px-4 py-3 mb-4">
-          {noteForMe && (
-            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{noteForMe.body}</p>
-          )}
-          {noteForAll && (
-            <p className={cn("text-sm text-gray-700 whitespace-pre-wrap leading-relaxed", noteForMe && "mt-2 pt-2 border-t border-amber-100")}>{noteForAll.body}</p>
-          )}
+          <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{noteForMe.body}</p>
           <p className="text-[11px] text-gray-400 text-right mt-1.5">— {ownerFirst}</p>
         </section>
       )}
@@ -179,10 +159,6 @@ export default async function FortunePage() {
           </div>
           <p className="text-[11px] text-gray-500 mb-1">今日のそれぞれの運気と、会ったときにかける言葉の例。いちばん効くのは、ここを見て<span className="font-semibold">その場で一言</span>かけること（名前は出さなくていい。言葉が届けば十分）。</p>
           <p className="text-[11px] text-gray-500 mb-3">ひとことを書くと、その人の星まわりに静かなメモとして出ます（見出しなし・最後に「— {ownerFirst}」だけ）。月に1〜2回、短く、その人の具体的な行動に触れるのがコツ。</p>
-          <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 mb-3">
-            <p className="text-xs font-bold text-gray-700">みんなへ（{m}月）</p>
-            <NoteForm memberId={null} month={ym} current={noteForAll?.body} placeholder="例：先週の体験、入り口の声かけよかった。今月もそれで。" />
-          </div>
           <ul className="divide-y divide-gray-100">
             {members.filter((x) => x.id !== me.id).map((x) => {
               const type = x.birthDate ? starTypeOf(x.birthDate) : null;
@@ -246,34 +222,6 @@ export default async function FortunePage() {
           </ul>
         )}
       </section>
-
-      {/* お客様 */}
-      <details className="rounded-2xl border border-gray-200 bg-white p-4 mb-4 group">
-        <summary className="cursor-pointer list-none flex items-center gap-1.5">
-          <Sparkles size={14} className="text-pink-500" />
-          <p className="text-xs font-bold text-gray-700">お客様との話のネタ <span className="font-normal text-gray-400">（{myCustomers.length}人・タップで開く）</span></p>
-        </summary>
-        <p className="text-[11px] text-gray-400 mt-2">生年月日が入っているお客様だけ。押しつけず、話題のひとつとして。「今月は○○どきらしいですよ」くらいが、ちょうどいい。</p>
-        {myCustomers.length === 0 ? (
-          <p className="text-xs text-gray-400 mt-2">生年月日の入っているお客様がいません（顧客マスタで入れられます）。</p>
-        ) : (
-          <ul className="divide-y divide-gray-100 mt-2">
-            {myCustomers.map(({ c, type }) => {
-              const mp = monthPhase(type, m);
-              return (
-                <li key={c.id} className="py-2">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {c.fullName}
-                    <span className="ml-2 text-xs font-medium text-gray-500">{type.label}</span>
-                    <span className="ml-2 text-xs text-gray-600">{PHASE_TEXT[mp].emoji} 今月 {mp}（{PHASE_TEXT[mp].name}）</span>
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{PHASE_TEXT[mp].customer}</p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </details>
 
       <details className="rounded-2xl border border-gray-200 bg-white p-4 mb-4">
         <summary className="cursor-pointer list-none text-xs font-bold text-gray-700">生年月日を変える</summary>
