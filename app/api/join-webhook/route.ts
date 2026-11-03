@@ -5,6 +5,7 @@ import { getStores } from "@/lib/stores";
 import { getMembers } from "@/lib/members";
 import { pushLineMessage } from "@/lib/line";
 import { portalUrl, canNotifyByLine } from "@/lib/line-notify";
+import { autoContractTrial } from "@/lib/auto-contract";
 
 /**
  * HPの入会申し込みフォーム（/store/join/）からの申込を受け取る。
@@ -15,7 +16,8 @@ import { portalUrl, canNotifyByLine } from "@/lib/line-notify";
  * 受け取ったら
  *   1. 申込書を原本として保存（membership_applications）
  *   2. 顧客マスタに反映（同じメールの人がいれば更新、いなければ新規）
- *   3. 管理者へLINEで通知
+ *   3. その人の体験レッスンを自動で「契約成功」に（手で記録するのと同じ。顧客は「審査中」へ）
+ *   4. 管理者へLINEで通知
  * を行う。1でこけたら失敗、2・3でこけても申込自体は成功として返す
  * （HP側は通知メールが別経路で飛んでいるため、ここで落として再送させない）。
  *
@@ -75,6 +77,7 @@ async function notifyAdmins(a: {
   plan?: string;
   health: boolean;
   guardian: boolean;
+  contracted?: string;
 }) {
   if ((process.env.LINE_NOTIFY_JOIN ?? "").trim().toLowerCase() === "off") return;
   try {
@@ -93,6 +96,7 @@ async function notifyAdmins(a: {
       a.plan ? `プラン: ${a.plan}` : null,
       a.health ? "※ 健康状態に申告あり" : null,
       a.guardian ? "※ 18歳未満・保護者の同意あり" : null,
+      a.contracted ? `体験: ${a.contracted}` : null,
       "",
       portalUrl("/master/applications"),
     ].filter(Boolean).join("\n");
@@ -183,6 +187,20 @@ export async function POST(req: NextRequest) {
     console.error("[join-webhook] 顧客マスタへの反映に失敗", e);
   }
 
+  // 体験レッスンを自動で契約成功にする（手で「契約結果を記録」するのと同じ）。こけても申込は成功
+  let contractedNote: string | undefined;
+  try {
+    const r = await autoContractTrial({ customerId, fullName, plan: trim(body.plan) });
+    if (r.marked) {
+      contractedNote = "契約成功にしました";
+      if (r.marked.customerId) await updateCustomer(r.marked.customerId, { status: "pending" });
+    } else {
+      contractedNote = `自動で契約成功にできず（${r.reason}）。体験の画面で記録してください`;
+    }
+  } catch (e) {
+    console.error("[join-webhook] 体験の契約成功の自動記録に失敗", e);
+  }
+
   try {
     const app = await addMembershipApplication({
       customerId,
@@ -219,6 +237,7 @@ export async function POST(req: NextRequest) {
     await notifyAdmins({
       fullName, storeName, plan: trim(body.plan), health,
       guardian: (body.guardian_consent ?? "").trim() !== "",
+      contracted: contractedNote,
     });
 
     return NextResponse.json({ success: true, application_id: app.id, customer_id: customerId });

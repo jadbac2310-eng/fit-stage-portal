@@ -186,6 +186,10 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
 | 英語トレーナーの応募（LINE通知のみ・DB保存なし） | `api/recruit.js` | `app/api/recruit-webhook/route.ts` |
 | お問い合わせ（LINE通知のみ・DB保存なし） | `api/contact.js` | `app/api/contact-webhook/route.ts` |
 
+- **入会申込が届いたら、その人の体験レッスンを自動で「契約成功」にする**（2026-11-03、`lib/auto-contract.ts`）。
+  手で「契約結果を記録」するのと同じ：契約成功・完了・顧客は審査中・🎉のLINE・操作ログ（記録者「HP申込」）。
+  対象は、その顧客（メールで一致、無ければ名前で一致）の体験のうち、キャンセルでなく未成約で、予約日が今日以前のいちばん最近のもの。
+  申込書のプラン名に「月2回／月4回／月8回」があれば契約プランにも入れる。できなかったときは管理者への申込LINEにその旨を添える。
 - 合言葉はHP側の環境変数 `PORTAL_WEBHOOK_SECRET`、ポータル側は `RESERVE_WEBHOOK_SECRET`。
   **同じ文字列**にすること。ヘッダ `x-webhook-secret` で検証する。
 - **受け口を増やしたら、必ず `middleware.ts` の `PUBLIC_PATHS` に追加する。**
