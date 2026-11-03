@@ -188,12 +188,9 @@ export default async function DashboardPage() {
   if (st) {
     fortune.emoji = st.emoji;
     fortune.message = st.summary;
-    // 「今日のひとつ」は代表の言葉として出す（出どころが上の人だと、期待がそのまま行動に出やすい）
-    const owner = members.find((x) => x.isOwner) ?? members.find((x) => x.isAdmin);
     fortune.star = {
       type: st.type.label, phase: st.today, name: st.name,
       month: st.month, monthName: PHASE_TEXT[st.month].name, tip: st.tip,
-      from: owner && owner.id !== myId ? owner.name.split(/[\s　]/)[0] : "自分",
     };
   }
   const hello   = greeting(now);
