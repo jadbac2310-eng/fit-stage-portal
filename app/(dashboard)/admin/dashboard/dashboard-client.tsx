@@ -23,6 +23,7 @@ import { Delta } from "@/components/ui/delta";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
+import { enrollmentFeeOf } from "@/lib/enrollment-fee";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString("ja-JP")}`;
@@ -70,8 +71,9 @@ export function computeMonth(
 ): MonthFigures {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
+  // 売上 = レッスン + 体験 + 入会金（契約成功した体験に付く。歩合は付かず会社の取り分）
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
-    + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx), 0);
+    + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx) + enrollmentFeeOf(t, ctx.customers), 0);
   // 場所利用料はレンタルジム代とFCT店舗の利用料。体験レッスン分も差し引く
   const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0) + (l.storeFee ?? 0), 0)
     + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0) + (t.fctStoreFee ?? 0) + (t.avenirStoreFee ?? 0) + (t.storeFee ?? 0), 0);
@@ -229,6 +231,8 @@ function computeBreakdown(
   for (const t of trialsInMonth) {
     const course = trialCourseLabel(t.course);
     add(byCourse, course, course, resolveTrialFee(t, ctx));
+    const enroll = enrollmentFeeOf(t, ctx.customers);
+    if (enroll > 0) add(byCourse, "入会金", "入会金", enroll);
   }
 
   // 場所利用料: レンタルジム・FCT店舗・アヴニール店舗別（通常レッスン＋体験レッスン）
@@ -632,7 +636,7 @@ export function RevenueDashboardClient({
 
       {/* KPI カード（タップで内訳） */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} prev={prev.revenue} goodWhenUp accent="text-blue-600" sub="完了レッスン単価の合計" onClick={() => setOpenCard("revenue")} />
+        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} prev={prev.revenue} goodWhenUp accent="text-blue-600" sub="レッスン・体験・入会金の合計" onClick={() => setOpenCard("revenue")} />
         <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} prev={prev.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" onClick={() => setOpenCard("trainer")} />
         <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} prev={prev.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" onClick={() => setOpenCard("sales")} />
         <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} prev={prev.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />

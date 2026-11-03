@@ -20,6 +20,7 @@ import { getExpenses } from "./expenses";
 import { getPayments } from "./payments";
 import { expenseTotal } from "./expenses-types";
 import { feeTotal } from "./payment-fees";
+import { enrollmentFeeOf } from "./enrollment-fee";
 import { isBillableLessonStatus, venueKindOf, DELIVERY_MODE_LABEL, type Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { Customer } from "./customers-types";
@@ -238,7 +239,8 @@ function monthFigures(month: string, c: Ctx, extras: MoneyExtras) {
   const trialsInMonth = completedTrials.filter((t) => isoToMonth(t.scheduledAt) === month);
   const lessonRevenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
   const trialRevenue = trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx), 0);
-  const revenue = lessonRevenue + trialRevenue;
+  const enrollmentRevenue = trialsInMonth.reduce((s, t) => s + enrollmentFeeOf(t, ctx.customers), 0);
+  const revenue = lessonRevenue + trialRevenue + enrollmentRevenue;
   const venueFeeOf = (x: { rentalGymFee?: number; fctStoreFee?: number; avenirStoreFee?: number; storeFee?: number }) =>
     (x.rentalGymFee ?? 0) + (x.fctStoreFee ?? 0) + (x.avenirStoreFee ?? 0) + (x.storeFee ?? 0);
   const venueCost = inMonth.reduce((s, l) => s + venueFeeOf(l), 0) + trialsInMonth.reduce((s, t) => s + venueFeeOf(t), 0);
@@ -252,7 +254,7 @@ function monthFigures(month: string, c: Ctx, extras: MoneyExtras) {
   const contracted = trialsInMonth.filter((t) => t.contracted === true).length;
   return {
     month,
-    revenue, lessonRevenue, trialRevenue, trainerPayout, salesPayout, venueCost, hourlyPayout, expenses, paymentFee, profit,
+    revenue, lessonRevenue, trialRevenue, enrollmentRevenue, trainerPayout, salesPayout, venueCost, hourlyPayout, expenses, paymentFee, profit,
     completedLessons: inMonth.length,
     scheduledLessons: lessons.filter((l) => l.status === "scheduled" && isoToMonth(l.scheduledAt) === month).length,
     trialsHeld: trialsInMonth.length,
@@ -267,7 +269,7 @@ function fmtFigures(f: ReturnType<typeof monthFigures>) {
   return {
     month: f.month,
     revenue: yen(f.revenue),
-    revenueBreakdown: { lessons: yen(f.lessonRevenue), trials: yen(f.trialRevenue) },
+    revenueBreakdown: { lessons: yen(f.lessonRevenue), trials: yen(f.trialRevenue), enrollmentFees: yen(f.enrollmentRevenue) },
     trainerPayout: yen(f.trainerPayout),
     salesPayout: yen(f.salesPayout),
     venueCost: yen(f.venueCost),
@@ -510,7 +512,7 @@ export function assistantToolsFor(scope: AssistantScope): Anthropic.Tool[] {
 
 /** スタッフには見せない項目（どの道具の結果でも、この名前の項目は丸ごと落とす） */
 const STAFF_HIDDEN_KEYS = new Set([
-  "revenue", "revenueBreakdown", "lessonRevenue", "trialRevenue", "profit", "profitMargin",
+  "revenue", "revenueBreakdown", "lessonRevenue", "trialRevenue", "enrollmentRevenue", "profit", "profitMargin",
   "trainerPayout", "salesPayout", "venueCost", "venueFee", "hourlyPayout", "expenses", "cardFees",
   "commissionRate", "billing", "lastLoginAt", "recentActivity",
 ]);
@@ -600,7 +602,7 @@ async function run(name: string, input: ToolInput, scope: AssistantScope): Promi
         rows.push({
           month,
           completedLessons: done.length,
-          revenue: yen(done.reduce((s, l) => s + resolveLessonFee(l, c.ctx), 0)),
+          revenue: yen(done.reduce((s, l) => s + resolveLessonFee(l, c.ctx), 0) + held.reduce((s, t) => s + resolveTrialFee(t, c.ctx) + enrollmentFeeOf(t, c.customers), 0)),
           venueCost: yen(done.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0) + (l.storeFee ?? 0), 0)),
           customers: new Set(done.map((l) => l.customerId)).size,
           trialsHeld: held.length,

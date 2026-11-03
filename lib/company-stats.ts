@@ -18,6 +18,7 @@ import { isBillableLessonStatus } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { resolveLessonFee, resolveTrialFee, type CommissionContext } from "./commissions";
 import { jstDay } from "./highlights-types";
+import { enrollmentFeeOf } from "./enrollment-fee";
 
 /** お祝いする通算本数。細かく出すと見なくなるので、節目だけ */
 const MILESTONES = [100, 250, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 30000, 50000];
@@ -99,7 +100,7 @@ export function companyStats(
     for (const t of doneTrials) {
       if (!inRange(t.scheduledAt, r)) continue;
       count++;
-      revenue += resolveTrialFee(t, ctx);
+      revenue += resolveTrialFee(t, ctx) + enrollmentFeeOf(t, ctx.customers);
     }
     return { count, revenue };
   };
