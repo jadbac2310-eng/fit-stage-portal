@@ -17,6 +17,7 @@ import {
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
+import { sideJobTotals, sideJobsInMonth, type SideJob } from "@/lib/side-jobs-types";
 import { feeTotal, feePayments, type FeeablePayment } from "@/lib/payment-fees";
 import { withinDay, upTo, prevMonthOf } from "@/lib/month-compare";
 import { Delta } from "@/components/ui/delta";
@@ -56,6 +57,8 @@ interface MonthFigures {
   hourlyPayout: number;
   expenseTotal: number;
   paymentFee:   number;
+  /** 単発の仕事（マシン設置など）の外注費。売上には単発の仕事のいただいた金額が入っている */
+  sideJobCost:  number;
   profit:       number;
 }
 
@@ -68,12 +71,16 @@ export function computeMonth(
   hourlyTasks: HourlyTask[],
   expenses: Expense[],
   payments: FeeablePayment[],
+  sideJobs: SideJob[] = [],
 ): MonthFigures {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
   // 売上 = レッスン + 体験 + 入会金（契約成功した体験に付く。歩合は付かず会社の取り分）
+  // 単発の仕事（マシン設置など）：いただいた金額は売上、外注費は利益から引く
+  const side = sideJobTotals(sideJobs, month);
   const revenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0)
-    + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx) + enrollmentFeeOf(t, ctx.customers), 0);
+    + trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx) + enrollmentFeeOf(t, ctx.customers), 0)
+    + side.revenue;
   // 場所利用料はレンタルジム代とFCT店舗の利用料。体験レッスン分も差し引く
   const rentalCost = inMonth.reduce((s, l) => s + (l.rentalGymFee ?? 0) + (l.fctStoreFee ?? 0) + (l.avenirStoreFee ?? 0) + (l.storeFee ?? 0), 0)
     + trialsInMonth.reduce((s, t) => s + (t.rentalGymFee ?? 0) + (t.fctStoreFee ?? 0) + (t.avenirStoreFee ?? 0) + (t.storeFee ?? 0), 0);
@@ -86,8 +93,8 @@ export function computeMonth(
   const paymentFee = feeTotal(payments, month);
   return {
     month, revenue, trainerPayout, salesPayout, rentalCost,
-    hourlyPayout, expenseTotal: expenses_, paymentFee,
-    profit: revenue - trainerPayout - salesPayout - rentalCost - hourlyPayout - expenses_ - paymentFee,
+    hourlyPayout, expenseTotal: expenses_, paymentFee, sideJobCost: side.cost,
+    profit: revenue - trainerPayout - salesPayout - rentalCost - hourlyPayout - expenses_ - paymentFee - side.cost,
   };
 }
 
@@ -117,17 +124,18 @@ export function computeYear(
   hourlyTasks: HourlyTask[],
   expenses: Expense[],
   payments: FeeablePayment[],
+  sideJobs: SideJob[] = [],
 ): YearFigures {
   const months = Math.min(Math.max(throughMonth, 1), 12);
   const out: YearFigures = {
     year, months,
     revenue: 0, trainerPayout: 0, salesPayout: 0, rentalCost: 0,
-    hourlyPayout: 0, expenseTotal: 0, paymentFee: 0, profit: 0,
+    hourlyPayout: 0, expenseTotal: 0, paymentFee: 0, sideJobCost: 0, profit: 0,
   };
   for (let m = 1; m <= months; m++) {
     const f = computeMonth(
       `${year}-${String(m).padStart(2, "0")}`,
-      lessons, trialLessons, completedTrialLessons, ctx, hourlyTasks, expenses, payments,
+      lessons, trialLessons, completedTrialLessons, ctx, hourlyTasks, expenses, payments, sideJobs,
     );
     out.revenue       += f.revenue;
     out.trainerPayout += f.trainerPayout;
@@ -136,6 +144,7 @@ export function computeYear(
     out.hourlyPayout  += f.hourlyPayout;
     out.expenseTotal  += f.expenseTotal;
     out.paymentFee    += f.paymentFee;
+    out.sideJobCost   += f.sideJobCost;
     out.profit        += f.profit;
   }
   return out;
@@ -151,6 +160,7 @@ function computeMonthUpTo(
   expenses: Expense[],
   payments: FeeablePayment[],
   day: number | null,
+  sideJobs: SideJob[] = [],
 ): MonthFigures {
   return computeMonth(
     month,
@@ -161,6 +171,7 @@ function computeMonthUpTo(
     upTo(hourlyTasks, day, (t) => t.scheduledAt),
     upTo(expenses, day, (e) => e.incurredOn),
     upTo(payments, day, (p) => p.paidAt),
+    upTo(sideJobs, day, (j) => j.doneOn),
   );
 }
 
@@ -209,6 +220,7 @@ function computeBreakdown(
   hourlyTasks: HourlyTask[],
   expenses: Expense[],
   payments: FeeablePayment[],
+  sideJobs: SideJob[] = [],
 ): MonthBreakdown {
   const inMonth = lessons.filter((l) => isoToMonth(l.scheduledAt) === month);
   const trialsInMonth = completedTrialLessons.filter((t) => isoToMonth(t.scheduledAt) === month);
@@ -233,6 +245,11 @@ function computeBreakdown(
     add(byCourse, course, course, resolveTrialFee(t, ctx));
     const enroll = enrollmentFeeOf(t, ctx.customers);
     if (enroll > 0) add(byCourse, "入会金", "入会金", enroll);
+  }
+
+  // 単発の仕事（マシン設置など）は内容ごとにまとめて、いただいた金額で計上する
+  for (const j of sideJobsInMonth(sideJobs, month)) {
+    add(byCourse, `side:${j.title}`, `単発の仕事／${j.title}`, j.amount);
   }
 
   // 場所利用料: レンタルジム・FCT店舗・アヴニール店舗別（通常レッスン＋体験レッスン）
@@ -446,7 +463,7 @@ function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, 
         </div>
         {kind === "revenue" && (
           <GroupedRows rows={breakdown.revenueByCourse} unit="件"
-            note="コース別の合計です。回数券・月プランは入金額を回数で割った1回あたりの単価で計上しています。" />
+            note="コース別の合計です。回数券・月プランは入金額を回数で割った1回あたりの単価で計上しています。単発の仕事（マシン設置など）はいただいた金額で入っています。" />
         )}
         {kind === "trainer" && <TrainerBreakdown entries={breakdown.trainers} />}
         {kind === "sales" && <SalesBreakdown entries={breakdown.sales} />}
@@ -479,6 +496,7 @@ function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, 
             <BreakdownLine label="− 業務（時給）" amount={figures.hourlyPayout} />
             <BreakdownLine label="− 経費" amount={figures.expenseTotal} />
             <BreakdownLine label="− 決済手数料" amount={figures.paymentFee} />
+            {figures.sideJobCost > 0 && <BreakdownLine label="− 外注費（単発の仕事）" amount={figures.sideJobCost} />}
             <BreakdownLine label="＝ 利益" sub={`利益率 ${margin}%`} amount={figures.profit} strong />
             <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
               オーナーのレッスンは歩合の対象外なので、その売上はまるごとこの利益に残ります。
@@ -492,7 +510,7 @@ function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, 
 }
 
 export function RevenueDashboardClient({
-  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, payments, rentalGyms, fctStores, avenirStores, stores,
+  customers, lessons, trialLessons, completedTrialLessons, sessionPasses, customerPlans, lessonFees, sessionPassPriceMap, members, trainerRates, hourlyTasks, expenses, payments, sideJobs, rentalGyms, fctStores, avenirStores, stores,
 }: {
   customers:     Customer[];
   lessons:       Lesson[];
@@ -507,6 +525,7 @@ export function RevenueDashboardClient({
   hourlyTasks?:  HourlyTask[];
   expenses?:     Expense[];
   payments?:     FeeablePayment[];
+  sideJobs?:     SideJob[];
   rentalGyms?:   { id: string; name: string }[];
   fctStores?:    { id: string; name: string; rate?: number }[];
   avenirStores?: { id: string; name: string }[];
@@ -518,6 +537,7 @@ export function RevenueDashboardClient({
   const tasks = useMemo(() => hourlyTasks ?? [], [hourlyTasks]);
   const costs = useMemo(() => expenses ?? [], [expenses]);
   const paid = useMemo(() => payments ?? [], [payments]);
+  const jobs = useMemo(() => sideJobs ?? [], [sideJobs]);
 
   // FCT経由のお客さまの売上は「単価の税抜 × 店舗の歩合率」で出すので、歩合率を渡す
   const fctRates = useMemo(
@@ -536,13 +556,13 @@ export function RevenueDashboardClient({
   const series = useMemo(() => {
     const months = [...monthOptions].reverse();
     return months.map((o) => {
-      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid);
+      const f = computeMonth(o.value, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs);
       const [, m] = o.value.split("-");
       return { ...f, label: `${Number(m)}月` };
     });
-  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid]);
+  }, [monthOptions, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs]);
 
-  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid), [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid]);
+  const cur = useMemo(() => computeMonth(month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs), [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs]);
 
   // 前月比。
   // 今月を見ているときだけ、先月も「同じ日まで」で数える。
@@ -551,8 +571,8 @@ export function RevenueDashboardClient({
   const compareDay = month === currentMonth() ? today : null;
   const compareLabel = compareDay == null ? "先月" : "先月の同じ日まで";
   const prev = useMemo(
-    () => computeMonthUpTo(prevMonthOf(month), lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, compareDay),
-    [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, compareDay],
+    () => computeMonthUpTo(prevMonthOf(month), lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, compareDay, jobs),
+    [month, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, compareDay, jobs],
   );
 
   const margin = cur.revenue > 0 ? Math.round((cur.profit / cur.revenue) * 100) : 0;
@@ -563,23 +583,23 @@ export function RevenueDashboardClient({
     const [y, m] = month.split("-").map((x) => parseInt(x, 10));
     return [y, m];
   }, [month]);
-  const yearArgs = [lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid] as const;
+  const yearArgs = [lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs] as const;
   const yearCur = useMemo(
     () => computeYear(selYear, selMonthNo, ...yearArgs),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selYear, selMonthNo, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid],
+    [selYear, selMonthNo, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs],
   );
   // 去年の「同じ時期まで」。年の途中で去年まるごとと比べると必ず減って見えるため
   const yearPrev = useMemo(
     () => computeYear(selYear - 1, selMonthNo, ...yearArgs),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selYear, selMonthNo, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid],
+    [selYear, selMonthNo, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs],
   );
   // 去年の通年（12か月ぶん）。着地の目安として別に出す
   const lastYearFull = useMemo(
     () => computeYear(selYear - 1, 12, ...yearArgs),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selYear, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid],
+    [selYear, lessons, trialLessons, trialsCompleted, ctx, tasks, costs, paid, jobs],
   );
   const yearMargin = yearCur.revenue > 0 ? Math.round((yearCur.profit / yearCur.revenue) * 100) : 0;
   const fullYear = selMonthNo >= 12;
@@ -591,8 +611,8 @@ export function RevenueDashboardClient({
   const avenirStoreNames = useMemo(() => new Map((avenirStores ?? []).map((a) => [a.id, a.name])), [avenirStores]);
   const storeNames = useMemo(() => new Map((stores ?? []).map((v) => [v.id, v.name])), [stores]);
   const breakdown = useMemo(
-    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs, paid) : null,
-    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs, paid],
+    () => openCard ? computeBreakdown(month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs, paid, jobs) : null,
+    [openCard, month, lessons, trialLessons, trialsCompleted, ctx, gymNames, fctStoreNames, avenirStoreNames, storeNames, tasks, costs, paid, jobs],
   );
 
   // 今月の実績（全体）
@@ -636,7 +656,7 @@ export function RevenueDashboardClient({
 
       {/* KPI カード（タップで内訳） */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} prev={prev.revenue} goodWhenUp accent="text-blue-600" sub="レッスン・体験・入会金の合計" onClick={() => setOpenCard("revenue")} />
+        <KpiCard icon={<TrendingUp size={12} />} label="売上" value={cur.revenue} prev={prev.revenue} goodWhenUp accent="text-blue-600" sub="レッスン・体験・入会金・単発の仕事" onClick={() => setOpenCard("revenue")} />
         <KpiCard icon={<Users size={12} />} label="トレーナー支払" value={cur.trainerPayout} prev={prev.trainerPayout} accent="text-indigo-600" sub="歩合 50%（レッスン料金の半分）" onClick={() => setOpenCard("trainer")} />
         <KpiCard icon={<Briefcase size={12} />} label="営業支払" value={cur.salesPayout} prev={prev.salesPayout} accent="text-amber-600" sub="歩合＋成約ボーナス" onClick={() => setOpenCard("sales")} />
         <KpiCard icon={<Building2 size={12} />} label="場所利用料" value={cur.rentalCost} prev={prev.rentalCost} accent="text-rose-600" sub="レンタルジムの利用料" onClick={() => setOpenCard("rental")} />
@@ -707,6 +727,7 @@ export function RevenueDashboardClient({
           <BreakdownLine label="− 業務（時給）" amount={yearCur.hourlyPayout} compact />
           <BreakdownLine label="− 経費" amount={yearCur.expenseTotal} compact />
           <BreakdownLine label="− 決済手数料" amount={yearCur.paymentFee} compact />
+          {yearCur.sideJobCost > 0 && <BreakdownLine label="− 外注費（単発の仕事）" amount={yearCur.sideJobCost} compact />}
           <BreakdownLine label="＝ 年間の利益" amount={yearCur.profit} strong compact />
         </div>
 

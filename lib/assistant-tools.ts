@@ -21,6 +21,8 @@ import { getPayments } from "./payments";
 import { expenseTotal } from "./expenses-types";
 import { feeTotal } from "./payment-fees";
 import { enrollmentFeeOf } from "./enrollment-fee";
+import { getSideJobs } from "./side-jobs";
+import { sideJobTotals } from "./side-jobs-types";
 import { isBillableLessonStatus, venueKindOf, DELIVERY_MODE_LABEL, type Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { Customer } from "./customers-types";
@@ -219,11 +221,12 @@ interface MoneyExtras {
   hourlyTasks: Awaited<ReturnType<typeof getHourlyTasks>>;
   expenses: Awaited<ReturnType<typeof getExpenses>>;
   payments: { amount: number; method?: string; paidAt?: string }[];
+  sideJobs: Awaited<ReturnType<typeof getSideJobs>>;
 }
 
 async function loadMoneyExtras(): Promise<MoneyExtras> {
-  const [hourlyTasks, expenses, payments] = await Promise.all([getHourlyTasks(), getExpenses(), getPayments()]);
-  return { hourlyTasks, expenses, payments: payments.map((p) => ({ amount: p.amount, method: p.method, paidAt: p.paidAt })) };
+  const [hourlyTasks, expenses, payments, sideJobs] = await Promise.all([getHourlyTasks(), getExpenses(), getPayments(), getSideJobs()]);
+  return { hourlyTasks, expenses, payments: payments.map((p) => ({ amount: p.amount, method: p.method, paidAt: p.paidAt })), sideJobs };
 }
 
 /**
@@ -240,7 +243,10 @@ function monthFigures(month: string, c: Ctx, extras: MoneyExtras) {
   const lessonRevenue = inMonth.reduce((s, l) => s + resolveLessonFee(l, ctx), 0);
   const trialRevenue = trialsInMonth.reduce((s, t) => s + resolveTrialFee(t, ctx), 0);
   const enrollmentRevenue = trialsInMonth.reduce((s, t) => s + enrollmentFeeOf(t, ctx.customers), 0);
-  const revenue = lessonRevenue + trialRevenue + enrollmentRevenue;
+  const side = sideJobTotals(extras.sideJobs, month);
+  const sideJobRevenue = side.revenue;
+  const sideJobCost = side.cost;
+  const revenue = lessonRevenue + trialRevenue + enrollmentRevenue + sideJobRevenue;
   const venueFeeOf = (x: { rentalGymFee?: number; fctStoreFee?: number; avenirStoreFee?: number; storeFee?: number }) =>
     (x.rentalGymFee ?? 0) + (x.fctStoreFee ?? 0) + (x.avenirStoreFee ?? 0) + (x.storeFee ?? 0);
   const venueCost = inMonth.reduce((s, l) => s + venueFeeOf(l), 0) + trialsInMonth.reduce((s, t) => s + venueFeeOf(t), 0);
@@ -250,11 +256,11 @@ function monthFigures(month: string, c: Ctx, extras: MoneyExtras) {
   const hourlyPayout = buildHourlyEntries(extras.hourlyTasks, month).reduce((s, e) => s + e.total, 0);
   const expenses = expenseTotal(extras.expenses, month);
   const paymentFee = feeTotal(extras.payments, month);
-  const profit = revenue - trainerPayout - salesPayout - venueCost - hourlyPayout - expenses - paymentFee;
+  const profit = revenue - trainerPayout - salesPayout - venueCost - hourlyPayout - expenses - paymentFee - sideJobCost;
   const contracted = trialsInMonth.filter((t) => t.contracted === true).length;
   return {
     month,
-    revenue, lessonRevenue, trialRevenue, enrollmentRevenue, trainerPayout, salesPayout, venueCost, hourlyPayout, expenses, paymentFee, profit,
+    revenue, lessonRevenue, trialRevenue, enrollmentRevenue, sideJobRevenue, sideJobCost, trainerPayout, salesPayout, venueCost, hourlyPayout, expenses, paymentFee, profit,
     completedLessons: inMonth.length,
     scheduledLessons: lessons.filter((l) => l.status === "scheduled" && isoToMonth(l.scheduledAt) === month).length,
     trialsHeld: trialsInMonth.length,
@@ -269,7 +275,8 @@ function fmtFigures(f: ReturnType<typeof monthFigures>) {
   return {
     month: f.month,
     revenue: yen(f.revenue),
-    revenueBreakdown: { lessons: yen(f.lessonRevenue), trials: yen(f.trialRevenue), enrollmentFees: yen(f.enrollmentRevenue) },
+    revenueBreakdown: { lessons: yen(f.lessonRevenue), trials: yen(f.trialRevenue), enrollmentFees: yen(f.enrollmentRevenue), sideJobs: yen(f.sideJobRevenue) },
+    sideJobCost: yen(f.sideJobCost),
     trainerPayout: yen(f.trainerPayout),
     salesPayout: yen(f.salesPayout),
     venueCost: yen(f.venueCost),
@@ -306,7 +313,7 @@ const periodProps = {
 export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_business_summary",
-    description: "対象月の経営サマリー（売上＝レッスン＋体験、トレーナー歩合・営業歩合・会場利用料・業務の時給・経費・カード手数料、利益、レッスン数、体験の実施と成約、新規顧客）と、前月との比較。「今月どう？」「先月の利益は」「売上は伸びてる？」に使う。経営サマリー画面と同じ計算。",
+    description: "対象月の経営サマリー（売上＝レッスン＋体験＋入会金＋単発の仕事（マシン設置など）、外注費（単発の仕事）、トレーナー歩合・営業歩合・会場利用料・業務の時給・経費・カード手数料、利益、レッスン数、体験の実施と成約、新規顧客）と、前月との比較。「今月どう？」「先月の利益は」「売上は伸びてる？」に使う。経営サマリー画面と同じ計算。",
     input_schema: {
       type: "object",
       properties: { month: { type: "string", description: "対象月 YYYY-MM（省略時は今月）" } },
@@ -512,7 +519,7 @@ export function assistantToolsFor(scope: AssistantScope): Anthropic.Tool[] {
 
 /** スタッフには見せない項目（どの道具の結果でも、この名前の項目は丸ごと落とす） */
 const STAFF_HIDDEN_KEYS = new Set([
-  "revenue", "revenueBreakdown", "lessonRevenue", "trialRevenue", "enrollmentRevenue", "profit", "profitMargin",
+  "revenue", "revenueBreakdown", "lessonRevenue", "trialRevenue", "enrollmentRevenue", "sideJobRevenue", "sideJobCost", "profit", "profitMargin",
   "trainerPayout", "salesPayout", "venueCost", "venueFee", "hourlyPayout", "expenses", "cardFees",
   "commissionRate", "billing", "lastLoginAt", "recentActivity",
 ]);

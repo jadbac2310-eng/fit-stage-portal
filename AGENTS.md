@@ -75,6 +75,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 重複は `line_notifications`（kind `store-tomorrow`、ref `store-tomorrow:YYYY-MM-DD`）で防ぐので、外部の定期アクセスで数分おきに叩いても1日1通。
 - Hobby プランの cron は「指定の1時間のどこか」で動く。きっちり18:00にしたいなら、line-reminders と同じ外部の定期アクセスにこのURL（`?secret=`）も足す。
 
+## 単発の仕事（マシン設置などの請負。2026-11-05）
+
+`/master/side-jobs`（管理者のみ。マスタ管理から入る）。日付・内容・依頼主・いただいた金額・外注費・外注先を1件ずつ入れる。
+例：マシン設置を ¥70,000 で請け負い、アヴニールに ¥50,000 で外注 → 差額 ¥20,000 が会社の取り分。
+- テーブルは `side_jobs`（`20261105000001_side_jobs.sql`、RLS有効）。型と集計は `lib/side-jobs-types.ts`、DBは `lib/side-jobs.ts`。
+- **いただいた金額は売上、外注費は「外注費（単発の仕事）」として利益から引く。** 経営サマリー（`computeMonth`）と年間・前月比・売上の内訳、アシスタントの経営サマリーに入る。
+- 歩合は付かない（レッスンではないため）。スタッフ向けの「FIT STAGE のいま」の伸び率には入れていない（レッスンの伸びを見せるため）。
+- アシスタントのスタッフ向けでは金額を伏せる（`STAFF_HIDDEN_KEYS` に `sideJobRevenue`・`sideJobCost`）。
+
 ## 入会金（2026-11-03 から）
 
 店舗で体験レッスンをして入会（契約成功）したお客様から **入会金 ¥5,500** をいただく。体験料 ¥6,600 は成約してもしなくても別にいただく。
