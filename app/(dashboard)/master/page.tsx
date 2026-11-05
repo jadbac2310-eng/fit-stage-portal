@@ -240,7 +240,7 @@ export default async function MasterPage() {
         </Link>
 
         <Link
-          href="/master/side-jobs"
+          href="/side-jobs"
           className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
         >
           <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">

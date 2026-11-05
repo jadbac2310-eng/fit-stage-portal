@@ -14,6 +14,7 @@ import {
   ListChecks,
   Sparkles,
   MoonStar,
+  Hammer,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export const NAV_TREE: NavNode[] = [
   { label: "今日の一手",     href: "/fortune",     icon: MoonStar },
   { label: "レッスン",       href: "/lessons",     icon: Dumbbell },
   { label: "歩合",           href: "/commissions", icon: PiggyBank },
+  { label: "単発の仕事",     href: "/side-jobs",   icon: Hammer, adminOnly: true },
   { label: "プラン管理",     href: "/plans",       icon: CreditCard },
   { label: "入会申し込み",   href: "/master/applications", icon: FileSignature },
   { label: "ホテル営業",     href: "/sales",       icon: Building2 },

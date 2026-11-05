@@ -33,7 +33,7 @@ function readForm(formData: FormData) {
 }
 
 function refresh() {
-  revalidatePath("/master/side-jobs");
+  revalidatePath("/side-jobs");
   revalidatePath("/admin/dashboard");
 }
 

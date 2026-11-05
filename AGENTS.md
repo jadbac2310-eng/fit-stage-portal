@@ -45,6 +45,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `20261103000002_member_birth_date.sql`（members.birth_date）
   - `20261103000003_fortune_notes.sql`（代表からのひとこと fortune_notes）
 - 2026-11-05｜`20261105000001_side_jobs.sql`（単発の仕事 side_jobs。受け取り方 pay_method・入金日 paid_on も込み。確認の表は 件数0）
+- 2026-11-05｜`20261104000003_catch_up.sql`（全テーブルのRLS有効化＋ハンドブックの店舗用LINE差し替え。確認の表は 旧リンク0・新リンク1）
+  - `20261104000001_wiki_store_line_link.sql`・`20261104000002_enable_rls_all_public_tables.sql`
 
 ## 今日の一手（六星占術の考え方をもとにした運気。コード内の呼び名は「星まわり」）
 
@@ -78,7 +80,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 単発の仕事（マシン設置などの請負。2026-11-05）
 
-`/master/side-jobs`（管理者のみ。マスタ管理から入る）。日付・内容・依頼主・いただいた金額・外注費・外注先を1件ずつ入れる。
+`/side-jobs`（管理者のみ。目次の「単発の仕事」から入る。2026-11-05 にマスタ管理の中から目次へ出した。`/master/side-jobs` は転送）。日付・内容・依頼主・いただいた金額・外注費・外注先を1件ずつ入れる。
 例：マシン設置を ¥70,000 で請け負い、アヴニールに ¥50,000 で外注 → 差額 ¥20,000 が会社の取り分。
 - テーブルは `side_jobs`（`20261105000001_side_jobs.sql`、RLS有効）。型と集計は `lib/side-jobs-types.ts`、DBは `lib/side-jobs.ts`。
 - **いただいた金額は売上、外注費は「外注費（単発の仕事）」として利益から引く。** 経営サマリー（`computeMonth`）と年間・前月比・売上の内訳、アシスタントの経営サマリーに入る。
