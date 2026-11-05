@@ -44,6 +44,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-03｜`20261103000004_fortune_catch_up.sql`（星まわり用。下の2本をまとめて実行）
   - `20261103000002_member_birth_date.sql`（members.birth_date）
   - `20261103000003_fortune_notes.sql`（代表からのひとこと fortune_notes）
+- 2026-11-05｜`20261105000001_side_jobs.sql`（単発の仕事 side_jobs。受け取り方 pay_method・入金日 paid_on も込み。確認の表は 件数0）
 
 ## 今日の一手（六星占術の考え方をもとにした運気。コード内の呼び名は「星まわり」）
 
