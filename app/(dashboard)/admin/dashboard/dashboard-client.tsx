@@ -17,7 +17,7 @@ import {
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { expenseTotal, expensesInMonth, type Expense } from "@/lib/expenses-types";
-import { sideJobTotals, sideJobsInMonth, type SideJob } from "@/lib/side-jobs-types";
+import { sideJobTotals, sideJobsInMonth, sideJobPayments, type SideJob } from "@/lib/side-jobs-types";
 import { feeTotal, feePayments, type FeeablePayment } from "@/lib/payment-fees";
 import { withinDay, upTo, prevMonthOf } from "@/lib/month-compare";
 import { Delta } from "@/components/ui/delta";
@@ -536,8 +536,9 @@ export function RevenueDashboardClient({
   const trialsCompleted = useMemo(() => completedTrialLessons ?? [], [completedTrialLessons]);
   const tasks = useMemo(() => hourlyTasks ?? [], [hourlyTasks]);
   const costs = useMemo(() => expenses ?? [], [expenses]);
-  const paid = useMemo(() => payments ?? [], [payments]);
   const jobs = useMemo(() => sideJobs ?? [], [sideJobs]);
+  // 決済手数料は入金の記録と単発の仕事（カードでいただいたもの）を合わせて数える
+  const paid = useMemo(() => [...(payments ?? []), ...sideJobPayments(jobs)], [payments, jobs]);
 
   // FCT経由のお客さまの売上は「単価の税抜 × 店舗の歩合率」で出すので、歩合率を渡す
   const fctRates = useMemo(

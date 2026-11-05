@@ -19,6 +19,8 @@ function readForm(formData: FormData) {
   const client = (formData.get("client") as string)?.trim() || undefined;
   const vendor = (formData.get("vendor") as string)?.trim() || undefined;
   const note   = (formData.get("note")   as string)?.trim() || undefined;
+  const payMethod = (formData.get("payMethod") as string)?.trim() || undefined;
+  const paidOn    = (formData.get("paidOn")    as string)?.trim() || undefined;
   const amount = toInt(formData.get("amount"));
   const cost   = toInt(formData.get("cost"));
 
@@ -27,7 +29,7 @@ function readForm(formData: FormData) {
   if (!Number.isFinite(amount) || amount < 0) throw new ActionError("いただいた金額は0以上の数字で入力してください");
   if (!Number.isFinite(cost)   || cost < 0)   throw new ActionError("外注費は0以上の数字で入力してください");
 
-  return { doneOn, title, client, vendor, note, amount, cost };
+  return { doneOn, title, client, vendor, note, amount, cost, payMethod, paidOn };
 }
 
 function refresh() {

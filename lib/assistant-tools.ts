@@ -22,7 +22,7 @@ import { expenseTotal } from "./expenses-types";
 import { feeTotal } from "./payment-fees";
 import { enrollmentFeeOf } from "./enrollment-fee";
 import { getSideJobs } from "./side-jobs";
-import { sideJobTotals } from "./side-jobs-types";
+import { sideJobTotals, sideJobPayments } from "./side-jobs-types";
 import { isBillableLessonStatus, venueKindOf, DELIVERY_MODE_LABEL, type Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { Customer } from "./customers-types";
@@ -226,7 +226,9 @@ interface MoneyExtras {
 
 async function loadMoneyExtras(): Promise<MoneyExtras> {
   const [hourlyTasks, expenses, payments, sideJobs] = await Promise.all([getHourlyTasks(), getExpenses(), getPayments(), getSideJobs()]);
-  return { hourlyTasks, expenses, payments: payments.map((p) => ({ amount: p.amount, method: p.method, paidAt: p.paidAt })), sideJobs };
+  // 決済手数料は入金の記録と単発の仕事（カードでいただいたもの）を合わせて数える（経営サマリーと同じ）
+  const pays = [...payments.map((p) => ({ amount: p.amount, method: p.method, paidAt: p.paidAt })), ...sideJobPayments(sideJobs)];
+  return { hourlyTasks, expenses, payments: pays, sideJobs };
 }
 
 /**

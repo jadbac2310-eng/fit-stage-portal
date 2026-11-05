@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, X, Hammer, StickyNote } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
-import { SIDE_JOB_TITLES, SIDE_JOB_VENDORS, sideJobsInMonth, type SideJob } from "@/lib/side-jobs-types";
+import { SIDE_JOB_TITLES, SIDE_JOB_VENDORS, sideJobsInMonth, sideJobFee, type SideJob } from "@/lib/side-jobs-types";
+import { PAYMENT_METHODS } from "@/lib/payments-types";
+import { paymentFee } from "@/lib/payment-fees";
 import { assertActionOk } from "@/lib/action-result";
 import { createSideJobAction, updateSideJobAction, deleteSideJobAction } from "./actions";
 
@@ -52,7 +54,10 @@ function SideJobForm({
   const [error, setError] = useState("");
   const [amount, setAmount] = useState<string>(defaultValues?.amount != null ? String(defaultValues.amount) : "");
   const [cost, setCost] = useState<string>(defaultValues?.cost != null ? String(defaultValues.cost) : "");
-  const profit = (parseInt(amount || "0", 10) || 0) - (parseInt(cost || "0", 10) || 0);
+  const [payMethod, setPayMethod] = useState<string>(defaultValues?.payMethod ?? "");
+  const amountNum = parseInt(amount || "0", 10) || 0;
+  const fee = paymentFee(amountNum, payMethod);
+  const profit = amountNum - (parseInt(cost || "0", 10) || 0) - fee;
 
   async function handleSubmit(fd: FormData) {
     setError("");
@@ -99,6 +104,23 @@ function SideJobForm({
         <input name="vendor" list="side-job-vendors" defaultValue={defaultValues?.vendor} placeholder="例: アヴニール" className={inputClass} />
         <datalist id="side-job-vendors">{SIDE_JOB_VENDORS.map((v) => <option key={v} value={v} />)}</datalist>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>受け取り方</label>
+          <select name="payMethod" value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className={inputClass}>
+            <option value="">未定・未入金</option>
+            {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>入金日</label>
+          <input name="paidOn" type="date" defaultValue={defaultValues?.paidOn ?? ""} className={inputClass} />
+          <p className="text-[11px] text-gray-400 mt-1">空なら上の日付。手数料はこの月に引きます</p>
+        </div>
+      </div>
+      {fee > 0 && (
+        <p className="text-xs text-gray-500">決済手数料：<span className="font-semibold text-rose-600">{yen(fee)}</span>（入金の記録と同じ料率）</p>
+      )}
       <p className="text-sm text-gray-600">
         差額（会社の取り分）：<span className={profit >= 0 ? "font-bold text-emerald-600" : "font-bold text-rose-600"}>{yen(profit)}</span>
       </p>
@@ -153,12 +175,14 @@ function SideJobRow({ job }: { job: SideJob }) {
         <p className="text-sm font-bold text-gray-900">{job.title}{job.client && <span className="font-normal text-gray-500">　{job.client}</span>}</p>
         <p className="text-xs text-gray-500 mt-1 tabular-nums">
           売上 {yen(job.amount)}　−　外注 {yen(job.cost)}{job.vendor ? `（${job.vendor}）` : ""}
+          {sideJobFee(job) > 0 && <>　−　手数料 {yen(sideJobFee(job))}</>}
         </p>
+        {job.payMethod && <p className="text-[11px] text-gray-400 mt-0.5">{job.payMethod}{job.paidOn && job.paidOn !== job.doneOn ? `・入金 ${mdLabel(job.paidOn)}` : ""}</p>}
         {job.note && (
           <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><StickyNote size={11} className="flex-shrink-0" />{job.note}</p>
         )}
       </div>
-      <p className="text-sm font-bold text-emerald-600 tabular-nums flex-shrink-0">{yen(job.amount - job.cost)}</p>
+      <p className="text-sm font-bold text-emerald-600 tabular-nums flex-shrink-0">{yen(job.amount - job.cost - sideJobFee(job))}</p>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => setMode("edit")} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Pencil size={13} /></button>
         <button onClick={handleDelete} disabled={deleting} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
@@ -174,7 +198,7 @@ export function SideJobsClient({ jobs }: { jobs: SideJob[] }) {
   const [month, setMonth] = useState(currentMonth);
   const options = useMemo(() => monthOptions(), []);
   const rows = useMemo(() => sideJobsInMonth(jobs, month), [jobs, month]);
-  const totals = useMemo(() => rows.reduce((s, j) => ({ amount: s.amount + j.amount, cost: s.cost + j.cost }), { amount: 0, cost: 0 }), [rows]);
+  const totals = useMemo(() => rows.reduce((s, j) => ({ amount: s.amount + j.amount, cost: s.cost + j.cost, fee: s.fee + sideJobFee(j) }), { amount: 0, cost: 0, fee: 0 }), [rows]);
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
@@ -200,7 +224,7 @@ export function SideJobsClient({ jobs }: { jobs: SideJob[] }) {
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <span className="text-xs text-gray-500 ml-auto tabular-nums">
-          {rows.length}件・売上 {yen(totals.amount)}・外注 {yen(totals.cost)}・差額 <span className="font-bold text-emerald-600">{yen(totals.amount - totals.cost)}</span>
+          {rows.length}件・売上 {yen(totals.amount)}・外注 {yen(totals.cost)}{totals.fee > 0 ? `・手数料 ${yen(totals.fee)}` : ""}・差額 <span className="font-bold text-emerald-600">{yen(totals.amount - totals.cost - totals.fee)}</span>
         </span>
       </div>
 

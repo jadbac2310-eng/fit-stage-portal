@@ -5,7 +5,7 @@ import type { SideJob } from "./side-jobs-types";
 // 単発の仕事のDBアクセス。型と集計は side-jobs-types.ts に置く
 // （クライアントコンポーネントから supabase を巻き込まないため）。
 export type { SideJob } from "./side-jobs-types";
-export { sideJobsInMonth, sideJobTotals } from "./side-jobs-types";
+export { sideJobsInMonth, sideJobTotals, sideJobPayments, sideJobFee } from "./side-jobs-types";
 
 type DbRow = {
   id:         string;
@@ -15,6 +15,8 @@ type DbRow = {
   amount:     number;
   cost:       number;
   vendor:     string | null;
+  pay_method?: string | null;
+  paid_on?:    string | null;
   note:       string | null;
   created_by: string | null;
   created_at: string;
@@ -30,6 +32,8 @@ function fromDb(row: DbRow): SideJob {
     amount:      row.amount,
     cost:        row.cost,
     vendor:      row.vendor ?? undefined,
+    payMethod:   row.pay_method ?? undefined,
+    paidOn:      row.paid_on ?? undefined,
     note:        row.note ?? undefined,
     createdById: row.created_by ?? undefined,
     createdAt:   row.created_at,
@@ -56,33 +60,40 @@ async function getSideJobsUncached(): Promise<SideJob[]> {
 
 export interface SideJobInput {
   doneOn: string; title: string; client?: string; amount: number; cost: number; vendor?: string; note?: string;
+  payMethod?: string; paidOn?: string;
+}
+
+/** 受け取り方の列（pay_method・paid_on）が未適用のDBでも、それ以外は保存できるようにする */
+function isMissingPayColumns(e: { message?: string } | null): boolean {
+  return !!e && /pay_method|paid_on/i.test(e.message ?? "");
 }
 
 export async function addSideJob(input: SideJobInput & { createdBy?: string }): Promise<SideJob> {
-  const { data, error } = await createAdminClient()
-    .from("side_jobs")
-    .insert({
-      done_on: input.doneOn, title: input.title, client: input.client ?? null,
-      amount: input.amount, cost: input.cost, vendor: input.vendor ?? null, note: input.note ?? null,
-      created_by: input.createdBy ?? null,
-    })
-    .select()
-    .single();
+  const base = {
+    done_on: input.doneOn, title: input.title, client: input.client ?? null,
+    amount: input.amount, cost: input.cost, vendor: input.vendor ?? null, note: input.note ?? null,
+    created_by: input.createdBy ?? null,
+  };
+  const client = createAdminClient();
+  let { data, error } = await client.from("side_jobs")
+    .insert({ ...base, pay_method: input.payMethod ?? null, paid_on: input.paidOn ?? null })
+    .select().single();
+  if (isMissingPayColumns(error)) ({ data, error } = await client.from("side_jobs").insert(base).select().single());
   if (error) throw error;
   return fromDb(data as DbRow);
 }
 
 export async function updateSideJob(id: string, input: SideJobInput): Promise<SideJob> {
-  const { data, error } = await createAdminClient()
-    .from("side_jobs")
-    .update({
-      done_on: input.doneOn, title: input.title, client: input.client ?? null,
-      amount: input.amount, cost: input.cost, vendor: input.vendor ?? null, note: input.note ?? null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
+  const base = {
+    done_on: input.doneOn, title: input.title, client: input.client ?? null,
+    amount: input.amount, cost: input.cost, vendor: input.vendor ?? null, note: input.note ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  const client = createAdminClient();
+  let { data, error } = await client.from("side_jobs")
+    .update({ ...base, pay_method: input.payMethod ?? null, paid_on: input.paidOn ?? null })
+    .eq("id", id).select().single();
+  if (isMissingPayColumns(error)) ({ data, error } = await client.from("side_jobs").update(base).eq("id", id).select().single());
   if (error) throw error;
   return fromDb(data as DbRow);
 }

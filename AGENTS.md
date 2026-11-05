@@ -81,6 +81,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 例：マシン設置を ¥70,000 で請け負い、アヴニールに ¥50,000 で外注 → 差額 ¥20,000 が会社の取り分。
 - テーブルは `side_jobs`（`20261105000001_side_jobs.sql`、RLS有効）。型と集計は `lib/side-jobs-types.ts`、DBは `lib/side-jobs.ts`。
 - **いただいた金額は売上、外注費は「外注費（単発の仕事）」として利益から引く。** 経営サマリー（`computeMonth`）と年間・前月比・売上の内訳、アシスタントの経営サマリーに入る。
+- **受け取り方（`pay_method`）と入金日（`paid_on`）**も持つ。カード・PayPayなら、入金の記録と同じ料率・同じ関数（`feeTotal`）で
+  決済手数料を出し、入金日の月の「決済手数料」に入れる（`sideJobPayments` で入金の形にして合わせる）。
 - 歩合は付かない（レッスンではないため）。スタッフ向けの「FIT STAGE のいま」の伸び率には入れていない（レッスンの伸びを見せるため）。
 - アシスタントのスタッフ向けでは金額を伏せる（`STAFF_HIDDEN_KEYS` に `sideJobRevenue`・`sideJobCost`）。
 
