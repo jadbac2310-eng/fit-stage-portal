@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, LineChart, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X, Hammer } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
@@ -176,7 +176,7 @@ function computeMonthUpTo(
 }
 
 // ─── KPIカードの内訳（タップで表示） ─────────────────────
-type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "hourly" | "expense" | "cardfee" | "profit";
+type BreakdownKind = "revenue" | "trainer" | "sales" | "rental" | "hourly" | "expense" | "cardfee" | "sidejob" | "profit";
 
 const BREAKDOWN_LABEL: Record<BreakdownKind, string> = {
   revenue: "売上",
@@ -184,6 +184,7 @@ const BREAKDOWN_LABEL: Record<BreakdownKind, string> = {
   sales:   "営業支払",
   rental:  "場所利用料",
   hourly:  "業務（時給）",
+  sidejob: "外注費（単発の仕事）",
   expense: "経費",
   cardfee: "決済手数料",
   profit:  "利益",
@@ -204,6 +205,7 @@ interface MonthBreakdown {
   hourly:          HourlyEntry[];
   expenses:        Expense[];
   feeRows:         BreakdownRow[];
+  sideJobs:        SideJob[];
 }
 
 // computeMonth と同じ計算（resolveLessonFee・buildTrainerEntries 等）で集計するので、合計はカードの金額と一致する
@@ -280,6 +282,7 @@ function computeBreakdown(
     rentalByGym:     sorted(byGym),
     hourly:          buildHourlyEntries(hourlyTasks, month),
     expenses:        expensesInMonth(expenses, month),
+    sideJobs:        sideJobsInMonth(sideJobs, month),
     // 手数料は決済の種類（タッチ／キー入力／PayPay）ごとにまとめる
     feeRows:         sorted(feePayments(payments, month).reduce((map, p) => {
       const label = p.method ?? "カード";
@@ -437,7 +440,7 @@ function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, 
   const pick = (f: MonthFigures): Record<BreakdownKind, number> => ({
     revenue: f.revenue, trainer: f.trainerPayout, sales: f.salesPayout,
     rental: f.rentalCost, hourly: f.hourlyPayout, expense: f.expenseTotal,
-    cardfee: f.paymentFee, profit: f.profit,
+    cardfee: f.paymentFee, sidejob: f.sideJobCost, profit: f.profit,
   });
   const total = pick(figures);
   const prevTotal = prevFigures ? pick(prevFigures)[kind] : null;
@@ -486,6 +489,14 @@ function BreakdownModal({ kind, monthLabel, figures, prevFigures, compareLabel, 
           <GroupedRows
             rows={breakdown.feeRows} unit="件"
             note="この月に入金された決済の手数料です。カードのタッチ2.5%、キー入力3.6%、PayPay3.25%。現金・振込には手数料はかかりません。" />
+        )}
+        {kind === "sidejob" && (
+          <GroupedRows
+            rows={breakdown.sideJobs.filter((j) => j.cost > 0).map((j) => ({
+              key: j.id, label: `${j.title}${j.vendor ? `（${j.vendor}）` : ""}${j.client ? `／${j.client}` : ""}`, count: 1, amount: j.cost,
+            }))}
+            unit="件"
+            note="単発の仕事（マシン設置など）で外注先に払う金額です。いただいた金額は売上に入っています。" />
         )}
         {kind === "profit" && (
           <div>
@@ -664,6 +675,7 @@ export function RevenueDashboardClient({
         <KpiCard icon={<Clock size={12} />} label="業務（時給）" value={cur.hourlyPayout} prev={prev.hourlyPayout} accent="text-orange-600" sub="完了した業務の時給ぶん" onClick={() => setOpenCard("hourly")} />
         <KpiCard icon={<Receipt size={12} />} label="経費" value={cur.expenseTotal} prev={prev.expenseTotal} accent="text-slate-600" sub="家賃・広告費など" onClick={() => setOpenCard("expense")} />
         <KpiCard icon={<CreditCard size={12} />} label="決済手数料" value={cur.paymentFee} prev={prev.paymentFee} accent="text-rose-500" sub="カード2.5〜3.6% / PayPay3.25%" onClick={() => setOpenCard("cardfee")} />
+        <KpiCard icon={<Hammer size={12} />} label="外注費（単発）" value={cur.sideJobCost} prev={prev.sideJobCost} accent="text-amber-600" sub="マシン設置などの外注先へ" onClick={() => setOpenCard("sidejob")} />
       </div>
       <button
         type="button"
