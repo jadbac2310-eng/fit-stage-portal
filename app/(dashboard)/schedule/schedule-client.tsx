@@ -18,6 +18,7 @@ import { canWriteLessonNote } from "@/lib/lessons-types";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { tallyLessons, tallyTotal, tallyRowTotal, tallyForMember, pinTallyRow } from "@/lib/schedule-tally";
 import {
@@ -2183,16 +2184,10 @@ export function ScheduleClient({
       {customers.length > 0 && (
         <div className="flex items-center gap-2 mb-4">
           <UserRound size={15} className="text-gray-400 flex-shrink-0" />
-          <select
-            value={filterCustomer}
-            onChange={(e) => setFilterCustomer(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">すべての顧客</option>
-            {[...customers].sort((a, b) => a.fullName.localeCompare(b.fullName, "ja")).map((c) => (
-              <option key={c.id} value={c.id}>{c.fullName}</option>
-            ))}
-          </select>
+          <CustomerPicker
+            className="flex-1 min-w-0" customers={customers} value={filterCustomer} onChange={setFilterCustomer}
+            emptyOption={{ value: "all", label: "すべての顧客" }}
+          />
         </div>
       )}
 

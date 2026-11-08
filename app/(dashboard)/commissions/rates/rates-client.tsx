@@ -9,9 +9,10 @@ import { MemberLabel } from "@/components/ui/member-label";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { setMemberCustomerRateAction, deleteMemberCustomerRateAction } from "./actions";
 import { assertActionOk } from "@/lib/action-result";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 
 type Member   = { id: string; name: string; avatarUrl?: string };
-type Customer = { id: string; name: string };
+type Customer = { id: string; name: string; status?: string };
 type Rate     = { memberId: string; customerId: string; rate: number; fixedAmount?: number };
 
 const DEFAULT_RATE = 50;
@@ -152,16 +153,7 @@ export function RatesClient({
 
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1.5">顧客</label>
-          <select
-            value={customerId}
-            onChange={(e) => pickCustomer(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">選択してください</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <CustomerPicker customers={customers} value={customerId} onChange={pickCustomer} />
         </div>
 
         <div>

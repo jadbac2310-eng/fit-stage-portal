@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 import { useRouter } from "next/navigation";
 import { Plus, Pencil, Trash2, X, Repeat } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
@@ -9,7 +10,7 @@ import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import type { CustomerMonthlyItem } from "@/lib/customer-monthly-items-types";
 import { createMonthlyItemAction, updateMonthlyItemAction, deleteMonthlyItemAction } from "./actions";
 
-type CustomerOpt = { id: string; name: string };
+type CustomerOpt = { id: string; name: string; status?: string };
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -169,10 +170,10 @@ export function MonthlyItemsClient({
 
       <div className="mb-4">
         <label className={labelClass}>顧客で絞り込む</label>
-        <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); setAdding(false); }} className={inputClass}>
-          <option value="">すべての顧客</option>
-          {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <CustomerPicker
+          customers={customers} value={customerId} emptyOption={{ value: "", label: "すべての顧客" }}
+          onChange={(id) => { setCustomerId(id); setAdding(false); }}
+        />
       </div>
 
       {isAdmin && (

@@ -24,7 +24,7 @@ export default async function MonthlyItemsPage() {
   return (
     <MonthlyItemsClient
       items={items}
-      customers={customers.map((c) => ({ id: c.id, name: c.fullName }))}
+      customers={customers.map((c) => ({ id: c.id, name: c.fullName, status: c.status }))}
       isAdmin={isAdmin}
     />
   );

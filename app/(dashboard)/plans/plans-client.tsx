@@ -10,13 +10,14 @@ import { CustomerPlanRecord, ContractPlan, CONTRACT_PLAN_LABEL } from "@/lib/cus
 import { Customer } from "@/lib/customers-types";
 import { SessionPass } from "@/lib/session-passes-types";
 import {
-  createPlanAction, updatePlanAction, deletePlanAction,
+  updatePlanAction, deletePlanAction,
   createSessionPassAction, updateSessionPassAction, deleteSessionPassAction,
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { CustomerPicker, normalizeForSearch } from "@/components/ui/customer-picker";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 type MemberNames = Record<string, string>;
@@ -46,13 +47,12 @@ function StatusLabel({ startedAt, endedAt }: { startedAt: string; endedAt?: stri
   return <span className="text-xs text-green-600 font-medium">適用中</span>;
 }
 
-// ─── プランフォーム ───────────────────────────────────
+// ─── 月額プラン（以前の記録の編集用。新しく足す入口はもう無い） ─────
 function PlanForm({
-  defaultValues, fixedCustomerId, customers, planDefaults, onClose, action, submitLabel,
+  defaultValues, fixedCustomerId, planDefaults, onClose, action, submitLabel,
 }: {
   defaultValues?: Partial<CustomerPlanRecord>;
-  fixedCustomerId?: string;
-  customers: Customer[];
+  fixedCustomerId: string;
   planDefaults: PlanDefault[];
   onClose: () => void;
   action: (fd: FormData) => Promise<ActionResult | void>;
@@ -77,17 +77,7 @@ function PlanForm({
 
   return (
     <form action={handleSubmit} className="space-y-4">
-      {fixedCustomerId ? (
-        <input type="hidden" name="customerId" value={fixedCustomerId} />
-      ) : (
-        <div>
-          <label className={labelClass}>顧客 <span className="text-red-500">*</span></label>
-          <select name="customerId" required defaultValue={defaultValues?.customerId ?? ""} className={inputClass}>
-            <option value="">顧客を選択...</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-          </select>
-        </div>
-      )}
+      <input type="hidden" name="customerId" value={fixedCustomerId} />
 
       <div>
         <label className={labelClass}>プラン <span className="text-red-500">*</span></label>
@@ -169,8 +159,8 @@ function PlanForm({
 }
 
 // ─── プラン1件 ────────────────────────────────────────
-function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNames }: {
-  record: CustomerPlanRecord; customer: Customer; customers: Customer[];
+function PlanItem({ record, customer, planDefaults, isAdmin, memberNames }: {
+  record: CustomerPlanRecord; customer: Customer;
   planDefaults: PlanDefault[]; isAdmin: boolean; memberNames: MemberNames;
 }) {
   const router = useRouter();
@@ -184,7 +174,7 @@ function PlanItem({ record, customer, customers, planDefaults, isAdmin, memberNa
         <p className="text-xs font-bold text-gray-700">プランを編集</p>
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
-      <PlanForm defaultValues={record} fixedCustomerId={customer.id} customers={customers} planDefaults={planDefaults}
+      <PlanForm defaultValues={record} fixedCustomerId={customer.id} planDefaults={planDefaults}
         onClose={() => setEditing(false)} action={boundUpdate} submitLabel="保存する" />
     </div>
   );
@@ -487,33 +477,53 @@ function SessionPassItem({ pass, sessionPassPriceMap, isAdmin, memberNames }: {
   );
 }
 
-// ─── 回数券一覧 ───────────────────────────────────────
+// ─── 回数券一覧（使い切った券は畳む） ─────────────────
 function SessionPassList({ passes, sessionPassPriceMap, isAdmin, memberNames }: {
   passes: SessionPass[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
 }) {
+  const [showUsed, setShowUsed] = useState(false);
   if (passes.length === 0) return <p className="text-xs text-gray-400 py-1">回数券なし</p>;
+
+  const live = passes.filter((p) => p.remainingCount > 0);
+  const used = passes.filter((p) => p.remainingCount <= 0);
 
   return (
     <div className="space-y-1.5">
-      {passes.map((pass) => (
+      {live.map((pass) => (
         <SessionPassItem key={pass.id} pass={pass} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} memberNames={memberNames} />
       ))}
+      {used.length > 0 && (
+        showUsed ? (
+          used.map((pass) => (
+            <SessionPassItem key={pass.id} pass={pass} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} memberNames={memberNames} />
+          ))
+        ) : (
+          <button type="button" onClick={() => setShowUsed(true)}
+            className="w-full text-left text-xs text-gray-500 hover:text-gray-700 px-3 py-2 rounded-xl border border-dashed border-gray-200">
+            使い切った回数券 {used.length}枚を見る
+          </button>
+        )
+      )}
     </div>
   );
 }
 
-// ─── 顧客グループ ─────────────────────────────────────
-function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessionPassPriceMap, isAdmin, memberNames }: {
-  customer: Customer; plans: CustomerPlanRecord[]; passes: SessionPass[]; customers: Customer[];
+/** 購入日の新しい順（いま使っている券が上に来る） */
+function byPurchasedDesc(a: SessionPass, b: SessionPass) {
+  return (b.purchasedAt ?? "").localeCompare(a.purchasedAt ?? "");
+}
+
+// ─── 顧客1人分 ────────────────────────────────────────
+function CustomerGroup({ customer, plans, passes, planDefaults, sessionPassPriceMap, isAdmin, memberNames, defaultOpen }: {
+  customer: Customer; plans: CustomerPlanRecord[]; passes: SessionPass[];
   planDefaults: PlanDefault[]; sessionPassPriceMap: SessionPassPriceMap; isAdmin: boolean; memberNames: MemberNames;
+  defaultOpen?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
+  const [expanded, setExpanded] = useState(!!defaultOpen);
   const [showAddPass, setShowAddPass] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const activePlan = plans.find((p) => p.startedAt <= today && (!p.endedAt || p.endedAt >= today));
-  const totalRemaining = passes.reduce((s, p) => s + p.remainingCount, 0);
+  const totalRemaining = passes.reduce((s, p) => s + Math.max(0, p.remainingCount), 0);
+  const latest = passes[0];
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -522,35 +532,23 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-gray-900">{customer.fullName}</p>
-            {activePlan
-              ? <PlanBadge plan={activePlan.plan} />
-              : <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">プランなし</span>
-            }
-            {totalRemaining > 0 && (
-              <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
-                <Ticket size={10} /> 回数券 残{totalRemaining}回
+            {customer.status === "inactive" && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">退会</span>}
+            {totalRemaining > 0 ? (
+              <span className={cn(
+                "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold border",
+                totalRemaining <= 2 ? "text-red-700 bg-red-50 border-red-200" : "text-amber-700 bg-amber-50 border-amber-200",
+              )}>
+                <Ticket size={10} /> 残り{totalRemaining}回
               </span>
-            )}
+            ) : passes.length > 0 ? (
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">使い切り</span>
+            ) : null}
           </div>
-          <div className="flex items-center gap-3 flex-wrap mt-0.5">
-            {activePlan ? (
-              <>
-                {activePlan.price != null
-                  ? <span className="text-xs text-gray-600 font-medium">¥{activePlan.price.toLocaleString("ja-JP")}<span className="text-gray-400 font-normal">/月</span></span>
-                  : <span className="text-xs text-gray-400">金額未設定</span>
-                }
-                <span className="text-xs text-gray-400">{activePlan.startedAt}〜</span>
-              </>
-            ) : (
-              <span className="text-xs text-gray-400">プラン履歴 {plans.length}件</span>
-            )}
-            {passes.filter((p) => p.remainingCount > 0).map((p) => (
-              <span key={p.id} className="text-xs text-gray-500">
-                {p.totalCount}回券
-                {p.price != null && <span className="ml-0.5 text-gray-400">¥{p.price.toLocaleString("ja-JP")}</span>}
-              </span>
-            ))}
-          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {latest
+              ? <>最新 {latest.totalCount}回券{latest.price != null && ` ¥${latest.price.toLocaleString("ja-JP")}`}・{latest.purchasedAt} 購入</>
+              : "回数券なし"}
+          </p>
         </div>
         <div className="flex-shrink-0 text-gray-400">
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -558,57 +556,61 @@ function CustomerGroup({ customer, plans, passes, customers, planDefaults, sessi
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-4 pb-4">
-          {plans.length === 0 && !showAdd ? (
-            <p className="py-3 text-xs text-gray-400">プラン履歴なし</p>
-          ) : (
-            plans.map((p) => (
-              <PlanItem key={p.id} record={p} customer={customer} customers={customers}
-                planDefaults={planDefaults} isAdmin={isAdmin} memberNames={memberNames} />
-            ))
-          )}
-
-          {showAdd ? (
-            <div className="py-3">
-              <PlanForm fixedCustomerId={customer.id} customers={customers} planDefaults={planDefaults}
-                onClose={() => setShowAdd(false)} action={createPlanAction} submitLabel="追加する" />
+        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+          <SessionPassList passes={passes} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} memberNames={memberNames} />
+          {showAddPass ? (
+            <div className="mt-2">
+              <SessionPassForm customerId={customer.id} sessionPassPriceMap={sessionPassPriceMap}
+                onClose={() => setShowAddPass(false)} />
             </div>
           ) : (
             isAdmin && (
-              <div className="pt-3">
-                <button onClick={() => setShowAdd(true)}
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                  <Plus size={13} /> プランを追加
-                </button>
-              </div>
+              <button onClick={() => setShowAddPass(true)}
+                className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium">
+                <Plus size={13} /> 回数券を追加
+              </button>
             )
           )}
 
-          {/* 回数券セクション */}
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5 mb-2">
-              <Ticket size={12} className="text-amber-500" /> 回数券
-            </p>
-            <SessionPassList passes={passes} sessionPassPriceMap={sessionPassPriceMap} isAdmin={isAdmin} memberNames={memberNames} />
-            {showAddPass ? (
-              <div className="mt-2">
-                <SessionPassForm customerId={customer.id} sessionPassPriceMap={sessionPassPriceMap}
-                  onClose={() => setShowAddPass(false)} />
-              </div>
-            ) : (
-              isAdmin && (
-                <button onClick={() => setShowAddPass(true)}
-                  className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium">
-                  <Plus size={13} /> 回数券を追加
-                </button>
-              )
-            )}
-          </div>
+          {/* 月額プランはもう使わない。以前の記録がある人だけ、直せるように残す */}
+          {plans.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <p className="text-[11px] font-semibold text-gray-400 mb-1">月額プラン（以前の記録）</p>
+              {plans.map((p) => (
+                <PlanItem key={p.id} record={p} customer={customer}
+                  planDefaults={planDefaults} isAdmin={isAdmin} memberNames={memberNames} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
+// ─── 回数券を追加（顧客をえらんでから） ───────────────
+function AddPassPanel({ customers, sessionPassPriceMap, onClose }: {
+  customers: Customer[]; sessionPassPriceMap: SessionPassPriceMap; onClose: () => void;
+}) {
+  const [customerId, setCustomerId] = useState("");
+  return (
+    <div className="bg-white rounded-2xl border-2 border-amber-300 p-4 mb-4 shadow-sm space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><Ticket size={15} className="text-amber-500" /> 回数券を追加</p>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="閉じる"><X size={16} /></button>
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-gray-600 mb-1.5">顧客</p>
+        <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
+      </div>
+      {customerId && (
+        <SessionPassForm key={customerId} customerId={customerId} sessionPassPriceMap={sessionPassPriceMap} onClose={onClose} />
+      )}
+    </div>
+  );
+}
+
+type Filter = "live" | "all";
 
 // ─── メインコンポーネント ─────────────────────────────
 export function PlansClient({ customers, plans, sessionPasses, planDefaults, sessionPassPriceMap, isAdmin, memberNames = {} }: {
@@ -617,6 +619,7 @@ export function PlansClient({ customers, plans, sessionPasses, planDefaults, ses
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("live");
 
   const grouped = useMemo(() => {
     const plansByCustomer = new Map<string, CustomerPlanRecord[]>();
@@ -629,67 +632,96 @@ export function PlansClient({ customers, plans, sessionPasses, planDefaults, ses
       if (!passesByCustomer.has(p.customerId)) passesByCustomer.set(p.customerId, []);
       passesByCustomer.get(p.customerId)!.push(p);
     });
-    return customers.map((c) => ({
-      customer: c,
-      plans: (plansByCustomer.get(c.id) ?? []).sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
-      passes: passesByCustomer.get(c.id) ?? [],
-    }));
+    return customers.map((c) => {
+      const passes = (passesByCustomer.get(c.id) ?? []).sort(byPurchasedDesc);
+      return {
+        customer: c,
+        plans: (plansByCustomer.get(c.id) ?? []).sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
+        passes,
+        remaining: passes.reduce((s, p) => s + Math.max(0, p.remainingCount), 0),
+        lastPurchased: passes[0]?.purchasedAt ?? "",
+      };
+    });
   }, [customers, plans, sessionPasses]);
 
-  const filtered = grouped.filter(({ customer }) => {
-    const q = search.toLowerCase();
-    return !q || customer.fullName.toLowerCase().includes(q) || (customer.email ?? "").toLowerCase().includes(q);
-  });
+  const liveCount = grouped.filter((g) => g.remaining > 0).length;
+
+  const filtered = useMemo(() => {
+    const q = normalizeForSearch(search);
+    const list = grouped.filter(({ customer, remaining }) => {
+      if (q) {
+        return [customer.fullName, customer.email ?? "", (customer.phoneNumber ?? "").replace(/\D/g, "")]
+          .some((f) => normalizeForSearch(f).includes(q));
+      }
+      if (filter === "live") return remaining > 0;
+      return customer.status !== "inactive";   // 退会した人は検索したときだけ
+    });
+    // 残っている人を上に（残り少ない＝次の券をすすめる人から）、次に最近買った人、最後に名前
+    return list.sort((a, b) =>
+      (b.remaining > 0 ? 1 : 0) - (a.remaining > 0 ? 1 : 0)
+      || (a.remaining > 0 && b.remaining > 0 ? a.remaining - b.remaining : 0)
+      || b.lastPurchased.localeCompare(a.lastPurchased)
+      || a.customer.fullName.localeCompare(b.customer.fullName, "ja"));
+  }, [grouped, search, filter]);
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <div className="mb-4 hidden md:flex items-center justify-between">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-24">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">プラン管理</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{customers.length}名</p>
+          <h1 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Ticket size={20} className="text-amber-500" /> 回数券
+          </h1>
+          <p className="text-xs md:text-sm text-gray-500 mt-0.5">残っている人 {liveCount}名</p>
         </div>
-        {isAdmin && (
+        {isAdmin && !showAdd && (
           <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
-            <Plus size={16} /> プランを追加
+            className="hidden md:flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
+            <Plus size={16} /> 回数券を追加
           </button>
         )}
       </div>
 
-      <div className="md:hidden mb-4">
-        <h1 className="text-lg font-bold text-gray-900">プラン管理</h1>
-      </div>
-
-      <div className="mb-4 relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="顧客名で検索..."
-          className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </div>
-
       {showAdd && (
-        <div className="hidden md:block bg-white rounded-2xl border-2 border-blue-400 p-5 mb-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-bold text-gray-900">プランを追加</p>
-            <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
-          </div>
-          <PlanForm customers={customers} planDefaults={planDefaults} onClose={() => setShowAdd(false)}
-            action={createPlanAction} submitLabel="追加する" />
+        <AddPassPanel customers={customers} sessionPassPriceMap={sessionPassPriceMap} onClose={() => setShowAdd(false)} />
+      )}
+
+      <div className="mb-3 relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="名前の一部で検索（例：堀、田中）"
+          className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-gray-300 text-[16px] md:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+      </div>
+
+      {!search && (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-3">
+          {([["live", `残りあり ${liveCount}`], ["all", "すべて"]] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setFilter(key)}
+              className={cn("flex-1 py-2 rounded-lg text-sm font-semibold transition",
+                filter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="space-y-2">
-        {filtered.map(({ customer, plans: ps, passes }) => (
-          <CustomerGroup key={customer.id} customer={customer} plans={ps} passes={passes}
-            customers={customers} planDefaults={planDefaults} sessionPassPriceMap={sessionPassPriceMap}
-            isAdmin={isAdmin} memberNames={memberNames} />
-        ))}
-      </div>
+      {filtered.length === 0 ? (
+        <p className="text-center text-sm text-gray-400 py-12">
+          {search ? "見つかりません。字を減らすか、別の書き方で試してください" : "回数券が残っている人はいません"}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(({ customer, plans: ps, passes }) => (
+            <CustomerGroup key={customer.id} customer={customer} plans={ps} passes={passes}
+              planDefaults={planDefaults} sessionPassPriceMap={sessionPassPriceMap}
+              isAdmin={isAdmin} memberNames={memberNames} defaultOpen={filtered.length === 1} />
+          ))}
+        </div>
+      )}
 
-      {isAdmin && (
-        <button onClick={() => setShowAdd(true)}
-          className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-          aria-label="プランを追加">
+      {isAdmin && !showAdd && (
+        <button onClick={() => { setShowAdd(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+          className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-full shadow-lg shadow-amber-200 flex items-center justify-center transition z-30"
+          aria-label="回数券を追加">
           <Plus size={26} />
         </button>
       )}

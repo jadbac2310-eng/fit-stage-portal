@@ -32,6 +32,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import { Confetti } from "@/components/ui/confetti";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
@@ -382,12 +383,10 @@ function LessonForm({
     <form action={handleSubmit} className="space-y-4">
       <div>
         <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
-        <select name="customerId" required value={customerId}
-          onChange={(e) => { setCustomerId(e.target.value); syncVenueFeeFor(e.target.value); }}
-          className={inputClass}>
-          <option value="">顧客を選択...</option>
-          {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-        </select>
+        <CustomerPicker
+          customers={customers} name="customerId" required value={customerId}
+          onChange={(id) => { setCustomerId(id); syncVenueFeeFor(id); }}
+        />
       </div>
 
       <div>

@@ -37,7 +37,7 @@ export default async function VenueFeesPage() {
       fees={fees.map((f) => ({
         id: f.id, customerId: f.customerId, venueKind: f.venueKind, venueId: f.venueId, fee: f.fee,
       }))}
-      customers={customers.map((c) => ({ id: c.id, name: c.fullName }))}
+      customers={customers.map((c) => ({ id: c.id, name: c.fullName, status: c.status }))}
       rentalGyms={rentalGyms.map(opt)}
       fctStores={fctStores.map(opt)}
       avenirStores={avenirStores.map(opt)}

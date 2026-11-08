@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 import { useRouter } from "next/navigation";
 import { Coins, Check, Trash2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
@@ -9,7 +10,7 @@ import { assertActionOk } from "@/lib/action-result";
 import { venueKey, type VenueKind } from "@/lib/lessons-types";
 import { setVenueFeeAction, deleteVenueFeeAction } from "./actions";
 
-type Opt      = { id: string; name: string };
+type Opt      = { id: string; name: string; status?: string };
 type Venue    = { key: string; kind: VenueKind; id: string; name: string; fee: number; group: string };
 type FeeRow   = { id: string; customerId: string; venueKind: VenueKind; venueId: string; fee: number };
 
@@ -104,10 +105,10 @@ export function VenueFeesClient({
       <div className="bg-white rounded-2xl border border-gray-200 p-4 md:p-5 mb-6 space-y-4">
         <div>
           <label className={labelClass}>顧客</label>
-          <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); syncFee(e.target.value, venue); }} className={inputClass}>
-            <option value="">選択してください</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <CustomerPicker
+            customers={customers} value={customerId}
+            onChange={(id) => { setCustomerId(id); syncFee(id, venue); }}
+          />
         </div>
 
         <div>

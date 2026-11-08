@@ -27,6 +27,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 // ─── バッジ ───────────────────────────────────────────
@@ -609,12 +610,10 @@ export function LessonForm({
       ) : (
         <div>
           <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
-          <select name="customerId" required defaultValue={defaultValues?.customerId ?? ""}
-            onChange={(e) => { setSelectedCustomerId(e.target.value); setSelectedPassId(""); syncVenueFeeFor(e.target.value); applyFctVenue(e.target.value); revalidateCourse(e.target.value, refDate); applySuggestion(e.target.value, scheduledDate); }}
-            className={inputClass}>
-            <option value="">顧客を選択...</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
-          </select>
+          <CustomerPicker
+            customers={customers} name="customerId" required value={selectedCustomerId}
+            onChange={(id) => { setSelectedCustomerId(id); setSelectedPassId(""); syncVenueFeeFor(id); applyFctVenue(id); revalidateCourse(id, refDate); applySuggestion(id, scheduledDate); }}
+          />
         </div>
       )}
 
@@ -987,7 +986,7 @@ export function LessonForm({
           </label>
           {noPassAvailable ? (
             <p className="text-xs text-red-600 font-medium">
-              有効な回数券がありません。プラン管理から追加してください。
+              有効な回数券がありません。目次の「回数券」から追加してください。
             </p>
           ) : (
             <select name="sessionPassId" required value={selectedPassId}

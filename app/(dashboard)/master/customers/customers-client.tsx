@@ -20,6 +20,7 @@ import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { CustomerPicker } from "@/components/ui/customer-picker";
 
 type MemberOpt = { id: string; name: string; role?: string };
 
@@ -375,17 +376,11 @@ function CustomerForm({
         <p className="text-xs font-bold text-gray-500">請求設定</p>
         <div>
           <label className={labelClass}>請求まとめ先（任意）</label>
-          <select
-            name="billingToCustomerId"
-            value={billingTo}
-            onChange={(e) => setBillingTo(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">まとめない（この顧客に請求）</option>
-            {allCustomers
-              .filter((c) => c.id !== defaultValues?.id)
-              .map((c) => <option key={c.id} value={c.id}>{c.fullName} にまとめる</option>)}
-          </select>
+          <CustomerPicker
+            customers={allCustomers} name="billingToCustomerId" value={billingTo} onChange={setBillingTo}
+            emptyOption={{ value: "", label: "まとめない（この顧客に請求）" }}
+            excludeIds={defaultValues?.id ? [defaultValues.id] : undefined}
+          />
           <p className="text-xs text-gray-400 mt-1">この顧客の請求を別の顧客の請求書に合算します</p>
         </div>
 
