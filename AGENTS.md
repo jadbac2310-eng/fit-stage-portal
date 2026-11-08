@@ -48,6 +48,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-05｜`20261104000003_catch_up.sql`（全テーブルのRLS有効化＋ハンドブックの店舗用LINE差し替え。確認の表は 旧リンク0・新リンク1）
   - `20261104000001_wiki_store_line_link.sql`・`20261104000002_enable_rls_all_public_tables.sql`
 - 2026-11-08｜`20261108000001_pass_holders_active.sql`（回数券を持っているのに審査中・体験のままの人を在籍中に。確認の表は 残り0）
+- 2026-11-08｜`20261108000002_pass_prices_pair_hp.sql`（プランマスタの回数券 2名様をHPの金額に。確認の表は 1名 76800／148800／288000・2名 104800／203200／393600）
 
 ## 今日の一手（六星占術の考え方をもとにした運気。コード内の呼び名は「星まわり」）
 
