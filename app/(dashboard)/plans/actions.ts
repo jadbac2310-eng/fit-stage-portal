@@ -96,6 +96,7 @@ export async function createSessionPassAction(formData: FormData): Promise<Actio
     if (!customerId || !totalCount || !purchasedAt) return;
 
     await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
+    revalidatePath("/master/customers"); // 審査中→在籍中に変わることがある
     revalidatePath("/plans");
     revalidatePath("/lessons/regular");
   });

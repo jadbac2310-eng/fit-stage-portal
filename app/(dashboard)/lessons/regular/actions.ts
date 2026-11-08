@@ -306,6 +306,7 @@ export async function createSessionPassAction(formData: FormData): Promise<Actio
     if (!customerId || !totalCount || !purchasedAt) return;
 
     await addSessionPass({ customerId, totalCount, purchasedAt, expiredAt, note });
+    revalidatePath("/master/customers"); // 審査中→在籍中に変わることがある
     await logActivity({ action: "create", entityType: "session_pass", summary: `回数券を追加（${totalCount}回）` });
     revalidatePath("/lessons/regular");
   });

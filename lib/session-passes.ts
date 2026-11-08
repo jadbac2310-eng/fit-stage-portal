@@ -79,7 +79,25 @@ export async function addSessionPass(input: {
     ({ data, error } = await client.from("session_passes").insert(base).select().single());
   }
   if (error) throw error;
+  await activateOnPassPurchase(input.customerId);
   return fromDb(data as DbRow);
+}
+
+/**
+ * 回数券を買った＝通い始めた、なので「審査中」「体験申し込み」のお客さまを「在籍中」にする（2026-11-08 尚樹の指示）。
+ *
+ * 契約成功で自動的に「審査中」になるが、そこから「在籍中」に変える仕組みが無く、
+ * 成約した人がずっと審査中のまま在籍数にも入っていなかった。
+ * 退会・在籍中の人は触らない（条件つきの1回の update なので、読んでから書くずれも無い）。
+ * ここが失敗しても回数券の追加そのものは成功させる。
+ */
+async function activateOnPassPurchase(customerId: string): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("customers")
+    .update({ status: "active", updated_at: new Date().toISOString() })
+    .eq("id", customerId)
+    .in("status", ["pending", "trial"]);
+  if (error) console.error("[session-passes] 在籍中への変更に失敗", error);
 }
 
 export async function updateSessionPass(id: string, input: {
