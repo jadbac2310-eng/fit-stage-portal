@@ -45,6 +45,21 @@ function FeeHint({ amount, method }: { amount: number; method: string }) {
   );
 }
 
+/** 通信が切れたなど、サーバーまで届かなかったときの文言 */
+function errorText(err: unknown): string {
+  const m = (err as { message?: string } | null)?.message;
+  return m ? `通信できませんでした（${m}）` : "通信できませんでした。電波のよいところでもう一度押してください";
+}
+
+/** 保存に失敗したときの理由。黙って閉じると「押したのに反映されない」になるので必ず出す */
+function SaveError({ message }: { message: string }) {
+  return (
+    <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5 break-all">
+      保存できませんでした：{message}
+    </p>
+  );
+}
+
 function todayStr() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -80,16 +95,17 @@ function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void 
   // 手数料をその場で出すため、方法と金額だけ状態で持つ
   const [method, setMethod] = useState(item.payment?.method ?? "振込");
   const [amount, setAmount] = useState(item.payment?.amount ?? item.amount);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    setError(null);
     await run(async () => {
-      try {
-        await recordPaymentAction(fd);
-        router.refresh();
-        onClose();
-      } catch {}
+      const res = await recordPaymentAction(fd).catch((err: unknown) => ({ ok: false as const, error: errorText(err) }));
+      if (!res.ok) { setError(res.error); return; }
+      router.refresh();
+      onClose();
     });
   }
 
@@ -123,6 +139,7 @@ function PaymentForm({ item, onClose }: { item: Receivable; onClose: () => void 
         <label className="text-[11px] font-semibold text-gray-500 mb-1 block">メモ（任意）</label>
         <input name="note" defaultValue={item.payment?.note ?? ""} placeholder="振込人名義など" className={inputClass} />
       </div>
+      {error && <SaveError message={error} />}
       <div className="flex gap-2 pt-0.5">
         <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">キャンセル</button>
         <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
@@ -141,6 +158,7 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
   const [method, setMethod] = useState("振込");
   // まとめ入金は1件ずつカードを通すので、手数料も1件ずつかかる
   const bulkFee = items.reduce((s, r) => s + paymentFee(r.amount, method), 0);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -148,12 +166,12 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
     fd.set("items", JSON.stringify(items.map((r) => ({
       sourceType: r.sourceType, sourceId: r.sourceId, customerId: r.customerId, amount: r.amount,
     }))));
+    setError(null);
     await run(async () => {
-      try {
-        await recordPaymentsBulkAction(fd);
-        router.refresh();
-        onClose();
-      } catch {}
+      const res = await recordPaymentsBulkAction(fd).catch((err: unknown) => ({ ok: false as const, error: errorText(err) }));
+      if (!res.ok) { setError(res.error); return; }
+      router.refresh();
+      onClose();
     });
   }
 
@@ -183,6 +201,7 @@ function BulkPaymentForm({ items, onClose }: { items: Receivable[]; onClose: () 
         <label className="text-[11px] font-semibold text-gray-500 mb-1 block">メモ（任意）</label>
         <input name="note" placeholder="振込人名義など" className={inputClass} />
       </div>
+      {error && <SaveError message={error} />}
       <div className="flex gap-2 pt-0.5">
         <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-100 transition">キャンセル</button>
         <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
@@ -204,10 +223,10 @@ function Row({ item }: { item: Receivable }) {
     if (removing) return;
     if (!confirm("入金記録を取り消しますか？")) return;
     runRemove(async () => {
-      try {
-        await unrecordPaymentAction(item.sourceType, item.sourceId);
-        router.refresh();
-      } catch {}
+      const res = await unrecordPaymentAction(item.sourceType, item.sourceId)
+        .catch((err: unknown) => ({ ok: false as const, error: errorText(err) }));
+      if (!res.ok) { alert(`取り消せませんでした：${res.error}`); return; }
+      router.refresh();
     });
   }
 

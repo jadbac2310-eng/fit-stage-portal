@@ -71,13 +71,52 @@ export async function recordPayment(input: {
       source_type: input.sourceType,
       source_id:   input.sourceId,
       customer_id: input.customerId ?? null,
-      amount:      input.amount,
+      amount:      Math.round(input.amount) || 0,
       paid_at:     input.paidAt ?? null,
       method:      input.method ?? null,
       note:        input.note ?? null,
       created_by:  (await currentMemberId()) ?? null,
       updated_at:  new Date().toISOString(),
     }, { onConflict: "source_type,source_id" });
+  if (error) throw error;
+}
+
+/**
+ * 複数の売上項目の入金を、1回の書き込みでまとめて記録する。
+ *
+ * 1件ずつ順に書くと、途中で失敗したとき「半分だけ入金済み」になり、
+ * 件数が多い会社（京阪など十数件）ほど時間もかかる。1回で書けば、全部入るか全部入らないか。
+ * 同じ項目が2回入っていると upsert が丸ごと失敗するので、先に1つにまとめる。
+ */
+export async function recordPayments(inputs: {
+  sourceType: PaymentSourceType;
+  sourceId:   string;
+  customerId?: string;
+  amount:     number;
+  paidAt?:    string | null;
+  method?:    string | null;
+  note?:      string | null;
+}[]): Promise<void> {
+  if (inputs.length === 0) return;
+  const createdBy = (await currentMemberId()) ?? null;
+  const now = new Date().toISOString();
+  const rows = new Map<string, Record<string, unknown>>();
+  for (const i of inputs) {
+    rows.set(paymentKey(i.sourceType, i.sourceId), {
+      source_type: i.sourceType,
+      source_id:   i.sourceId,
+      customer_id: i.customerId ?? null,
+      amount:      Math.round(i.amount) || 0,
+      paid_at:     i.paidAt ?? null,
+      method:      i.method ?? null,
+      note:        i.note ?? null,
+      created_by:  createdBy,
+      updated_at:  now,
+    });
+  }
+  const { error } = await createAdminClient()
+    .from("payments")
+    .upsert([...rows.values()], { onConflict: "source_type,source_id" });
   if (error) throw error;
 }
 
