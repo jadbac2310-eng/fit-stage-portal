@@ -47,6 +47,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-05｜`20261105000001_side_jobs.sql`（単発の仕事 side_jobs。受け取り方 pay_method・入金日 paid_on も込み。確認の表は 件数0）
 - 2026-11-05｜`20261104000003_catch_up.sql`（全テーブルのRLS有効化＋ハンドブックの店舗用LINE差し替え。確認の表は 旧リンク0・新リンク1）
   - `20261104000001_wiki_store_line_link.sql`・`20261104000002_enable_rls_all_public_tables.sql`
+- 2026-11-08｜`20261108000001_pass_holders_active.sql`（回数券を持っているのに審査中・体験のままの人を在籍中に。確認の表は 残り0）
 
 ## 今日の一手（六星占術の考え方をもとにした運気。コード内の呼び名は「星まわり」）
 
