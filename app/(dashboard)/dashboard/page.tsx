@@ -102,8 +102,7 @@ export default async function DashboardPage() {
     (tl) => tl.status === "completed" && isoToMonth(tl.scheduledAt) === mon
   );
 
-  // 自分の今月の完了／予定レッスン（通常レッスンのトレーナー担当分）
-  const myCompletedThisMonth = completedThisMonth.filter((l) => l.trainerMemberId === myId);
+  // 自分の今月の予定レッスン（通常レッスンのトレーナー担当分）
   const myScheduledThisMonth = lessons.filter(
     (l) => l.status === "scheduled" && isoToMonth(l.scheduledAt) === mon && l.trainerMemberId === myId
   );
@@ -128,6 +127,8 @@ export default async function DashboardPage() {
   const diffPercent = myLastMtd > 0 ? Math.round(((myThisMtd - myLastMtd) / myLastMtd) * 100) : null;
   // 本数も同じ条件（先月の同じ日まで）で比べる
   const myCountLastMtd = myId ? trainerLessonCountInRange(lessons, trialLessons, myId, last.from, last.to) : 0;
+  // 今月の自分の完了本数。先月と同じ関数で数える（前は今月だけ体験を数えておらず、比べると少なく出ていた）
+  const myCountThisMtd = myId ? trainerLessonCountInRange(lessons, trialLessons, myId, mtd.from, mtd.to) : 0;
   // 着地見込み: 今の確定 ＋ 完了待ち ＋ これからの予定
   const pendingTotal = pendingRows.reduce((s, r) => s + r.amount, 0);
   const projection = myId ? trainerMonthProjection(lessons, trialLessons, myId, mon, now, ctx) : { remaining: 0, count: 0 };
@@ -262,11 +263,11 @@ export default async function DashboardPage() {
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-1.5 mb-1">
             <Dumbbell size={13} className="text-gray-400" />
-            <p className="text-xs font-semibold text-gray-500">今月の完了レッスン</p>
+            <p className="text-xs font-semibold text-gray-500">今月の完了レッスン（自分が指導・体験込み）</p>
           </div>
           <p className="flex items-baseline">
-            <CountUp value={myCompletedThisMonth.length} className="text-2xl font-bold text-gray-900" />
-            <Delta now={myCompletedThisMonth.length} prev={myCountLastMtd} goodWhenUp />
+            <CountUp value={myCountThisMtd} className="text-2xl font-bold text-gray-900" />
+            <Delta now={myCountThisMtd} prev={myCountLastMtd} goodWhenUp />
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
             このあとの予定 {myScheduledThisMonth.length}件

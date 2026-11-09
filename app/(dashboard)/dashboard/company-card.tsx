@@ -29,7 +29,7 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
       {/* 今月の数字 */}
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <p className="text-[11px] font-semibold text-gray-500">今月のレッスン</p>
+          <p className="text-[11px] font-semibold text-gray-500">今月の完了レッスン</p>
           <p className="flex items-baseline">
             <span className="text-lg font-bold text-gray-900 tabular-nums">{s.monthLessons}</span>
             <span className="text-xs text-gray-400 ml-0.5">本</span>
