@@ -25,8 +25,6 @@ export function TodayCard({
   tip: DailyTip;
   fortune: DailyFortune;
 }) {
-  const diff = teamHeadline.monthCount - teamHeadline.lastMonthCount;
-
   return (
     <div className="mb-6 space-y-3">
       {/* 本日の格言（いちばん上。開いて最初に目に入るところ） */}
@@ -49,12 +47,6 @@ export function TodayCard({
               <ChevronRight size={18} className="mt-1 flex-shrink-0 text-blue-100" />
             </p>
           )}
-          <p className="text-xs text-blue-100 mt-1">
-            今日の予定まで入れて、今月はチームで{teamHeadline.monthCount}本目
-            {teamHeadline.lastMonthCount > 0 && (
-              <>（先月の今日は{teamHeadline.lastMonthCount}本{diff === 0 ? "・同じペース" : diff > 0 ? `・${diff}本ペースが速い` : `・${-diff}本ぶん遅い`}）</>
-            )}
-          </p>
           {teamHeadline.lessonCount > 0 && (
             <p className="text-[11px] text-blue-100/90 mt-1">タップすると今日の予定（全員ぶん）を表示します</p>
           )}
@@ -67,7 +59,6 @@ export function TodayCard({
               {headline.lessonCount === 0
                 ? "今日の予定はありません"
                 : `今日 ${headline.lessonCount}本${headline.customerCount !== headline.lessonCount ? `（${headline.customerCount}名）` : ""}`}
-              <span className="font-semibold text-blue-100"> ／ 今月{headline.monthCount}本（今日の予定まで）</span>
             </span>
             <ChevronRight size={15} className="mt-0.5 flex-shrink-0 text-blue-100" />
           </p>

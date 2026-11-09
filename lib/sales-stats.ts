@@ -9,6 +9,7 @@ import type { Customer } from "./customers-types";
 import type { Lesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { jstDay } from "./highlights-types";
+import { isBillableLessonStatus } from "./lessons-types";
 import { weekStart, type Badge } from "./badges-types";
 
 const DAY = 86400000;
@@ -146,7 +147,8 @@ export function salesMonth(
 
   function countLessons(from: string, to: string): number {
     return lessons.filter((l) => {
-      if (!mineIds.has(l.customerId) || l.status === "cancelled") return false;
+      // ダッシュボードの「今月の本数」はどれも、完了にしたレッスンだけを数える（予定は数えない）
+      if (!mineIds.has(l.customerId) || !isBillableLessonStatus(l.status)) return false;
       const d = jstDay(l.scheduledAt);
       return d >= from && d <= to;
     }).length;

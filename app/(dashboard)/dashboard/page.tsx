@@ -263,7 +263,7 @@ export default async function DashboardPage() {
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <div className="flex items-center gap-1.5 mb-1">
             <Dumbbell size={13} className="text-gray-400" />
-            <p className="text-xs font-semibold text-gray-500">今月の完了レッスン（自分が指導・体験込み）</p>
+            <p className="text-xs font-semibold text-gray-500">今月の自分のレッスン</p>
           </div>
           <p className="flex items-baseline">
             <CountUp value={myCountThisMtd} className="text-2xl font-bold text-gray-900" />

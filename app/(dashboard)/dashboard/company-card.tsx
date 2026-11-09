@@ -25,11 +25,12 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
         <Building2 size={14} className="text-blue-600" />
         <p className="text-xs font-bold text-gray-700">FIT STAGE のいま</p>
       </div>
+      <p className="text-[10px] text-gray-400 -mt-1 mb-2">レッスンの本数は、どこも「完了」にしたぶんだけを数えています</p>
 
       {/* 今月の数字 */}
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <p className="text-[11px] font-semibold text-gray-500">今月の完了レッスン</p>
+          <p className="text-[11px] font-semibold text-gray-500">今月のレッスン</p>
           <p className="flex items-baseline">
             <span className="text-lg font-bold text-gray-900 tabular-nums">{s.monthLessons}</span>
             <span className="text-xs text-gray-400 ml-0.5">本</span>

@@ -94,7 +94,7 @@ export function SalesCard({
         </div>
         <div>
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-            <TrendingUp size={10} className="text-gray-400" /> 担当のお客さまの本数
+            <TrendingUp size={10} className="text-gray-400" /> 担当のお客さまのレッスン
           </p>
           <p className="flex items-baseline">
             <CountUp value={month.lessons} suffix="本" className="text-lg font-bold text-gray-900" />
