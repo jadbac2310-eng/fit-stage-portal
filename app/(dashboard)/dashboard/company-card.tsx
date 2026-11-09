@@ -3,7 +3,7 @@ import type { CompanyStats } from "@/lib/company-stats";
 import { Delta } from "@/components/ui/delta";
 
 /**
- * 「FIT STAGE のいま」。全員が見る。
+ * 「今月のFIT STAGE」（2026-11-09 に「FIT STAGE のいま」から改名）。全員が見る。
  *
  * 出すのは本数・人数・率だけ。売上は伸び率(%)だけで、金額は出さない。
  * ここに渡ってくる CompanyStats にそもそも円の数字が入っていないので、
@@ -23,23 +23,11 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
     <div className="rounded-2xl border border-gray-200 bg-white p-4 mb-6">
       <div className="flex items-center gap-1.5 mb-3">
         <Building2 size={14} className="text-blue-600" />
-        <p className="text-xs font-bold text-gray-700">FIT STAGE のいま</p>
+        <p className="text-xs font-bold text-gray-700">今月のFIT STAGE</p>
       </div>
-      <p className="text-[10px] text-gray-400 -mt-1 mb-2">レッスンの本数は、どこも「完了」にしたぶんだけを数えています</p>
 
-      {/* 今月の数字 */}
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <p className="text-[11px] font-semibold text-gray-500">今月のレッスン</p>
-          <p className="flex items-baseline">
-            <span className="text-lg font-bold text-gray-900 tabular-nums">{s.monthLessons}</span>
-            <span className="text-xs text-gray-400 ml-0.5">本</span>
-            <Delta now={s.monthLessons} prev={s.lastMonthLessons} goodWhenUp className="ml-1 text-[10px]" />
-          </p>
-          {s.lastMonthLessons > 0 && (
-            <p className="text-[10px] text-gray-400">先月の今日 {s.lastMonthLessons}本</p>
-          )}
-        </div>
+      {/* 今月の数字。今月の完了レッスンは上の「今日」のカードに出すので、ここでは出さない（同じ数を2回見せない） */}
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="text-[11px] font-semibold text-gray-500">今月の新規</p>
           <p className="flex items-baseline">

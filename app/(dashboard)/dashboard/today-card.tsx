@@ -10,7 +10,7 @@ import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
  * 開いていちばん最初に目に入るところ。
  *
  * 数字だけだと「見せられている」感じになるので、今日の動き・お客さまの節目・
- * その日の格言を、1枚にまとめて置く。声をかけたい人は「FIT STAGE のいま」の中へ移した。
+ * その日の格言を、1枚にまとめて置く。声をかけたい人は営業のカードの中へ移した。
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
 export function TodayCard({
@@ -25,7 +25,7 @@ export function TodayCard({
   mission: string;
   tip: DailyTip;
   fortune: DailyFortune;
-  /** 今月の完了レッスン（全員ぶん）と先月の同じ日まで。「FIT STAGE のいま」と同じ数（companyStats） */
+  /** 今月の完了レッスン（全員ぶん）と先月の同じ日まで。companyStats の数。下の「今月のFIT STAGE」には出さない */
   teamMonth: { count: number; last: number };
 }) {
   return (
@@ -38,7 +38,7 @@ export function TodayCard({
           全体ぶんは全員分のスケジュール、自分の担当ぶんは自分のスケジュールを開く。 */}
       <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 p-4 text-white shadow-sm">
         <Link href="/schedule?member=all" className="block hover:opacity-90 transition">
-          <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日のFIT STAGE</p>
+          <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-widest">今日</p>
           {teamHeadline.lessonCount === 0 ? (
             <p className="text-lg font-bold mt-1">今日の予定は入っていません</p>
           ) : (
@@ -49,7 +49,7 @@ export function TodayCard({
               <ChevronRight size={18} className="mt-1 flex-shrink-0 text-blue-100" />
             </p>
           )}
-          {/* 今月の完了レッスンと前月比（「FIT STAGE のいま」と同じ数） */}
+          {/* 今月の完了レッスンと前月比（companyStats。全員ぶん） */}
           <p className="text-xs text-blue-100 mt-1">
             今月の完了レッスン <span className="font-bold text-white text-sm tabular-nums">{teamMonth.count}本</span>
             <Delta now={teamMonth.count} prev={teamMonth.last} goodWhenUp onColor className="ml-1.5" />

@@ -3,7 +3,7 @@ import { ChevronRight, PhoneCall } from "lucide-react";
 import type { FollowUp, FollowUpKind } from "@/lib/highlights-types";
 
 /**
- * 声をかけたい人。「FIT STAGE のいま」の中に小さくまとめる。
+ * 声をかけたい人。営業のカードの中に小さくまとめる。
  *
  * 前は独立した1枚で名前を5人ずつ出していたが、「よく分からない・要るか分からない」と
  * 言われたので、閉じた状態では人数と理由の内訳だけにして、開くと名前が出るようにした。

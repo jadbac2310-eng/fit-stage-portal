@@ -562,7 +562,7 @@ async function run(name: string, input: ToolInput, scope: AssistantScope): Promi
       const prev = monthFigures(addMonths(month, -1), c, extras);
       const isCurrent = month === thisMonthJst();
       if (!scope.isAdmin) {
-        // スタッフ向け：件数と割合だけ（ダッシュボードの「FIT STAGE のいま」と同じ線引き。金額は出さない）
+        // スタッフ向け：件数と割合だけ（ダッシュボードの「今月のFIT STAGE」と同じ線引き。金額は出さない）
         const counts = (f: typeof cur) => ({
           month: f.month, completedLessons: f.completedLessons, scheduledLessons: f.scheduledLessons,
           trialsHeld: f.trialsHeld, trialsContracted: f.trialsContracted, trialRate: f.trialRate,

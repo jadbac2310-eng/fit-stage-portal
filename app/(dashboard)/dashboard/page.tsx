@@ -239,7 +239,7 @@ export default async function DashboardPage() {
       {/* 完了にしていないレッスン（完了＝歩合になる） */}
       {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
 
-      {/* FIT STAGE のいま（全員に見せる。金額は出さない） */}
+      {/* 今月のFIT STAGE（全員に見せる。金額は出さない） */}
       <CompanyCard stats={company} />
 
       {/* 今月の自分 */}
