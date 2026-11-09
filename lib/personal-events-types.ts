@@ -19,6 +19,8 @@ export interface PersonalEvent {
   participantIds: string[];
   notify:     boolean;   // 参加者へLINE通知するか
   isPrivate:  boolean;   // 非公開（作成者と参加者のみ表示）
+  /** 予定を入れた人（他の人のスケジュールに入れたとき memberId と違う）。列が無いDBでは空 */
+  createdById?: string;
   updatedById?: string;
   createdAt:  string;
   updatedAt:  string;

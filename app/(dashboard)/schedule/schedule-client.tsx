@@ -416,7 +416,8 @@ function LessonCard({
   const cancelled = status === "cancelled";
   const sameDayCancel = status === "cancelled_same_day";
   const color = item.color ?? "blue";
-  const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId);
+  // 個人予定は 本人・予定を入れた人・管理者 が直せる（他の人のスケジュールに入れた予定を、入れた人が直せるように）
+  const canManage = isPersonal && (isAdmin || item.ownerId === currentMemberId || (!!item.createdById && item.createdById === currentMemberId));
   // 業務の編集/削除は管理者のみ
   const canManageHourly = isHourly && isAdmin;
   // 業務の完了/予定に戻すは、担当者本人と管理者
@@ -1175,8 +1176,12 @@ function PersonalEventModal({
     return slots;
   }
 
-  // 作成者本人は「参加者」候補から除外（主催者として自動的に含まれる扱い）
-  const ownerId = mode === "edit" ? initial?.ownerId : currentMemberId;
+  // 誰の予定か（他の人のスケジュールにも入れられる）。その人は「参加者」候補から外す
+  const [ownerId, setOwnerId] = useState<string>(initial?.ownerId ?? currentMemberId ?? "");
+  function changeOwner(id: string) {
+    setOwnerId(id);
+    setParticipants((prev) => prev.filter((p) => p !== id));
+  }
   const selectableMembers = members.filter((m) => m.id !== ownerId);
   const toggleParticipant = (id: string) =>
     setParticipants((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
@@ -1221,6 +1226,23 @@ function PersonalEventModal({
             <input name="title" defaultValue={initial?.customerName ?? ""} required
               className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="例: 面談、外出、私用" />
+          </div>
+
+          {/* 誰の予定か。自分以外を選ぶと、その人のスケジュールに入る（LINEでも知らせる） */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">誰の予定</label>
+            <select name="ownerId" value={ownerId} onChange={(e) => changeOwner(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              {currentMemberId && <option value={currentMemberId}>自分</option>}
+              {members.filter((m) => m.id !== currentMemberId).map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            {ownerId && ownerId !== currentMemberId && (
+              <p className="text-[11px] text-blue-600 mt-1">
+                {members.find((m) => m.id === ownerId)?.name ?? ""}さんのスケジュールに入ります。あとで直せるのは、本人・あなた・管理者です。
+              </p>
+            )}
           </div>
 
           {/* 終日 */}
@@ -1393,9 +1415,9 @@ function PersonalEventModal({
             <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
               <input type="checkbox" name="notify" checked={notify} onChange={(e) => setNotify(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300" />
-              <span className="font-medium">参加者にLINEで通知する</span>
+              <span className="font-medium">相手にLINEで通知する</span>
             </label>
-            <p className="text-[11px] text-gray-400 mt-1 ml-6">オフにすると、追加・変更・削除のLINE通知を送りません。</p>
+            <p className="text-[11px] text-gray-400 mt-1 ml-6">参加者と、他の人の予定ならその本人に送ります。オフにすると、追加・変更・削除のLINE通知を送りません。</p>
           </div>
 
           {/* 非公開 */}

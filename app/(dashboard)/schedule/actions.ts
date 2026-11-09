@@ -51,6 +51,28 @@ function parseParticipantIds(formData: FormData): string[] {
   }
 }
 
+/**
+ * 誰の予定か（他の人のスケジュールに入れられる。2026-11-09）。
+ * フォームの ownerId が空・自分なら自分。担当者マスタに居ない人は弾く。
+ */
+async function resolveOwner(formData: FormData, me: { id: string; name: string }): Promise<{ id: string; name: string }> {
+  const raw = (formData.get("ownerId") as string)?.trim();
+  if (!raw || raw === me.id) return { id: me.id, name: me.name };
+  const m = await getMember(raw);
+  if (!m) throw new ActionError("予定を入れる人が見つかりません");
+  return { id: m.id, name: m.name };
+}
+
+/** 個人予定を直す・消すことができる人：その人本人・予定を入れた人・管理者 */
+function canManageEvent(event: { memberId: string; createdById?: string }, me: { id: string; isAdmin?: boolean }): boolean {
+  return !!me.isAdmin || event.memberId === me.id || event.createdById === me.id;
+}
+
+/** LINEで知らせる相手：参加者＋（他の人の予定なら）その本人。操作した本人は除く */
+function notifyTargets(participantIds: string[], ownerId: string, actorId: string): string[] {
+  return [...new Set([...participantIds, ownerId])].filter((id) => id !== actorId);
+}
+
 function buildTimes(formData: FormData): { allDay: boolean; startAt: string; endAt: string | null } {
   const allDay    = formData.get("allDay") === "on";
   const startDate = (formData.get("startDate") as string)?.trim();
@@ -84,13 +106,14 @@ export async function createPersonalEventAction(formData: FormData): Promise<Act
     const notify   = formData.get("notify") === "on";
     const isPrivate = formData.get("isPrivate") === "on";
 
-    const created = await addPersonalEvent({ memberId: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds, notify, isPrivate });
-    await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}`, memberId: member.id, memberName: member.name });
+    const owner = await resolveOwner(formData, member);
+    const created = await addPersonalEvent({ memberId: owner.id, createdBy: member.id, title, allDay, startAt, endAt, location, memo, color, participantIds: participantIds.filter((id) => id !== owner.id), notify, isPrivate });
+    await logActivity({ action: "create", entityType: "personal_event", entityId: created.id, summary: `個人予定を追加: ${title}${owner.id !== member.id ? `（${owner.name}さんの予定）` : ""}`, memberId: member.id, memberName: member.name });
 
-    // 参加者へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない
+    // 参加者と、他の人の予定ならその本人へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない
     if (notify) {
       await notifyMembersByLine(
-        participantIds.filter((id) => id !== member.id),
+        notifyTargets(participantIds, owner.id, member.id),
         (m) => `🗓 予定に追加されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n登録: ${member.name}${scheduleLink(m)}`,
       );
     }
@@ -128,20 +151,22 @@ export async function createPersonalEventsAction(formData: FormData): Promise<Ac
     if (slots.length === 0) throw new ActionError("日時を入力してください");
     if (slots.length > 200) throw new ActionError("作成できる日時は最大200件です。繰り返しの終了日を見直してください。");
 
+    const owner = await resolveOwner(formData, member);
+    const others = participantIds.filter((id) => id !== owner.id);
     const starts: string[] = [];
     for (const s of slots) {
       const t = toTimes(allDay, s.startDate, s.startTime, s.endDate, s.endTime);
-      await addPersonalEvent({ memberId: member.id, title, allDay: t.allDay, startAt: t.startAt, endAt: t.endAt, location, memo, color, participantIds, notify, isPrivate });
+      await addPersonalEvent({ memberId: owner.id, createdBy: member.id, title, allDay: t.allDay, startAt: t.startAt, endAt: t.endAt, location, memo, color, participantIds: others, notify, isPrivate });
       starts.push(t.startAt);
     }
-    await logActivity({ action: "create", entityType: "personal_event", entityId: member.id, summary: `個人予定を${starts.length}件追加: ${title}`, memberId: member.id, memberName: member.name });
+    await logActivity({ action: "create", entityType: "personal_event", entityId: owner.id, summary: `個人予定を${starts.length}件追加: ${title}${owner.id !== member.id ? `（${owner.name}さんの予定）` : ""}`, memberId: member.id, memberName: member.name });
 
-    // 参加者へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない。複数日時はまとめて1通。
+    // 参加者と、他の人の予定ならその本人へ LINE 通知（作成者本人は除く）。通知OFFのときは送らない。複数日時はまとめて1通。
     if (notify) {
       const dates = starts.slice().sort().map((iso) => whenLabel(iso, allDay));
       const body = `🗓 予定に追加されました\n${title}\n${dates.join("\n")}${location ? `\n＠${location}` : ""}\n登録: ${member.name}`;
       await notifyMembersByLine(
-        participantIds.filter((id) => id !== member.id),
+        notifyTargets(participantIds, owner.id, member.id),
         (m) => `${body}${scheduleLink(m)}`,
       );
     }
@@ -154,8 +179,8 @@ export async function updatePersonalEventAction(id: string, formData: FormData):
     const [member, event] = await Promise.all([getCurrentMember(), getPersonalEvent(id)]);
     if (!member) throw new ActionError("ログインが必要です");
     if (!event)  throw new ActionError("予定が見つかりません");
-    if (event.memberId !== member.id && !member.isAdmin) {
-      throw new ActionError("この予定を編集できるのは作成者または管理者のみです");
+    if (!canManageEvent(event, member)) {
+      throw new ActionError("この予定を編集できるのは、本人・予定を入れた人・管理者のみです");
     }
 
     const title = (formData.get("title") as string)?.trim();
@@ -169,13 +194,16 @@ export async function updatePersonalEventAction(id: string, formData: FormData):
     const notify   = formData.get("notify") === "on";
     const isPrivate = formData.get("isPrivate") === "on";
 
-    await updatePersonalEvent(id, { title, allDay, startAt, endAt, location, memo, color, participantIds, notify, isPrivate });
+    const owner = await resolveOwner(formData, member).catch(() => ({ id: event.memberId, name: event.memberName }));
+    // フォームに ownerId が無い（古い画面）ときは、持ち主を変えない
+    const ownerId = (formData.get("ownerId") as string)?.trim() ? owner.id : event.memberId;
+    await updatePersonalEvent(id, { memberId: ownerId, title, allDay, startAt, endAt, location, memo, color, participantIds: participantIds.filter((pid) => pid !== ownerId), notify, isPrivate });
     await logActivity({ action: "update", entityType: "personal_event", entityId: id, summary: `個人予定を編集: ${title}`, memberId: member.id, memberName: member.name });
 
-    // 参加者（変更後）へ LINE 通知（編集者本人は除く）。通知OFFのときは送らない
+    // 参加者（変更後）と予定の本人へ LINE 通知（編集者本人は除く）。通知OFFのときは送らない
     if (notify) {
       await notifyMembersByLine(
-        participantIds.filter((pid) => pid !== member.id),
+        notifyTargets(participantIds, ownerId, member.id),
         (m) => `✏️ 予定が変更されました\n${title}\n${whenLabel(startAt, allDay)}${location ? `\n＠${location}` : ""}\n変更: ${member.name}${scheduleLink(m)}`,
       );
     }
@@ -188,8 +216,8 @@ export async function deletePersonalEventAction(id: string): Promise<ActionResul
     const [member, event] = await Promise.all([getCurrentMember(), getPersonalEvent(id)]);
     if (!member) throw new ActionError("ログインが必要です");
     if (!event)  throw new ActionError("予定が見つかりません");
-    if (event.memberId !== member.id && !member.isAdmin) {
-      throw new ActionError("この予定を削除できるのは作成者または管理者のみです");
+    if (!canManageEvent(event, member)) {
+      throw new ActionError("この予定を削除できるのは、本人・予定を入れた人・管理者のみです");
     }
 
     await deletePersonalEvent(id);
@@ -198,7 +226,7 @@ export async function deletePersonalEventAction(id: string): Promise<ActionResul
     // 参加者へ LINE 通知（削除した本人は除く）。通知OFFの予定は送らない
     if (event.notify) {
       await notifyMembersByLine(
-        event.participantIds.filter((pid) => pid !== member.id),
+        notifyTargets(event.participantIds, event.memberId, member.id),
         (m) => `❌ 予定が削除されました\n${event.title}\n${whenLabel(event.startAt, event.allDay)}\n削除: ${member.name}${scheduleLink(m)}`,
       );
     }

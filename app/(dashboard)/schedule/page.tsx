@@ -140,9 +140,9 @@ export default async function SchedulePage({
     });
   }
 
-  // 個人予定。非公開のものは作成者と参加者以外には表示しない。
+  // 個人予定。非公開のものは本人・予定を入れた人・参加者以外には表示しない。
   for (const e of personalEvents) {
-    if (e.isPrivate && e.memberId !== member.id && !e.participantIds.includes(member.id)) continue;
+    if (e.isPrivate && e.memberId !== member.id && e.createdById !== member.id && !e.participantIds.includes(member.id)) continue;
     items.push({
       id: e.id,
       type: "personal",
@@ -157,7 +157,9 @@ export default async function SchedulePage({
       ownerId: e.memberId,
       ownerName: e.memberName,
       ownerAvatarUrl: avatarOf(e.memberId),
-      createdByName: e.memberName,
+      // 他の人が入れた予定なら、入れた人の名前を出す
+      createdById: e.createdById ?? e.memberId,
+      createdByName: nameOf(e.createdById) ?? e.memberName,
       createdAt: e.createdAt,
       updatedByName: nameOf(e.updatedById),
       updatedAt: e.updatedAt,

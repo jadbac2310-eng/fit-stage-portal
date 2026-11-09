@@ -19,6 +19,7 @@ type DbRow = {
   notify:     boolean | null;
   is_private: boolean | null;
   updated_by: string | null;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
   member: { name: string } | null;
@@ -39,6 +40,7 @@ function fromDb(row: DbRow): PersonalEvent {
     participantIds: row.participant_ids ?? [],
     notify:     row.notify ?? true,
     isPrivate:  row.is_private ?? false,
+    createdById: row.created_by ?? undefined,
     updatedById: row.updated_by ?? undefined,
     createdAt:  row.created_at,
     updatedAt:  row.updated_at,
@@ -104,6 +106,8 @@ export async function addPersonalEvent(input: {
   participantIds?: string[];
   notify?:   boolean;
   isPrivate?: boolean;
+  /** 予定を入れた人。他の人のスケジュールに入れるとき memberId と違う */
+  createdBy?: string;
 }): Promise<PersonalEvent> {
   const client = createAdminClient();
   const base = {
@@ -116,11 +120,16 @@ export async function addPersonalEvent(input: {
     memo:      input.memo ?? null,
     color:     input.color,
   };
+  const full = { ...base, participant_ids: input.participantIds ?? [], notify: input.notify ?? true, is_private: input.isPrivate ?? false };
   let { data, error } = await client
     .from("personal_events")
-    .insert({ ...base, participant_ids: input.participantIds ?? [], notify: input.notify ?? true, is_private: input.isPrivate ?? false })
+    .insert({ ...full, created_by: input.createdBy ?? input.memberId })
     .select(SELECT)
     .single();
+  // created_by 列が未追加（20261109000001 未適用）のDBでも、それ以外は保存する
+  if (error && /created_by/i.test(error.message ?? "")) {
+    ({ data, error } = await client.from("personal_events").insert(full).select(SELECT).single());
+  }
   if (error && isMissingOptionalColumn(error)) {
     ({ data, error } = await client.from("personal_events").insert(base).select(SELECT).single());
   }
@@ -131,6 +140,8 @@ export async function addPersonalEvent(input: {
 export async function updatePersonalEvent(
   id: string,
   input: Partial<{
+    /** 誰の予定か（入れ替えるとき） */
+    memberId: string;
     title:    string;
     allDay:   boolean;
     startAt:  string;
@@ -144,6 +155,7 @@ export async function updatePersonalEvent(
   }>
 ): Promise<PersonalEvent | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.memberId !== undefined) patch.member_id = input.memberId;
   if (input.title    !== undefined) patch.title    = input.title;
   if (input.allDay   !== undefined) patch.all_day  = input.allDay;
   if (input.startAt  !== undefined) patch.start_at = input.startAt;
