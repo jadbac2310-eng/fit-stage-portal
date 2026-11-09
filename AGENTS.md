@@ -49,6 +49,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `20261104000001_wiki_store_line_link.sql`・`20261104000002_enable_rls_all_public_tables.sql`
 - 2026-11-08｜`20261108000001_pass_holders_active.sql`（回数券を持っているのに審査中・体験のままの人を在籍中に。確認の表は 残り0）
 - 2026-11-08｜`20261108000002_pass_prices_pair_hp.sql`（プランマスタの回数券 2名様をHPの金額に。確認の表は 1名 76800／148800／288000・2名 104800／203200／393600）
+- 2026-11-09｜`20261109000001_personal_events_created_by.sql`（個人予定に入れた人 created_by。今までの予定は本人＝入れた人で埋めた）
 
 ## 今日の一手（六星占術の考え方をもとにした運気。コード内の呼び名は「星まわり」）
 
@@ -114,7 +115,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   ログインした全員が使える。通知ONなら、その本人と参加者にLINEで知らせる（入れた本人には送らない）。
 - 直す・消すことができるのは **本人・予定を入れた人・管理者**（`schedule/actions.ts` の `canManageEvent`）。
   非公開の予定も、本人・入れた人・参加者には見える。
-- `created_by` は `20261109000001_personal_events_created_by.sql`。未適用のDBでも保存はできる（入れた人が記録されず、直せるのは本人と管理者だけになる）。
+- `created_by` は `20261109000001_personal_events_created_by.sql`（2026-11-09 反映済み）。未適用のDBでも保存はできる（入れた人が記録されず、直せるのは本人と管理者だけになる）。
 
 ## 入会金（2026-11-03 から）
 
