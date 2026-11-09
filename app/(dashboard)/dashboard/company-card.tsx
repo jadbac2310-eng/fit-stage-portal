@@ -26,8 +26,19 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
         <p className="text-xs font-bold text-gray-700">今月のFIT STAGE</p>
       </div>
 
-      {/* 今月の数字。今月の完了レッスンは上の「今日」のカードに出すので、ここでは出さない（同じ数を2回見せない） */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* 今月の数字。全体の本数はここだけに出す（上の「今日」のカードは今日のことだけ） */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <p className="text-[11px] font-semibold text-gray-500">今月の完了レッスン</p>
+          <p className="flex items-baseline">
+            <span className="text-lg font-bold text-gray-900 tabular-nums">{s.monthLessons}</span>
+            <span className="text-xs text-gray-400 ml-0.5">本</span>
+            <Delta now={s.monthLessons} prev={s.lastMonthLessons} goodWhenUp className="ml-1 text-[10px]" />
+          </p>
+          {s.lastMonthLessons > 0 && (
+            <p className="text-[10px] text-gray-400">先月の今日 {s.lastMonthLessons}本</p>
+          )}
+        </div>
         <div>
           <p className="text-[11px] font-semibold text-gray-500">今月の新規</p>
           <p className="flex items-baseline">
