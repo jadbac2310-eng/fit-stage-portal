@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { QuoteCard } from "./quote-card";
+import { Delta } from "@/components/ui/delta";
 import type { TodayHeadline, Milestone } from "@/lib/highlights-types";
 import type { DailyQuote } from "@/lib/daily-quote";
 import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
@@ -13,7 +14,7 @@ import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
  * サーバー側で作る静的なHTMLなので、表示が重くなることはない。
  */
 export function TodayCard({
-  headline, teamHeadline, milestones, quote, mission, tip, fortune,
+  headline, teamHeadline, milestones, quote, mission, tip, fortune, teamMonth,
 }: {
   /** 自分の担当ぶん */
   headline: TodayHeadline;
@@ -24,6 +25,8 @@ export function TodayCard({
   mission: string;
   tip: DailyTip;
   fortune: DailyFortune;
+  /** 今月の完了レッスン（全員ぶん）と先月の同じ日まで。「FIT STAGE のいま」と同じ数（companyStats） */
+  teamMonth: { count: number; last: number };
 }) {
   return (
     <div className="mb-6 space-y-3">
@@ -42,11 +45,16 @@ export function TodayCard({
             <p className="text-lg font-bold mt-1 flex items-start gap-1">
               <span>
                 今日のレッスンは {teamHeadline.lessonCount}本
-                {teamHeadline.customerCount !== teamHeadline.lessonCount && `（お客さま${teamHeadline.customerCount}名）`}
               </span>
               <ChevronRight size={18} className="mt-1 flex-shrink-0 text-blue-100" />
             </p>
           )}
+          {/* 今月の完了レッスンと前月比（「FIT STAGE のいま」と同じ数） */}
+          <p className="text-xs text-blue-100 mt-1">
+            今月の完了レッスン <span className="font-bold text-white text-sm tabular-nums">{teamMonth.count}本</span>
+            <Delta now={teamMonth.count} prev={teamMonth.last} goodWhenUp onColor className="ml-1.5" />
+            {teamMonth.last > 0 && <span className="ml-1.5">先月の今日 {teamMonth.last}本</span>}
+          </p>
           {teamHeadline.lessonCount > 0 && (
             <p className="text-[11px] text-blue-100/90 mt-1">タップすると今日の予定（全員ぶん）を表示します</p>
           )}
@@ -58,7 +66,7 @@ export function TodayCard({
             <span>
               {headline.lessonCount === 0
                 ? "今日の予定はありません"
-                : `今日 ${headline.lessonCount}本${headline.customerCount !== headline.lessonCount ? `（${headline.customerCount}名）` : ""}`}
+                : `今日 ${headline.lessonCount}本`}
             </span>
             <ChevronRight size={15} className="mt-0.5 flex-shrink-0 text-blue-100" />
           </p>

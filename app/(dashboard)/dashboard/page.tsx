@@ -227,7 +227,8 @@ export default async function DashboardPage() {
 
       {/* 日替わりの1枚・今日のひとこと・節目 */}
       <TodayCard headline={headline} teamHeadline={teamHeadline} milestones={milestones} quote={quote}
-        mission={mission} tip={tip} fortune={fortune} />
+        mission={mission} tip={tip} fortune={fortune}
+        teamMonth={{ count: company.monthLessons, last: company.lastMonthLessons }} />
 
       {/* 連続記録と称号（レッスンの連続と成約の連続を1枚に） */}
       <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} />
