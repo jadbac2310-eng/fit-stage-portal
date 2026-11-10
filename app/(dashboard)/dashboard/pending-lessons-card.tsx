@@ -75,7 +75,7 @@ export function PendingLessonsCard({ rows }: { rows: PendingLessonRow[] }) {
   const total = left.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 mb-6">
+    <div className="bg-amber-50 border border-amber-200 p-3">
       <div className="flex items-start gap-2 mb-1">
         <AlertTriangle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
         <div>

@@ -1,5 +1,6 @@
 import type { Streak, Badge } from "@/lib/badges-types";
 import type { SalesStreak } from "@/lib/sales-stats";
+import { SectionBox } from "@/components/ui/section-box";
 
 /**
  * 連続記録と称号。レッスンの連続と成約の連続を1枚にまとめる
@@ -15,7 +16,7 @@ function BadgeChips({ badges }: { badges: Badge[] }) {
         <span
           key={b.id}
           title={b.note}
-          className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700"
+          className="inline-flex items-center gap-1 border border-[var(--portal-line)] bg-blue-50 px-2 py-1 text-xs font-semibold text-gray-700"
         >
           <span>{b.emoji}</span>
           {b.label}
@@ -42,7 +43,7 @@ export function StreakBadges({
   if (!hasLesson && !hasSales && allBadges.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 mb-6">
+    <SectionBox title="連続記録" padded>
       {hasLesson && (
         <div>
           <div className="flex items-baseline gap-2">
@@ -80,6 +81,6 @@ export function StreakBadges({
           <BadgeChips badges={allBadges} />
         </div>
       )}
-    </div>
+    </SectionBox>
   );
 }

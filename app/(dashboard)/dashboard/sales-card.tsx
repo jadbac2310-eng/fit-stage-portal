@@ -4,6 +4,7 @@ import type { FollowUp } from "@/lib/highlights-types";
 import { CountUp } from "./count-up";
 import { Delta } from "@/components/ui/delta";
 import { FollowUpsSection } from "./follow-ups-section";
+import { SectionBox } from "@/components/ui/section-box";
 
 /**
  * 営業のための1枚。
@@ -32,11 +33,7 @@ export function SalesCard({
   const mDiff = month.contracts - month.lastContracts;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 mb-6">
-      <div className="flex items-center gap-1.5 mb-3">
-        <Handshake size={14} className="text-emerald-600" />
-        <p className="text-xs font-bold text-gray-700">営業の自分</p>
-      </div>
+    <SectionBox title="営業の自分" padded>
 
       {/* 次の予定カバー率 */}
       {coverage.total > 0 && (
@@ -108,6 +105,6 @@ export function SalesCard({
 
       {/* 声をかけたい人（閉じた状態では人数と内訳だけ） */}
       <FollowUpsSection follows={follows} unassigned={unassigned} />
-    </div>
+    </SectionBox>
   );
 }

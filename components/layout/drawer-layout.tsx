@@ -11,11 +11,13 @@ export function DrawerLayout({
   userName,
   avatarUrl,
   isAdmin = false,
+  todayLabel,
   children,
 }: {
   userName?: string;
   avatarUrl?: string;
   isAdmin?:  boolean;
+  todayLabel?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -26,7 +28,7 @@ export function DrawerLayout({
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen bg-gray-50 print:bg-white print:min-h-0">
+    <div className="flex min-h-screen bg-background print:bg-white print:min-h-0">
       {/* 画面遷移の進捗バー */}
       <Suspense fallback={null}>
         <TopProgress />
@@ -64,6 +66,7 @@ export function DrawerLayout({
         <Header
           userName={userName}
           avatarUrl={avatarUrl}
+          todayLabel={todayLabel}
           onMenuOpen={() => setOpen(true)}
         />
         {/* 下部の＋ボタン(FAB)に最下部コンテンツが隠れないよう余白を確保（モバイル） */}

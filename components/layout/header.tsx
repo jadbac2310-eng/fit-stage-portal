@@ -6,13 +6,23 @@ import { Menu, LogOut } from "lucide-react";
 import { getAncestors } from "./nav-config";
 import { Avatar } from "@/components/ui/avatar";
 
+/**
+ * 上の帯（スマホ）と、その下の「いまどこ」の帯（スマホ・パソコン共通）。
+ *
+ * 2026-11-10 のデザイン変更で、会社のポータルらしい作りにした：
+ * 濃紺の帯＋金の線、その下に「ホーム ＞ ページ名」と今日の日付。
+ * パソコンでは左の濃紺のメニューにロゴがあるので、上の帯は出さず「いまどこ」の帯だけ出す。
+ */
 export function Header({
   userName,
   avatarUrl,
+  todayLabel,
   onMenuOpen,
 }: {
   userName?: string;
   avatarUrl?: string;
+  /** 「2026年11月10日（月）」。サーバーで作って渡す（端末とサーバーで日付がずれないように） */
+  todayLabel?: string;
   onMenuOpen?: () => void;
 }) {
   const pathname = usePathname();
@@ -30,32 +40,49 @@ export function Header({
   }
 
   return (
-    <header className="md:hidden sticky top-0 z-30 bg-white border-b border-gray-200 print:hidden">
-      <div className="px-4 py-3 flex items-center gap-2">
+    <>
+      {/* スマホ：濃紺の帯（スクロールしても上に残る） */}
+      <header className="md:hidden sticky top-0 z-30 print:hidden bg-navy-900 text-white border-b-[3px] border-gold-500 px-3 py-2.5 flex items-center gap-2">
         <button
           onClick={onMenuOpen}
-          className="p-1.5 -ml-1.5 text-gray-500 hover:text-gray-800 transition flex-shrink-0"
+          className="p-1.5 -ml-1 text-white/90 hover:text-white transition flex-shrink-0"
           aria-label="メニューを開く"
         >
           <Menu size={22} />
         </button>
 
-        <h1 className="font-semibold text-gray-900 text-base flex-1 truncate">
-          {title}
-        </h1>
+        <Link href="/dashboard" className="flex-1 min-w-0 flex items-baseline gap-1.5">
+          <span className="font-extrabold text-[15px] tracking-wider">FIT STAGE</span>
+          <span className="text-[10px] font-semibold text-gold-500 tracking-[0.2em]">PORTAL</span>
+        </Link>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {userName && <Avatar name={userName} src={avatarUrl} size="sm" />}
           <button
             onClick={handleLogout}
-            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 text-white/70 hover:text-white transition-colors"
             aria-label="ログアウト"
           >
             <LogOut size={18} />
           </button>
         </div>
-      </div>
+      </header>
 
-    </header>
+      {/* いまどこ（ホーム ＞ ページ名）と今日の日付。こちらはスクロールで流れる（画面を狭くしないため） */}
+      <div className="print:hidden bg-white border-b border-[var(--portal-line)] px-3 md:px-5 py-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-500">
+        <p className="min-w-0 truncate">
+          <Link href="/dashboard" className="hover:underline">ホーム</Link>
+          {ancestors.filter((n) => n.href !== "/dashboard").map((n) => (
+            <span key={n.href}>
+              <span className="mx-1">＞</span>
+              <Link href={n.href} className="hover:underline">{n.label}</Link>
+            </span>
+          ))}
+          {ancestors.length === 0 && <><span className="mx-1">＞</span>{title}</>}
+          {ancestors.length === 1 && ancestors[0].href === "/dashboard" && <><span className="mx-1">＞</span>ダッシュボード</>}
+        </p>
+        {todayLabel && <p className="flex-shrink-0 tabular-nums">{todayLabel}</p>}
+      </div>
+    </>
   );
 }

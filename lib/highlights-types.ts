@@ -108,6 +108,63 @@ export function todayHeadline(
   };
 }
 
+// ─── 今日の予定の一覧（ダッシュボードの「本日の予定」の表） ───
+export interface TodayRow {
+  id:        string;
+  /** 「14:00」（日本時間） */
+  time:      string;
+  startAt:   string;
+  name:      string;
+  place?:    string;
+  trainer?:  string;
+  isTrial:   boolean;
+  /** 完了／いま／予定 */
+  state:     "done" | "now" | "upcoming";
+  /** 自分の担当か（指導する回・担当営業のお客さま） */
+  mine:      boolean;
+}
+
+/**
+ * 今日のレッスン（体験も）を時刻順に。キャンセルは入れない。
+ * 「いま」は開始〜終了（終了が無ければ開始から60分）の間で、まだ完了にしていない回。
+ */
+export function todayRows(
+  lessons: Lesson[],
+  trialLessons: TrialLesson[],
+  now: Date | number = Date.now(),
+  mine?: Mine,
+): TodayRow[] {
+  const today = jstDay(now);
+  const nowMs = typeof now === "number" ? now : now.getTime();
+  const time = (iso: string) =>
+    new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
+  const stateOf = (done: boolean, startIso: string, endIso?: string): TodayRow["state"] => {
+    if (done) return "done";
+    const start = new Date(startIso).getTime();
+    const end = endIso ? new Date(endIso).getTime() : start + 60 * 60 * 1000;
+    return nowMs >= start && nowMs < end ? "now" : "upcoming";
+  };
+  const rows: TodayRow[] = [
+    ...lessons
+      .filter((l) => jstDay(l.scheduledAt) === today && l.status !== "cancelled" && l.status !== "cancelled_same_day")
+      .map((l) => ({
+        id: l.id, time: time(l.scheduledAt), startAt: l.scheduledAt, name: l.customerName,
+        place: l.location, trainer: l.trainerMemberName, isTrial: false,
+        state: stateOf(isBillableLessonStatus(l.status), l.scheduledAt, l.endAt),
+        mine: !!mine?.memberId && mineLesson(l, mine),
+      })),
+    ...trialLessons
+      .filter((t) => jstDay(t.scheduledAt) === today && t.status !== "cancelled")
+      .map((t) => ({
+        id: t.id, time: time(t.scheduledAt), startAt: t.scheduledAt, name: t.customerName,
+        place: t.location, trainer: t.trainerMemberName, isTrial: true,
+        state: stateOf(t.status === "completed", t.scheduledAt),
+        mine: !!mine?.memberId && mineTrial(t, mine),
+      })),
+  ];
+  return rows.sort((a, b) => a.startAt.localeCompare(b.startAt));
+}
+
 // ─── 今日の節目 ────────────────────────────────────────
 /** お祝いする回数。これ以外の回数では出さない（毎回出ると見なくなるため） */
 const MILESTONE_COUNTS = [1, 5, 10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500];

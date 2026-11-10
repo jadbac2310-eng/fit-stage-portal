@@ -31,7 +31,7 @@ export function LineLinkCard({ linked, code, oaUrl }: {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
+    <div className="bg-white border border-[var(--portal-line)] p-3">
       <div className="flex items-center gap-2 mb-2">
         <MessageCircle size={16} className="text-green-600" />
         <p className="text-sm font-bold text-gray-900">LINE通知</p>

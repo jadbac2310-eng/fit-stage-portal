@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import {
   Dumbbell, TrendingUp,
-  ChevronRight, MapPin,
+  MapPin,
 } from "lucide-react";
 import { getCurrentMember, getMembers, ensureMemberLinkCode } from "@/lib/members";
 import { isLineConfigured } from "@/lib/line";
@@ -24,7 +24,7 @@ import {
   trainerLessonCountInRange, trialConversionInRange, lastMonthFullRange,
 } from "@/lib/trainer-stats";
 import { PendingLessonsCard } from "./pending-lessons-card";
-import { todayHeadline, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
+import { todayRows, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
 import { randomQuote } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
@@ -40,6 +40,8 @@ import { Delta } from "@/components/ui/delta";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { companyStats } from "@/lib/company-stats";
 import { CompanyCard } from "./company-card";
+import { MenuTiles, QuickLinks } from "./menu-tiles";
+import { SectionBox } from "@/components/ui/section-box";
 
 export const dynamic = "force-dynamic";
 
@@ -156,9 +158,8 @@ export default async function DashboardPage() {
   // ─── 今日のひとこと・節目・声かけリスト（追加の読み込みなし） ───
   // 自分の担当（指導する回＋担当営業のお客さま）だけに絞る
   const mine = { memberId: myId, customerIds: myCustomerIds(customers, myId) };
-  const headline   = todayHeadline(lessons, trialLessons, now, mine);
-  // FIT STAGE全体の数。これは全員が見られるようにする（チームの動きが見えるほうが気持ちが乗る）
-  const teamHeadline = todayHeadline(lessons, trialLessons, now);
+  // 今日のレッスンの一覧（全員ぶん。チームの動きが見えるほうが気持ちが乗る）。自分の担当には印が付く
+  const rows = todayRows(lessons, trialLessons, now, mine);
   const milestones = todayMilestones(lessons, trialLessons, now, mine);
   // 声かけリストは「担当営業が自分のお客さま」だけ。自分の持ち場だけが出るようにする。
   const allFollows = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
@@ -205,80 +206,102 @@ export default async function DashboardPage() {
     : null;
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-6 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">ダッシュボード</h1>
-        <p className="text-sm text-gray-500 mt-0.5">FIT STAGE ポータル</p>
-      </div>
-
+    <div className="p-3 md:p-5 max-w-6xl mx-auto">
       {celebrate && <Confetti />}
 
       {/* あいさつ・季節のひとこと */}
-      <div className="mb-3">
-        <p className="text-sm font-bold text-gray-800">
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
+        <p className="text-sm font-bold text-gray-900">
           {hello}{currentMember?.name ? `、${currentMember.name}さん` : ""}
         </p>
         {season && (
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-500">
             <span className="mr-1">{season.emoji}</span>{season.text}
           </p>
         )}
       </div>
 
-      {/* 日替わりの1枚・今日のひとこと・節目 */}
-      <TodayCard headline={headline} teamHeadline={teamHeadline} milestones={milestones} quote={quote}
-        mission={mission} tip={tip} fortune={fortune} />
+      {/* 会社のポータルらしい2列（スマホは1列）。左＝今日と今月、右＝メニューと自分のこと */}
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-start">
+        <div className="space-y-3 min-w-0">
+          {/* 日替わりの1枚・本日の予定・節目 */}
+          <TodayCard rows={rows} milestones={milestones} quote={quote} mission={mission} tip={tip} fortune={fortune} />
 
-      {/* 連続記録と称号（レッスンの連続と成約の連続を1枚に） */}
-      <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} />
+          {/* 完了にしていないレッスン（完了＝歩合になる） */}
+          {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
 
-      {/* 営業の自分。声をかけたい人もこの中の一番下に */}
-      <SalesCard coverage={coverage} month={sMonth} follows={follows} unassigned={unassigned} />
+          {/* 今月のFIT STAGE（全員に見せる。金額は出さない） */}
+          <CompanyCard stats={company} />
 
-      {/* 完了にしていないレッスン（完了＝歩合になる） */}
-      {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
-
-      {/* 今月のFIT STAGE（全員に見せる。金額は出さない） */}
-      <CompanyCard stats={company} />
-
-      {/* 今月の自分 */}
-      <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-        今月の自分
-      </h2>
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <Link href="/commissions" className="bg-blue-50 rounded-2xl border border-blue-100 p-4 hover:border-blue-300 transition">
-          <div className="flex items-center gap-1.5 mb-1">
-            <TrendingUp size={13} className="text-blue-500" />
-            <p className="text-xs font-semibold text-blue-600">今月の自分の歩合</p>
-          </div>
-          <CountUp value={myCommissionThisMonth} prefix="¥" className="text-2xl font-bold text-blue-700" />
-          {diffPercent === null ? (
-            <p className="text-xs text-blue-400 mt-0.5">タップで内訳</p>
-          ) : (
-            <p className={cn("text-xs mt-0.5 font-semibold", diffPercent >= 0 ? "text-green-600" : "text-gray-400")}>
-              先月の同日 {yen(myLastMtd)} と比べて {diffPercent >= 0 ? "+" : ""}{diffPercent}%
-            </p>
-          )}
-        </Link>
-        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Dumbbell size={13} className="text-gray-400" />
-            <p className="text-xs font-semibold text-gray-500">今月の自分のレッスン</p>
-          </div>
-          <p className="flex items-baseline">
-            <CountUp value={myCountThisMtd} className="text-2xl font-bold text-gray-900" />
-            <Delta now={myCountThisMtd} prev={myCountLastMtd} goodWhenUp />
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            このあとの予定 {myScheduledThisMonth.length}件
-            {myCountLastMtd > 0 && <>・先月の同日 {myCountLastMtd}本</>}
-          </p>
+          {/* 自分の予定 */}
+          <SectionBox title="自分の予定" action={{ label: "すべて見る", href: "/schedule" }}>
+            {myUpcoming.length === 0 ? (
+              <p className="px-3 py-5 text-sm text-gray-500 text-center">今後の予定はありません</p>
+            ) : (
+              <ul>
+                {myUpcoming.slice(0, 5).map((it) => (
+                  <li key={`${it.type}-${it.id}`} className="border-b border-[var(--portal-line)] last:border-b-0">
+                    <Link href={`/schedule/${it.id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition">
+                      <span className="w-[4.5rem] flex-shrink-0 text-sm font-bold text-blue-700 tabular-nums">
+                        {new Date(it.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" })}{" "}
+                        {new Date(it.scheduledAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })}
+                      </span>
+                      <span className={`flex-shrink-0 border px-1.5 py-px text-[10px] font-bold ${it.type === "trial" ? "border-purple-200 bg-purple-50 text-purple-700" : "border-[var(--portal-line)] bg-blue-50 text-blue-700"}`}>
+                        {it.type === "trial" ? "体験" : "通常"}
+                      </span>
+                      <span className="min-w-0 truncate text-sm font-bold text-gray-900">{it.customerName}</span>
+                      {it.location && (
+                        <span className="ml-auto flex items-center gap-0.5 max-w-[35%] text-[11px] text-gray-500 min-w-0">
+                          <MapPin size={10} className="flex-shrink-0" />
+                          <span className="truncate">{it.location}</span>
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {/* 残りはスケジュールで見られるので、文字で置かずにそこへ飛ばす */}
+            {myUpcoming.length > 5 && (
+              <Link href="/schedule" className="block border-t border-[var(--portal-line)] px-3 py-2 text-center text-xs text-blue-600 underline underline-offset-2">
+                ほか {myUpcoming.length - 5} 件を見る
+              </Link>
+            )}
+          </SectionBox>
         </div>
-      </div>
 
-      {/* 着地見込みと成約率 */}
+        <div className="space-y-3 min-w-0">
+          {/* メニュー（目次と同じ行き先をタイルで） */}
+          <MenuTiles isAdmin={currentMember?.isAdmin ?? false} />
+
+          {/* 今月の自分 */}
+          <SectionBox title="今月の自分" action={{ label: "歩合の内訳", href: "/commissions" }}>
+            <div className="grid grid-cols-2">
+              <Link href="/commissions" className="p-3 hover:bg-gray-50 transition">
+                <p className="text-[11px] text-gray-500 flex items-center gap-1"><TrendingUp size={11} /> 自分の歩合</p>
+                <CountUp value={myCommissionThisMonth} prefix="¥" className="block text-2xl font-bold text-blue-700" />
+                {diffPercent !== null && (
+                  <p className={cn("text-[11px] mt-0.5 font-semibold", diffPercent >= 0 ? "text-green-600" : "text-gray-400")}>
+                    先月の同日 {yen(myLastMtd)} と比べて {diffPercent >= 0 ? "+" : ""}{diffPercent}%
+                  </p>
+                )}
+              </Link>
+              <div className="p-3 border-l border-[var(--portal-line)]">
+                <p className="text-[11px] text-gray-500 flex items-center gap-1"><Dumbbell size={11} /> 自分のレッスン</p>
+                <p className="flex items-baseline">
+                  <CountUp value={myCountThisMtd} className="text-2xl font-bold text-blue-700" />
+                  <span className="text-xs font-bold ml-0.5">本</span>
+                  <Delta now={myCountThisMtd} prev={myCountLastMtd} goodWhenUp />
+                </p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  このあとの予定 {myScheduledThisMonth.length}件
+                  {myCountLastMtd > 0 && <>・先月の同日 {myCountLastMtd}本</>}
+                </p>
+              </div>
+            </div>
+            {/* 着地見込みと成約率 */}
       {(projection.count > 0 || pendingTotal > 0 || (conv && conv.held > 0)) && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6 space-y-3">
+        <div className="border-t border-[var(--portal-line)] p-3 space-y-3">
           {(projection.count > 0 || pendingTotal > 0) && (
             <div>
               <p className="text-xs font-semibold text-gray-500">今月の着地見込み</p>
@@ -323,62 +346,22 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* 自分の予定 */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">自分の予定</h2>
-        <Link href="/schedule" className="text-xs font-semibold text-blue-600 flex items-center gap-0.5 hover:underline">
-          すべて見る <ChevronRight size={13} />
-        </Link>
-      </div>
-      {myUpcoming.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 text-center mb-6">
-          <p className="text-3xl mb-2">🌤️</p>
-          <p className="text-sm text-gray-500">今後の予定はありません</p>
-        </div>
-      ) : (
-        <div className="space-y-2 mb-6">
-          {myUpcoming.slice(0, 5).map((it) => (
-            <Link key={`${it.type}-${it.id}`} href={`/schedule/${it.id}`}
-              className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3 hover:border-blue-300 transition">
-              <div className="flex flex-col items-center justify-center min-w-[44px]">
-                <span className="text-xs font-semibold text-gray-400">
-                  {new Date(it.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" })}
-                </span>
-                <span className="text-sm font-bold text-gray-900 tabular-nums">
-                  {new Date(it.scheduledAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0 border-l border-gray-100 pl-3">
-                <div className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${it.type === "trial" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
-                    {it.type === "trial" ? "体験" : "通常"}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900 truncate">{it.customerName}</span>
-                </div>
-                {it.location && (
-                  <span className="flex items-center gap-0.5 text-xs text-gray-400 mt-0.5 min-w-0">
-                    <MapPin size={10} className="flex-shrink-0" />
-                    <span className="truncate">{it.location}</span>
-                  </span>
-                )}
-              </div>
-              <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
-            </Link>
-          ))}
-          {/* 残りはスケジュールで見られるので、文字で置かずにそこへ飛ばす */}
-          {myUpcoming.length > 5 && (
-            <Link href="/schedule" className="block text-xs font-semibold text-blue-600 text-center pt-1 hover:underline">
-              ほか {myUpcoming.length - 5} 件を見る →
-            </Link>
+          </SectionBox>
+
+          {/* 連続記録と称号（レッスンの連続と成約の連続を1枚に） */}
+          <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} />
+
+          {/* 営業の自分。声をかけたい人もこの中の一番下に */}
+          <SalesCard coverage={coverage} month={sMonth} follows={follows} unassigned={unassigned} />
+
+          {/* 目的別で探す */}
+          <QuickLinks isAdmin={currentMember?.isAdmin ?? false} />
+
+          {lineEnabled && (
+            <LineLinkCard linked={lineLinked} code={lineCode} oaUrl={process.env.LINE_OA_URL} />
           )}
         </div>
-      )}
-
-      {lineEnabled && (
-        <div className="mt-6">
-          <LineLinkCard linked={lineLinked} code={lineCode} oaUrl={process.env.LINE_OA_URL} />
-        </div>
-      )}
+      </div>
     </div>
   );
 }

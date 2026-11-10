@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
+  --background: #f1f3f6;
+  --foreground: #1b2333;
+  /* ポータルの色（2026-11-10 のデザイン変更。濃紺×金＝HP・ハンドブックの金とそろえる） */
+  --portal-navy: #17284b;
+  --portal-navy-2: #22386a;
+  --portal-gold: #c29a3a;
+  --portal-line: #d5dae3;
 }
 
 @theme inline {
@@ -10,6 +15,40 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * 会社のポータルらしい見た目にそろえる（2026-11-10、尚樹の指示）。
+ * 画面ごとに書き直すと何十ファイルにもなるので、Tailwind の部品の値をここで置き換える。
+ *  ・角丸を小さく：rounded-lg / xl / 2xl / 3xl は、ほぼ四角になる（rounded-full の丸はそのまま）
+ *  ・青を濃紺に：bg-blue-600 のボタンや text-blue-600 のリンクが、そのまま濃紺になる
+ *  ・金：bg-gold-500 / text-gold-600 / bg-gold-50、濃紺：bg-navy-900 / bg-navy-800
+ * 新しい画面を作るときも、いつもどおり blue と rounded-* を使えばこの見た目になる。
+ */
+@theme {
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+  --radius-2xl: 3px;
+  --radius-3xl: 4px;
+
+  --color-blue-50: #eef1f7;
+  --color-blue-100: #dde3f0;
+  --color-blue-200: #bcc7e0;
+  --color-blue-300: #93a4cb;
+  --color-blue-400: #6079b0;
+  --color-blue-500: #3c5796;
+  --color-blue-600: #22386a;
+  --color-blue-700: #17284b;
+  --color-blue-800: #12203d;
+  --color-blue-900: #0d1830;
+
+  --color-navy-800: #22386a;
+  --color-navy-900: #17284b;
+  --color-gold-50: #fbf5e6;
+  --color-gold-200: #e6d3a0;
+  --color-gold-500: #c29a3a;
+  --color-gold-600: #a37f29;
 }
 
 body {

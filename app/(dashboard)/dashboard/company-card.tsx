@@ -1,4 +1,5 @@
-import { Building2, Sparkles, Users, TrendingUp } from "lucide-react";
+import { Sparkles, Users, TrendingUp } from "lucide-react";
+import { SectionBox } from "@/components/ui/section-box";
 import type { CompanyStats } from "@/lib/company-stats";
 import { Delta } from "@/components/ui/delta";
 
@@ -20,11 +21,7 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
   const remaining = s.nextMilestone ? s.nextMilestone - s.totalLessons : 0;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 mb-6">
-      <div className="flex items-center gap-1.5 mb-3">
-        <Building2 size={14} className="text-blue-600" />
-        <p className="text-xs font-bold text-gray-700">今月のFIT STAGE</p>
-      </div>
+    <SectionBox title="今月のFIT STAGE" padded>
 
       {/* 今月の数字。全体の本数はここだけに出す（上の「今日」のカードは今日のことだけ） */}
       <div className="grid grid-cols-3 gap-2">
@@ -73,7 +70,7 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
             {s.newCustomerNames.map((name) => (
               <span
                 key={name}
-                className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                className="border border-gold-200 bg-gold-50 px-2 py-0.5 text-[11px] font-bold text-gray-800"
               >
                 {name}
               </span>
@@ -126,7 +123,7 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
               title={`${m.label} ${m.count}本`}
               className={[
                 "flex-1 rounded-t",
-                i === s.monthlyCounts.length - 1 ? "bg-blue-500" : m.count > 0 ? "bg-blue-200" : "bg-gray-100",
+                i === s.monthlyCounts.length - 1 ? "bg-gold-500" : m.count > 0 ? "bg-blue-200" : "bg-gray-100",
               ].join(" ")}
               style={{ height: m.count > 0 ? Math.max(Math.round((m.count / max) * BAR_AREA), 3) : 2 }}
             />
@@ -157,6 +154,6 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
           )}
         </p>
       </div>
-    </div>
+    </SectionBox>
   );
 }

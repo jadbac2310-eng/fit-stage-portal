@@ -45,11 +45,11 @@ export function QuoteCard({
 
   return (
     <div className={[
-      "rounded-2xl border overflow-hidden transition",
-      secret ? "border-gray-800 bg-gray-900" : "border-gray-200 bg-white",
+      "border overflow-hidden transition",
+      secret ? "border-gray-800 bg-gray-900" : "border-[var(--portal-line)] bg-white",
     ].join(" ")}>
       {/* タブ */}
-      <div className={["flex gap-1 px-2 pt-2", secret ? "bg-gray-900" : "bg-gray-50"].join(" ")}>
+      <div className={["flex gap-1 px-2 pt-1.5", secret ? "bg-gray-900" : "bg-navy-900"].join(" ")}>
         {TABS.map((t) => {
           const Icon = t.icon;
           const active = tab === t.id;
@@ -59,10 +59,10 @@ export function QuoteCard({
               type="button"
               onClick={() => { setTab(t.id); setTaps(0); }}
               className={[
-                "flex-1 flex items-center justify-center gap-1 rounded-t-lg py-1.5 text-[11px] font-semibold transition",
+                "flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold transition",
                 active
-                  ? (secret ? "bg-gray-800 text-gray-100" : "bg-white text-gray-900")
-                  : (secret ? "text-gray-500" : "text-gray-400 hover:text-gray-600"),
+                  ? (secret ? "bg-gray-800 text-gray-100" : "bg-white text-blue-700 shadow-[inset_0_3px_0_var(--portal-gold)]")
+                  : (secret ? "text-gray-500" : "text-white/70 hover:text-white"),
               ].join(" ")}
             >
               <Icon size={11} /> {t.label}
@@ -77,7 +77,7 @@ export function QuoteCard({
             <p className={["text-[10px] font-semibold tracking-widest", secret ? "text-gray-500" : "text-gray-400"].join(" ")}>
               {secret ? "裏・格言" : "本日の格言"}
             </p>
-            <p className={["text-sm font-bold mt-1", secret ? "text-gray-100" : "text-gray-800"].join(" ")}>
+            <p className={["text-base font-bold mt-1", secret ? "text-gray-100" : "text-gray-900"].join(" ")}>
               {shownQuote.text}
             </p>
             <p className={["text-xs font-semibold mt-1", secret ? "text-gray-400" : "text-gray-500"].join(" ")}>
