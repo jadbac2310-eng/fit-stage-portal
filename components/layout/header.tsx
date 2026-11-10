@@ -54,7 +54,7 @@ export function Header({
         {/* 会社のロゴ（白い字＋金の線） */}
         <Link href="/dashboard" className="flex-1 min-w-0" aria-label="FIT STAGE ポータル">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={582} height={201} className="h-8 w-auto" />
+          <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={900} height={312} className="h-8 w-auto" />
         </Link>
 
         <div className="flex items-center gap-1">

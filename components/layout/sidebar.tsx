@@ -42,7 +42,7 @@ export function Sidebar({
           {/* 会社のロゴ（白い字＋金の線。尚樹が指定した画像を濃紺の上で見えるように白抜きにしたもの） */}
           <Link href="/dashboard" className="flex-1" aria-label="FIT STAGE ポータル">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={582} height={201} className="h-10 w-auto" />
+            <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={900} height={312} className="h-10 w-auto" />
           </Link>
           {mobile && (
             <button onClick={onClose} aria-label="閉じる" className="text-white/70 hover:text-white transition p-2 -mr-1">
