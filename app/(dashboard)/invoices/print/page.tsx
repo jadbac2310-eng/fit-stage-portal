@@ -21,6 +21,9 @@ import { EditableDueDate } from "./editable-due-date";
 import { InvoiceActions } from "./invoice-actions";
 
 export const dynamic = "force-dynamic";
+// この画面から呼ぶ送信（PDFを作ってGmailで送る）が、途中で打ち切られないように長めに取る。
+// 初回は起動に時間がかかり、返事が戻る前に切れると「失敗」に見えて二重送信のもとになる。
+export const maxDuration = 60;
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;

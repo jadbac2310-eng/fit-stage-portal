@@ -15,6 +15,7 @@ import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { loadGroupInvoice, renderInvoicePdf, invoiceFilename } from "@/lib/invoice-render";
 import { isMailConfigured, mailFromAddress, sendMail } from "@/lib/mailer";
+import { recentInvoiceMail, markInvoiceMailStart, markInvoiceMailSent, clearInvoiceMailStart } from "@/lib/invoice-mail-guard";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
 export async function updateBillingNameAction(customerId: string, name: string) {
@@ -188,35 +189,52 @@ export async function createInvoiceEmailAction(
 /**
  * 請求書PDFを添付して、Gmail から送る（lib/mailer.ts）。
  * 宛先・件名・本文は画面で直したものを受け取る。送れたら活動ログに残す。
+ *
+ * 同じ請求書を同じ宛先へ、少し前に送って（送りかけて）いたら、いったん止めて確かめる（duplicate）。
+ * 「それでも送る」と答えたときだけ force で送る。理由は lib/invoice-mail-guard.ts。
  */
 export async function sendInvoiceEmailAction(
   billerId: string,
   month: string,
   mail: { to: string; subject: string; body: string },
-): Promise<{ ok: true; to: string } | { ok: false; error: string }> {
+  opts?: { force?: boolean },
+): Promise<{ ok: true; to: string } | { ok: false; error: string; duplicate?: boolean }> {
   await requireAdmin();
   if (!billerId || !month) return { ok: false, error: "対象が不正です" };
   const to = mail.to.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { ok: false, error: "宛先のメールアドレスを確認してください" };
   if (!mail.subject.trim()) return { ok: false, error: "件名が空です" };
+  if (!mail.body.trim()) return { ok: false, error: "本文が空です" };
   if (!isMailConfigured()) return { ok: false, error: "Gmail の送信設定がまだありません（Vercel に GMAIL_USER と GMAIL_APP_PASSWORD を入れてください）" };
 
   const loaded = await loadGroupInvoice(billerId, month);
   if (!loaded) return { ok: false, error: "顧客が見つかりません" };
   if (loaded.invoice.lines.length === 0) return { ok: false, error: "対象月の請求がありません" };
 
+  // まとめ請求のときも、記録は請求先（biller）で1つにそろえる
+  const guardId = loaded.biller.id;
+  const name = billingName(loaded.biller);
+  if (!opts?.force) {
+    const recent = await recentInvoiceMail(guardId, month, to);
+    if (recent) {
+      const when = recent.minutesAgo < 1 ? "ついさっき" : `${recent.minutesAgo}分前に`;
+      return { ok: false, duplicate: true, error: `${when}、同じ請求書を ${to} へ送っています。Gmail の「送信済み」で届いているか確かめてください。` };
+    }
+  }
+
   const pdf = await renderInvoicePdf(loaded, month);
+  const logId = await markInvoiceMailStart(guardId, name, month, to);
   const sent = await sendMail({
     to,
     subject: mail.subject.trim(),
     text: mail.body,
     attachments: [{ filename: invoiceFilename(loaded.invoice, month), content: pdf }],
   });
-  if (!sent.ok) return sent;
-
-  await logActivity({
-    action: "create", entityType: "invoice", entityId: loaded.biller.id,
-    summary: `請求書をメール送信: ${billingName(loaded.biller)} ${month} → ${to}`,
-  });
+  if (!sent.ok) {
+    await clearInvoiceMailStart(logId);
+    return sent;
+  }
+  if (logId) await markInvoiceMailSent(logId, name, month, to);
+  else await logActivity({ action: "create", entityType: "invoice", entityId: guardId, summary: `請求書をメール送信: ${name} ${month} → ${to}` });
   return { ok: true, to };
 }

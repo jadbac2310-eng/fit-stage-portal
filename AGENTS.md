@@ -154,6 +154,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
   （Google アカウント → セキュリティ → 2段階認証 → アプリパスワード の16文字）を入れる。`MAIL_FROM_NAME` で差出人名（省略時 FIT STAGE 坂根尚樹）。
   送信は `lib/mailer.ts`（nodemailer・smtp.gmail.com:465）。PDFは `lib/invoice-render.ts` で作って添付。送ったメールは Gmail の送信済みにも残る。
 - 未設定のときは「Gmailで開く」（mail.google.com の作成画面に本文入り）と「PDFと本文を共有」（iPhoneの共有シート）だけが出る。
+- **二重送信を止める**（2026-11-10、`lib/invoice-mail-guard.ts`）。1回目に「失敗」と出たのに実は送れていて、押し直して同じ請求書が2通届いた。
+  送る前に操作ログへ「送信中」を書き、同じ請求書・同じ宛先へ10分以内にもう一度送ろうとしたら、いったん止めて聞く（それでも送る、は選べる）。
+  返事が戻らなかったときは「失敗」ではなく「送れたか確かめられなかった。送信済みを見て」と出す。送信の持ち時間は60秒（`print/page.tsx` の `maxDuration`）。
+  Gmail は同じ文面が続くと、スレッドの中で2通目の本文を畳んで添付だけに見せる（本文が消えたわけではない）。
 - 明細を税抜で出す顧客は `customers.invoice_tax_excluded`。同じ日付・品目は「数量」でまとめる（`invoiceRows`）。
 
 ## データアシスタント

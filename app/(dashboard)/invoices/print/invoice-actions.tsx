@@ -125,17 +125,27 @@ export function InvoiceActions({
     }
   }
 
-  /** Gmail から直接送る（PDF添付・サーバー側で送信。送信済みにも残る） */
+  /**
+   * Gmail から直接送る（PDF添付・サーバー側で送信。送信済みにも残る）。
+   * 返事が戻らなかったときは「失敗」とは言わない。送れていることがあり、押し直すと2通届くため（2026-11-10 に実際に起きた）。
+   * 同じ宛先へ続けて送ろうとしたら、サーバーがいったん止めて聞いてくる（duplicate）。
+   */
   async function sendFromGmail() {
     if (!mail) return;
+    if (!mail.body.trim()) { alert("本文が空です。本文を入れてから送ってください。"); return; }
     if (!confirm(`${mail.to} に請求書PDFを添付して送ります。よろしいですか？`)) return;
     setBusy("mailshare");
     try {
-      const res = await sendInvoiceEmailAction(billerId, month, { to: mail.to, subject: mail.subject, body: mail.body });
+      const payload = { to: mail.to, subject: mail.subject, body: mail.body };
+      let res = await sendInvoiceEmailAction(billerId, month, payload);
+      if (!res.ok && res.duplicate) {
+        if (!confirm(`${res.error}\n\nそれでも、もう1通送りますか？`)) return;
+        res = await sendInvoiceEmailAction(billerId, month, payload, { force: true });
+      }
       if (res.ok) setSent(res.to);
       else alert(res.error);
     } catch {
-      alert("送信に失敗しました");
+      alert("送れたかどうか、確かめられませんでした（返事が戻る前に通信が切れました）。\n\nメールは送れていることがあります。もう一度押す前に、Gmail の「送信済み」を見てください。");
     } finally {
       setBusy(null);
     }
