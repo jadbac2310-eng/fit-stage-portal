@@ -67,6 +67,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **ページの題は `components/ui/page-title.tsx` の `PageTitle`**（左に濃紺の太い線。右に「追加」などを置ける）。
   **切り替えのタブは同じファイルの `tabsWrap`・`tabButton(active)`・`tabCount(active)`**（四角・選んだものが濃紺）。灰色の丸い入れ物に白い丸ボタン、の形は使わない。
 - **ロゴ**：左上は `public/logo-wordmark-white.png`（尚樹が指定した FIT STAGE のロゴを、濃紺の上で見えるよう白い字＋金の線にしたもの）。
+  ホーム画面のアイコンは `app/apple-icon.png`（iPhone）と `public/icon-portal-512.png`（Android・manifest）。濃紺に白いロゴ＋金の線＋PORTAL。
+  前は apple 用のアイコンが無く、iPhone が黒地に「F」を勝手に作っていた。iPhone は一度消して「ホーム画面に追加」し直さないと変わらない。
 - **スケジュール**（2026-11-10）：題・四角いタブ・「絞り込み」の箱（担当者／店舗／顧客）・日付の帯（今日と明日は金の線）・「次の予定」は濃紺＋金の線。
 - 影つきの丸いカード、グラデーション、アイコン付きの小さな見出しは増やさない。
 
