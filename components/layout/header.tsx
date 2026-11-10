@@ -51,9 +51,10 @@ export function Header({
           <Menu size={22} />
         </button>
 
-        <Link href="/dashboard" className="flex-1 min-w-0 flex items-baseline gap-1.5">
-          <span className="font-extrabold text-[15px] tracking-wider">FIT STAGE</span>
-          <span className="text-[10px] font-semibold text-gold-500 tracking-[0.2em]">PORTAL</span>
+        {/* 会社のロゴ（白い字＋金の線） */}
+        <Link href="/dashboard" className="flex-1 min-w-0" aria-label="FIT STAGE ポータル">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={582} height={201} className="h-8 w-auto" />
         </Link>
 
         <div className="flex items-center gap-1">

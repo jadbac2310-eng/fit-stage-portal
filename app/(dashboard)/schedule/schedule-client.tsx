@@ -4,11 +4,11 @@ import { useState, useMemo, useEffect, type Dispatch, type SetStateAction } from
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  CalendarDays, MapPin, ChevronDown, Clock,
+  MapPin, ChevronDown, Clock,
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw, Building2, Lock, Wallet, CopyPlus, Handshake,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Lock, Wallet, CopyPlus, Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -19,6 +19,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { CustomerPicker } from "@/components/ui/customer-picker";
+import { PageTitle, tabsWrap, tabButton, tabCount } from "@/components/ui/page-title";
+import { SectionBox } from "@/components/ui/section-box";
 import { EVENT_COLORS, type EventColor } from "@/lib/personal-events-types";
 import { tallyLessons, tallyTotal, tallyRowTotal, tallyForMember, pinTallyRow } from "@/lib/schedule-tally";
 import {
@@ -191,13 +193,13 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
   const visible = expanded ? rows : rows.slice(0, TALLY_PREVIEW);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 mb-4 overflow-hidden">
+    <div className="bg-white border border-[var(--portal-line)] mb-3 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2.5 px-4 py-3 text-left hover:bg-gray-50 transition"
+        className={cn("w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 transition", open && "border-b-2 border-[var(--portal-navy)]")}
       >
-        <Dumbbell size={16} className="text-blue-500 flex-shrink-0" />
+        <span aria-hidden className="w-2.5 h-2.5 bg-[var(--portal-gold)] flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900">
             {parseInt(month.slice(5), 10)}月のレッスン件数{showOwn && "（自分）"}
@@ -212,18 +214,10 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
       </button>
 
       {open && (
-        <div className="px-4 pb-4 pt-3 border-t border-gray-100">
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-3">
+        <div className="px-3 pb-3 pt-3">
+          <div className={cn(tabsWrap, "mb-3")}>
             {([["trainer", "担当者別"], ["customer", "顧客別"]] as const).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => { setBy(key); setExpanded(false); }}
-                className={cn(
-                  "flex-1 py-1.5 rounded-lg text-xs font-semibold transition",
-                  by === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
-                )}
-              >
+              <button key={key} type="button" onClick={() => { setBy(key); setExpanded(false); }} className={tabButton(by === key, "sm")}>
                 {label}
               </button>
             ))}
@@ -856,10 +850,14 @@ function DayGroup({
   const { main, sub, accent } = dayLabel(date);
   return (
     <div>
-      <div className="flex items-baseline gap-2 px-1 mb-2">
-        <span className={cn("text-sm font-bold", accent ? "text-blue-600" : "text-gray-700")}>{main}</span>
-        {sub && <span className="text-xs text-gray-400">{sub}</span>}
-        <span className="text-xs text-gray-300 ml-auto">{items.length}件</span>
+      {/* 日付の帯。今日・明日は金の線 */}
+      <div className={cn(
+        "flex items-baseline gap-2 px-2.5 py-1.5 mb-2 bg-blue-100 border-l-[5px]",
+        accent ? "border-gold-500" : "border-[var(--portal-navy)]",
+      )}>
+        <span className="text-sm font-bold text-blue-700">{main}</span>
+        {sub && <span className="text-xs text-gray-600">{sub}</span>}
+        <span className="text-xs font-bold text-blue-700 ml-auto">{items.length}件</span>
       </div>
       <div className="space-y-2">
         {items.map((it) => (
@@ -2063,24 +2061,18 @@ export function ScheduleClient({
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      {/* ヘッダー */}
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarDays size={20} className="text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-900">スケジュール</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {filterMember === "all"
-              ? "全員のスケジュール"
-              : (() => {
-                  const who = members.find((m) => m.id === filterMember)?.name ?? "";
-                  return filterRole === "sales" ? `${who} さんが営業担当のお客さま`
-                       : filterRole === "all"   ? `${who} さんのスケジュール（営業担当ぶんも）`
-                       :                          `${who} さんのスケジュール`;
-                })()}
-          </p>
-        </div>
+      {/* ページの題と「追加」 */}
+      <PageTitle
+        title="スケジュール"
+        sub={filterMember === "all"
+          ? "全員のスケジュール"
+          : (() => {
+              const who = members.find((m) => m.id === filterMember)?.name ?? "";
+              return filterRole === "sales" ? `${who} さんが営業担当のお客さま`
+                   : filterRole === "all"   ? `${who} さんのスケジュール（営業担当ぶんも）`
+                   :                          `${who} さんのスケジュール`;
+            })()}
+        right={
         <div className="relative flex-shrink-0">
           <button
             type="button"
@@ -2122,28 +2114,26 @@ export function ScheduleClient({
             </>
           )}
         </div>
-      </div>
+        }
+      />
 
-      {/* 表示切替（リスト / カレンダー） */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+      {/* 表示切替（リスト / 時間軸 / カレンダー） */}
+      <div className={cn(tabsWrap, "mb-3")}>
         {([["list", "リスト", List], ["timeline", "時間軸", Clock], ["calendar", "カレンダー", LayoutGrid]] as const).map(([key, label, Icon]) => (
-          <button
-            key={key}
-            onClick={() => setView(key)}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition",
-              view === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            )}
-          >
+          <button key={key} onClick={() => setView(key)} className={tabButton(view === key)}>
             <Icon size={15} /> {label}
           </button>
         ))}
       </div>
 
+      {/* 絞り込み（担当者・立場・店舗・顧客）を1つの箱に */}
+      <SectionBox title="絞り込み" className="mb-3">
+      <div className="p-3 space-y-2.5">
+
       {/* 担当者フィルタ（全員が利用可） */}
       {members.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
-          <UserRound size={15} className="text-gray-400 flex-shrink-0" />
+        <div className="flex items-center gap-2">
+          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">担当者</span>
           <select
             value={filterMember}
             onChange={(e) => setFilterMember(e.target.value)}
@@ -2164,21 +2154,13 @@ export function ScheduleClient({
 
       {/* 立場の切り替え。自分が教える回と、担当営業として見る回を分ける */}
       {filterMember !== "all" && (
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+        <div className={tabsWrap}>
           {([
             ["trainer", "自分のスケジュール"],
             ["sales", "営業のお客さま"],
             ["all", "すべて"],
           ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilterRole(key)}
-              className={cn(
-                "flex-1 py-1.5 rounded-lg text-xs font-semibold transition",
-                filterRole === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
-              )}
-            >
+            <button key={key} type="button" onClick={() => setFilterRole(key)} className={tabButton(filterRole === key, "sm")}>
               {label}
             </button>
           ))}
@@ -2187,8 +2169,8 @@ export function ScheduleClient({
 
       {/* 店舗フィルタ（その店舗でのレッスン予定一覧） */}
       {stores.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
-          <Building2 size={15} className="text-gray-400 flex-shrink-0" />
+        <div className="flex items-center gap-2">
+          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">店舗</span>
           <select
             value={filterStore}
             onChange={(e) => setFilterStore(e.target.value)}
@@ -2204,14 +2186,16 @@ export function ScheduleClient({
 
       {/* 顧客フィルタ（その顧客のレッスン予定一覧） */}
       {customers.length > 0 && (
-        <div className="flex items-center gap-2 mb-4">
-          <UserRound size={15} className="text-gray-400 flex-shrink-0" />
+        <div className="flex items-center gap-2">
+          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">顧客</span>
           <CustomerPicker
             className="flex-1 min-w-0" customers={customers} value={filterCustomer} onChange={setFilterCustomer}
             emptyOption={{ value: "all", label: "すべての顧客" }}
           />
         </div>
       )}
+      </div>
+      </SectionBox>
 
       {/* 今月のレッスン件数（担当者別・顧客別） */}
       <MonthlyLessonSummary items={items} isAdmin={isAdmin} currentMemberId={currentMemberId} month={summaryMonth} />
@@ -2232,8 +2216,8 @@ export function ScheduleClient({
         <>
       {/* 次の予定ハイライト */}
       {nextItem && tab === "upcoming" && (
-        <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl p-4 mb-5 text-white shadow-sm shadow-blue-200">
-          <p className="text-xs font-medium text-blue-100 flex items-center gap-1.5">
+        <div className="bg-navy-900 border-l-[5px] border-gold-500 p-3 mb-3 text-white">
+          <p className="text-xs font-bold text-gold-500 flex items-center gap-1.5">
             <Clock size={12} /> 次の予定
           </p>
           <div className="flex items-end justify-between mt-1.5">
@@ -2246,7 +2230,7 @@ export function ScheduleClient({
               </p>
             </div>
             <Link href={`/schedule/${nextItem.id}`}
-              className="flex-shrink-0 ml-3 bg-white/20 hover:bg-white/30 transition rounded-lg px-3 py-1.5 text-xs font-semibold">
+              className="flex-shrink-0 ml-3 bg-white text-blue-700 hover:bg-blue-50 transition px-3 py-1.5 text-xs font-bold">
               詳細
             </Link>
           </div>
@@ -2254,21 +2238,11 @@ export function ScheduleClient({
       )}
 
       {/* タブ */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+      <div className={cn(tabsWrap, "mb-3")}>
         {([["upcoming", "今後の予定", upcoming.length], ["past", "過去", past.length]] as const).map(([key, label, n]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition",
-              tab === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            )}
-          >
+          <button key={key} onClick={() => setTab(key)} className={tabButton(tab === key)}>
             {label}
-            <span className={cn(
-              "text-[11px] min-w-[1.1rem] h-[1.1rem] px-1 inline-flex items-center justify-center rounded-full font-bold",
-              tab === key ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-500"
-            )}>{n}</span>
+            <span className={tabCount(tab === key)}>{n}</span>
           </button>
         ))}
       </div>
@@ -2282,7 +2256,7 @@ export function ScheduleClient({
           </p>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {groups.map((g) => (
             <DayGroup key={dayKey(g.date)} date={g.date} items={g.items} isAdmin={isAdmin}
               currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onDuplicateLesson={canAddLesson ? openDuplicateLesson : undefined} onEditHourly={openEditHourly} />

@@ -1,9 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import {
-  Dumbbell, TrendingUp,
-  MapPin,
-} from "lucide-react";
+import { Dumbbell, TrendingUp } from "lucide-react";
 import { getCurrentMember, getMembers, ensureMemberLinkCode } from "@/lib/members";
 import { isLineConfigured } from "@/lib/line";
 import { anyStaffNotifyEnabled } from "@/lib/line-notify";
@@ -58,9 +55,6 @@ function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
 }
 
-function isPastIso(iso: string): boolean {
-  return new Date(iso).getTime() <= Date.now();
-}
 
 export default async function DashboardPage() {
   // 読み込みは1回にまとめて全部同時に取る（2回に分けると往復のぶんだけ表示が遅れる）。
@@ -148,19 +142,6 @@ export default async function DashboardPage() {
   // 会社全体の数字（全員に見せる）。売上は伸び率(%)だけで、金額は client に渡さない
   const company = companyStats(customers, lessons, trialLessons, ctx, now);
 
-  // 自分の今後の予定（通常＝担当トレーナー、体験＝担当トレーナー/営業、未来かつ予定中、直近5件）
-  const myUpcoming = [
-    ...lessons
-      .filter((l) => l.trainerMemberId === myId && l.status === "scheduled" && !isPastIso(l.scheduledAt))
-      .map((l) => ({ id: l.id, type: "regular" as const, customerName: l.customerName, scheduledAt: l.scheduledAt, location: l.location })),
-    ...trialLessons
-      .filter((t) => (t.trainerMemberId === myId || t.salesMemberId === myId) && t.status === "scheduled" && !isPastIso(t.scheduledAt))
-      .map((t) => ({ id: t.id, type: "trial" as const, customerName: t.customerName, scheduledAt: t.scheduledAt, location: t.location })),
-  ]
-    // 今日のぶんは上の「本日の予定」に出しているので、ここは明日から（同じ予定を2回出さない）
-    .filter((it) => jstDay(it.scheduledAt) > jstDay(now))
-    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
-
   // ─── 今日のひとこと・節目・声かけリスト（追加の読み込みなし） ───
   // 自分の担当（指導する回＋担当営業のお客さま）だけに絞る
   const mine = { memberId: myId, customerIds: myCustomerIds(customers, myId) };
@@ -239,42 +220,6 @@ export default async function DashboardPage() {
 
           {/* 今月のFIT STAGE（全員に見せる。金額は出さない） */}
           <CompanyCard stats={company} />
-
-          {/* 自分の予定 */}
-          <SectionBox title="明日からの自分の予定" action={{ label: "すべて見る", href: "/schedule" }}>
-            {myUpcoming.length === 0 ? (
-              <p className="px-3 py-5 text-sm text-gray-500 text-center">明日からの予定はまだ入っていません</p>
-            ) : (
-              <ul>
-                {myUpcoming.slice(0, 5).map((it) => (
-                  <li key={`${it.type}-${it.id}`} className="border-b border-[var(--portal-line)] last:border-b-0">
-                    <Link href={`/schedule/${it.id}`} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition">
-                      <span className="w-[4.5rem] flex-shrink-0 text-sm font-bold text-blue-700 tabular-nums">
-                        {new Date(it.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" })}{" "}
-                        {new Date(it.scheduledAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })}
-                      </span>
-                      <span className={`flex-shrink-0 border px-1.5 py-px text-[10px] font-bold ${it.type === "trial" ? "border-purple-200 bg-purple-50 text-purple-700" : "border-[var(--portal-line)] bg-blue-50 text-blue-700"}`}>
-                        {it.type === "trial" ? "体験" : "通常"}
-                      </span>
-                      <span className="min-w-0 truncate text-sm font-bold text-gray-900">{it.customerName}</span>
-                      {it.location && (
-                        <span className="ml-auto flex items-center gap-0.5 max-w-[35%] text-[11px] text-gray-500 min-w-0">
-                          <MapPin size={10} className="flex-shrink-0" />
-                          <span className="truncate">{it.location}</span>
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {/* 残りはスケジュールで見られるので、文字で置かずにそこへ飛ばす */}
-            {myUpcoming.length > 5 && (
-              <Link href="/schedule" className="block border-t border-[var(--portal-line)] px-3 py-2 text-center text-xs text-blue-600 underline underline-offset-2">
-                ほか {myUpcoming.length - 5} 件を見る
-              </Link>
-            )}
-          </SectionBox>
         </div>
 
         <div className="space-y-3 min-w-0">

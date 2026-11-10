@@ -39,12 +39,11 @@ export function Sidebar({
     )}>
       <div className="p-4 border-b-[3px] border-gold-500 flex-shrink-0">
         <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="FIT STAGE" className="w-8 h-8 bg-white object-contain flex-shrink-0" />
-          <div className="flex-1">
-            <p className="font-extrabold text-white text-sm leading-tight tracking-wider">FIT STAGE</p>
-            <p className="text-[10px] font-semibold text-gold-500 tracking-[0.2em]">PORTAL</p>
-          </div>
+          {/* 会社のロゴ（白い字＋金の線。尚樹が指定した画像を濃紺の上で見えるように白抜きにしたもの） */}
+          <Link href="/dashboard" className="flex-1" aria-label="FIT STAGE ポータル">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={582} height={201} className="h-10 w-auto" />
+          </Link>
           {mobile && (
             <button onClick={onClose} aria-label="閉じる" className="text-white/70 hover:text-white transition p-2 -mr-1">
               <X size={22} />
