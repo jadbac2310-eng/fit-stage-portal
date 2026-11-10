@@ -16,6 +16,8 @@ import {
 } from "@/lib/invoices";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate } from "@/lib/invoice-due-dates";
+import { getInvoiceMailRecords } from "@/lib/invoice-mail-guard";
+import { formatSentAt } from "@/lib/invoice-mail-types";
 import { EditableBillingName } from "./editable-name";
 import { EditableDueDate } from "./editable-due-date";
 import { InvoiceActions } from "./invoice-actions";
@@ -67,6 +69,7 @@ export default async function InvoicePrintPage({
     { plans, passes, lessons, trialLessons, monthlyItems, tieredPrices }, invoiceFeesFromPlans(plansMaster),
   );
   const dueOverride = await getInvoiceDueDate(customer.id, month);
+  const mailRecords = await getInvoiceMailRecords(month, customer.id);
   const invoiceNo = invoiceNumber(month, customer.id);
   const suffix = addresseeSuffix(customer.customerType);
   const tax = taxBreakdown(invoice.total);
@@ -85,6 +88,22 @@ export default async function InvoicePrintPage({
         </Link>
         <InvoiceActions pdfHref={pdfHref} filename={pdfFilename} billerId={customer.id} month={month} />
       </div>
+      {/* いつ・どこへメールで送ったか（新しい順）。送った覚えがあるか、二重に送っていないかを見るため */}
+      {mailRecords.length > 0 && (
+        <div className="mb-3 border border-[var(--portal-line)] bg-white px-3 py-2 print:hidden">
+          <p className="text-[11px] font-semibold text-gray-500 mb-1">メールで送った記録</p>
+          <ul className="space-y-0.5">
+            {mailRecords.map((r, i) => (
+              <li key={i} className="text-xs text-gray-700 flex flex-wrap gap-x-2">
+                <span className="font-semibold tabular-nums">{formatSentAt(r.at)}</span>
+                <span className="min-w-0 break-all">→ {r.to}</span>
+                {r.byName && <span className="text-gray-400">（{r.byName}）</span>}
+                {r.pending && <span className="text-amber-700">送信の途中で返事が切れた記録です。届いているかは Gmail の「送信済み」で確かめてください</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="text-xs text-gray-400 mb-4">下はプレビューです。「メール文」で件名・本文を作ってPDFと一緒に送れます。LINEのお客さまは「LINEで送る」。</p>
 
       {/* 請求書本体 */}

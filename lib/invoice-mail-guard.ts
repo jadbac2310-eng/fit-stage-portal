@@ -1,5 +1,6 @@
 import { createAdminClient } from "./supabase";
 import { getCurrentMember } from "./members";
+import type { InvoiceMailRecord } from "./invoice-mail-types";
 
 /**
  * 請求書メールの二重送信を止める（2026-11-10）。
@@ -80,4 +81,36 @@ export async function clearInvoiceMailStart(logId: string | null): Promise<void>
   try {
     await createAdminClient().from("activity_logs").delete().eq("id", logId);
   } catch { /* 消せなくても、10分たてば押し直せる */ }
+}
+
+/**
+ * その月の請求書を、いつ・どこへメールで送ったか（新しい順）。
+ * 一覧と請求書の画面に「11/10(火) 11:56 送信」と出すために使う。操作ログの文字から読む。
+ */
+export async function getInvoiceMailRecords(month: string, billerId?: string): Promise<InvoiceMailRecord[]> {
+  try {
+    let q = createAdminClient()
+      .from("activity_logs")
+      .select("entity_id, summary, created_at, member_name")
+      .eq("entity_type", "invoice")
+      .like("summary", `${SENT_PREFIX}%`)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (billerId) q = q.eq("entity_id", billerId);
+    const { data, error } = await q;
+    if (error || !data) return [];
+    const out: InvoiceMailRecord[] = [];
+    for (const r of data as { entity_id: string | null; summary: string | null; created_at: string; member_name: string | null }[]) {
+      const m = r.summary?.match(/ (\d{4}-\d{2}) → (\S+)$/);
+      if (!m || m[1] !== month || !r.entity_id) continue;
+      out.push({
+        billerId: r.entity_id, to: m[2], at: r.created_at,
+        pending: r.summary!.startsWith(`${SENT_PREFIX}（送信中）`),
+        byName: r.member_name ?? undefined,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }

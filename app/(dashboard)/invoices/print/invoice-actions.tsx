@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Download, Share2, Send, Copy, Check, X, Mail } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { createInvoiceShareAction, createInvoiceEmailAction, sendInvoiceEmailAction } from "../actions";
@@ -22,6 +23,8 @@ export function InvoiceActions({
   const [mail, setMail] = useState<{ to: string; subject: string; body: string; canSend: boolean; from: string | null } | null>(null);
   const [mailCopied, setMailCopied] = useState<"subject" | "body" | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  const [sentAt, setSentAt] = useState<string | null>(null);
+  const router = useRouter();
 
   async function fetchFile(): Promise<File> {
     const res = await fetch(pdfHref);
@@ -142,8 +145,12 @@ export function InvoiceActions({
         if (!confirm(`${res.error}\n\nそれでも、もう1通送りますか？`)) return;
         res = await sendInvoiceEmailAction(billerId, month, payload, { force: true });
       }
-      if (res.ok) setSent(res.to);
-      else alert(res.error);
+      if (res.ok) {
+        setSent(res.to);
+        // 画面にも「何時に送ったか」を出し、上の「メールで送った記録」も読み直す
+        setSentAt(new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false }));
+        router.refresh();
+      } else alert(res.error);
     } catch {
       alert("送れたかどうか、確かめられませんでした（返事が戻る前に通信が切れました）。\n\nメールは送れていることがあります。もう一度押す前に、Gmail の「送信済み」を見てください。");
     } finally {
@@ -239,7 +246,7 @@ export function InvoiceActions({
             </div>
             {sent ? (
               <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 mb-3">
-                送信しました（{sent}）。Gmail の「送信済み」にも残っています。
+                {sentAt ? `${sentAt} に送信しました` : "送信しました"}（{sent}）。Gmail の「送信済み」にも残っています。
               </div>
             ) : (
               <p className="text-xs text-gray-500 mb-2">

@@ -11,6 +11,7 @@ import { billingGroups, buildGroupInvoice, invoiceFeesFromPlans, fctLessonSummar
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { courseToPaymentType, isBillableLessonStatus } from "@/lib/lessons-types";
 import { monthReadStart } from "@/lib/recent-months";
+import { getInvoiceMailRecords } from "@/lib/invoice-mail-guard";
 import { InvoicesClient } from "./invoices-client";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export default async function InvoicesPage({
   // 請求書はその月だけ見るもの。締日ずれのための前月まで読めば足りる
   const since = monthReadStart(month);
 
-  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems, fctStores] = await Promise.all([
+  const [customers, plans, passes, lessons, trialLessons, plansMaster, monthlyItems, fctStores, mailRecords] = await Promise.all([
     getCustomers(),
     getAllCustomerPlans(),
     getAllSessionPasses(),
@@ -50,6 +51,7 @@ export default async function InvoicesPage({
     getAllPlans(),
     getCustomerMonthlyItems(),
     getFctStores(),
+    getInvoiceMailRecords(month),
   ]);
 
     // 段階単価（まとめた人数の合計で単価が変わる契約）をレッスンごとに当てはめる
@@ -83,5 +85,9 @@ const fees = invoiceFeesFromPlans(plansMaster);
   // FCT経由のお客さま。請求書は出さないので、月の件数と合計だけ別に出す
   const fct = fctLessonSummary(customers, month, lessons, fctStores);
 
-  return <InvoicesClient invoices={invoices} month={month} uncounted={uncounted} fct={fct} />;
+  // 請求先ごとに、いちばん新しい「メールで送った記録」を1つ（新しい順に来るので最初の1件）
+  const lastMail: Record<string, { at: string; to: string; pending: boolean }> = {};
+  for (const r of mailRecords) if (!lastMail[r.billerId]) lastMail[r.billerId] = { at: r.at, to: r.to, pending: r.pending };
+
+  return <InvoicesClient invoices={invoices} month={month} uncounted={uncounted} fct={fct} lastMail={lastMail} />;
 }

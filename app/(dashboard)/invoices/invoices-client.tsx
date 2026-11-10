@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
 import type { CustomerInvoice, FctSummary } from "@/lib/invoices";
 import { WITHHOLDING_RATE } from "@/lib/fct-types";
+import { formatSentAt } from "@/lib/invoice-mail-types";
 
 /** コース未設定で請求書に載っていない実施済みレッスン */
 export interface UncountedLesson {
@@ -30,8 +31,10 @@ function monthOptions(): { value: string; label: string }[] {
 }
 
 export function InvoicesClient({
-  invoices, month, uncounted = [], fct,
+  invoices, month, uncounted = [], fct, lastMail = {},
 }: {
+  /** 請求先ごとの、いちばん新しいメール送信の記録（いつ・どこへ） */
+  lastMail?: Record<string, { at: string; to: string; pending: boolean }>;
   invoices: CustomerInvoice[];
   month: string;
   uncounted?: UncountedLesson[];
@@ -160,6 +163,13 @@ export function InvoicesClient({
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm truncate">{inv.customerName}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{inv.lines.length}明細</p>
+                {lastMail[inv.customerId] && (
+                  <p className={`text-[11px] mt-0.5 truncate ${lastMail[inv.customerId].pending ? "text-amber-700" : "text-green-700"}`}>
+                    {lastMail[inv.customerId].pending ? "送信を確かめてください " : "メール送信 "}
+                    <span className="font-semibold tabular-nums">{formatSentAt(lastMail[inv.customerId].at)}</span>
+                    <span className="text-gray-400"> → {lastMail[inv.customerId].to}</span>
+                  </p>
+                )}
               </div>
               <p className="text-base font-bold text-gray-800">{yen(inv.total)}</p>
               <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
