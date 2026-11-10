@@ -20,35 +20,71 @@ const C = {
   faint: "#f3f4f6",
 };
 
-const s = StyleSheet.create({
-  page: { fontFamily: "NotoSansJP", fontSize: 10, color: C.ink, paddingTop: 40, paddingBottom: 48, paddingHorizontal: 44, lineHeight: 1.4 },
-  title: { fontSize: 22, fontWeight: "bold", textAlign: "center", letterSpacing: 8, marginBottom: 24 },
+/**
+ * 詰め具合（0＝ゆったり 〜 3＝いちばん詰める）。
+ *
+ * 明細は1枚に収める（2026-11-10、尚樹の指示）。16行の月に、最後の消費税の箱だけが2枚目にこぼれていた。
+ * 行数に合わせて、字の大きさと行の間を少しずつ詰める。少ない月は今までどおりゆったり出す。
+ * いちばん詰めても入らない行数（下の MAX_ROWS を超える）なら2枚になるが、そのときも消費税の箱は途中で切らない。
+ */
+const DENSITY = [
+  { padTop: 40, padBottom: 48, padX: 44, title: 22, titleGap: 24, gap: 22, font: 10,  rowPad: 5,   section: 18, totalPad: 14, totalFont: 20 },
+  { padTop: 30, padBottom: 30, padX: 42, title: 19, titleGap: 14, gap: 14, font: 9.5, rowPad: 3.5, section: 12, totalPad: 11, totalFont: 18 },
+  { padTop: 24, padBottom: 24, padX: 40, title: 17, titleGap: 10, gap: 10, font: 8.5, rowPad: 2.2, section: 9,  totalPad: 9,  totalFont: 16 },
+  { padTop: 20, padBottom: 20, padX: 38, title: 15, titleGap: 8,  gap: 8,  font: 7.5, rowPad: 1.3, section: 7,  totalPad: 7,  totalFont: 15 },
+] as const;
 
-  headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
+/**
+ * その詰め具合で1枚に入る行数（明細1区分・調整なしのとき）。実際にPDFを作って数えた値から、1行ぶん余裕を引いてある
+ * （scratchpad の commtest/pdf-fit.mts）。字や余白を変えたら数え直すこと。
+ */
+export const MAX_ROWS = [12, 19, 27, 35] as const;
+
+/**
+ * 1枚に収まる、いちばんゆったりした詰め具合を選ぶ。
+ * 区分が増えると見出しと小計のぶん、調整があると内訳の行と振込額の行のぶん、場所を取るので行数に換算して足す。
+ */
+export function pickDensity(c: { lines: number; sections: number; adjustments: number; hasInvoiceNumber?: boolean }): number {
+  const rows = c.lines
+    + Math.max(0, c.sections - 1) * 3.5
+    + (c.adjustments > 0 ? c.adjustments * 2 + 6 : 0)
+    + (c.hasInvoiceNumber ? 1 : 0);
+  const i = MAX_ROWS.findIndex((max) => rows <= max);
+  return i === -1 ? MAX_ROWS.length - 1 : i;
+}
+
+function makeStyles(level: number) {
+  const d = DENSITY[level];
+  const k = d.font / 10; // 字の大きさの比。小さい字はこれで一緒に縮める
+  return StyleSheet.create({
+  page: { fontFamily: "NotoSansJP", fontSize: d.font, color: C.ink, paddingTop: d.padTop, paddingBottom: d.padBottom, paddingHorizontal: d.padX, lineHeight: 1.4 },
+  title: { fontSize: d.title, fontWeight: "bold", textAlign: "center", letterSpacing: 8, marginBottom: d.titleGap },
+
+  headerRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: d.gap },
   toBox: { width: "55%" },
-  toName: { fontSize: 14, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#9ca3af", paddingBottom: 3 },
-  toSub: { fontSize: 9, color: C.sub, marginTop: 6 },
+  toName: { fontSize: 14 * k, fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#9ca3af", paddingBottom: 3 },
+  toSub: { fontSize: 9 * k, color: C.sub, marginTop: 6 * k },
   fromBox: { width: "42%", alignItems: "flex-end" },
-  fromName: { fontSize: 12, fontWeight: "bold" },
-  fromLine: { fontSize: 9, color: C.sub },
+  fromName: { fontSize: 12 * k, fontWeight: "bold" },
+  fromLine: { fontSize: 9 * k, color: C.sub },
 
-  metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 9, color: C.sub, marginBottom: 14 },
-  totalBoxStacked: { backgroundColor: C.faint, borderRadius: 6, paddingVertical: 12, paddingHorizontal: 18, marginBottom: 22 },
-  totalLine: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3 },
-  totalLineFinal: { borderTopWidth: 0.5, borderTopColor: "#9ca3af", marginTop: 6, paddingTop: 8 },
-  totalSubLabel: { fontSize: 10, color: "#374151", lineHeight: 1 },
-  totalSubValue: { fontSize: 12, fontWeight: "bold", lineHeight: 1 },
+  metaRow: { flexDirection: "row", justifyContent: "space-between", fontSize: 9 * k, color: C.sub, marginBottom: 14 * k },
+  totalBoxStacked: { backgroundColor: C.faint, borderRadius: 6, paddingVertical: d.totalPad - 2, paddingHorizontal: 18, marginBottom: d.gap },
+  totalLine: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 3 * k },
+  totalLineFinal: { borderTopWidth: 0.5, borderTopColor: "#9ca3af", marginTop: 6 * k, paddingTop: 8 * k },
+  totalSubLabel: { fontSize: 10 * k, color: "#374151", lineHeight: 1 },
+  totalSubValue: { fontSize: 12 * k, fontWeight: "bold", lineHeight: 1 },
 
-  totalBox: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.faint, borderRadius: 6, paddingVertical: 14, paddingHorizontal: 18, marginBottom: 22 },
-  totalLabel: { fontSize: 11, fontWeight: "bold", color: "#374151", lineHeight: 1 },
-  totalValue: { fontSize: 20, fontWeight: "bold", lineHeight: 1 },
+  totalBox: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.faint, borderRadius: 6, paddingVertical: d.totalPad, paddingHorizontal: 18, marginBottom: d.gap },
+  totalLabel: { fontSize: 11 * k, fontWeight: "bold", color: "#374151", lineHeight: 1 },
+  totalValue: { fontSize: d.totalFont, fontWeight: "bold", lineHeight: 1 },
 
-  sectionTitle: { fontSize: 11, fontWeight: "bold", color: "#374151", marginBottom: 6 },
-  section: { marginBottom: 18 },
+  sectionTitle: { fontSize: 11 * k, fontWeight: "bold", color: "#374151", marginBottom: 6 * k },
+  section: { marginBottom: d.section },
 
-  th: { flexDirection: "row", borderBottomWidth: 1.5, borderBottomColor: "#9ca3af", paddingBottom: 5, marginBottom: 2 },
-  thText: { fontSize: 9, color: C.sub, fontWeight: "bold" },
-  tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: C.faint, paddingVertical: 5 },
+  th: { flexDirection: "row", borderBottomWidth: 1.5, borderBottomColor: "#9ca3af", paddingBottom: 5 * k, marginBottom: 2 },
+  thText: { fontSize: 9 * k, color: C.sub, fontWeight: "bold" },
+  tr: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: C.faint, paddingVertical: d.rowPad },
   cDate: { width: "18%" },
   cCustomer: { width: "34%" },
   cLabel: { width: "26%" },
@@ -57,21 +93,24 @@ const s = StyleSheet.create({
   cHours: { width: "12%", textAlign: "right" },
   cAdjustLabel: { width: "78%" },
 
-  tfoot: { flexDirection: "row", alignItems: "center", paddingTop: 8 },
-  tfootLabel: { width: "78%", textAlign: "right", fontSize: 10, fontWeight: "bold", color: "#374151", paddingRight: 8, lineHeight: 1 },
-  tfootValue: { width: "22%", textAlign: "right", fontSize: 12, fontWeight: "bold", lineHeight: 1 },
+  tfoot: { flexDirection: "row", alignItems: "center", paddingTop: 8 * k },
+  tfootLabel: { width: "78%", textAlign: "right", fontSize: 10 * k, fontWeight: "bold", color: "#374151", paddingRight: 8, lineHeight: 1 },
+  tfootValue: { width: "22%", textAlign: "right", fontSize: 12 * k, fontWeight: "bold", lineHeight: 1 },
 
-  taxBox: { marginTop: 10, marginLeft: "auto", width: "55%", borderWidth: 1, borderColor: "#d1d5db", borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12 },
-  taxRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 },
-  taxKey: { fontSize: 9, color: C.sub },
-  taxVal: { fontSize: 9, textAlign: "right" },
-  taxTotalRow: { borderTopWidth: 0.5, borderTopColor: "#d1d5db", marginTop: 3, paddingTop: 4 },
-  taxCaption: { fontSize: 8, color: C.sub, marginBottom: 3 },
-  taxKeyBold: { fontSize: 10, fontWeight: "bold", color: "#374151" },
-  taxValBold: { fontSize: 11, fontWeight: "bold", textAlign: "right" },
-});
+  taxBox: { marginTop: 10 * k, marginLeft: "auto", width: "55%", borderWidth: 1, borderColor: "#d1d5db", borderRadius: 6, paddingVertical: 8 * k, paddingHorizontal: 12 },
+  taxRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 * k },
+  taxKey: { fontSize: 9 * k, color: C.sub },
+  taxVal: { fontSize: 9 * k, textAlign: "right" },
+  taxTotalRow: { borderTopWidth: 0.5, borderTopColor: "#d1d5db", marginTop: 3, paddingTop: 4 * k },
+  taxCaption: { fontSize: 8 * k, color: C.sub, marginBottom: 3 },
+  taxKeyBold: { fontSize: 10 * k, fontWeight: "bold", color: "#374151" },
+  taxValBold: { fontSize: 11 * k, fontWeight: "bold", textAlign: "right" },
+  });
+}
+const STYLES = DENSITY.map((_, i) => makeStyles(i));
+type S = ReturnType<typeof makeStyles>;
 
-function LineSection({ title, lines, subtotal }: { title: string; lines: StatementLine[]; subtotal: number }) {
+function LineSection({ s, title, lines, subtotal }: { s: S; title: string; lines: StatementLine[]; subtotal: number }) {
   if (lines.length === 0) return null;
   return (
     <View style={s.section}>
@@ -98,7 +137,7 @@ function LineSection({ title, lines, subtotal }: { title: string; lines: Stateme
   );
 }
 
-function HourlyLineSection({ lines, subtotal }: { lines: HourlyStatementLine[]; subtotal: number }) {
+function HourlyLineSection({ s, lines, subtotal }: { s: S; lines: HourlyStatementLine[]; subtotal: number }) {
   if (lines.length === 0) return null;
   return (
     <View style={s.section}>
@@ -133,8 +172,8 @@ function HourlyLineSection({ lines, subtotal }: { lines: HourlyStatementLine[]; 
  * 総支給額は減らさない。減るのは支給日に振り込む額だけ。
  */
 function AdjustmentSection({
-  lines, subtotal, rewardTotal, payable,
-}: { lines: AdjustmentStatementLine[]; subtotal: number; rewardTotal: number; payable: number }) {
+  s, lines, subtotal, rewardTotal, payable,
+}: { s: S; lines: AdjustmentStatementLine[]; subtotal: number; rewardTotal: number; payable: number }) {
   if (lines.length === 0) return null;
   const signed = (n: number) => (n < 0 ? `−${yen(Math.abs(n))}` : yen(n));
   return (
@@ -194,6 +233,14 @@ export function CommissionStatementDocument({
   adjustmentLines = [], adjustmentTotal = 0, payable, tax, issuer, statementNo, monthLabel, payDateLabel,
 }: CommissionStatementPdfData) {
   const paid = payable ?? total;
+  // 1枚に収まるよう、行数に合わせて詰め具合を選ぶ
+  const level = pickDensity({
+    lines: trainerLines.length + salesLines.length + hourlyLines.length,
+    sections: [trainerLines, salesLines, hourlyLines].filter((l) => l.length > 0).length,
+    adjustments: adjustmentLines.length,
+    hasInvoiceNumber: !!trainerInvoiceNumber,
+  });
+  const s = STYLES[level];
   return (
     <Document title={`コミッション明細 ${trainerName} ${monthLabel}`}>
       <Page size="A4" style={s.page}>
@@ -249,14 +296,14 @@ export function CommissionStatementDocument({
         )}
 
         {/* レッスン担当分・営業分・業務（単価・歩合率は表示しない） */}
-        <LineSection title="レッスン担当分" lines={trainerLines} subtotal={trainerTotal} />
-        <LineSection title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} subtotal={salesTotal} />
-        <HourlyLineSection lines={hourlyLines} subtotal={hourlyTotal} />
-        <AdjustmentSection lines={adjustmentLines} subtotal={adjustmentTotal} rewardTotal={total} payable={paid} />
+        <LineSection s={s} title="レッスン担当分" lines={trainerLines} subtotal={trainerTotal} />
+        <LineSection s={s} title="営業分（レッスン歩合・成約ボーナス）" lines={salesLines} subtotal={salesTotal} />
+        <HourlyLineSection s={s} lines={hourlyLines} subtotal={hourlyTotal} />
+        <AdjustmentSection s={s} lines={adjustmentLines} subtotal={adjustmentTotal} rewardTotal={total} payable={paid} />
 
         {/* 消費税の内訳。割り戻す元は総支給額（前払いの差し引きは報酬ではないので含めない） */}
         {total > 0 ? (
-          <View style={s.taxBox}>
+          <View style={s.taxBox} wrap={false}>
             <Text style={s.taxCaption}>総支給額の内訳</Text>
             <View style={s.taxRow}>
               <Text style={s.taxKey}>{tax.rate}% 対象（税抜）</Text>

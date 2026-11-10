@@ -129,6 +129,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
   済んだ人は出さない。全員済んでいれば送らない。止めるときは `LINE_NOTIFY_COMMISSION=off`。
   明細の計算は重いので、出番の鍵がまだ送られていない日だけ計算する（出すものが無かった鍵も送信済みにして、同じ日に何度も計算しない）。
 - 明細そのものはPDFを手で共有する形なので、「送った」は自動では付かない（手で印を付ける）。振込日が土日でも前倒しはしない。
+- **明細のPDFは1枚に収める**（2026-11-10、`lib/commission-statement-pdf.tsx`）。16行の月に、最後の消費税の箱だけが2枚目にこぼれていた。
+  行数に合わせて字と行の間を4段階で詰める（`pickDensity`・`MAX_ROWS`。12行まではゆったり、35行までは1枚）。それを超えると2枚になるが、消費税の箱は途中で切らない。
+  上限は実際にPDFを作って数えた値（scratchpad の `commtest/pdf-fit.mts`）。字や余白を変えたら数え直す。
 
 ## 顧客をえらぶ欄・回数券ページ（2026-11-08）
 
