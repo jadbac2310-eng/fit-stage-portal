@@ -84,6 +84,27 @@ async function getPersonalEventsUncached(): Promise<PersonalEvent[]> {
   return (data as unknown as DbRow[]).map(fromDb);
 }
 
+/**
+ * その日（日本時間）にかかる個人予定だけを読む。ダッシュボードの「本日の予定」用。
+ * 全件読む getPersonalEvents は件数が増えると重いので、開始が「その日の終わりまで・31日前から」のものに絞り、
+ * その日にかかっているかどうかは呼ぶ側で見る（何日も続く予定を拾うため、少し前から読む）。
+ */
+export async function getPersonalEventsAround(dayYmd: string): Promise<PersonalEvent[]> {
+  const client = createAdminClient();
+  const dayStart = new Date(`${dayYmd}T00:00:00+09:00`);
+  const from = new Date(dayStart.getTime() - 31 * 86400000).toISOString();
+  const to   = new Date(dayStart.getTime() + 86400000).toISOString();
+  const read = (select: string) =>
+    client.from("personal_events").select(select).gte("start_at", from).lt("start_at", to).order("start_at", { ascending: true });
+  let { data, error } = await read(SELECT);
+  if (error && isMissingMemberJoin(error)) ({ data, error } = await read(SELECT_LEGACY));
+  if (error) {
+    if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
+    throw error;
+  }
+  return (data as unknown as DbRow[]).map(fromDb);
+}
+
 export async function getPersonalEvent(id: string): Promise<PersonalEvent | null> {
   const client = createAdminClient();
   let { data, error } = await client.from("personal_events").select(SELECT).eq("id", id).single();

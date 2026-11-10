@@ -24,7 +24,8 @@ import {
   trainerLessonCountInRange, trialConversionInRange, lastMonthFullRange,
 } from "@/lib/trainer-stats";
 import { PendingLessonsCard } from "./pending-lessons-card";
-import { todayRows, todayMilestones, followUps, myCustomerIds } from "@/lib/highlights-types";
+import { todayRows, todayTeamLessonCount, todayMilestones, followUps, myCustomerIds, jstDay } from "@/lib/highlights-types";
+import { getPersonalEventsAround } from "@/lib/personal-events";
 import { randomQuote } from "@/lib/daily-quote";
 import { TodayCard } from "./today-card";
 import { weeklyStreak, earnedBadges, earnedToday } from "@/lib/badges-types";
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
   // ここで取ったデータから計算するだけなので、読み込みは1件も増えていない。
   const [
     currentMember, lessons, trialLessons, customers,
-    sessionPasses, customerPlans, members, plansMaster, allRates, fctStores,
+    sessionPasses, customerPlans, members, plansMaster, allRates, fctStores, todayEvents,
   ] = await Promise.all([
     getCurrentMember(),
     getLessons(),
@@ -79,6 +80,8 @@ export default async function DashboardPage() {
     getAllPlans(),
     getMemberCustomerRates(),
     getFctStores(),
+    // 本日の予定に出す個人予定（面談・訪問など）。今日にかかるぶんだけ読む
+    getPersonalEventsAround(jstDay(new Date().getTime())),
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
@@ -153,13 +156,17 @@ export default async function DashboardPage() {
     ...trialLessons
       .filter((t) => (t.trainerMemberId === myId || t.salesMemberId === myId) && t.status === "scheduled" && !isPastIso(t.scheduledAt))
       .map((t) => ({ id: t.id, type: "trial" as const, customerName: t.customerName, scheduledAt: t.scheduledAt, location: t.location })),
-  ].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  ]
+    // 今日のぶんは上の「本日の予定」に出しているので、ここは明日から（同じ予定を2回出さない）
+    .filter((it) => jstDay(it.scheduledAt) > jstDay(now))
+    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
 
   // ─── 今日のひとこと・節目・声かけリスト（追加の読み込みなし） ───
   // 自分の担当（指導する回＋担当営業のお客さま）だけに絞る
   const mine = { memberId: myId, customerIds: myCustomerIds(customers, myId) };
-  // 今日のレッスンの一覧（全員ぶん。チームの動きが見えるほうが気持ちが乗る）。自分の担当には印が付く
-  const rows = todayRows(lessons, trialLessons, now, mine);
+  // 本日の予定は本人のぶんだけ（レッスン・体験・面談や訪問などの個人予定）。全員ぶんは本数だけ出す
+  const rows = todayRows(lessons, trialLessons, todayEvents, now, myId);
+  const teamCount = todayTeamLessonCount(lessons, trialLessons, now);
   const milestones = todayMilestones(lessons, trialLessons, now, mine);
   // 声かけリストは「担当営業が自分のお客さま」だけ。自分の持ち場だけが出るようにする。
   const allFollows = followUps(customers, lessons, trialLessons, sessionPasses, customerPlans, now);
@@ -225,7 +232,7 @@ export default async function DashboardPage() {
       <div className="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-start">
         <div className="space-y-3 min-w-0">
           {/* 日替わりの1枚・本日の予定・節目 */}
-          <TodayCard rows={rows} milestones={milestones} quote={quote} mission={mission} tip={tip} fortune={fortune} />
+          <TodayCard rows={rows} teamCount={teamCount} milestones={milestones} quote={quote} mission={mission} tip={tip} fortune={fortune} />
 
           {/* 完了にしていないレッスン（完了＝歩合になる） */}
           {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
@@ -234,9 +241,9 @@ export default async function DashboardPage() {
           <CompanyCard stats={company} />
 
           {/* 自分の予定 */}
-          <SectionBox title="自分の予定" action={{ label: "すべて見る", href: "/schedule" }}>
+          <SectionBox title="明日からの自分の予定" action={{ label: "すべて見る", href: "/schedule" }}>
             {myUpcoming.length === 0 ? (
-              <p className="px-3 py-5 text-sm text-gray-500 text-center">今後の予定はありません</p>
+              <p className="px-3 py-5 text-sm text-gray-500 text-center">明日からの予定はまだ入っていません</p>
             ) : (
               <ul>
                 {myUpcoming.slice(0, 5).map((it) => (

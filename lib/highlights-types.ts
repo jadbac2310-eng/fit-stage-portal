@@ -9,6 +9,7 @@ import { isBillableLessonStatus } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
+import type { PersonalEvent } from "./personal-events-types";
 
 const JST = 9 * 3600 * 1000;
 const DAY = 86400000;
@@ -108,32 +109,38 @@ export function todayHeadline(
   };
 }
 
-// ─── 今日の予定の一覧（ダッシュボードの「本日の予定」の表） ───
+// ─── 自分の今日の予定（ダッシュボードの「本日の予定」の表） ───
 export interface TodayRow {
   id:        string;
-  /** 「14:00」（日本時間） */
+  kind:      "lesson" | "trial" | "event";
+  /** 「14:00」（日本時間）。終日の予定は「終日」 */
   time:      string;
-  startAt:   string;
+  /** 並べ替え用。終日は先頭に来るようにその日の0時 */
+  sortKey:   string;
   name:      string;
   place?:    string;
-  trainer?:  string;
-  isTrial:   boolean;
-  /** 完了／いま／予定 */
-  state:     "done" | "now" | "upcoming";
-  /** 自分の担当か（指導する回・担当営業のお客さま） */
-  mine:      boolean;
+  /** 完了／いま／予定／終日 */
+  state:     "done" | "now" | "upcoming" | "allday";
+  /** 押したときの行き先 */
+  href:      string;
 }
 
 /**
- * 今日のレッスン（体験も）を時刻順に。キャンセルは入れない。
- * 「いま」は開始〜終了（終了が無ければ開始から60分）の間で、まだ完了にしていない回。
+ * 本人の今日の予定を時刻順に（2026-11-10 尚樹の指示：本日の予定は本人のぶんだけ。営業の予定も入れる）。
+ * スケジュール画面で自分を選んだときと同じ線引き：
+ *  ・通常レッスン＝自分が担当トレーナー
+ *  ・体験＝自分が担当トレーナーか担当営業
+ *  ・個人予定（面談・訪問などの営業の予定も）＝自分の予定か、参加者に入っている
+ * キャンセルは入れない。「いま」は開始〜終了（終了が無ければ開始から60分）の間で、まだ完了にしていない回。
  */
 export function todayRows(
   lessons: Lesson[],
   trialLessons: TrialLesson[],
+  events: PersonalEvent[],
   now: Date | number = Date.now(),
-  mine?: Mine,
+  memberId?: string,
 ): TodayRow[] {
+  if (!memberId) return [];
   const today = jstDay(now);
   const nowMs = typeof now === "number" ? now : now.getTime();
   const time = (iso: string) =>
@@ -146,23 +153,44 @@ export function todayRows(
   };
   const rows: TodayRow[] = [
     ...lessons
-      .filter((l) => jstDay(l.scheduledAt) === today && l.status !== "cancelled" && l.status !== "cancelled_same_day")
-      .map((l) => ({
-        id: l.id, time: time(l.scheduledAt), startAt: l.scheduledAt, name: l.customerName,
-        place: l.location, trainer: l.trainerMemberName, isTrial: false,
-        state: stateOf(isBillableLessonStatus(l.status), l.scheduledAt, l.endAt),
-        mine: !!mine?.memberId && mineLesson(l, mine),
+      .filter((l) => l.trainerMemberId === memberId && jstDay(l.scheduledAt) === today
+        && l.status !== "cancelled" && l.status !== "cancelled_same_day")
+      .map((l): TodayRow => ({
+        id: l.id, kind: "lesson", time: time(l.scheduledAt), sortKey: l.scheduledAt, name: l.customerName,
+        place: l.location, state: stateOf(isBillableLessonStatus(l.status), l.scheduledAt, l.endAt),
+        href: `/schedule/${l.id}`,
       })),
     ...trialLessons
-      .filter((t) => jstDay(t.scheduledAt) === today && t.status !== "cancelled")
-      .map((t) => ({
-        id: t.id, time: time(t.scheduledAt), startAt: t.scheduledAt, name: t.customerName,
-        place: t.location, trainer: t.trainerMemberName, isTrial: true,
-        state: stateOf(t.status === "completed", t.scheduledAt),
-        mine: !!mine?.memberId && mineTrial(t, mine),
+      .filter((t) => (t.trainerMemberId === memberId || t.salesMemberId === memberId)
+        && jstDay(t.scheduledAt) === today && t.status !== "cancelled")
+      .map((t): TodayRow => ({
+        id: t.id, kind: "trial", time: time(t.scheduledAt), sortKey: t.scheduledAt, name: t.customerName,
+        place: t.location, state: stateOf(t.status === "completed", t.scheduledAt),
+        href: `/schedule/${t.id}`,
       })),
+    ...events
+      .filter((e) => (e.memberId === memberId || e.participantIds.includes(memberId))
+        // その日にかかっている予定（何日も続く予定は、始まりが前の日でも出す）
+        && jstDay(e.startAt) <= today && jstDay(e.endAt ?? e.startAt) >= today)
+      .map((e): TodayRow => {
+        // 終日の予定と、前の日から続いている予定は時刻を出さず「終日」
+        const whole = e.allDay || jstDay(e.startAt) < today;
+        return {
+          id: e.id, kind: "event", time: whole ? "終日" : time(e.startAt),
+          sortKey: whole ? `${today}T00:00:00+09:00` : e.startAt, name: e.title, place: e.location,
+          state: whole ? "allday" : stateOf(false, e.startAt, e.endAt),
+          href: "/schedule",
+        };
+      }),
   ];
-  return rows.sort((a, b) => a.startAt.localeCompare(b.startAt));
+  return rows.sort((a, b) => new Date(a.sortKey).getTime() - new Date(b.sortKey).getTime());
+}
+
+/** 今日のレッスンの本数（全員ぶん・体験も。キャンセルは数えない） */
+export function todayTeamLessonCount(lessons: Lesson[], trialLessons: TrialLesson[], now: Date | number = Date.now()): number {
+  const today = jstDay(now);
+  return lessons.filter((l) => jstDay(l.scheduledAt) === today && l.status !== "cancelled" && l.status !== "cancelled_same_day").length
+    + trialLessons.filter((t) => jstDay(t.scheduledAt) === today && t.status !== "cancelled").length;
 }
 
 // ─── 今日の節目 ────────────────────────────────────────
