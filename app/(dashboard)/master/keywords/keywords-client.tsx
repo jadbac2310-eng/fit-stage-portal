@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCallback } from "react";
 import { Search, ChevronLeft, ChevronRight, Tag, ExternalLink } from "lucide-react";
 import type { Keyword } from "@/lib/keywords";
+import { PageTitle } from "@/components/ui/page-title";
 
 function difficultyColor(v: number | null) {
   if (v === null) return "text-gray-400";
@@ -49,10 +50,14 @@ export function KeywordsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">キーワードマスタ</h1>
-        <p className="text-sm text-gray-500 mt-0.5">全 {total.toLocaleString()} 件</p>
-      </div>
+      <PageTitle
+        title="キーワードマスタ"
+        sub={
+          <>
+            全 {total.toLocaleString()} 件
+          </>
+        }
+      />
 
       {/* フィルター */}
       <div className="flex flex-wrap gap-2 mb-4">

@@ -21,6 +21,7 @@ import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
+import { PageTitle } from "@/components/ui/page-title";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
 function getMonthOptions(): { value: string; label: string }[] {
@@ -277,13 +278,10 @@ export function DetailsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">月次レッスン明細（歩合確認用）</h1>
-        <p className="text-sm text-gray-500 mt-0.5">誰がいつ誰にレッスンし、歩合がいくらになるかを1件ずつ確認できます</p>
-      </div>
-      <div className="md:hidden mb-4">
-        <h1 className="text-lg font-bold text-gray-900">月次レッスン明細</h1>
-      </div>
+      <PageTitle
+        title="月次レッスン明細（歩合確認用）"
+        sub="誰がいつ誰にレッスンし、歩合がいくらになるかを1件ずつ確認できます"
+      />
 
       {/* 月選択・合計 */}
       <div className="flex flex-wrap items-center gap-3 mb-5">

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wallet, CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, Sparkles, X, Pencil, ChevronDown, ChevronUp, Layers } from "lucide-react";
+import { CheckCircle2, Circle, Ticket, CreditCard, Dumbbell, Sparkles, X, Pencil, ChevronDown, ChevronUp, Layers } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
@@ -10,6 +10,7 @@ import type { Receivable } from "@/lib/payments-types";
 import { SOURCE_TYPE_LABEL, PAYMENT_METHODS, type PaymentSourceType } from "@/lib/payments-types";
 import { paymentFee, feeRate, isUnknownCard } from "@/lib/payment-fees";
 import { recordPaymentAction, recordPaymentsBulkAction, unrecordPaymentAction } from "./actions";
+import { PageTitle, tabsWrap, tabButton, tabCount } from "@/components/ui/page-title";
 
 function yen(n: number) { return `¥${Math.round(n).toLocaleString("ja-JP")}`; }
 
@@ -377,13 +378,10 @@ export function PaymentsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <Wallet size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">入金管理</h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-0.5">売上（回数券・月額プラン・都度払い・体験レッスン）の入金状況を管理します</p>
-      </div>
+      <PageTitle
+        title="入金管理"
+        sub="売上（回数券・月額プラン・都度払い・体験レッスン）の入金状況を管理します"
+      />
 
       <div className="flex items-center gap-3 mb-4">
         <label className="text-sm font-semibold text-gray-600">対象月</label>
@@ -436,14 +434,12 @@ export function PaymentsClient({
       )}
 
       {/* フィルタ */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+      <div className={cn(tabsWrap, "mb-4")}>
         {([["all", "すべて", receivables.length], ["unpaid", "未入金", unpaidItems.length], ["paid", "入金済", paidItems.length]] as const).map(([key, label, n]) => (
           <button key={key} onClick={() => setFilter(key)}
-            className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition",
-              filter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+            className={tabButton(filter === key)}>
             {label}
-            <span className={cn("text-[11px] min-w-[1.1rem] h-[1.1rem] px-1 inline-flex items-center justify-center rounded-full font-bold",
-              filter === key ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-500")}>{n}</span>
+            <span className={tabCount(filter === key)}>{n}</span>
           </button>
         ))}
       </div>

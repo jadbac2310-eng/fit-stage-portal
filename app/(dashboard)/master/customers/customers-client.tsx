@@ -21,6 +21,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { CustomerPicker } from "@/components/ui/customer-picker";
+import { PageTitle } from "@/components/ui/page-title";
 
 type MemberOpt = { id: string; name: string; role?: string };
 
@@ -776,25 +777,24 @@ export function CustomersClient({ customers, isAdmin, members, fctRates = [FCT_D
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* ヘッダー */}
-      <div className="mb-4 hidden md:flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">顧客マスタ</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{customers.length}名登録済み</p>
-        </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-          >
-            <Plus size={16} /> 顧客を追加
-          </button>
-        )}
-      </div>
-
-      <div className="md:hidden mb-4">
-        <h1 className="text-lg font-bold text-gray-900">顧客マスタ</h1>
-        <p className="text-xs text-gray-500 mt-0.5">{customers.length}名登録済み</p>
-      </div>
+      <PageTitle
+        title="顧客マスタ"
+        sub={
+          <>
+            {customers.length}名登録済み
+          </>
+        }
+        right={
+          isAdmin && (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              <Plus size={16} /> 顧客を追加
+            </button>
+          )
+        }
+      />
 
       {/* 検索・フィルター */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">

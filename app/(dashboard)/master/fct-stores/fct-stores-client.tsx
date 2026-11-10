@@ -9,6 +9,7 @@ import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import type { FctStore } from "@/lib/fct-stores";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import { createFctStoreAction, updateFctStoreAction, deleteFctStoreAction } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -137,20 +138,21 @@ export function FctStoresClient({ stores, isAdmin }: { stores: FctStore[]; isAdm
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Landmark size={20} className="text-sky-600" />
-            <h1 className="text-xl font-bold text-gray-900">FCT店舗マスタ</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">名前・レンタル料・FCTの歩合率を管理（{stores.length}件）</p>
-        </div>
-        {isAdmin && !showAdd && (
-          <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">
-            <Plus size={16} /> 追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="FCT店舗マスタ"
+        sub={
+          <>
+            名前・レンタル料・FCTの歩合率を管理（{stores.length}件）
+          </>
+        }
+        right={
+          isAdmin && !showAdd && (
+            <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">
+              <Plus size={16} /> 追加
+            </button>
+          )
+        }
+      />
 
       {showAdd && (
         <div className="bg-white rounded-2xl border-2 border-blue-400 p-5 mb-4 shadow-sm">

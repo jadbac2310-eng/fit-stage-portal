@@ -3,10 +3,11 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Receipt, ChevronRight, AlertTriangle } from "lucide-react";
+import { FileText, ChevronRight, AlertTriangle } from "lucide-react";
 import type { CustomerInvoice, FctSummary } from "@/lib/invoices";
 import { WITHHOLDING_RATE } from "@/lib/fct-types";
 import { formatSentAt } from "@/lib/invoice-mail-types";
+import { PageTitle } from "@/components/ui/page-title";
 
 /** コース未設定で請求書に載っていない実施済みレッスン */
 export interface UncountedLesson {
@@ -47,13 +48,10 @@ export function InvoicesClient({
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <Receipt size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">請求書</h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-0.5">顧客ごとに月次の請求書を発行します</p>
-      </div>
+      <PageTitle
+        title="請求書"
+        sub="顧客ごとに月次の請求書を発行します"
+      />
 
       <div className="flex items-center gap-3 mb-5">
         <label className="text-sm font-semibold text-gray-600">対象月</label>

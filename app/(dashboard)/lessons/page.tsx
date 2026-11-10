@@ -3,6 +3,7 @@ import { ArrowRight, Dumbbell, FlaskConical } from "lucide-react";
 import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 
+import { PageTitle } from "@/components/ui/page-title";
 export const dynamic = "force-dynamic";
 
 export default async function LessonsPage() {
@@ -15,10 +16,7 @@ export default async function LessonsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">レッスン</h1>
-        <p className="text-sm text-gray-500 mt-0.5">通常レッスン・体験レッスンの管理</p>
-      </div>
+      <PageTitle title="レッスン" sub="通常レッスン・体験レッスンの管理" />
 
       <div className="space-y-2">
 

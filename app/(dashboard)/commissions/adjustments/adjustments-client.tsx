@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Wallet, Plus, Trash2, Pencil, Check, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Pencil, Check, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { assertActionOk } from "@/lib/action-result";
@@ -14,6 +14,7 @@ import {
   updateCommissionAdjustmentAction,
   deleteCommissionAdjustmentAction,
 } from "./actions";
+import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -109,7 +110,7 @@ function AdjustmentForm({
       <input type="hidden" name="kind" value={kind} />
 
       {/* 引く／足す。符号を手で打たせない */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+      <div className={tabsWrap}>
         {([
           { value: "deduct" as const, label: "差し引く" },
           { value: "add"    as const, label: "足す" },
@@ -118,10 +119,7 @@ function AdjustmentForm({
             key={o.value}
             type="button"
             onClick={() => setKind(o.value)}
-            className={[
-              "flex-1 py-2 rounded-lg text-sm font-semibold transition",
-              kind === o.value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
-            ].join(" ")}
+            className={tabButton(kind === o.value)}
           >
             {o.label}
           </button>
@@ -303,15 +301,10 @@ export function AdjustmentsClient({
         <ChevronLeft size={15} /> 歩合管理
       </Link>
 
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <Wallet size={20} className="text-indigo-600" />
-          <h1 className="text-xl font-bold text-gray-900">前払い・差し引き</h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-0.5">
-          先に渡したお金を、あとのコミッションから引くための記録です。
-        </p>
-      </div>
+      <PageTitle
+        title="前払い・差し引き"
+        sub="先に渡したお金を、あとのコミッションから引くための記録です。"
+      />
 
       {/* 何のための画面かを1行で。覚えておく必要がないことを伝える */}
       <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-4">

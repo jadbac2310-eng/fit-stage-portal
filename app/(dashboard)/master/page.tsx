@@ -10,6 +10,7 @@ import { getStoresCount } from "@/lib/stores";
 import { getFctStoresCount } from "@/lib/fct-stores";
 import { getAvenirStoresCount } from "@/lib/avenir-stores";
 import { getNewMembershipApplicationsCount } from "@/lib/membership-applications";
+import { PageTitle } from "@/components/ui/page-title";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +30,10 @@ export default async function MasterPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">マスタ管理</h1>
-        <p className="text-sm text-gray-500 mt-0.5">各種マスタデータの管理</p>
-      </div>
+      <PageTitle
+        title="マスタ管理"
+        sub="各種マスタデータの管理"
+      />
 
       <div className="space-y-2">
         <Link

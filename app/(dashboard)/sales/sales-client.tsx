@@ -2,8 +2,7 @@
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import {
-  Building2, ChevronDown, ChevronUp, Plus, X, Trash2, ExternalLink, CalendarClock,
-  Lightbulb, UserRound, Pencil, CalendarCheck, Users,
+  ChevronDown, ChevronUp, Plus, X, Trash2, ExternalLink, CalendarClock, Lightbulb, UserRound, Pencil, CalendarCheck, Users,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
@@ -19,6 +18,7 @@ import {
   updateSalesProgressAction, updateSalesStatusAction, updateSalesInfoAction,
   addSalesLogAction, deleteSalesLogAction, createSalesTargetAction, deleteSalesTargetAction,
 } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 type MemberLite = { id: string; name: string; avatarUrl?: string };
 
@@ -612,20 +612,21 @@ export function SalesClient({
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Building2 size={20} className="text-slate-600" />
-            <h1 className="text-xl font-bold text-gray-900">ホテル営業</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">大阪・京都のホテルへの出張パーソナルの営業先 {targets.length}軒</p>
-        </div>
-        {!showAdd && (
-          <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold px-3 py-2 rounded-xl transition">
-            <Plus size={15} /> ホテル追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="ホテル営業"
+        sub={
+          <>
+            大阪・京都のホテルへの出張パーソナルの営業先 {targets.length}軒
+          </>
+        }
+        right={
+          !showAdd && (
+            <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold px-3 py-2 rounded-xl transition">
+              <Plus size={15} /> ホテル追加
+            </button>
+          )
+        }
+      />
 
       {showAdd && <AddTargetForm onClose={() => setShowAdd(false)} />}
 

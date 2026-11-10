@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, X, Hammer, StickyNote } from "lucide-react";
+import { Plus, Pencil, Trash2, X, StickyNote } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { SIDE_JOB_TITLES, SIDE_JOB_VENDORS, sideJobsInMonth, sideJobFee, type SideJob } from "@/lib/side-jobs-types";
@@ -10,6 +10,7 @@ import { PAYMENT_METHODS } from "@/lib/payments-types";
 import { paymentFee } from "@/lib/payment-fees";
 import { assertActionOk } from "@/lib/action-result";
 import { createSideJobAction, updateSideJobAction, deleteSideJobAction } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -202,20 +203,17 @@ export function SideJobsClient({ jobs }: { jobs: SideJob[] }) {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Hammer size={20} className="text-amber-600" />
-            <h1 className="text-xl font-bold text-gray-900">単発の仕事</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">マシン設置など、レッスン以外の請負。売上と外注費が経営サマリーに入ります</p>
-        </div>
-        {!showAdd && (
-          <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">
-            <Plus size={16} /> 追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="単発の仕事"
+        sub="マシン設置など、レッスン以外の請負。売上と外注費が経営サマリーに入ります"
+        right={
+          !showAdd && (
+            <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">
+              <Plus size={16} /> 追加
+            </button>
+          )
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <label className="text-sm font-semibold text-gray-600">対象月</label>

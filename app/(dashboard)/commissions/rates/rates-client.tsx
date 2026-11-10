@@ -3,13 +3,14 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Percent, Check, Trash2, ArrowLeft } from "lucide-react";
+import { Check, Trash2, ArrowLeft } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { setMemberCustomerRateAction, deleteMemberCustomerRateAction } from "./actions";
 import { assertActionOk } from "@/lib/action-result";
 import { CustomerPicker } from "@/components/ui/customer-picker";
+import { PageTitle } from "@/components/ui/page-title";
 
 type Member   = { id: string; name: string; avatarUrl?: string };
 type Customer = { id: string; name: string; status?: string };
@@ -123,17 +124,17 @@ export function RatesClient({
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
       {/* ヘッダー */}
-      <div className="mb-5">
-        <Link href="/commissions" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mb-2">
-          <ArrowLeft size={14} /> 歩合管理に戻る
-        </Link>
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Percent size={20} className="text-blue-600" /> 支払い条件設定
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          担当者と顧客の組み合わせごとに支払い条件を設定します。歩合率（％）のほか、1レッスンあたりの固定額も選べます。設定が無い組み合わせは既定の{DEFAULT_RATE}%です。
-        </p>
-      </div>
+      <Link href="/commissions" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mb-2">
+        <ArrowLeft size={14} /> 歩合管理に戻る
+      </Link>
+      <PageTitle
+        title="支払い条件設定"
+        sub={
+          <>
+            担当者と顧客の組み合わせごとに支払い条件を設定します。歩合率（％）のほか、1レッスンあたりの固定額も選べます。設定が無い組み合わせは既定の{DEFAULT_RATE}%です。
+          </>
+        }
+      />
 
       {/* 設定フォーム */}
       <div className="bg-white rounded-2xl border border-gray-200 p-4 md:p-5 mb-6 space-y-4">

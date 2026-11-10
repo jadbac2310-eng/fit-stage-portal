@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search, MousePointerClick, Eye, Trophy, Settings, Copy, Check,
-  ChevronDown, ChevronUp, ExternalLink, TrendingUp, AlertTriangle, CircleDashed,
+  MousePointerClick, Eye, Trophy, Settings, Copy, Check, ChevronDown, ChevronUp, ExternalLink, TrendingUp, AlertTriangle, CircleDashed,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Delta } from "@/components/ui/delta";
@@ -15,6 +14,7 @@ import {
   type SearchOverview, type PageReport, type PageKeyword, type PageGroup, type KeywordLookup,
 } from "@/lib/search-console-types";
 import { SiteAnalytics, type AnalyticsData } from "./site-analytics";
+import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
 
 type Volumes = Record<string, { searchVolume: number | null; seoDifficulty: number | null }>;
 
@@ -411,26 +411,20 @@ export function SeoClient({ overview, days, periods, volumes, lookup, analytics 
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <Search size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">SEO</h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-0.5">ページごとの順位とクリック</p>
-      </div>
+      <PageTitle
+        title="SEO"
+        sub="ページごとの順位とクリック"
+      />
 
       {/* 期間 */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        <div className={tabsWrap}>
           {periods.map((d) => (
             <button
               key={d}
               type="button"
               onClick={() => router.push(`/seo?days=${d}${lookup?.q ? `&q=${encodeURIComponent(lookup.q)}` : ""}`)}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-sm font-semibold transition",
-                d === days ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
-              )}
+              className={cn(tabButton(d === days), "px-3 whitespace-nowrap")}
             >
               {d}日
             </button>

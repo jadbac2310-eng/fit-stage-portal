@@ -16,6 +16,7 @@ import { HandoutPanel } from "./handout-panel";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
+import { PageTitle } from "@/components/ui/page-title";
 
 // ─── 表示の小物 ───────────────────────────────────────
 function fmtDateTime(iso: string) {
@@ -294,13 +295,15 @@ export function ApplicationsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">入会申し込み</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          HPの入会申し込みフォームから届いた申込書
-          {newCount > 0 && <span className="text-yellow-700 font-medium">（未対応 {newCount}件）</span>}
-        </p>
-      </div>
+      <PageTitle
+        title="入会申し込み"
+        sub={
+          <>
+            HPの入会申し込みフォームから届いた申込書
+            {newCount > 0 && <span className="text-yellow-700 font-medium">（未対応 {newCount}件）</span>}
+          </>
+        }
+      />
 
       <HandoutPanel />
 

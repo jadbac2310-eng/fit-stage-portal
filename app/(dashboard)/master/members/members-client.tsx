@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { shrinkImage, setInputFile } from "@/lib/image-resize";
+import { PageTitle } from "@/components/ui/page-title";
 
 // ─── アバター選択 ─────────────────────────────────────
 function AvatarPicker({ currentSrc, name }: { currentSrc?: string; name?: string }) {
@@ -519,20 +520,24 @@ export function MembersClient({ members, isAdmin, currentMemberId }: { members: 
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-4 hidden md:flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">担当者マスタ</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{members.length}名登録済み</p>
-        </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-          >
-            <Plus size={16} /> 担当者を追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="担当者マスタ"
+        sub={
+          <>
+            {members.length}名登録済み
+          </>
+        }
+        right={
+          isAdmin && (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              <Plus size={16} /> 担当者を追加
+            </button>
+          )
+        }
+      />
 
       {showAdd && (
         <div className="hidden md:block bg-white rounded-2xl border-2 border-blue-400 p-5 mb-4 shadow-sm">

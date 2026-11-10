@@ -1,4 +1,4 @@
-import { MoonStar, Users, Info } from "lucide-react";
+import { Users, Info } from "lucide-react";
 import Link from "next/link";
 import { getCurrentMember, getMembers } from "@/lib/members";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,7 @@ import {
 import { PHASE_TEXT, starText, phaseBadge } from "@/lib/rokusei-content";
 import { starToday, jstYmd } from "@/lib/fortune-of-day";
 import { BirthForm } from "./birth-form";
+import { PageTitle } from "@/components/ui/page-title";
 
 export const dynamic = "force-dynamic";
 
@@ -182,13 +183,7 @@ export default async function FortunePage() {
  */
 function Header() {
   return (
-    <div className="mb-4">
-      <div className="hidden md:flex items-center gap-2">
-        <MoonStar size={20} className="text-indigo-600" />
-        <h1 className="text-xl font-bold text-gray-900">今日の一手</h1>
-      </div>
-      <p className="text-sm text-gray-500 mt-0.5">今日の運気と、今日やることを1つ。読んだら、1つだけ動く。</p>
-    </div>
+    <PageTitle title="今日の一手" sub="今日の運気と、今日やることを1つ。読んだら、1つだけ動く。" />
   );
 }
 

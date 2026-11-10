@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, X, Receipt, StickyNote } from "lucide-react";
+import { Plus, Pencil, Trash2, X, StickyNote } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { EXPENSE_CATEGORIES, expensesInMonth, type Expense } from "@/lib/expenses-types";
 import { assertActionOk } from "@/lib/action-result";
 import { createExpenseAction, updateExpenseAction, deleteExpenseAction } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 function yen(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -175,20 +176,17 @@ export function ExpensesClient({ expenses, isAdmin }: { expenses: Expense[]; isA
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Receipt size={20} className="text-slate-600" />
-            <h1 className="text-xl font-bold text-gray-900">経費マスタ</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">家賃・広告費など、レッスンに紐づかない支出</p>
-        </div>
-        {isAdmin && !showAdd && (
-          <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">
-            <Plus size={16} /> 追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="経費マスタ"
+        sub="家賃・広告費など、レッスンに紐づかない支出"
+        right={
+          isAdmin && !showAdd && (
+            <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition">
+              <Plus size={16} /> 追加
+            </button>
+          )
+        }
+      />
 
       <div className="flex items-center gap-3 mb-4">
         <label className="text-sm font-semibold text-gray-600">対象月</label>

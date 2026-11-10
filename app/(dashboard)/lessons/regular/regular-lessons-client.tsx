@@ -30,6 +30,7 @@ import { AuthorStamp } from "@/components/ui/author-stamp";
 import { CustomerPicker } from "@/components/ui/customer-picker";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
+import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
 // ─── バッジ ───────────────────────────────────────────
 function CourseBadge({ course }: { course?: string }) {
   if (!course) return null;
@@ -641,13 +642,9 @@ export function LessonForm({
       {/* 登録方法（作成時のみ・単発／複数日時／繰り返しは排他） */}
       {isCreate && (
         <div className="space-y-3">
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+          <div className={tabsWrap}>
             {([["single", "単発"], ["multiple", "複数日時"], ["recurring", "繰り返し"]] as const).map(([key, label]) => (
-              <button key={key} type="button" onClick={() => setMultiMode(key)}
-                className={cn(
-                  "flex-1 py-1.5 rounded-lg text-xs font-semibold transition",
-                  multiMode === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                )}>
+              <button key={key} type="button" onClick={() => setMultiMode(key)} className={tabButton(multiMode === key, "sm")}>
                 {label}
               </button>
             ))}
@@ -1397,32 +1394,25 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <div className="mb-4 hidden md:flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">通常レッスン</h1>
-          <div className="flex items-center gap-3 mt-0.5">
-            <p className="text-sm text-gray-500">{lessons.length}件</p>
+      <PageTitle
+        title="通常レッスン"
+        sub={
+          <span className="flex items-center gap-3">
+            <span>{lessons.length}件</span>
             {totalUnassigned > 0 && (
-              <p className="text-xs text-amber-600 flex items-center gap-1 font-medium">
+              <span className="text-amber-600 flex items-center gap-1 font-medium">
                 <AlertTriangle size={11} /> 担当未設定 {totalUnassigned}件
-              </p>
+              </span>
             )}
-          </div>
-        </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
-          <Plus size={16} /> レッスンを追加
-        </button>
-      </div>
-
-      <div className="md:hidden mb-4">
-        <h1 className="text-lg font-bold text-gray-900">通常レッスン</h1>
-        {totalUnassigned > 0 && (
-          <p className="text-xs text-amber-600 flex items-center gap-1 font-medium mt-0.5">
-            <AlertTriangle size={11} /> 担当未設定 {totalUnassigned}件
-          </p>
-        )}
-      </div>
+          </span>
+        }
+        right={
+          <button onClick={() => setShowAdd(true)}
+            className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition">
+            <Plus size={16} /> レッスンを追加
+          </button>
+        }
+      />
 
       <div className="mb-4 relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

@@ -3,12 +3,13 @@
 import { useState, useMemo } from "react";
 import { CustomerPicker } from "@/components/ui/customer-picker";
 import { useRouter } from "next/navigation";
-import { Coins, Check, Trash2 } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { assertActionOk } from "@/lib/action-result";
 import { venueKey, type VenueKind } from "@/lib/lessons-types";
 import { setVenueFeeAction, deleteVenueFeeAction } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 type Opt      = { id: string; name: string; status?: string };
 type Venue    = { key: string; kind: VenueKind; id: string; name: string; fee: number; group: string };
@@ -93,14 +94,10 @@ export function VenueFeesClient({
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Coins size={20} className="text-emerald-600" /> 顧客ごとの会場料金
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          同じ会場でもお客さんによって料金が違うときに設定します。レッスン追加時の初期値になり、毎回打ち直さなくて済みます。料金のかからない会場には設定不要です。
-        </p>
-      </div>
+      <PageTitle
+        title="顧客ごとの会場料金"
+        sub="同じ会場でもお客さんによって料金が違うときに設定します。レッスン追加時の初期値になり、毎回打ち直さなくて済みます。料金のかからない会場には設定不要です。"
+      />
 
       <div className="bg-white rounded-2xl border border-gray-200 p-4 md:p-5 mb-6 space-y-4">
         <div>

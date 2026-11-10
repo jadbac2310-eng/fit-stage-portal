@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Line, ComposedChart,
 } from "recharts";
-import { TrendingUp, Users, Briefcase, Wallet, LineChart, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X, Hammer } from "lucide-react";
+import { TrendingUp, Users, Briefcase, Wallet, UserPlus, Award, Building2, Clock, Receipt, CreditCard, Calendar, ChevronRight, ChevronDown, X, Hammer } from "lucide-react";
 import type { Customer } from "@/lib/customers-types";
 import type { Lesson } from "@/lib/lessons-types";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
@@ -25,6 +25,7 @@ import { trialCourseLabel } from "@/lib/trial-lessons-types";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import { enrollmentFeeOf } from "@/lib/enrollment-fee";
+import { PageTitle } from "@/components/ui/page-title";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString("ja-JP")}`;
@@ -644,13 +645,10 @@ export function RevenueDashboardClient({
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto pb-10">
       {/* ヘッダー */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2">
-          <LineChart size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">経営ダッシュボード</h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-0.5">全体の売上・支払・利益（管理者のみ）</p>
-      </div>
+      <PageTitle
+        title="経営ダッシュボード"
+        sub="全体の売上・支払・利益（管理者のみ）"
+      />
 
       {/* 月選択 */}
       <div className="flex items-center gap-3 mb-5">

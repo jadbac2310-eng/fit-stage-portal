@@ -3,9 +3,10 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Receipt, ChevronRight, AlertTriangle, Wallet } from "lucide-react";
+import { FileText, ChevronRight, AlertTriangle, Wallet } from "lucide-react";
 import type { TrainerStatement } from "@/lib/commission-statement";
 import { payDateShort } from "@/lib/commission-pay-date";
+import { PageTitle } from "@/components/ui/page-title";
 
 /** 「予定」のまま残っている業務の件数・金額（支払い前の確認用） */
 export interface PendingHourly {
@@ -43,13 +44,10 @@ export function StatementClient({ statements, month, pendingHourly, payDays }: {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <Receipt size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-900">コミッション明細</h1>
-        </div>
-        <p className="text-sm text-gray-500 mt-0.5">トレーナーごとに月次のお支払い明細を発行します（単価・歩合率は表示されません）</p>
-      </div>
+      <PageTitle
+        title="コミッション明細"
+        sub="トレーナーごとに月次のお支払い明細を発行します（単価・歩合率は表示されません）"
+      />
 
       <div className="flex items-center gap-3 mb-5">
         <label className="text-sm font-semibold text-gray-600">対象月</label>

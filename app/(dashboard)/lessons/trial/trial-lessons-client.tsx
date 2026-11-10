@@ -34,6 +34,7 @@ import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import { Confetti } from "@/components/ui/confetti";
 import { CustomerPicker } from "@/components/ui/customer-picker";
 
+import { PageTitle } from "@/components/ui/page-title";
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
   return (
@@ -931,21 +932,16 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
-      <div className="mb-4 hidden md:flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">体験レッスン</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{lessons.length}件</p>
-        </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition">
-          <Plus size={16} /> 体験レッスンを追加
-        </button>
-      </div>
-
-      <div className="md:hidden mb-4">
-        <h1 className="text-lg font-bold text-gray-900">体験レッスン</h1>
-        <p className="text-xs text-gray-500 mt-0.5">{lessons.length}件</p>
-      </div>
+      <PageTitle
+        title="体験レッスン"
+        sub={`${lessons.length}件`}
+        right={
+          <button onClick={() => setShowAdd(true)}
+            className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition">
+            <Plus size={16} /> 体験レッスンを追加
+          </button>
+        }
+      />
 
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <div className="relative flex-1">

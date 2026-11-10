@@ -24,6 +24,7 @@ import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import type { CommissionAdjustment } from "@/lib/commission-adjustments-types";
 import { payDayNotice } from "@/lib/commission-pay-date";
+import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
 function getMonthOptions(): { value: string; label: string }[] {
@@ -510,12 +511,14 @@ export function CommissionsClient({
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       {/* ヘッダー */}
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">歩合管理</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {isAdmin ? "月別のトレーナー・営業歩合を確認できます" : "あなたの月別歩合を確認できます"}
-        </p>
-      </div>
+      <PageTitle
+        title="歩合管理"
+        sub={
+          <>
+            {isAdmin ? "月別のトレーナー・営業歩合を確認できます" : "あなたの月別歩合を確認できます"}
+          </>
+        }
+      />
 
       {/* 管理者向けリンク（月次明細・歩合率設定） */}
       {isAdmin && <AdminLinks />}
@@ -609,17 +612,12 @@ export function CommissionsClient({
       )}
 
       {/* タブ */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+      <div className={cn(tabsWrap, "mb-4")}>
         {(["trainer", "sales", "hourly"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={cn(
-              "flex-1 py-2 rounded-lg text-sm font-semibold transition",
-              activeTab === tab
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            )}
+            className={tabButton(activeTab === tab)}
           >
             {tab === "trainer" ? "トレーナー" : tab === "sales" ? "営業" : "業務"}
             {tab === "hourly" && pendingCount > 0 && (

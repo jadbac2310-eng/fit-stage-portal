@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
-import { ListChecks, ChevronDown, ChevronUp, Plus, X, Trash2, CalendarClock, CalendarCheck, UserRound, Pencil, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, X, Trash2, CalendarClock, CalendarCheck, UserRound, Pencil, Check } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -12,6 +12,7 @@ import {
   type Task,
 } from "@/lib/tasks-types";
 import { createTaskAction, updateTaskAction, updateTaskStatusAction, deleteTaskAction } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 type MemberLite = { id: string; name: string; avatarUrl?: string };
 
@@ -250,20 +251,21 @@ export function TasksClient({ tasks, members, meId, isAdmin }: { tasks: Task[]; 
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <ListChecks size={20} className="text-slate-600" />
-            <h1 className="text-xl font-bold text-gray-900">やること</h1>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">会社のやること 残り{openTasks.length}件{overdueCount > 0 && <span className="text-red-600 font-semibold">・期限切れ{overdueCount}件</span>}</p>
-        </div>
-        {!showAdd && (
-          <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold px-3 py-2 rounded-xl transition">
-            <Plus size={15} /> 追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="やること"
+        sub={
+          <>
+            会社のやること 残り{openTasks.length}件{overdueCount > 0 && <span className="text-red-600 font-semibold">・期限切れ{overdueCount}件</span>}
+          </>
+        }
+        right={
+          !showAdd && (
+            <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold px-3 py-2 rounded-xl transition">
+              <Plus size={15} /> 追加
+            </button>
+          )
+        }
+      />
 
       {showAdd && <AddTaskForm members={members} onClose={() => setShowAdd(false)} />}
 

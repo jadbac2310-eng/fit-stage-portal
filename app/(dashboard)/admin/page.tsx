@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, PiggyBank, Receipt, LineChart, History, Bot, Wallet } from "lucide-react";
 import { getCurrentIsAdmin } from "@/lib/members";
+import { PageTitle } from "@/components/ui/page-title";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,10 @@ export default async function AdminPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-5 hidden md:block">
-        <h1 className="text-xl font-bold text-gray-900">管理者機能</h1>
-        <p className="text-sm text-gray-500 mt-0.5">管理者向けの機能一覧</p>
-      </div>
+      <PageTitle
+        title="管理者機能"
+        sub="管理者向けの機能一覧"
+      />
 
       <div className="space-y-2">
         <Link

@@ -3,12 +3,13 @@
 import { useState, useMemo } from "react";
 import { CustomerPicker } from "@/components/ui/customer-picker";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, X, Repeat } from "lucide-react";
+import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import type { CustomerMonthlyItem } from "@/lib/customer-monthly-items-types";
 import { createMonthlyItemAction, updateMonthlyItemAction, deleteMonthlyItemAction } from "./actions";
+import { PageTitle } from "@/components/ui/page-title";
 
 type CustomerOpt = { id: string; name: string; status?: string };
 
@@ -159,14 +160,10 @@ export function MonthlyItemsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Repeat size={20} className="text-violet-600" /> 毎月の請求項目
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          レッスン料とは別に毎月つける項目（ホームページ運用代行など）。同じ請求書にまとめて載ります。
-        </p>
-      </div>
+      <PageTitle
+        title="毎月の請求項目"
+        sub="レッスン料とは別に毎月つける項目（ホームページ運用代行など）。同じ請求書にまとめて載ります。"
+      />
 
       <div className="mb-4">
         <label className={labelClass}>顧客で絞り込む</label>

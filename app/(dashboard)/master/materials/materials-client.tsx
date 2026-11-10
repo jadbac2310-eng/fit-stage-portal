@@ -12,6 +12,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { createMaterialAction, updateMaterialAction, deleteMaterialAction } from "./actions";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberBadge } from "@/components/ui/member-badge";
+import { PageTitle } from "@/components/ui/page-title";
 
 // ─── モーダル ─────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -324,20 +325,24 @@ export function MaterialsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="mb-4 hidden md:flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">素材マスタ</h1>
-          <p className="text-sm text-gray-500 mt-0.5">全{total}件</p>
-        </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
-          >
-            <Plus size={16} /> 素材を追加
-          </button>
-        )}
-      </div>
+      <PageTitle
+        title="素材マスタ"
+        sub={
+          <>
+            全{total}件
+          </>
+        }
+        right={
+          isAdmin && (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition"
+            >
+              <Plus size={16} /> 素材を追加
+            </button>
+          )
+        }
+      />
 
       {total === 0 ? (
         <div className="text-center py-16">
