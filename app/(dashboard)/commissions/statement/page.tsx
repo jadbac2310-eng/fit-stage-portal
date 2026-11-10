@@ -1,21 +1,8 @@
-import { getCustomers } from "@/lib/customers";
-import { tieredLessonPricesAll } from "@/lib/session-tiers";
-import { getLessons } from "@/lib/lessons";
-import { getTrialLessons } from "@/lib/trial-lessons";
-import { getHourlyTasks } from "@/lib/hourly-tasks";
-import { getCurrentMember, getMembers } from "@/lib/members";
-import { getAllSessionPasses } from "@/lib/session-passes";
-import { getAllCustomerPlans } from "@/lib/customer-plans";
-import { getAllPlans, buildLessonFeeMap, getAllSessionPassPrices, buildSessionPassPriceMap } from "@/lib/plans-master";
-import { getMemberCustomerRates } from "@/lib/commission-rates";
-import { getFctStores } from "@/lib/fct-stores";
-import { getCommissionAdjustments } from "@/lib/commission-adjustments";
-import { isBillableLessonStatus } from "@/lib/lessons-types";
-import { buildHourlyEntries, type CommissionContext } from "@/lib/commissions";
-import { buildTrainerStatements } from "@/lib/commission-statement";
+import { getCurrentMember } from "@/lib/members";
+import { buildHourlyEntries } from "@/lib/commissions";
+import { loadTrainerStatements } from "@/lib/commission-statement-load";
 import { DEFAULT_COMMISSION_PAY_DAY } from "@/lib/commission-pay-date";
 import { StatementClient } from "./statement-client";
-import { monthReadStart } from "@/lib/recent-months";
 
 export const dynamic = "force-dynamic";
 
@@ -41,40 +28,8 @@ export default async function CommissionStatementPage({
 
   const { month: monthParam } = await searchParams;
   const month = monthParam || currentMonth();
-  // その月（と締日ずれのための前月）だけ読む
-  const since = monthReadStart(month);
-
-  const [customers, lessons, trialLessons, hourlyTasks, sessionPasses, customerPlans, members, plansMaster, sessionPassPrices, allRates, fctStores, adjustments] = await Promise.all([
-    getCustomers(),
-    getLessons(since),
-    getTrialLessons(since),
-    getHourlyTasks(since),
-    getAllSessionPasses(),
-    getAllCustomerPlans(),
-    getMembers(),
-    getAllPlans(),
-    getAllSessionPassPrices(),
-    getMemberCustomerRates(),
-    getFctStores(),
-    getCommissionAdjustments(),
-  ]);
-
-  const ctx: CommissionContext = {
-    customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
-    trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
-    lessonFees: buildLessonFeeMap(plansMaster),
-    // 段階単価（請求書と同じ単価で歩合を出す）
-    tieredPrices: tieredLessonPricesAll({ customers, lessons }),
-    sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),
-    fctStores: fctStores.map((f) => ({ id: f.id, rate: f.rate })),
-  };
-
-  const completedLessons = lessons.filter((l) => isBillableLessonStatus(l.status));
-  const completedTrialLessons = trialLessons.filter((l) => l.status === "completed");
-  const contractedTrialLessons = trialLessons.filter((l) => l.contracted === true);
-
-  const statements = buildTrainerStatements(completedLessons, completedTrialLessons, contractedTrialLessons, hourlyTasks, month, ctx, adjustments);
+  // 読むところから明細を作る（ダッシュボードの箱・朝のLINEの知らせと同じ関数）
+  const { statements, members, hourlyTasks } = await loadTrainerStatements(month);
 
   // 「予定」のままの業務は明細に載らない。支払い前に気付けるよう件数と金額を渡す。
   const hourlyEntries = buildHourlyEntries(hourlyTasks, month);

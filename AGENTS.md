@@ -116,6 +116,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 歩合は付かない（レッスンではないため）。スタッフ向けの「今月のFIT STAGE」（旧「FIT STAGE のいま」）の伸び率には入れていない（レッスンの伸びを見せるため）。
 - アシスタントのスタッフ向けでは金額を伏せる（`STAFF_HIDDEN_KEYS` に `sideJobRevenue`・`sideJobCost`）。
 
+## コミッションの支払いが済んだか（代表のダッシュボードとLINE。2026-11-10）
+
+月末じめ・翌月払い。担当者ごとに「明細を送った」「振り込んだ」の2つを印で残し、済んでいないものを朝のLINEで代表に知らせる。
+- **ダッシュボードの箱は代表（`members.is_owner`）だけに出る**（`dashboard/commission-todo-box.tsx`）。先月ぶんを、振込日の早い順に並べ、「明細」「振込」を押して印を付ける。
+  読み込みが重いので本体とは別に読む（`Suspense`）。印を付けられるのは代表と管理者（`commission-todo-actions.ts`）。
+- 印は `commission_payouts`（`20261110000001_commission_payouts.sql`。対象月×担当者で1行、RLS有効）。**表が無いあいだも箱と知らせは動く**（全員「まだ」として出る。印だけ付けられない）。
+- **金額は明細の画面と同じ関数** `lib/commission-statement-load.ts` の `loadTrainerStatements`（明細の画面・この箱・朝の知らせの3か所が呼ぶ）。
+- **LINEの知らせ**（`lib/commission-reminders.ts`。朝9時の `daily-reminders` に入れた）。代表へ（代表がいなければ管理者へ）：
+  月はじめ（既定1日。`COMMISSION_STATEMENT_DAY`）に「明細を送る時期」／振込日の3日前／当日／翌日（印が無いとき）。
+  済んだ人は出さない。全員済んでいれば送らない。止めるときは `LINE_NOTIFY_COMMISSION=off`。
+  明細の計算は重いので、出番の鍵がまだ送られていない日だけ計算する（出すものが無かった鍵も送信済みにして、同じ日に何度も計算しない）。
+- 明細そのものはPDFを手で共有する形なので、「送った」は自動では付かない（手で印を付ける）。振込日が土日でも前倒しはしない。
+
 ## 顧客をえらぶ欄・回数券ページ（2026-11-08）
 
 - **顧客を選ぶところは全部 `components/ui/customer-picker.tsx` の `CustomerPicker`**（レッスン・体験・スケジュールの絞り込み・会場利用料・毎月の請求項目・歩合率・請求まとめ先・回数券の追加）。

@@ -40,6 +40,8 @@ import { companyStats } from "@/lib/company-stats";
 import { CompanyCard } from "./company-card";
 import { MenuTiles, QuickLinks } from "./menu-tiles";
 import { SectionBox } from "@/components/ui/section-box";
+import { Suspense } from "react";
+import { CommissionTodoBox, CommissionTodoSkeleton } from "./commission-todo-box";
 
 export const dynamic = "force-dynamic";
 
@@ -214,6 +216,13 @@ export default async function DashboardPage() {
         <div className="space-y-3 min-w-0">
           {/* 日替わりの1枚・本日の予定・節目 */}
           <TodayCard rows={rows} teamCount={teamCount} milestones={milestones} quote={quote} mission={mission} tip={tip} fortune={fortune} />
+
+          {/* 代表だけ：先月ぶんのコミッションの明細・振込が済んだか（別に読むので、ほかの表示は待たせない） */}
+          {currentMember?.isOwner && (
+            <Suspense fallback={<CommissionTodoSkeleton />}>
+              <CommissionTodoBox />
+            </Suspense>
+          )}
 
           {/* 完了にしていないレッスン（完了＝歩合になる） */}
           {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
