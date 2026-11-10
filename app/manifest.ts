@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "FIT STAGE ポータル",
     start_url: "/dashboard",
     display: "standalone",
-    // 濃紺（ポータルの色）。ホーム画面のアイコンは濃紺に白いロゴ＋金の線＋PORTAL（2026-11-10）
+    // 濃紺（ポータルの色）。ホーム画面のアイコンは黒地に白いロゴ＋金の線＋PORTAL（2026-11-10）
     background_color: "#17284b",
     theme_color: "#17284b",
     icons: [
