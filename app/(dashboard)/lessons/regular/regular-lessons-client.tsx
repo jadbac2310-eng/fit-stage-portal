@@ -1010,7 +1010,7 @@ export function LessonForm({
           <select name="status" defaultValue={defaultValues?.status ?? "scheduled"} className={inputClass}>
             <option value="scheduled">予定</option>
             <option value="completed">完了</option>
-            <option value="cancelled_same_day">当日キャンセル（実施扱い・売上/歩合あり）</option>
+            <option value="cancelled_same_day">当日キャンセル（前日21時以降・実施扱い・売上/歩合あり）</option>
             <option value="cancelled">キャンセル（白紙）</option>
           </select>
         </div>
