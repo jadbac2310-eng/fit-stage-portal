@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   // 止めるときは LINE_NOTIFY_COMMISSION=off
   const commissionOn = (process.env.LINE_NOTIFY_COMMISSION ?? "").trim().toLowerCase() !== "off";
   const candidates = commissionOn && commissionTo.length > 0
-    ? commissionCandidates(now, members.map((m) => m.commissionPayDay), Number(process.env.COMMISSION_STATEMENT_DAY ?? "1"))
+    ? commissionCandidates(now, members.map((m) => m.commissionPayDay), Number(process.env.COMMISSION_STATEMENT_DAYS_BEFORE ?? "5"))
     : [];
   if (candidates.length > 0) {
     const done = await fetchSentKeys("daily", candidates.map((c) => c.ref));

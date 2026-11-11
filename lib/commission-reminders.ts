@@ -7,7 +7,8 @@ import { previousMonth, type PayoutTodo } from "./commission-payouts-types";
  * コミッションの知らせ（代表へのLINE。2026-11-10）。
  *
  * 月末じめ・翌月払いなので、今月やるのは「先月ぶん」。知らせるのは4回：
- *   1. 月はじめ（既定1日）      … 明細を送る時期です（まだ送っていない人だけ）
+ *   1. 振込日の5日前（25日払いなら20日、15日払いなら10日） … 明細を送る時期です（その振込日の人で、まだ送っていない人だけ）
+ *      2026-11-10 までは月はじめに全員まとめて出していたが、25日払いの人には早すぎた（尚樹の指示で振込日ごとに）
  *   2. 振込日の3日前            … もうすぐ振込日です（まだ振り込んでいない人だけ）
  *   3. 振込日の当日             … 今日は振込日です
  *   4. 振込日の翌日             … 振込の印がまだ付いていません（付け忘れか、振り込み忘れか）
@@ -55,15 +56,16 @@ export interface CommissionCandidate {
  * 今日が出番の知らせ（鍵だけ）。日付と支払日だけで決まるので、明細を計算する前に呼べる。
  * 明細の計算は重いので、出番が無い日・もう送った日は計算しないで済ませるため。
  */
-export function commissionCandidates(now: Date, payDays: (number | undefined)[], statementDay = 1): CommissionCandidate[] {
-  const p = jstParts(now);
+export function commissionCandidates(now: Date, payDays: (number | undefined)[], statementDaysBefore = 5): CommissionCandidate[] {
   const today = ymdOf(now);
   const month = commissionTargetMonth(now);
   const out: CommissionCandidate[] = [];
-  // 1. 明細。月はじめを過ぎた最初の1回（鍵が月ごとなので、1日に動かなかった月も次の日に届く）
-  if (p.day >= statementDay) out.push({ ref: `commission-statement:${month}`, kind: "statement" });
   const dates = Array.from(new Set(payDays.map((d) => commissionPayDate(month, d)))).filter(Boolean).sort();
   for (const payDate of dates) {
+    // 1. 明細。振込日の5日前から振込日までのあいだの最初の1回（鍵が振込日ごとなので、動かなかった日があっても次の日に届く）
+    if (today >= addDays(payDate, -statementDaysBefore) && today <= payDate) {
+      out.push({ ref: `commission-statement:${month}:${payDate}`, kind: "statement", payDate });
+    }
     if (addDays(payDate, -3) === today) out.push({ ref: `commission-pay-soon:${payDate}`, kind: "soon", payDate });
     if (payDate === today)              out.push({ ref: `commission-pay-today:${payDate}`, kind: "today", payDate });
     if (addDays(payDate, 1) === today)  out.push({ ref: `commission-pay-late:${payDate}`, kind: "late", payDate });
@@ -83,12 +85,12 @@ export function buildCommissionReminders(
   const out: DailyReminder[] = [];
   for (const c of candidates) {
     if (c.kind === "statement") {
-      const rest = todos.filter((t) => !t.statementSent);
+      const rest = todos.filter((t) => t.payDate === c.payDate && !t.statementSent);
       if (rest.length === 0) continue;
-      const lines = rest.map((t) => `・${t.memberName}　${yen(t.payable)}（振込 ${md(t.payDate)}）`).join("\n");
+      const lines = rest.map((t) => `・${t.memberName}　${yen(t.payable)}`).join("\n");
       out.push({
         ref: c.ref, recipientIds,
-        text: `📄 ${monthLabel}のコミッション明細を送る時期です（${rest.length}名）\n${lines}\n\n送ったら、ダッシュボードの「コミッションの支払い」で「明細」に印を付けてください。`,
+        text: `📄 ${monthLabel}のコミッション明細を送る時期です（振込 ${md(c.payDate!)}・${rest.length}名）\n${lines}\n\n送ったら、ダッシュボードの「コミッションの支払い」で「明細」に印を付けてください。`,
       });
       continue;
     }
