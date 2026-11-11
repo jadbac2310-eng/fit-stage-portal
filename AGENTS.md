@@ -125,7 +125,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 印は `commission_payouts`（`20261110000001_commission_payouts.sql`。対象月×担当者で1行、RLS有効）。**表が無いあいだも箱と知らせは動く**（全員「まだ」として出る。印だけ付けられない）。
 - **金額は明細の画面と同じ関数** `lib/commission-statement-load.ts` の `loadTrainerStatements`（明細の画面・この箱・朝の知らせの3か所が呼ぶ）。
 - **LINEの知らせ**（`lib/commission-reminders.ts`。朝9時の `daily-reminders` に入れた）。代表へ（代表がいなければ管理者へ）：
-  振込日の5日前に「明細を送る時期」（25日払いは20日、15日払いは10日。`COMMISSION_STATEMENT_DAYS_BEFORE`。2026-11-11 に月はじめ一斉から変更）／振込日の3日前／当日／翌日（印が無いとき）。
+  振込日の5日前に「明細を送る時期」（25日払いは20日、15日払いは10日。`COMMISSION_STATEMENT_DAYS_BEFORE`。2026-11-11 に月はじめ一斉から変更）／振込日の前日と当日（2026-11-11 に統一。前は3日前・翌日もあった）。
   済んだ人は出さない。全員済んでいれば送らない。止めるときは `LINE_NOTIFY_COMMISSION=off`。
   明細の計算は重いので、出番の鍵がまだ送られていない日だけ計算する（出すものが無かった鍵も送信済みにして、同じ日に何度も計算しない）。
 - 明細そのものはPDFを手で共有する形なので、「送った」は自動では付かない（手で印を付ける）。振込日が土日でも前倒しはしない。

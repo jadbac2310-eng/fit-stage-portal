@@ -6,12 +6,12 @@ import { previousMonth, type PayoutTodo } from "./commission-payouts-types";
 /**
  * コミッションの知らせ（代表へのLINE。2026-11-10）。
  *
- * 月末じめ・翌月払いなので、今月やるのは「先月ぶん」。知らせるのは4回：
+ * 月末じめ・翌月払いなので、今月やるのは「先月ぶん」。知らせるのは3回（2026-11-11 尚樹の指示でこの形に統一）：
  *   1. 振込日の5日前（25日払いなら20日、15日払いなら10日） … 明細を送る時期です（その振込日の人で、まだ送っていない人だけ）
  *      2026-11-10 までは月はじめに全員まとめて出していたが、25日払いの人には早すぎた（尚樹の指示で振込日ごとに）
- *   2. 振込日の3日前            … もうすぐ振込日です（まだ振り込んでいない人だけ）
+ *   2. 振込日の前日             … 明日は振込日です（まだ振り込んでいない人だけ）
  *   3. 振込日の当日             … 今日は振込日です
- *   4. 振込日の翌日             … 振込の印がまだ付いていません（付け忘れか、振り込み忘れか）
+ *   前は「3日前」と「翌日（印が無いとき）」もあったが、前日と当日だけにした。
  * 済んだ印（commission_payouts）が付いている人は出さない。全員済んでいれば送らない。
  *
  * 送信はしない。「今日どの鍵が出番か」と「文面」だけを返す純粋な関数（日付の判定をテストできるように）。
@@ -43,7 +43,7 @@ export function commissionTargetMonth(now: Date): string {
   return previousMonth(jstParts(now));
 }
 
-export type CommissionReminderKind = "statement" | "soon" | "today" | "late";
+export type CommissionReminderKind = "statement" | "eve" | "today";
 
 export interface CommissionCandidate {
   ref: string;
@@ -66,9 +66,8 @@ export function commissionCandidates(now: Date, payDays: (number | undefined)[],
     if (today >= addDays(payDate, -statementDaysBefore) && today <= payDate) {
       out.push({ ref: `commission-statement:${month}:${payDate}`, kind: "statement", payDate });
     }
-    if (addDays(payDate, -3) === today) out.push({ ref: `commission-pay-soon:${payDate}`, kind: "soon", payDate });
+    if (addDays(payDate, -1) === today) out.push({ ref: `commission-pay-eve:${payDate}`, kind: "eve", payDate });
     if (payDate === today)              out.push({ ref: `commission-pay-today:${payDate}`, kind: "today", payDate });
-    if (addDays(payDate, 1) === today)  out.push({ ref: `commission-pay-late:${payDate}`, kind: "late", payDate });
   }
   return out;
 }
@@ -98,12 +97,9 @@ export function buildCommissionReminders(
     if (rest.length === 0) continue;
     const total = rest.reduce((s, t) => s + t.payable, 0);
     const lines = rest.map((t) => `・${t.memberName}　${yen(t.payable)}${t.statementSent ? "" : "（明細がまだ）"}`).join("\n");
-    const head = c.kind === "soon" ? `⏰ 3日後（${md(c.payDate!)}）はコミッションの振込日です`
-      : c.kind === "today" ? `💴 今日（${md(c.payDate!)}）はコミッションの振込日です`
-      : `⚠️ 昨日（${md(c.payDate!)}）が振込日でしたが、「振込」の印がまだ付いていません`;
-    const foot = c.kind === "late"
-      ? "振り込み済みなら、ダッシュボードで印を付けてください。まだなら、今日お願いします。"
-      : "振り込んだら、ダッシュボードの「コミッションの支払い」で「振込」に印を付けてください。";
+    const head = c.kind === "eve" ? `⏰ 明日（${md(c.payDate!)}）はコミッションの振込日です`
+      : `💴 今日（${md(c.payDate!)}）はコミッションの振込日です`;
+    const foot = "振り込んだら、ダッシュボードの「コミッションの支払い」で「振込」に印を付けてください。";
     out.push({ ref: c.ref, recipientIds, text: `${head}\n${monthLabel}・${rest.length}名・合計 ${yen(total)}\n${lines}\n\n${foot}` });
   }
   return out;
