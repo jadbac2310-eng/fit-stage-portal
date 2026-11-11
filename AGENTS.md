@@ -291,6 +291,9 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
   `LINE_NOTIFY_CONTACT=off` で停止、`CONTACT_NOTIFY_MEMBER_IDS` で送信先を指定。経路（Google検索など）も添える。
 - 応募の通知は管理者（LINE連携済み）へ送る。`RECRUIT_NOTIFY_MEMBER_IDS` で送信先を指定、`LINE_NOTIFY_RECRUIT=off` で停止できる。
   応募者はお客様ではないので、顧客データには入れない。
+- **体験予約の「年齢」「性別」**（2026-11-10 フォームに追加・2026-11-11 こちらも対応）：HP側 `api/reserve.js` が `age`（半角数字）・`gender`（女性／男性／回答しない）で送ってくる。
+  `buildNote` が備考に「年齢: 35歳」「性別: 女性」の行を足す（利用人数の下）。DBの列は増やしていない。
+  11/10 20:56〜11/11 の間に入った予約は、HP側の暫定対応で「利用人数: 1名（35歳・女性）」の形になっている。
 - **申込の「経路」**（2026-10-30）：HPの `/entry.js` が最初に外から来たときの 参照元・最初のページ・UTM を覚え、体験予約フォームが
   隠し項目で送ってくる。`api/reserve.js` → `source_referrer / source_landing / source_utm` → こちらは `lib/acquisition-channel.ts` の
   `channelLabel` で「Google検索」「Googleマップ」「LINE」などにまとめ、体験レッスンの備考に「経路: …」として残す。

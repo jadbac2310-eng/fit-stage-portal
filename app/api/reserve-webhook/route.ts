@@ -25,6 +25,10 @@ export const runtime = "nodejs";
 
 type Body = {
   full_name?: string;
+  /** 年齢（2026-11-10 追加）。HP側で半角数字だけにしてある（例 "35"） */
+  age?: string;
+  /** 性別：女性／男性／回答しない */
+  gender?: string;
   email?: string;
   phone_number?: string;
   store_name?: string;
@@ -59,6 +63,13 @@ function jstLabel(iso: string): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${wd}) ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
 
+/** 年齢を「35歳」の形にする。数字以外が来たらそのまま出す */
+function ageLabel(age?: string): string | undefined {
+  const v = age?.trim();
+  if (!v) return undefined;
+  return /^[0-9]{1,3}$/.test(v) ? `${v}歳` : v;
+}
+
 /**
  * 備考は「ラベル: 値」を1行ずつ並べる。
  * ポータルの体験レッスン画面がこの形を項目リストとして表示するため、形式を合わせる。
@@ -69,6 +80,8 @@ function buildNote(b: Body, secondISO: string | null): string {
     ["希望日時（第2希望）", secondISO ? jstLabel(secondISO) : undefined],
     ["日時の補足", b.schedule_note],
     ["利用人数", b.people],
+    ["年齢", ageLabel(b.age)],
+    ["性別", b.gender],
     ["希望トレーナー", b.trainer],
     ["駐車場", b.parking],
     ["お悩み・目的", b.goals],
