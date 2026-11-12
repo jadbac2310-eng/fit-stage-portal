@@ -51,7 +51,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-08｜`20261108000002_pass_prices_pair_hp.sql`（プランマスタの回数券 2名様をHPの金額に。確認の表は 1名 76800／148800／288000・2名 104800／203200／393600）
 - 2026-11-09｜`20261109000001_personal_events_created_by.sql`（個人予定に入れた人 created_by。今までの予定は本人＝入れた人で埋めた）
 - 2026-11-10｜`20261110000001_commission_payouts.sql`（コミッションの明細・振込が済んだかの印 commission_payouts。代表のダッシュボードの箱と朝のLINEが見る）
-- （未反映・2026-11-11 用意）`20261111000001_wiki_cancel_deadline_21.sql`（ハンドブックのキャンセル規定 前日24時→前日21時。HPは同日に変更済み。SQL Editor で Run したらこの行の「未反映」を日付に直す）
+- 2026-11-12｜`20261111000001_wiki_cancel_deadline_21.sql`（ハンドブックのキャンセル規定 前日24時→前日21時。HPは11/11に変更済み）
 
 ## 見た目の決まり（2026-11-10 のデザイン変更。会社のポータルらしい作り・濃紺×金）
 
