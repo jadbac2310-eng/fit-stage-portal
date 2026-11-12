@@ -65,7 +65,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
   「本日の予定」は**本人の今日の予定だけ**を時刻順の表で出す（`todayRows`。完了／いま／予定／終日の札）。
   入れるのは 自分が担当トレーナーのレッスン・自分が担当トレーナーか担当営業の体験・自分の個人予定や参加している予定（面談・訪問など営業の予定も）。
   全員ぶんは本数だけ右に出す。個人予定は今日にかかるぶんだけ読む（`getPersonalEventsAround`）。「明日からの自分の予定」の一覧は置かない（尚樹の指示。先の予定はスケジュールで見る）。
-  「メニュー」のタイルは目次（`NAV_TREE`）から作るので、目次に足せばタイルにも出る。「目的別で探す」は `menu-tiles.tsx` の `QuickLinks`。
+  「メニュー」のタイルは目次と同じ `NAV_GROUPS` から作るので、目次に足せばタイルにも出る。「目的別で探す」は `menu-tiles.tsx` の `QuickLinks`（スタッフだけ。管理者向けの行き先はメニューに入れたので出さない）。
+- **目次は目的ごとのまとまり**（2026-11-12、`components/layout/nav-config.ts` の `NAV_GROUPS`）：毎日つかう／お客さま・営業／お金／会社／設定。
+  前は16項目が1列だった。顧客・請求書・入金・経営の数字（`/admin/dashboard`）も、マスタ管理や管理者機能の中から目次へ出した（中の一覧にも残っている）。
+  項目を足すときは、合うまとまりに入れる。管理者だけのものは `adminOnly`。
 - **ページの題は `components/ui/page-title.tsx` の `PageTitle`**（左に濃紺の太い線。右に「追加」などを置ける）。
   **切り替えのタブは同じファイルの `tabsWrap`・`tabButton(active)`・`tabCount(active)`**（四角・選んだものが濃紺）。灰色の丸い入れ物に白い丸ボタン、の形は使わない。
 - **ロゴ**：左上は `public/logo-wordmark-white.png`（尚樹が指定した FIT STAGE のロゴを、濃紺の上で見えるよう白い字＋金の線にしたもの）。

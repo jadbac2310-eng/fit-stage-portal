@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ExternalLink, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { NAV_TREE, getActiveHref } from "./nav-config";
+import { visibleNavGroups, getActiveHref } from "./nav-config";
 import { Avatar } from "@/components/ui/avatar";
 
 export function Sidebar({
@@ -53,39 +53,50 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto">
-        <ul>
-          {NAV_TREE.filter((node) => !node.adminOnly || isAdmin).map((node) => {
-            const Icon = node.icon;
-            const isActive = node.href === activeHref;
-            const className = cn(
-              "flex items-center transition-colors font-medium border-b border-white/10",
-              mobile ? "gap-3.5 py-3.5 px-4 text-[15px]" : "gap-2.5 py-2.5 px-4 text-sm",
-              isActive
-                ? "bg-navy-800 text-white font-bold shadow-[inset_4px_0_0_var(--portal-gold)]"
-                : "text-white/85 hover:bg-white/10 hover:text-white active:bg-white/10",
-            );
-            const inner = (
-              <>
-                {Icon && <Icon size={mobile ? 22 : 17} className="flex-shrink-0" />}
-                <span className="truncate">{node.label}</span>
-                {node.external && <ExternalLink size={mobile ? 16 : 13} className="flex-shrink-0 ml-auto text-white/50" />}
-              </>
-            );
-            return (
-              <li key={node.href}>
-                {node.external ? (
-                  <a href={node.href} target="_blank" rel="noopener noreferrer" className={className}>
-                    {inner}
-                  </a>
-                ) : (
-                  <Link href={node.href} className={className}>
-                    {inner}
-                  </Link>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        {/* 目的ごとのまとまりに見出しを付ける（2026-11-12） */}
+        {visibleNavGroups(isAdmin).map((group) => (
+          <div key={group.title}>
+            <p className={cn(
+              "px-4 font-bold tracking-wider text-gold-500 bg-black/15 border-b border-white/10",
+              mobile ? "pt-3 pb-1.5 text-[11px]" : "pt-2.5 pb-1 text-[10px]",
+            )}>
+              {group.title}
+            </p>
+            <ul>
+              {group.items.map((node) => {
+                const Icon = node.icon;
+                const isActive = node.href === activeHref;
+                const className = cn(
+                  "flex items-center transition-colors font-medium border-b border-white/10",
+                  mobile ? "gap-3.5 py-3 px-4 text-[15px]" : "gap-2.5 py-2 px-4 text-sm",
+                  isActive
+                    ? "bg-navy-800 text-white font-bold shadow-[inset_4px_0_0_var(--portal-gold)]"
+                    : "text-white/85 hover:bg-white/10 hover:text-white active:bg-white/10",
+                );
+                const inner = (
+                  <>
+                    {Icon && <Icon size={mobile ? 21 : 17} className="flex-shrink-0" />}
+                    <span className="truncate">{node.label}</span>
+                    {node.external && <ExternalLink size={mobile ? 16 : 13} className="flex-shrink-0 ml-auto text-white/50" />}
+                  </>
+                );
+                return (
+                  <li key={node.href}>
+                    {node.external ? (
+                      <a href={node.href} target="_blank" rel="noopener noreferrer" className={className}>
+                        {inner}
+                      </a>
+                    ) : (
+                      <Link href={node.href} className={className}>
+                        {inner}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="p-3 border-t border-white/15 flex-shrink-0 space-y-1">
