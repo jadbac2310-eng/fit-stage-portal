@@ -1158,16 +1158,15 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           )}
         </div>
         {linkedPass && (
-          <p className={cn("text-xs mt-0.5 flex items-center gap-1", overConsumed ? "text-red-600" : "text-amber-600")}>
-            <Ticket size={10} /> {linkedPass.totalCount}回券
-            {sessionNumber > 0 && <span className="font-semibold">・{sessionNumber}回目/全{linkedPass.totalCount}回</span>}
-            {overConsumed ? "（回数超過）" : `（この回の後 残り${remainingAfter}回）`}
+          // 1行の文として流す（前は flex で文字の切れ端ごとに箱になり、狭い画面で「36／回／券」と縦に割れていた）
+          <p className={cn("text-xs mt-0.5", overConsumed ? "text-red-600" : "text-amber-600")}>
+            <Ticket size={10} className="inline-block align-[-1px] mr-1" />
+            <span className="whitespace-nowrap">{linkedPass.totalCount}回券</span>
+            {sessionNumber > 0 && <span className="font-semibold whitespace-nowrap">の{sessionNumber}回目</span>}
+            <span className="whitespace-nowrap">{overConsumed ? "・回数超過" : `・残り${remainingAfter}回`}</span>
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
-        {lesson.createdByName && (
-          <p className="text-[11px] text-gray-400 mt-0.5">追加: {lesson.createdByName}</p>
-        )}
         <AuthorStamp
           createdByName={lesson.createdByName}
           createdAt={lesson.createdAt}
