@@ -1113,12 +1113,19 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const linkedPass = lesson.sessionPassId ? sessionPasses.find((p) => p.id === lesson.sessionPassId) : undefined;
   // この回数券レッスンが何回目か。キャンセルした回は消費しないので数に入らない（0になる）
   // （スケジュール画面と同じ passUsageOrdinals を使い、画面ごとに回数がズレないようにする）
-  const sessionNumber = linkedPass
-    ? passUsageOrdinals(allLessons.filter((l) => l.sessionPassId === linkedPass.id)).get(lesson.id) ?? 0
-    : 0;
+  const passLessons = linkedPass ? allLessons.filter((l) => l.sessionPassId === linkedPass.id) : [];
+  const ordinals = linkedPass ? passUsageOrdinals(passLessons) : new Map<string, number>();
+  const sessionNumber = ordinals.get(lesson.id) ?? 0;
+  // キャンセルした回（消化しない回）は、それより前に消化した回数で数える。
+  // 前は 0回目として扱い「残り36回」と券を買ったときの数字に戻って見えていた（2026-11-12）。
+  const usedBefore = sessionNumber > 0 ? sessionNumber : passLessons.filter((l) => {
+    if (!ordinals.has(l.id)) return false;
+    const a = new Date(l.scheduledAt).getTime(), b = scheduledDate.getTime();
+    return a < b || (a === b && l.createdAt < lesson.createdAt);
+  }).length;
   // 「この回を消化した時点での残り」。回数券の現在の残数をそのまま出すと、過去の回にも同じ数字が
   // 並び、消化済みなのに「残り1回」のように見えてしまうため、回数から逆算する。
-  const remainingAfter = linkedPass ? linkedPass.totalCount - sessionNumber : 0;
+  const remainingAfter = linkedPass ? linkedPass.totalCount - usedBefore : 0;
   const overConsumed = sessionNumber > 0 && !!linkedPass && sessionNumber > linkedPass.totalCount;
 
   if (editing) return (
@@ -1163,6 +1170,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
             <Ticket size={10} className="inline-block align-[-1px] mr-1" />
             <span className="whitespace-nowrap">{linkedPass.totalCount}回券</span>
             {sessionNumber > 0 && <span className="font-semibold whitespace-nowrap">の{sessionNumber}回目</span>}
+            {sessionNumber === 0 && <span className="whitespace-nowrap">・消化なし</span>}
             <span className="whitespace-nowrap">{overConsumed ? "・回数超過" : `・残り${remainingAfter}回`}</span>
           </p>
         )}
