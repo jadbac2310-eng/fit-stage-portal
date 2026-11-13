@@ -1,20 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lightbulb, Check, ExternalLink } from "lucide-react";
+import { Mail, Lightbulb, Check, ExternalLink, Sparkles, RotateCcw } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { parseTrialNote } from "@/lib/trial-note";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import { buildConfirmMail, findStore, hintsFromApplication, isPair } from "@/lib/trial-confirm-mail";
-import { sendTrialConfirmMailAction } from "./actions";
+import { sendTrialConfirmMailAction, suggestTrialPersonalNoteAction } from "./actions";
 
 /**
  * 体験レッスンの「ご予約確定」メールを送る画面（2026-11-14〜）。
- * 名前・日時・店舗・担当は予約から自動で入る。お客様の申込内容に合わせた「ひとこと」は
- * 下の目印を見ながら自分で書く（定型文で答えられないことだけ人が足す、という分担）。
+ * 名前・日時・店舗・担当は予約から自動で入る。お客様の申込内容に合わせた「ひとこと」も
+ * 開いたときに自動で下書きが入る（AIで作文。lib/trial-personal-note.ts）。下の目印を見ながら直せる。
  * 本文はそのまま直接直すこともできる。
  */
 export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onClose }: {
@@ -34,6 +34,19 @@ export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onC
 
   const [to, setTo] = useState(email ?? "");
   const [personalNote, setPersonalNote] = useState("");
+  // ひとことの下書き：開いたときに1回作る。作っている間に手で書き始めたら上書きしない
+  const [noteLoading, setNoteLoading] = useState(true);
+  const [noteBy, setNoteBy] = useState<"ai" | "template" | null>(null);
+  const typedRef = useRef(false);
+  const suggest = useRef(async (force: boolean) => {
+    setNoteLoading(true);
+    try {
+      const r = await suggestTrialPersonalNoteAction(lesson.id);
+      if (r.ok && (force || !typedRef.current)) { setPersonalNote(r.text); setNoteBy(r.text ? r.by : null); typedRef.current = false; }
+    } catch { /* 下書きが作れなくても、空欄のまま手で書ける */ }
+    setNoteLoading(false);
+  });
+  useEffect(() => { void suggest.current(false); }, []);
   const base = buildConfirmMail({
     customerName: lesson.customerName,
     scheduledAt: lesson.scheduledAt,
@@ -112,15 +125,27 @@ export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onC
         )}
 
         <div>
-          <label className={label}>ひとこと（任意・本文の「持ち物」の下に入ります）</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-semibold text-gray-500">ひとこと（お客様に合わせた下書き・直せます）</label>
+            <button type="button" disabled={noteLoading || editedBody !== null}
+              onClick={() => { if (!typedRef.current || confirm("書いた内容を消して、下書きを作り直しますか？")) void suggest.current(true); }}
+              className="flex items-center gap-1 text-xs text-blue-600 disabled:text-gray-300">
+              {noteLoading ? <Spinner size={11} /> : <RotateCcw size={11} />}{noteLoading ? "作成中..." : "作り直す"}
+            </button>
+          </div>
           <textarea
             value={personalNote}
-            onChange={(e) => setPersonalNote(e.target.value)}
+            onChange={(e) => { typedRef.current = true; setPersonalNote(e.target.value); }}
             disabled={editedBody !== null}
             rows={3}
             className={input}
-            placeholder="例：来年6月の結婚式に向けて、ドレスを綺麗に着こなせるお身体づくりを、一緒に考えさせていただきます。"
+            placeholder={noteLoading ? "お客様の申込内容から下書きを作っています…" : "例：来年6月の結婚式に向けて、ドレスを綺麗に着こなせるお身体づくりを、一緒に考えさせていただきます。"}
           />
+          {noteBy && !noteLoading && (
+            <p className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+              <Sparkles size={11} />{noteBy === "ai" ? "申込内容からAIが作った下書きです。読んでから送ってください。" : "決まった言い回しの下書きです。必要なら直してください。"}
+            </p>
+          )}
           {editedBody !== null && (
             <p className="text-xs text-gray-400 mt-1">
               本文を直接直したので、ひとことは本文の中で直してください。

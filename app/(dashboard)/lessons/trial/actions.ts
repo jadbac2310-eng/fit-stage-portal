@@ -9,6 +9,8 @@ import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity, getTrialConfirmMailSent, TRIAL_CONFIRM_MAIL_ENTITY } from "@/lib/activity-logs";
 import { isMailConfigured, sendMail } from "@/lib/mailer";
+import { parseTrialNote } from "@/lib/trial-note";
+import { writePersonalNote } from "@/lib/trial-personal-note";
 import { notifyLessonAdded, notifyContracted } from "@/lib/lesson-notify";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
@@ -233,4 +235,24 @@ export async function sendTrialConfirmMailAction(
   });
   revalidatePath("/lessons/trial");
   return { ok: true, to };
+}
+
+/**
+ * 確定メールの「ひとこと」の下書きを作る（申込内容に合わせて。2026-11-14〜）。
+ * 画面を開いたときに自動で呼ばれ、結果は編集できる欄に入るだけ（送信はしない）。
+ */
+export async function suggestTrialPersonalNoteAction(id: string): Promise<{ ok: true; text: string; by: "ai" | "template" } | { ok: false; error: string }> {
+  const [lesson, member] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
+  if (!member) return { ok: false, error: "ログインが必要です" };
+  if (!lesson) return { ok: false, error: "体験レッスンが見つかりません" };
+  const items = parseTrialNote(lesson.note).items;
+  const get = (l: string) => items.find((x) => x.label === l)?.value;
+  const r = await writePersonalNote({
+    goals: get("お悩み・目的"),
+    wish: get("詳しい内容・ご要望"),
+    habit: get("運動習慣"),
+    parking: get("駐車場"),
+    people: get("利用人数"),
+  });
+  return { ok: true, ...r };
 }

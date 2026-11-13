@@ -6,6 +6,7 @@ import { getMembers } from "@/lib/members";
 import { pushLineMessage } from "@/lib/line";
 import { portalUrl, canNotifyByLine } from "@/lib/line-notify";
 import { channelLabel } from "@/lib/acquisition-channel";
+import { matchStoreByName, matchMemberByName } from "@/lib/reserve-match";
 
 /**
  * HPの体験予約フォーム（/store/reserve/）からの申込を受け取る。
@@ -165,18 +166,21 @@ export async function POST(req: NextRequest) {
     // 体験レッスンの下書き作成。ここで失敗しても顧客登録は成功として返す。
     let trialCreated = false;
     try {
-      // 希望店舗は店舗マスタと名前で照合する（「迷っている・相談したい」等は未設定のまま）。
-      // マスタ側の名前に空白が紛れていても拾えるよう、両側の前後空白を落として比べる。
-      const storeName = body.store_name?.trim();
-      const storeId = storeName
-        ? (await getStores()).find((s) => s.name.trim() === storeName)?.id ?? null
-        : null;
+      // 希望店舗・希望トレーナーを、店舗マスタ・メンバーと名前で照合して先に入れておく（2026-11-14〜）。
+      // 画面で店舗を選んだときと同じく、場所（店舗名）と店舗利用料（マスタの金額）も入れる。
+      // 「迷っている・相談したい」「指名なし」や、名前が合わないときは空欄のまま（担当者があとで入れる・直す）。
+      const [stores, members] = await Promise.all([getStores(), getMembers()]);
+      const store = matchStoreByName(body.store_name, stores);
+      const trainer = matchMemberByName(body.trainer, members);
 
       await addTrialLesson({
         customerId: customer.id,
         // 希望日時が取れないときは申込日時を仮で入れる（担当者が後で確定する）
         scheduledAt: firstISO ?? new Date().toISOString(),
-        storeId,
+        storeId: store?.id ?? null,
+        location: store?.name,
+        storeFee: store ? store.fee : null,
+        trainerMemberId: trainer?.id,
         note: buildNote(body, secondISO) || undefined,
       });
       trialCreated = true;

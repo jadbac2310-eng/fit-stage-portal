@@ -160,7 +160,7 @@ export function hintsFromApplication(items: { label: string; value: string }[]):
   const note = get("日時の補足");
   if (note) hints.push(`日時の補足：「${note}」`);
   const wish = get("詳しい内容・ご要望");
-  if (wish) hints.push(`ご要望：「${wish}」→ これに触れた一言があると喜ばれます`);
+  if (wish) hints.push(`ご要望：「${wish}」→ ひとことで触れているか確認`);
   const trainer = get("希望トレーナー");
   if (trainer && !/指名なし|なし|ない/.test(trainer)) hints.push(`希望トレーナー：「${trainer}」→ 担当が希望どおりか確認`);
   return hints;

@@ -185,7 +185,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 体験レッスンの一覧で、予定の体験に「確定メール」ボタン（管理者・担当トレーナー・担当営業）。押すと確認画面が出て、
 名前・日時（60分）・店舗の住所とアクセス・担当トレーナー・料金（2名ならペア 9,900円）・持ち物（動きやすい服装・お飲み物）・キャンセル規定（前日21時まで無料）が入った本文ができる。
 - 文面は `lib/trial-confirm-mail.ts`（店舗の住所・アクセス・店舗用LINE `lin.ee/XkPbVRr` もここ）。**料金・キャンセル規定・住所を変えたら、HP の CLAUDE.md とここを両方直す。**
-- 「ひとこと」欄に書いた文が持ち物の下に入る。申込内容（駐車場・人数・日時の補足・ご要望・希望トレーナー）から、一言足したほうがよさそうなことを青い枠で出す（本文には勝手に入れない）。本文は直接直してもよい。
+- **「ひとこと」は開いたときに自動で下書きが入る**（2026-11-14 尚樹「お客様に合わせたご案内をあらかじめ入れておいて」）。`lib/trial-personal-note.ts` が申込の 目的・ご要望・運動習慣・来店方法・人数 だけを Claude（既定 `claude-opus-5-5`・effort low、Vercel の `MAIL_NOTE_MODEL` で変更可）に渡して1〜2文を作る。名前・連絡先は渡さない。設備があるとは書かせない／結果の約束・医療表現は禁止。AIが使えないときは決まった言い回し。「作り直す」で作り直せる。書き始めたら上書きしない。
+- 「ひとこと」欄の文が持ち物の下に入る。申込内容（駐車場・人数・日時の補足・ご要望・希望トレーナー）から、一言足したほうがよさそうなことを青い枠で出す（本文には勝手に入れない）。本文は直接直してもよい。
 - **送信元は info@fitstage.jp**（`lib/mailer.ts` の `store` アカウント。2026-11-14 尚樹「info@fitstage.jp からにしたい」）。
   info@fitstage.jp は ImprovMX の転送用アドレス（MX は improvmx、SPF に _spf.google.com 入り）で、FIT STAGE の Gmail `fitstage.000@gmail.com` に「他のアドレスから送信」として登録済み（2026-10-25 に送れている）。
   Vercel に `STORE_GMAIL_USER`=fitstage.000@gmail.com・`STORE_GMAIL_APP_PASSWORD`（そのアカウントのアプリパスワード）・`STORE_MAIL_FROM`=info@fitstage.jp・`STORE_MAIL_FROM_NAME`=FIT STAGE を入れる。
@@ -328,6 +329,7 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
 - **体験予約の「年齢」「性別」**（2026-11-10 フォームに追加・2026-11-11 こちらも対応）：HP側 `api/reserve.js` が `age`（半角数字）・`gender`（女性／男性／回答しない）で送ってくる。
   `buildNote` が備考に「年齢: 35歳」「性別: 女性」の行を足す（利用人数の下）。DBの列は増やしていない。
   11/10 20:56〜11/11 の間に入った予約は、HP側の暫定対応で「利用人数: 1名（35歳・女性）」の形になっている。
+- **希望店舗・希望トレーナーを先に入れる**（2026-11-14 尚樹）：`/api/reserve-webhook` が HP の「希望店舗」「希望トレーナー」を `lib/reserve-match.ts` で店舗マスタ・メンバーと名前照合し（空白・括弧書きを無視）、体験の 店舗・場所（店舗名）・店舗利用料（マスタの金額）・担当トレーナー を入れる。「迷っている」「指名なし」や合わない名前は空欄のまま。変更は画面の編集で。
 - **申込の「経路」**（2026-10-30）：HPの `/entry.js` が最初に外から来たときの 参照元・最初のページ・UTM を覚え、体験予約フォームが
   隠し項目で送ってくる。`api/reserve.js` → `source_referrer / source_landing / source_utm` → こちらは `lib/acquisition-channel.ts` の
   `channelLabel` で「Google検索」「Googleマップ」「LINE」などにまとめ、体験レッスンの備考に「経路: …」として残す。
