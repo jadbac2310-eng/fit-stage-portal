@@ -1,5 +1,6 @@
 import { DrawerLayout } from "@/components/layout/drawer-layout";
 import { getCurrentMember } from "@/lib/members";
+import { DeployGuard } from "@/components/layout/deploy-guard";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const currentMember = await getCurrentMember();
@@ -16,6 +17,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       todayLabel={todayLabel}
     >
       {children}
+      {/* ポータルを新しくした直後に、古い画面のまま保存して英語のエラーが出るのを防ぐ */}
+      <DeployGuard />
     </DrawerLayout>
   );
 }
