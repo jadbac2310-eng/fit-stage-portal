@@ -483,7 +483,7 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "list_tasks",
-    description: "会社の「やること」一覧（ジャンル・担当・期限・状況）。未完了のもの、期限切れ、担当者別、ジャンル別に見られる。",
+    description: "「やること」一覧（ジャンル・担当・期限・状況）。管理者には会社のやること、それ以外の人にはその人だけの自分のやることを返す。未完了のもの、期限切れ、担当者別、ジャンル別に見られる。",
     input_schema: {
       type: "object",
       properties: {
@@ -1072,7 +1072,8 @@ async function run(name: string, input: ToolInput, scope: AssistantScope): Promi
     }
 
     case "list_tasks": {
-      const [tasks, members] = await Promise.all([getTasks(), getMembers()]);
+      // 会社のやることは管理者だけ。ほかの人には、その人の自分のやることだけを見せる（2026-11-13）
+      const [tasks, members] = await Promise.all([scope.isAdmin ? getTasks() : getTasks({ ownerId: scope.memberId }), getMembers()]);
       const status = str(input.status);
       const category = str(input.category);
       const assignee = findMember(members, str(input.assignee));

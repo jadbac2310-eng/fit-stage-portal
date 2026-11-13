@@ -13,6 +13,8 @@ export interface Task {
   eventId?:     string;    // スケジュールに入れた予定
   completedAt?: string;
   createdById?: string;
+  /** 自分のやること（その人だけが見る）なら持ち主。空なら会社のやること（代表・管理者だけが見る） */
+  ownerMemberId?: string;
   createdAt:    string;
   updatedAt:    string;
 }
@@ -45,4 +47,12 @@ export function isTaskDone(t: Task): boolean {
 /** 期限を過ぎていて、まだ終わっていない */
 export function isTaskOverdue(t: Task, today: string): boolean {
   return !!t.dueOn && !isTaskDone(t) && t.dueOn < today;
+}
+
+/**
+ * 会社のやること（持ち主なし）を見たり直したりできる人。代表か管理者だけ（2026-11-13）。
+ * それ以外の人は、自分のやることだけを見る。
+ */
+export function canSeeCompanyTasks(me: { isAdmin?: boolean; isOwner?: boolean } | null | undefined): boolean {
+  return !!me && (!!me.isAdmin || !!me.isOwner);
 }

@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addTask, deleteTask, getTask, patchTask, type Task } from "@/lib/tasks";
-import { TASK_CATEGORIES, TASK_STATUSES } from "@/lib/tasks-types";
+import { addTask, deleteTask, getTask, patchTask, isMissingOwnerColumn, type Task } from "@/lib/tasks";
+import { TASK_CATEGORIES, TASK_STATUSES, canSeeCompanyTasks } from "@/lib/tasks-types";
 import { addPersonalEvent, deletePersonalEvent, updatePersonalEvent } from "@/lib/personal-events";
-import { requireAdmin, getCurrentMember, type Member } from "@/lib/members";
+import { getCurrentMember, getMembers, type Member } from "@/lib/members";
 import { notifyMembersByLine } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
 import { logActivity } from "@/lib/activity-logs";
@@ -12,11 +12,23 @@ import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 
 const PATH = "/tasks";
 
-/** やることの書き込みはログイン中のメンバーなら誰でもできる */
+/** ログイン中のメンバー */
 async function requireMember() {
   const me = await getCurrentMember();
   if (!me) throw new ActionError("ログインし直してください");
   return me;
+}
+
+/**
+ * そのやることを触ってよいか（2026-11-13）。
+ * 会社のやること（持ち主なし）は代表・管理者だけ。自分のやることは本人だけ。
+ * 見えないものは「見つからない」と同じ扱いにする（ほかの人のやることがあるかどうかも漏らさない）。
+ */
+async function loadOwnTask(id: string, me: Member): Promise<Task> {
+  const t = await getTask(id);
+  const ok = t && (t.ownerMemberId ? t.ownerMemberId === me.id : canSeeCompanyTasks(me));
+  if (!t || !ok) throw new ActionError("やることが見つかりません。画面を読み込み直してください");
+  return t;
 }
 
 function text(fd: FormData, key: string): string | null {
@@ -40,14 +52,29 @@ function isDuplicateTitle(e: unknown): boolean {
   return (e as { code?: string } | null)?.code === "23505";
 }
 
-function readFields(fd: FormData) {
+/**
+ * 会社のやることの担当は、代表・管理者だけ（2026-11-13）。
+ * 担当にした人のスケジュールに「【やること】…」として入るので、ほかの人を担当にすると中身が見えてしまう。
+ */
+async function checkCompanyAssignee(assigneeId: string | null) {
+  if (!assigneeId) return;
+  const m = (await getMembers()).find((x) => x.id === assigneeId);
+  if (!m || !canSeeCompanyTasks(m)) throw new ActionError("会社のやることの担当にできるのは、代表と管理者だけです");
+}
+
+/**
+ * フォームの中身。自分のやること（personal）は、ジャンルは「その他」、担当は本人に固める
+ * （担当＝本人にしておくと、期限を入れたときに本人のスケジュールに入る）。
+ */
+function readFields(fd: FormData, personalOwnerId?: string) {
   const title = text(fd, "title");
   if (!title) throw new ActionError("やることを入力してください");
-  const category = text(fd, "category") ?? "その他";
+  const category = personalOwnerId ? "その他" : (text(fd, "category") ?? "その他");
   checkCategory(category);
   const dueOn = text(fd, "dueOn");
   checkDate(dueOn);
-  return { title, category, dueOn, assigneeId: text(fd, "assigneeId"), memo: text(fd, "memo") };
+  const assigneeId = personalOwnerId ?? text(fd, "assigneeId");
+  return { title, category, dueOn, assigneeId, memo: text(fd, "memo") };
 }
 
 /**
@@ -95,10 +122,17 @@ async function notifyAssignee(task: Task, prevAssigneeId: string | undefined, me
 export async function createTaskAction(fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     const me = await requireMember();
-    const input = readFields(fd);
+    // 代表・管理者が入れたものは会社のやること、それ以外の人が入れたものは本人だけの自分のやること
+    const personalOwnerId = canSeeCompanyTasks(me) ? undefined : me.id;
+    const input = readFields(fd, personalOwnerId);
+    if (!personalOwnerId) await checkCompanyAssignee(input.assigneeId);
     let created: Task;
-    try { created = await addTask({ ...input, createdBy: me.id }); }
-    catch (e) { if (isDuplicateTitle(e)) throw new ActionError("同じやることがすでにあります"); throw e; }
+    try { created = await addTask({ ...input, createdBy: me.id, ownerMemberId: personalOwnerId }); }
+    catch (e) {
+      if (isDuplicateTitle(e)) throw new ActionError("同じやることがすでにあります");
+      if (isMissingOwnerColumn(e as { code?: string; message?: string })) throw new ActionError("自分のやることを入れる準備がまだです（代表にSQLの反映を頼んでください）");
+      throw e;
+    }
 
     const eventId = await syncEvent(created, me);
     if (eventId) await patchTask(created.id, { eventId });
@@ -112,9 +146,10 @@ export async function createTaskAction(fd: FormData): Promise<ActionResult> {
 export async function updateTaskAction(id: string, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     const me = await requireMember();
-    const current = await getTask(id);
-    if (!current) throw new ActionError("やることが見つかりません。画面を読み込み直してください");
-    const input = readFields(fd);
+    const current = await loadOwnTask(id, me);
+    const input = readFields(fd, current.ownerMemberId);
+    // 担当を変えたときだけ確かめる（前から付いている担当は、直すときに外してもらう）
+    if (!current.ownerMemberId && input.assigneeId !== (current.assigneeId ?? null)) await checkCompanyAssignee(input.assigneeId);
     try { await patchTask(id, input); }
     catch (e) { if (isDuplicateTitle(e)) throw new ActionError("同じやることがすでにあります"); throw e; }
 
@@ -132,8 +167,7 @@ export async function updateTaskStatusAction(id: string, status: string): Promis
   return runAction(async () => {
     const me = await requireMember();
     checkStatus(status);
-    const current = await getTask(id);
-    if (!current) throw new ActionError("やることが見つかりません。画面を読み込み直してください");
+    const current = await loadOwnTask(id, me);
     const done = status === "完了";
     await patchTask(id, { status, completedAt: done ? new Date().toISOString() : null });
 
@@ -149,10 +183,8 @@ export async function updateTaskStatusAction(id: string, status: string): Promis
 export async function deleteTaskAction(id: string): Promise<ActionResult> {
   return runAction(async () => {
     const me = await requireMember();
-    const t = await getTask(id);
-    if (!t) return;
-    // 自分が作ったものか、管理者だけ消せる
-    if (t.createdById !== me.id) await requireAdmin();
+    // 自分のやることは本人、会社のやることは代表・管理者だけが消せる
+    const t = await loadOwnTask(id, me);
     await deleteTask(id);
     if (t.eventId) {
       try { await deletePersonalEvent(t.eventId); } catch (e) { console.error("[tasks] 予定の削除に失敗", e); }

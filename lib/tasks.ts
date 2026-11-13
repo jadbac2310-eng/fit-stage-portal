@@ -17,6 +17,7 @@ type DbRow = {
   event_id:     string | null;
   completed_at: string | null;
   created_by:   string | null;
+  owner_member_id?: string | null;
   created_at:   string;
   updated_at:   string;
 };
@@ -34,6 +35,7 @@ function fromDb(r: DbRow): Task {
     eventId:     r.event_id ?? undefined,
     completedAt: r.completed_at ?? undefined,
     createdById: r.created_by ?? undefined,
+    ownerMemberId: r.owner_member_id ?? undefined,
     createdAt:   r.created_at,
     updatedAt:   r.updated_at,
   };
@@ -44,15 +46,33 @@ function isMissingTable(error: { code?: string; message?: string }): boolean {
   return error.code === "42P01" || /does not exist|could not find the table/i.test(error.message ?? "");
 }
 
-export async function getTasks(): Promise<Task[]> {
+/** 持ち主の列がまだ無い（SQL 20261113000001 未反映） */
+export function isMissingOwnerColumn(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && (error.code === "42703" || error.code === "PGRST204" || /owner_member_id/.test(error.message ?? ""));
+}
+
+/**
+ * やることの一覧。
+ *   ownerId を渡す … その人の「自分のやること」だけ
+ *   渡さない     … 会社のやること（持ち主なし）だけ
+ * 持ち主の列がまだ無いDBでは、会社のやること＝全部、自分のやること＝なし、として動く。
+ */
+export async function getTasks(opts: { ownerId?: string } = {}): Promise<Task[]> {
   const client = createAdminClient();
-  const { data, error } = await fetchAllRows((from, to) => client
-    .from("tasks")
-    .select("*")
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true })
-    .range(from, to));
+  const run = (withOwner: boolean) => fetchAllRows((from, to) => {
+    let q = client.from("tasks").select("*");
+    if (withOwner) q = opts.ownerId ? q.eq("owner_member_id", opts.ownerId) : q.is("owner_member_id", null);
+    return q
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
+  });
+  let { data, error } = await run(true);
+  if (error && isMissingOwnerColumn(error)) {
+    if (opts.ownerId) return [];
+    ({ data, error } = await run(false));
+  }
   if (error) {
     if (isMissingTable(error)) return [];
     throw error;
@@ -94,6 +114,8 @@ export async function patchTask(id: string, patch: TaskPatch): Promise<void> {
 export async function addTask(input: {
   title: string; category: string; assigneeId: string | null; dueOn: string | null;
   memo: string | null; createdBy?: string;
+  /** 自分のやることなら持ち主。会社のやることは渡さない */
+  ownerMemberId?: string;
 }): Promise<Task> {
   const client = createAdminClient();
   // 同じジャンルの末尾に入れる
@@ -103,6 +125,7 @@ export async function addTask(input: {
     .eq("category", input.category)
     .order("sort_order", { ascending: false })
     .limit(1);
+  const extra: Record<string, unknown> = input.ownerMemberId ? { owner_member_id: input.ownerMemberId } : {};
   const base = (last?.[0] as { sort_order: number } | undefined)?.sort_order ?? 100;
 
   const { data, error } = await client
@@ -115,6 +138,7 @@ export async function addTask(input: {
       memo:        input.memo,
       sort_order:  base + 5,
       created_by:  input.createdBy ?? null,
+      ...extra,
     })
     .select()
     .single();

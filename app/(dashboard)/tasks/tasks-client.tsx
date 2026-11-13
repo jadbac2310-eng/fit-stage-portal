@@ -67,14 +67,15 @@ function Badge({ text, className }: { text: string; className?: string }) {
 }
 
 // ─── 入力欄（追加・編集で共通） ─────────────────────────
-function TaskFields({ task, members, idPrefix }: { task?: Task; members: MemberLite[]; idPrefix: string }) {
+function TaskFields({ task, members, idPrefix, personal }: { task?: Task; members: MemberLite[]; idPrefix: string; personal?: boolean }) {
   return (
     <>
       <div>
         <label className={labelClass} htmlFor={`${idPrefix}-title`}>やること<span className="text-red-500"> *</span></label>
-        <input id={`${idPrefix}-title`} name="title" defaultValue={task?.title} required placeholder="例: 企画書を作る" className={inputClass} />
+        <input id={`${idPrefix}-title`} name="title" defaultValue={task?.title} required placeholder={personal ? "例: お客さまの声を1件もらう" : "例: 企画書を作る"} className={inputClass} />
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      {/* 自分のやることは、ジャンルと担当を聞かない（担当は本人に決まる） */}
+      {!personal && <div className="grid grid-cols-2 gap-2">
         <div>
           <label className={labelClass} htmlFor={`${idPrefix}-category`}>ジャンル</label>
           <select id={`${idPrefix}-category`} name="category" defaultValue={task?.category ?? "その他"} className={inputClass}>
@@ -88,11 +89,11 @@ function TaskFields({ task, members, idPrefix }: { task?: Task; members: MemberL
             {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
-      </div>
+      </div>}
       <div>
         <label className={labelClass} htmlFor={`${idPrefix}-due`}>期限（任意）</label>
         <input id={`${idPrefix}-due`} name="dueOn" type="date" defaultValue={task?.dueOn} className={inputClass} />
-        <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><CalendarCheck size={11} />期限と担当があれば、担当者のスケジュールに入ります（担当者にLINEでもお知らせ）</p>
+        <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1"><CalendarCheck size={11} />{personal ? "期限を入れると、自分のスケジュールに入ります" : "期限と担当があれば、担当者のスケジュールに入ります（担当者にLINEでもお知らせ）"}</p>
       </div>
       <div>
         <label className={labelClass} htmlFor={`${idPrefix}-memo`}>メモ（任意）</label>
@@ -103,7 +104,7 @@ function TaskFields({ task, members, idPrefix }: { task?: Task; members: MemberL
 }
 
 // ─── 1件 ─────────────────────────────────────────────
-function TaskCard({ task, members, meId, isAdmin, today }: { task: Task; members: MemberLite[]; meId?: string; isAdmin: boolean; today: string }) {
+function TaskCard({ task, members, meId, isAdmin, today, personal }: { task: Task; members: MemberLite[]; meId?: string; isAdmin: boolean; today: string; personal?: boolean }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [, startTransition] = useTransition();
@@ -113,7 +114,8 @@ function TaskCard({ task, members, meId, isAdmin, today }: { task: Task; members
   const assignee = members.find((m) => m.id === task.assigneeId);
   const done = status === "完了";
   const overdue = !done && isTaskOverdue(task, today);
-  const canDelete = isAdmin || (!!meId && task.createdById === meId);
+  // 自分のやることは本人がいつでも消せる。会社のやることは作った人か管理者
+  const canDelete = personal || isAdmin || (!!meId && task.createdById === meId);
 
   function changeStatus(value: string) {
     if (value === status) return;
@@ -146,11 +148,11 @@ function TaskCard({ task, members, meId, isAdmin, today }: { task: Task; members
         <button onClick={() => setOpen(!open)} className="flex-1 min-w-0 text-left" aria-expanded={open}>
           <p className={cn("text-[15px] font-bold leading-snug", done ? "text-gray-400 line-through" : "text-gray-900")}>{task.title}</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-gray-500">
-            <Badge text={task.category} className={TASK_CATEGORY_CLASS[task.category] ?? TASK_CATEGORY_CLASS["その他"]} />
+            {!personal && <Badge text={task.category} className={TASK_CATEGORY_CLASS[task.category] ?? TASK_CATEGORY_CLASS["その他"]} />}
             {status === "進行中" && <Badge text="進行中" className={TASK_STATUS_CLASS["進行中"]} />}
-            {assignee
+            {!personal && (assignee
               ? <MemberLabel name={assignee.name} avatarUrl={assignee.avatarUrl} textClassName="text-xs text-gray-600" />
-              : !done && <span className="inline-flex items-center gap-1 text-amber-600"><UserRound size={12} />未割当</span>}
+              : !done && <span className="inline-flex items-center gap-1 text-amber-600"><UserRound size={12} />未割当</span>)}
             {task.dueOn && (
               <span className={cn("inline-flex items-center gap-1 tabular-nums", overdue ? "text-red-600 font-semibold" : "")}>
                 <CalendarClock size={12} />{dueLabel(task.dueOn)}{overdue ? "（期限切れ）" : ""}
@@ -176,7 +178,7 @@ function TaskCard({ task, members, meId, isAdmin, today }: { task: Task; members
 
           {editing ? (
             <form action={form.submit} className="border-2 border-blue-300 rounded-xl p-3 space-y-3">
-              <TaskFields task={task} members={members} idPrefix={`e-${task.id}`} />
+              <TaskFields task={task} members={members} idPrefix={`e-${task.id}`} personal={personal} />
               {form.error && <p className="text-xs text-red-500">{form.error}</p>}
               <SubmitButtons locked={form.locked} label="保存する" onCancel={() => setEditing(false)} />
             </form>
@@ -203,7 +205,7 @@ function TaskCard({ task, members, meId, isAdmin, today }: { task: Task; members
 }
 
 // ─── 追加 ─────────────────────────────────────────────
-function AddTaskForm({ members, onClose }: { members: MemberLite[]; onClose: () => void }) {
+function AddTaskForm({ members, onClose, personal }: { members: MemberLite[]; onClose: () => void; personal?: boolean }) {
   const form = useActionForm(createTaskAction, onClose);
   return (
     <div className="bg-white rounded-2xl border-2 border-blue-400 p-5 mb-4 shadow-sm">
@@ -212,7 +214,7 @@ function AddTaskForm({ members, onClose }: { members: MemberLite[]; onClose: () 
         <button onClick={onClose} aria-label="閉じる" className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
       <form action={form.submit} className="space-y-3">
-        <TaskFields members={members} idPrefix="new" />
+        <TaskFields members={members} idPrefix="new" personal={personal} />
         {form.error && <p className="text-xs text-red-500">{form.error}</p>}
         <SubmitButtons locked={form.locked} label="追加する" onCancel={onClose} />
       </form>
@@ -221,7 +223,11 @@ function AddTaskForm({ members, onClose }: { members: MemberLite[]; onClose: () 
 }
 
 // ─── 一覧 ─────────────────────────────────────────────
-export function TasksClient({ tasks, members, meId, isAdmin }: { tasks: Task[]; members: MemberLite[]; meId?: string; isAdmin: boolean }) {
+/**
+ * やること。personal＝自分だけのやること（代表・管理者以外の人）。
+ * 自分のやることでは、ジャンル・担当・絞り込みを出さない（自分しか使わない一覧なので、書いて消すだけにする）。
+ */
+export function TasksClient({ tasks, members, meId, isAdmin, personal = false }: { tasks: Task[]; members: MemberLite[]; meId?: string; isAdmin: boolean; personal?: boolean }) {
   const [view, setView] = useState<"open" | "done">("open");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -255,7 +261,7 @@ export function TasksClient({ tasks, members, meId, isAdmin }: { tasks: Task[]; 
         title="やること"
         sub={
           <>
-            会社のやること 残り{openTasks.length}件{overdueCount > 0 && <span className="text-red-600 font-semibold">・期限切れ{overdueCount}件</span>}
+            {personal ? "自分だけのやること（ほかの人には見えません）" : "会社のやること（代表・管理者だけに見えます）"} 残り{openTasks.length}件{overdueCount > 0 && <span className="text-red-600 font-semibold">・期限切れ{overdueCount}件</span>}
           </>
         }
         right={
@@ -267,7 +273,7 @@ export function TasksClient({ tasks, members, meId, isAdmin }: { tasks: Task[]; 
         }
       />
 
-      {showAdd && <AddTaskForm members={members} onClose={() => setShowAdd(false)} />}
+      {showAdd && <AddTaskForm members={members} onClose={() => setShowAdd(false)} personal={personal} />}
 
       <div className="flex border-b border-gray-200 mb-3">
         {([["open", `やること（${openTasks.length}）`], ["done", `完了済み（${doneTasks.length}）`]] as const).map(([v, label]) => (
@@ -279,7 +285,7 @@ export function TasksClient({ tasks, members, meId, isAdmin }: { tasks: Task[]; 
         ))}
       </div>
 
-      <div className="space-y-2 mb-4">
+      {!personal && <div className="space-y-2 mb-4">
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button className={chip(assigneeFilter === "all")} onClick={() => setAssigneeFilter("all")}>全員</button>
           {meId && <button className={chip(assigneeFilter === "me")} onClick={() => setAssigneeFilter("me")}>自分の担当</button>}
@@ -296,15 +302,15 @@ export function TasksClient({ tasks, members, meId, isAdmin }: { tasks: Task[]; 
             return <button key={c} className={chip(categoryFilter === c)} onClick={() => setCategoryFilter(c)}>{c} <span className="opacity-60 tabular-nums">{n}</span></button>;
           })}
         </div>
-      </div>
+      </div>}
 
       {tasks.length === 0 ? (
-        <p className="text-center text-sm text-gray-500 py-16">やることがまだありません</p>
+        <p className="text-center text-sm text-gray-500 py-16">{personal ? "自分のやることを書いておく場所です。右上の「追加」から入れてください" : "やることがまだありません"}</p>
       ) : filtered.length === 0 ? (
         <p className="text-center text-sm text-gray-500 py-12">{view === "done" ? "完了したものはまだありません" : "条件に合うやることはありません"}</p>
-      ) : view === "done" ? (
+      ) : view === "done" || personal ? (
         <div className="space-y-2">
-          {filtered.map((t) => <TaskCard key={t.id} task={t} members={members} meId={meId} isAdmin={isAdmin} today={today} />)}
+          {filtered.map((t) => <TaskCard key={t.id} task={t} members={members} meId={meId} isAdmin={isAdmin} today={today} personal={personal} />)}
         </div>
       ) : (
         <div className="space-y-6">
