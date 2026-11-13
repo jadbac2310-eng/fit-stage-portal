@@ -33,11 +33,20 @@ function accountConfig(account: MailAccount): AccountConfig | null {
         fromName: process.env.STORE_MAIL_FROM_NAME?.trim() || "FIT STAGE",
       };
     }
-    // 店舗用が未設定なら、今までどおり default で送る
+    // 店舗用のログイン情報が未設定なら default のアカウントで送る。
+    // ただし差出人（STORE_MAIL_FROM / STORE_MAIL_FROM_NAME）だけ入っていれば、それを使う
+    // （default のアカウントに info@fitstage.jp が別名として登録されていれば、それで届く）。
   }
   const user = process.env.GMAIL_USER?.trim();
   const pass = process.env.GMAIL_APP_PASSWORD?.trim().replace(/\s+/g, ""); // 画面でコピーすると空白が入ることがある
   if (!user || !pass) return null;
+  if (account === "store") {
+    return {
+      user, pass,
+      fromAddress: process.env.STORE_MAIL_FROM?.trim() || user,
+      fromName: process.env.STORE_MAIL_FROM_NAME?.trim() || process.env.MAIL_FROM_NAME?.trim() || "FIT STAGE",
+    };
+  }
   return { user, pass, fromAddress: user, fromName: process.env.MAIL_FROM_NAME?.trim() || "FIT STAGE 坂根尚樹" };
 }
 
