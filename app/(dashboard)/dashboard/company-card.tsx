@@ -1,4 +1,4 @@
-import { Sparkles, Users, TrendingUp } from "lucide-react";
+import { Sparkles, TrendingUp } from "lucide-react";
 import { SectionBox } from "@/components/ui/section-box";
 import type { CompanyStats } from "@/lib/company-stats";
 import { Delta } from "@/components/ui/delta";
@@ -23,66 +23,42 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
   return (
     <SectionBox title="今月のFIT STAGE" padded>
 
-      {/* 今月の数字。全体の本数はここだけに出す（上の「今日」のカードは今日のことだけ） */}
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <p className="text-[11px] font-semibold text-gray-500">今月の完了レッスン</p>
-          <p className="flex items-baseline">
-            <span className="text-lg font-bold text-gray-900 tabular-nums">{s.monthLessons}</span>
-            <span className="text-xs text-gray-400 ml-0.5">本</span>
-            <Delta now={s.monthLessons} prev={s.lastMonthLessons} goodWhenUp className="ml-1 text-[10px]" />
-          </p>
-          {s.lastMonthLessons > 0 && (
-            <p className="text-[10px] text-gray-400">先月の今日 {s.lastMonthLessons}本</p>
-          )}
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold text-gray-500">今月の新規</p>
-          <p className="flex items-baseline">
-            <span className="text-lg font-bold text-gray-900 tabular-nums">{s.newCustomers}</span>
-            <span className="text-xs text-gray-400 ml-0.5">名</span>
-            <Delta now={s.newCustomers} prev={s.lastNewCustomers} goodWhenUp className="ml-1 text-[10px]" />
-          </p>
-          {s.lastNewCustomers > 0 && (
-            <p className="text-[10px] text-gray-400">先月の今日 {s.lastNewCustomers}名</p>
-          )}
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-            <Users size={10} className="text-gray-400" /> 在籍中
-          </p>
-          <p className="flex items-baseline">
-            <span className="text-lg font-bold text-gray-900 tabular-nums">{s.activeCustomers}</span>
-            <span className="text-xs text-gray-400 ml-0.5">名</span>
-          </p>
-        </div>
-      </div>
+      {/* 今月の数字を「レッスン・お客さま・体験」の3行に分ける（2026-11-13）。
+          前は 完了レッスン／新規（顧客マスタへの登録）／在籍中 を横に並べ、体験・成約は下の方に別に出していたので、
+          「新規2名なのに体験1件？」と食い違って見えていた。言葉の意味を行ごとに添える。 */}
+      <div className="divide-y divide-gray-100">
+        <Row label="レッスン" note="今月、実施したレッスン（体験も含む）">
+          <Big n={s.monthLessons} unit="本" />
+          <Delta now={s.monthLessons} prev={s.lastMonthLessons} goodWhenUp className="ml-1 text-[11px]" />
+          {s.lastMonthLessons > 0 && <span className="ml-2 text-[11px] text-gray-400">先月の同じ日まで {s.lastMonthLessons}本</span>}
+        </Row>
 
-      {/* 今月増えたお客さまのお名前。
-          人数だけだと「誰が増えたのか」が分からず、見ても次の行動につながらない。
-          名前が多いときは先頭だけ出して、残りは件数で示す（lib/company-stats.ts で絞っている）。 */}
-      {s.newCustomerNames.length > 0 && (
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1.5">
-            <Sparkles size={10} className="text-amber-500" /> 今月増えたお客さま
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {s.newCustomerNames.map((name) => (
-              <span
-                key={name}
-                className="border border-gold-200 bg-gold-50 px-2 py-0.5 text-[11px] font-bold text-gray-800"
-              >
-                {name}
-              </span>
-            ))}
-            {s.newCustomers > s.newCustomerNames.length && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
-                ほか{s.newCustomers - s.newCustomerNames.length}名
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+        <Row label="お客さま" note="入会＝初めて回数券を買った人・体験で成約した人">
+          <span className="text-[11px] text-gray-500 mr-1">在籍中</span><Big n={s.activeCustomers} unit="名" />
+          <span className="mx-2 text-gray-300">／</span>
+          <span className="text-[11px] text-gray-500 mr-1">今月入会</span><Big n={s.joined} unit="名" />
+          {s.lastJoined > 0 && <span className="basis-full mt-0.5 text-[11px] text-gray-400">今月入会は先月の同じ日まで {s.lastJoined}名</span>}
+          {s.joinedNames.length > 0 && (
+            <span className="basis-full mt-1.5 flex flex-wrap gap-1">
+              {s.joinedNames.map((name) => (
+                <span key={name} className="border border-gold-200 bg-gold-50 px-2 py-0.5 text-[11px] font-bold text-gray-800">{name}</span>
+              ))}
+              {s.joined > s.joinedNames.length && (
+                <span className="bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">ほか{s.joined - s.joinedNames.length}名</span>
+              )}
+            </span>
+          )}
+        </Row>
+
+        <Row label="体験" note="予約は今月分（これから受ける分も含む）">
+          <Step label="予約" n={s.trialBooked} />
+          <span className="mx-1.5 text-gray-300">→</span>
+          <Step label="実施" n={s.trialHeld} />
+          <span className="mx-1.5 text-gray-300">→</span>
+          <Step label="成約" n={s.trialContracted} strong />
+          {s.trialRate != null && <span className="basis-full mt-0.5 text-[11px] text-gray-500">実施したうちの成約率 {s.trialRate}%</span>}
+        </Row>
+      </div>
 
       {/* 売上の伸び（％のみ。金額は出さない） */}
       {(s.revenueGrowth != null || s.revenueGrowthYoY != null) && (
@@ -136,15 +112,8 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
         </div>
       </div>
 
-      {/* 体験の成約率と通算の節目 */}
+      {/* 通算の節目 */}
       <div className="mt-3 border-t border-gray-100 pt-3 space-y-1">
-        {s.trialRate != null && (
-          <p className="text-[11px] text-gray-500">
-            今月の体験は{s.trialHeld}件・成約
-            <span className="mx-1 text-sm font-bold text-gray-900">{s.trialContracted}件</span>
-            （{s.trialRate}%）
-          </p>
-        )}
         <p className="text-[11px] text-gray-500 flex items-center gap-1">
           <Sparkles size={11} className="text-amber-500 flex-shrink-0" />
           これまでに届けたレッスン
@@ -155,5 +124,39 @@ export function CompanyCard({ stats }: { stats: CompanyStats }) {
         </p>
       </div>
     </SectionBox>
+  );
+}
+
+/** 1行：左に見出し、右に数字。下に言葉の意味を小さく添える */
+function Row({ label, note, children }: { label: string; note: string; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-3 py-2.5 first:pt-0">
+      <p className="w-14 flex-shrink-0 pt-1 text-[11px] font-bold text-gray-700 flex items-start gap-1">
+        <span aria-hidden className="mt-1 w-1.5 h-1.5 bg-[var(--portal-gold)] flex-shrink-0" />{label}
+      </p>
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-baseline">{children}</div>
+        <p className="mt-0.5 text-[10px] text-gray-400">{note}</p>
+      </div>
+    </div>
+  );
+}
+
+function Big({ n, unit }: { n: number; unit: string }) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="text-lg font-bold text-gray-900 tabular-nums">{n}</span>
+      <span className="text-xs text-gray-400 ml-0.5">{unit}</span>
+    </span>
+  );
+}
+
+function Step({ label, n, strong }: { label: string; n: number; strong?: boolean }) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="text-[11px] text-gray-500 mr-0.5">{label}</span>
+      <span className={strong ? "text-lg font-bold text-gray-900 tabular-nums" : "text-base font-bold text-gray-800 tabular-nums"}>{n}</span>
+      <span className="text-xs text-gray-400 ml-0.5">件</span>
+    </span>
   );
 }

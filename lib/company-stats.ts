@@ -28,19 +28,25 @@ export interface CompanyStats {
   monthLessons:     number;
   /** 先月の同じ日までの本数 */
   lastMonthLessons: number;
-  /** 今月の新規のお客さま */
-  newCustomers:     number;
-  /** 今月の新規のお客さまのお名前（新しい順）。多いときは先頭だけ。金額は持たない */
-  newCustomerNames: string[];
-  /** 先月の同じ日までの新規のお客さま */
-  lastNewCustomers: number;
+  /**
+   * 今月「入会」したお客さま（2026-11-13 に定義をそろえた）。
+   * 入会＝その月に初めて回数券を買った人、または体験で成約した人（どちらかに当てはまれば1人）。
+   * 前は「顧客マスタに今月登録された人」を「新規」として出していて、体験の申込みだけの人や
+   * 手で登録しただけの人も入り、体験・成約の数と食い違って見えていた。
+   */
+  joined:           number;
+  /** 今月入会したお客さまのお名前（新しい順）。多いときは先頭だけ。金額は持たない */
+  joinedNames:      string[];
+  /** 先月の同じ日までに入会したお客さま */
+  lastJoined:       number;
   /** 在籍中のお客さま */
   activeCustomers:  number;
   /** 通算のレッスン本数 */
   totalLessons:     number;
   /** 次の節目（通算本数）。もう無ければ null */
   nextMilestone:    number | null;
-  /** 今月の体験の実施件数と成約率（全体） */
+  /** 今月の体験：予約（キャンセル以外。これから受ける分も含む）・実施・成約と成約率（全体） */
+  trialBooked:      number;
   trialHeld:        number;
   trialContracted:  number;
   trialRate:        number | null;
@@ -110,21 +116,33 @@ export function companyStats(
   const prev = countAndRevenue(sameDayRange(today, 1));
   const yoy  = countAndRevenue(sameDayRange(today, 12));
 
-  // ─── 新規のお客さま ───
-  const newListIn = (r: { from: string; to: string }) =>
-    customers.filter((c) => c.createdAt && inRange(c.createdAt, r));
-  const newIn = (r: { from: string; to: string }) => newListIn(r).length;
+  // ─── 入会したお客さま ───
+  // 入会日＝初めて回数券を買った日と、体験で成約した日（体験の日）の、早いほう。
+  const joinedAt = new Map<string, string>();
+  const setEarlier = (id: string, day: string) => {
+    const cur0 = joinedAt.get(id);
+    if (!cur0 || day < cur0) joinedAt.set(id, day);
+  };
+  for (const p of ctx.sessionPasses) if (p.purchasedAt) setEarlier(p.customerId, p.purchasedAt.slice(0, 10));
+  for (const t of trialLessons) if (t.contracted === true && t.customerId) setEarlier(t.customerId, jstDay(t.scheduledAt));
+  const nameOf = new Map(customers.map((c) => [c.id, c.fullName]));
+  const joinedIn = (r: { from: string; to: string }) =>
+    Array.from(joinedAt.entries()).filter(([id, day]) => nameOf.has(id) && day >= r.from && day <= r.to);
 
   // 数字だけだと「誰が増えたのか」が分からず、見ても次の行動につながらない。
   // 新しい順に並べて、多いときは先頭だけ渡す（残りは件数で足りる）。
-  const NEW_NAMES_MAX = 8;
-  const newCustomerNames = newListIn(thisR)
+  const NAMES_MAX = 8;
+  const joinedThis = joinedIn(thisR);
+  const joinedNames = joinedThis
     .slice()
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
-    .slice(0, NEW_NAMES_MAX)
-    .map((c) => c.fullName);
+    .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0))
+    .slice(0, NAMES_MAX)
+    .map(([id]) => nameOf.get(id)!);
 
   // ─── 今月の体験（全体） ───
+  // 予約は月の終わりまで（これから受ける分も含める。キャンセルは数えない）
+  const monthEnd = sameDayRange(today.slice(0, 8) + "31", 0);
+  const trialBooked = trialLessons.filter((t) => t.status !== "cancelled" && inRange(t.scheduledAt, monthEnd)).length;
   const trialsThisMonth = doneTrials.filter((t) => inRange(t.scheduledAt, thisR));
   const trialHeld = trialsThisMonth.length;
   const trialContracted = trialsThisMonth.filter((t) => t.contracted === true).length;
@@ -149,12 +167,13 @@ export function companyStats(
   return {
     monthLessons:     cur.count,
     lastMonthLessons: prev.count,
-    newCustomers:     newIn(thisR),
-    newCustomerNames,
-    lastNewCustomers: newIn(sameDayRange(today, 1)),
+    joined:           joinedThis.length,
+    joinedNames,
+    lastJoined:       joinedIn(sameDayRange(today, 1)).length,
     activeCustomers:  customers.filter((c) => c.status === "active").length,
     totalLessons,
     nextMilestone,
+    trialBooked,
     trialHeld,
     trialContracted,
     trialRate: trialHeld > 0 ? Math.round((trialContracted / trialHeld) * 1000) / 10 : null,
