@@ -7,7 +7,8 @@ import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } 
 import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
-import { logActivity } from "@/lib/activity-logs";
+import { logActivity, getTrialConfirmMailSent, TRIAL_CONFIRM_MAIL_ENTITY } from "@/lib/activity-logs";
+import { isMailConfigured, sendMail } from "@/lib/mailer";
 import { notifyLessonAdded, notifyContracted } from "@/lib/lesson-notify";
 import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
 import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
@@ -185,4 +186,51 @@ export async function deleteTrialLessonAction(id: string): Promise<ActionResult>
     await logActivity({ action: "delete", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを削除" });
     revalidatePath("/lessons/trial");
   });
+}
+
+/**
+ * 体験レッスンの「ご予約確定」メールを送る（2026-11-14〜）。
+ * 文面は画面で組み立て・編集したものをそのまま送る（lib/trial-confirm-mail.ts）。
+ * 送れるのは管理者・担当トレーナー・担当営業。送信元は請求書と同じ FIT STAGE の Gmail。
+ * 10分以内に同じ宛先へ送っていたら、二重送信を止めて確認を求める（force で送れる）。
+ */
+export async function sendTrialConfirmMailAction(
+  id: string,
+  mail: { to: string; subject: string; body: string },
+  opts?: { force?: boolean },
+): Promise<{ ok: true; to: string } | { ok: false; error: string; duplicate?: boolean }> {
+  const [lesson, member] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
+  if (!member) return { ok: false, error: "ログインが必要です" };
+  if (!lesson) return { ok: false, error: "体験レッスンが見つかりません" };
+  const allowed = member.isAdmin
+    || (!!lesson.trainerMemberId && lesson.trainerMemberId === member.id)
+    || (!!lesson.salesMemberId && lesson.salesMemberId === member.id);
+  if (!allowed) return { ok: false, error: "送れるのは担当トレーナー・担当営業または管理者のみです" };
+
+  const to = mail.to.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { ok: false, error: "宛先のメールアドレスを確認してください" };
+  if (!mail.subject.trim()) return { ok: false, error: "件名が空です" };
+  if (!mail.body.trim()) return { ok: false, error: "本文が空です" };
+  if (/（ここに場所を入れてください）/.test(mail.body)) return { ok: false, error: "本文の「場所」がまだ空です" };
+  if (!isMailConfigured()) return { ok: false, error: "Gmail の送信設定がまだありません（Vercel に GMAIL_USER と GMAIL_APP_PASSWORD を入れてください）" };
+
+  if (!opts?.force) {
+    const last = (await getTrialConfirmMailSent())[id];
+    if (last) {
+      const minutes = Math.floor((Date.now() - new Date(last.at).getTime()) / 60000);
+      if (minutes < 10) {
+        return { ok: false, duplicate: true, error: `${minutes < 1 ? "ついさっき" : `${minutes}分前に`}このお客様へ確定メールを送っています。もう一度送りますか？` };
+      }
+    }
+  }
+
+  const sent = await sendMail({ to, subject: mail.subject.trim(), text: mail.body });
+  if (!sent.ok) return sent;
+  await logActivity({
+    action: "create", entityType: TRIAL_CONFIRM_MAIL_ENTITY, entityId: id,
+    summary: `体験の確定メールを送信: ${lesson.customerName} → ${to}`,
+    memberId: member.id, memberName: member.name,
+  });
+  revalidatePath("/lessons/trial");
+  return { ok: true, to };
 }

@@ -6,6 +6,8 @@ import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
 import { getAvenirStores } from "@/lib/avenir-stores";
 import { getCustomerVenueFees } from "@/lib/customer-venue-fees";
+import { getTrialConfirmMailSent } from "@/lib/activity-logs";
+import { isMailConfigured, mailFromAddress } from "@/lib/mailer";
 import { TrialLessonsClient } from "./trial-lessons-client";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +17,7 @@ export default async function TrialLessonsPage({
 }: {
   searchParams: Promise<{ q?: string; report?: string }>;
 }) {
-  const [{ q, report }, lessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, currentMember] = await Promise.all([
+  const [{ q, report }, lessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, currentMember, mailSent] = await Promise.all([
     searchParams,
     getTrialLessons(),
     getCustomers(),
@@ -26,6 +28,7 @@ export default async function TrialLessonsPage({
     getAvenirStores(),
     getCustomerVenueFees(),
     getCurrentMember(),
+    getTrialConfirmMailSent(),
   ]);
   return (
     <TrialLessonsClient
@@ -41,6 +44,8 @@ export default async function TrialLessonsPage({
       currentMemberId={currentMember?.id}
       initialSearch={q ?? ""}
       openReportId={report}
+      mailFrom={isMailConfigured() ? mailFromAddress() : null}
+      mailSent={mailSent}
     />
   );
 }

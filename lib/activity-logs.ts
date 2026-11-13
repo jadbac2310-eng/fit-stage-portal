@@ -93,3 +93,29 @@ export async function getActivityLogs(opts?: { memberId?: string; limit?: number
     return [];
   }
 }
+
+/** 体験レッスンの「ご予約確定」メールを送った記録の種類（activity_logs.entity_type） */
+export const TRIAL_CONFIRM_MAIL_ENTITY = "trial_confirm_mail";
+
+/**
+ * 体験レッスンごとに、確定メールを最後に送った日時と送った人。
+ * 一覧で「送信済み 11/14 坂根」と出し、二重送信を防ぐために使う。
+ */
+export async function getTrialConfirmMailSent(): Promise<Record<string, { at: string; by?: string }>> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from("activity_logs")
+      .select("entity_id, member_name, created_at")
+      .eq("entity_type", TRIAL_CONFIRM_MAIL_ENTITY)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (error || !data) return {};
+    const out: Record<string, { at: string; by?: string }> = {};
+    for (const r of data as { entity_id: string | null; member_name: string | null; created_at: string }[]) {
+      if (r.entity_id && !out[r.entity_id]) out[r.entity_id] = { at: r.created_at, by: r.member_name ?? undefined };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}

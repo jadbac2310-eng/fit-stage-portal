@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
-  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins, ChevronDown,
+  User, StickyNote, CheckCircle, XCircle, Clock, ClipboardList, Building2, Coins, ChevronDown, Mail,
 } from "lucide-react";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
@@ -29,6 +29,7 @@ import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKindLabel, m
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ConfirmMailSheet } from "./confirm-mail-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import { Confetti } from "@/components/ui/confetti";
@@ -687,14 +688,22 @@ function ContractResultForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId }: {
+function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId, mailFrom = null, mailSent }: {
   lesson: TrialLesson; customers: Customer[]; members: Member[];
   rentalGyms: RentalGym[]; stores: Store[]; fctStores: FctStore[];
   avenirStores: AvenirStore[];
   venueFees: CustomerVenueFee[];
   isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+  mailFrom?: string | null; mailSent?: { at: string; by?: string };
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
+  const [mailOpen, setMailOpen] = useState(false);
+  const mailSheet = mailOpen ? (
+    <ConfirmMailSheet lesson={lesson} mailFrom={mailFrom} sent={mailSent}
+      email={customers.find((c) => c.id === lesson.customerId)?.email}
+      storeName={stores.find((st) => st.id === lesson.storeId)?.name}
+      onClose={() => setMailOpen(false)} />
+  ) : null;
   const router = useRouter();
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
@@ -770,6 +779,18 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5 justify-end">
+          {canRecordResult && lesson.status === "scheduled" && (
+            <button onClick={() => setMailOpen(true)}
+              className={cn(
+                "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
+                mailSent
+                  ? "text-gray-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                  : "text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-300"
+              )}>
+              <Mail size={11} />
+              {mailSent ? "確定メール済" : "確定メール"}
+            </button>
+          )}
           {canRecordResult && lesson.status !== "cancelled" && (
             <button onClick={() => setMode("report")}
               className={cn(
@@ -802,20 +823,29 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
             </>
           )}
         </div>
+        {mailSheet}
       </td>
     </tr>
   );
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId }: {
+function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId, mailFrom = null, mailSent }: {
   lesson: TrialLesson; customers: Customer[]; members: Member[];
   rentalGyms: RentalGym[]; stores: Store[]; fctStores: FctStore[];
   avenirStores: AvenirStore[];
   venueFees: CustomerVenueFee[];
   isAdmin: boolean; currentMemberId?: string; openReportId?: string;
+  mailFrom?: string | null; mailSent?: { at: string; by?: string };
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
+  const [mailOpen, setMailOpen] = useState(false);
+  const mailSheet = mailOpen ? (
+    <ConfirmMailSheet lesson={lesson} mailFrom={mailFrom} sent={mailSent}
+      email={customers.find((c) => c.id === lesson.customerId)?.email}
+      storeName={stores.find((st) => st.id === lesson.storeId)?.name}
+      onClose={() => setMailOpen(false)} />
+  ) : null;
   const router = useRouter();
   const { locked: deleting, run: runDelete } = useSubmitLock();
   const boundUpdate = updateTrialLessonAction.bind(null, lesson.id);
@@ -873,7 +903,19 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
           updatedAt={lesson.updatedAt}
         />
       </div>
-      <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+      <div className="flex flex-wrap items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+        {canRecordResult && lesson.status === "scheduled" && (
+          <button onClick={() => setMailOpen(true)}
+            className={cn(
+              "flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition border",
+              mailSent
+                ? "text-gray-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                : "text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-300"
+            )}>
+            <Mail size={11} />
+            {mailSent ? "確定メール済" : "確定メール"}
+          </button>
+        )}
         {canRecordResult && lesson.status !== "cancelled" && (
           <button onClick={() => setMode("report")}
             className={cn(
@@ -906,18 +948,20 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
           </>
         )}
       </div>
+      {mailSheet}
     </div>
   );
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin, currentMemberId, initialSearch = "", openReportId }: {
+export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin, currentMemberId, initialSearch = "", openReportId, mailFrom = null, mailSent = {} }: {
   lessons: TrialLesson[]; customers: Customer[]; members: Member[];
   rentalGyms?: RentalGym[]; stores?: Store[]; fctStores?: FctStore[];
   avenirStores?: AvenirStore[];
   venueFees?: CustomerVenueFee[];
   isAdmin: boolean; currentMemberId?: string;
   initialSearch?: string; openReportId?: string;
+  mailFrom?: string | null; mailSent?: Record<string, { at: string; by?: string }>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
@@ -1000,7 +1044,7 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} mailFrom={mailFrom} mailSent={mailSent[l.id]} />
                 ))}
               </tbody>
             </table>
@@ -1008,7 +1052,7 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} mailFrom={mailFrom} mailSent={mailSent[l.id]} />
             ))}
           </div>
         </>
