@@ -191,7 +191,7 @@ export async function deleteTrialLessonAction(id: string): Promise<ActionResult>
 /**
  * 体験レッスンの「ご予約確定」メールを送る（2026-11-14〜）。
  * 文面は画面で組み立て・編集したものをそのまま送る（lib/trial-confirm-mail.ts）。
- * 送れるのは管理者・担当トレーナー・担当営業。送信元は請求書と同じ FIT STAGE の Gmail。
+ * 送れるのは管理者・担当トレーナー・担当営業。送信元は店舗用のアカウント（info@fitstage.jp。lib/mailer.ts の store）。
  * 10分以内に同じ宛先へ送っていたら、二重送信を止めて確認を求める（force で送れる）。
  */
 export async function sendTrialConfirmMailAction(
@@ -212,7 +212,7 @@ export async function sendTrialConfirmMailAction(
   if (!mail.subject.trim()) return { ok: false, error: "件名が空です" };
   if (!mail.body.trim()) return { ok: false, error: "本文が空です" };
   if (/（ここに場所を入れてください）/.test(mail.body)) return { ok: false, error: "本文の「場所」がまだ空です" };
-  if (!isMailConfigured()) return { ok: false, error: "Gmail の送信設定がまだありません（Vercel に GMAIL_USER と GMAIL_APP_PASSWORD を入れてください）" };
+  if (!isMailConfigured("store")) return { ok: false, error: "Gmail の送信設定がまだありません（Vercel に STORE_GMAIL_USER と STORE_GMAIL_APP_PASSWORD を入れてください）" };
 
   if (!opts?.force) {
     const last = (await getTrialConfirmMailSent())[id];
@@ -224,7 +224,7 @@ export async function sendTrialConfirmMailAction(
     }
   }
 
-  const sent = await sendMail({ to, subject: mail.subject.trim(), text: mail.body });
+  const sent = await sendMail({ to, subject: mail.subject.trim(), text: mail.body, account: "store" });
   if (!sent.ok) return sent;
   await logActivity({
     action: "create", entityType: TRIAL_CONFIRM_MAIL_ENTITY, entityId: id,

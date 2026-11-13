@@ -44,7 +44,7 @@ export default async function TrialLessonsPage({
       currentMemberId={currentMember?.id}
       initialSearch={q ?? ""}
       openReportId={report}
-      mailFrom={isMailConfigured() ? mailFromAddress() : null}
+      mailFrom={isMailConfigured("store") ? mailFromAddress("store") : null}
       mailSent={mailSent}
     />
   );

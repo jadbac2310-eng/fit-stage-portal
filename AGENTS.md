@@ -182,7 +182,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 名前・日時（60分）・店舗の住所とアクセス・担当トレーナー・料金（2名ならペア 9,900円）・持ち物（動きやすい服装・お飲み物）・キャンセル規定（前日21時まで無料）が入った本文ができる。
 - 文面は `lib/trial-confirm-mail.ts`（店舗の住所・アクセス・店舗用LINE `lin.ee/XkPbVRr` もここ）。**料金・キャンセル規定・住所を変えたら、HP の CLAUDE.md とここを両方直す。**
 - 「ひとこと」欄に書いた文が持ち物の下に入る。申込内容（駐車場・人数・日時の補足・ご要望・希望トレーナー）から、一言足したほうがよさそうなことを青い枠で出す（本文には勝手に入れない）。本文は直接直してもよい。
-- 送信は請求書と同じ `lib/mailer.ts`（GMAIL_USER から）。未設定なら「Gmail で開いて送る」になる。
+- **送信元は info@fitstage.jp**（`lib/mailer.ts` の `store` アカウント。2026-11-14 尚樹「info@fitstage.jp からにしたい」）。
+  info@fitstage.jp は ImprovMX の転送用アドレス（MX は improvmx、SPF に _spf.google.com 入り）で、FIT STAGE の Gmail `fitstage.000@gmail.com` に「他のアドレスから送信」として登録済み（2026-10-25 に送れている）。
+  Vercel に `STORE_GMAIL_USER`=fitstage.000@gmail.com・`STORE_GMAIL_APP_PASSWORD`（そのアカウントのアプリパスワード）・`STORE_MAIL_FROM`=info@fitstage.jp・`STORE_MAIL_FROM_NAME`=FIT STAGE を入れる。
+  未設定のあいだは請求書と同じ GMAIL_USER（jadbac.2310）から送る。送った控えは送信元アカウントの「送信済み」に残る。請求書の送信元は変えていない。
 - 送った記録は activity_logs（entity_type `trial_confirm_mail`）。一覧のボタンが「確定メール済」になり、10分以内の再送は確認を出す。日時を変えたときは送り直せる。
 - 店舗は 予約の店舗マスタ → 申込の「希望店舗」→ 場所 の順に名前で判定（江坂・庄内・曽根/城山）。分からなければ本文に「（ここに場所を入れてください）」が入り、そのままでは送れない。
 
