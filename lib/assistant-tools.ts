@@ -30,6 +30,7 @@ import { STATUS_LABEL as CUSTOMER_STATUS_LABEL } from "./customers-types";
 import { jstDay, followUps } from "./highlights-types";
 import { isOverdue as isSalesOverdue } from "./sales-targets-types";
 import { isTaskDone, isTaskOverdue } from "./tasks-types";
+import { prettyChannelText, channelKind } from "./acquisition-channel";
 import {
   resolveLessonFee, resolveTrialFee, buildTrainerEntries, buildSalesEntries, buildHourlyEntries, isoToMonth, type CommissionContext,
 } from "./commissions";
@@ -183,7 +184,7 @@ function channelOfTrial(t: Pick<TrialLesson, "note">, full = false): string | un
   const m = /経路[:：]\s*([^\n]+)/.exec(t.note ?? "");
   const s = m?.[1]?.trim();
   if (!s) return undefined;
-  return full ? s : s.split(/[（(]/)[0].trim();
+  return full ? prettyChannelText(s) : channelKind(s);
 }
 
 // ─── 共通の読み込み ───────────────────────────────────────

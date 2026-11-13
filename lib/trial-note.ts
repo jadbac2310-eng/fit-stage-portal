@@ -11,6 +11,8 @@
  * 手入力の申し送りメモ（ラベル無しの自由記述）も混ざるので、その場合は素通しする。
  */
 
+import { prettyChannelText } from "./acquisition-channel";
+
 export interface TrialNoteItem {
   label: string;
   value: string;
@@ -82,7 +84,10 @@ export function parseTrialNote(note?: string): ParsedTrialNote {
     // 「10:15」のような時刻や長い文章を誤ってラベル扱いしないようにする。
     const m = line.match(/^([^:：]{1,20})[:：]\s*(.+)$/);
     if (m && JAPANESE.test(m[1])) {
-      items.push({ label: m[1].trim(), value: stripBilingual(m[2]) });
+      const label = m[1].trim();
+      // 経路は申込時の文のまま保存されているので、表示のときだけ今の書き方に直す
+      const value = label === "経路" ? prettyChannelText(m[2].trim()) : stripBilingual(m[2]);
+      items.push({ label, value });
       structured.push(line);
     } else {
       free.push(line);
