@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useOptimistic, useState, useTransition } from "react";
-import { ChevronDown, ChevronUp, Plus, X, Trash2, CalendarClock, CalendarCheck, UserRound, Pencil, Check } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, X, Trash2, CalendarClock, CalendarCheck, UserRound, Pencil, Check, Lock } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberLabel } from "@/components/ui/member-label";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -12,7 +12,7 @@ import {
   type Task,
 } from "@/lib/tasks-types";
 import { createTaskAction, updateTaskAction, updateTaskStatusAction, deleteTaskAction } from "./actions";
-import { PageTitle } from "@/components/ui/page-title";
+import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
 
 type MemberLite = { id: string; name: string; avatarUrl?: string };
 
@@ -232,6 +232,9 @@ export function TasksClient({ tasks, members, meId, isAdmin, personal = false }:
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showAdd, setShowAdd] = useState(false);
+  // 代表・管理者以外の人には「会社のやること」の入口だけ見せ、開くと「管理者のみ」と出す（中身は渡していない）
+  const [area, setArea] = useState<"mine" | "company">("mine");
+  const locked = personal && area === "company";
   const today = useMemo(() => todayStr(), []);
 
   const openTasks = tasks.filter((t) => !isTaskDone(t));
@@ -261,11 +264,11 @@ export function TasksClient({ tasks, members, meId, isAdmin, personal = false }:
         title="やること"
         sub={
           <>
-            {personal ? "自分だけのやること（ほかの人には見えません）" : "会社のやること（代表・管理者だけに見えます）"} 残り{openTasks.length}件{overdueCount > 0 && <span className="text-red-600 font-semibold">・期限切れ{overdueCount}件</span>}
+            {locked ? "会社のやること" : personal ? "自分だけのやること（ほかの人には見えません）" : "会社のやること（代表・管理者だけに見えます）"}{!locked && ` 残り${openTasks.length}件`}{!locked && overdueCount > 0 && <span className="text-red-600 font-semibold">・期限切れ{overdueCount}件</span>}
           </>
         }
         right={
-          !showAdd && (
+          !showAdd && !locked && (
             <button onClick={() => setShowAdd(true)} className="flex-shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold px-3 py-2 rounded-xl transition">
               <Plus size={15} /> 追加
             </button>
@@ -273,6 +276,23 @@ export function TasksClient({ tasks, members, meId, isAdmin, personal = false }:
         }
       />
 
+      {personal && (
+        <div className={cn(tabsWrap, "mb-3")}>
+          <button className={tabButton(area === "mine")} onClick={() => setArea("mine")}>自分のやること</button>
+          <button className={tabButton(area === "company")} onClick={() => { setArea("company"); setShowAdd(false); }}>
+            <Lock size={13} /> 会社のやること
+          </button>
+        </div>
+      )}
+
+      {locked ? (
+        <div className="bg-white border border-[var(--portal-line)] px-4 py-12 text-center">
+          <Lock size={28} className="mx-auto text-gray-400" />
+          <p className="mt-3 text-sm font-bold text-gray-800">会社のやることは、管理者のみ見られます</p>
+          <p className="mt-1 text-xs text-gray-500">自分のやることは「自分のやること」に書いておけます</p>
+          <button onClick={() => setArea("mine")} className="mt-4 text-xs font-bold text-blue-700 underline underline-offset-2">自分のやることへ戻る</button>
+        </div>
+      ) : (<>
       {showAdd && <AddTaskForm members={members} onClose={() => setShowAdd(false)} personal={personal} />}
 
       <div className="flex border-b border-gray-200 mb-3">
@@ -330,6 +350,7 @@ export function TasksClient({ tasks, members, meId, isAdmin, personal = false }:
           })}
         </div>
       )}
+      </>)}
     </div>
   );
 }
