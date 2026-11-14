@@ -29,7 +29,7 @@ import { DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKindLabel, m
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ConfirmMailSheet } from "./confirm-mail-sheet";
+import { ConfirmMailSheet, ConfirmedBadge, type TrialConfirmInfo } from "./confirm-mail-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 import { Confetti } from "@/components/ui/confetti";
@@ -688,18 +688,18 @@ function ContractResultForm({
 }
 
 // ─── テーブル行 ───────────────────────────────────────
-function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId, mailFrom = null, mailSent }: {
+function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId, mailFrom = null, mailSent, confirmState }: {
   lesson: TrialLesson; customers: Customer[]; members: Member[];
   rentalGyms: RentalGym[]; stores: Store[]; fctStores: FctStore[];
   avenirStores: AvenirStore[];
   venueFees: CustomerVenueFee[];
   isAdmin: boolean; currentMemberId?: string; openReportId?: string;
-  mailFrom?: string | null; mailSent?: { at: string; by?: string };
+  mailFrom?: string | null; mailSent?: { at: string; by?: string }; confirmState?: TrialConfirmInfo;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [mailOpen, setMailOpen] = useState(false);
   const mailSheet = mailOpen ? (
-    <ConfirmMailSheet lesson={lesson} mailFrom={mailFrom} sent={mailSent}
+    <ConfirmMailSheet lesson={lesson} mailFrom={mailFrom} sent={mailSent} confirmState={confirmState}
       email={customers.find((c) => c.id === lesson.customerId)?.email}
       storeName={stores.find((st) => st.id === lesson.storeId)?.name}
       onClose={() => setMailOpen(false)} />
@@ -791,6 +791,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
               {mailSent ? "確定メール済" : "確定メール"}
             </button>
           )}
+          {lesson.status === "scheduled" && <ConfirmedBadge confirmState={confirmState} sent={!!mailSent} />}
           {canRecordResult && lesson.status !== "cancelled" && (
             <button onClick={() => setMode("report")}
               className={cn(
@@ -830,18 +831,18 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
 }
 
 // ─── モバイルカード ───────────────────────────────────
-function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId, mailFrom = null, mailSent }: {
+function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, isAdmin, currentMemberId, openReportId, mailFrom = null, mailSent, confirmState }: {
   lesson: TrialLesson; customers: Customer[]; members: Member[];
   rentalGyms: RentalGym[]; stores: Store[]; fctStores: FctStore[];
   avenirStores: AvenirStore[];
   venueFees: CustomerVenueFee[];
   isAdmin: boolean; currentMemberId?: string; openReportId?: string;
-  mailFrom?: string | null; mailSent?: { at: string; by?: string };
+  mailFrom?: string | null; mailSent?: { at: string; by?: string }; confirmState?: TrialConfirmInfo;
 }) {
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [mailOpen, setMailOpen] = useState(false);
   const mailSheet = mailOpen ? (
-    <ConfirmMailSheet lesson={lesson} mailFrom={mailFrom} sent={mailSent}
+    <ConfirmMailSheet lesson={lesson} mailFrom={mailFrom} sent={mailSent} confirmState={confirmState}
       email={customers.find((c) => c.id === lesson.customerId)?.email}
       storeName={stores.find((st) => st.id === lesson.storeId)?.name}
       onClose={() => setMailOpen(false)} />
@@ -916,6 +917,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
             {mailSent ? "確定メール済" : "確定メール"}
           </button>
         )}
+        {lesson.status === "scheduled" && <ConfirmedBadge confirmState={confirmState} sent={!!mailSent} />}
         {canRecordResult && lesson.status !== "cancelled" && (
           <button onClick={() => setMode("report")}
             className={cn(
@@ -954,14 +956,14 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
 }
 
 // ─── メインコンポーネント ─────────────────────────────
-export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin, currentMemberId, initialSearch = "", openReportId, mailFrom = null, mailSent = {} }: {
+export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], isAdmin, currentMemberId, initialSearch = "", openReportId, mailFrom = null, mailSent = {}, confirmInfo = {} }: {
   lessons: TrialLesson[]; customers: Customer[]; members: Member[];
   rentalGyms?: RentalGym[]; stores?: Store[]; fctStores?: FctStore[];
   avenirStores?: AvenirStore[];
   venueFees?: CustomerVenueFee[];
   isAdmin: boolean; currentMemberId?: string;
   initialSearch?: string; openReportId?: string;
-  mailFrom?: string | null; mailSent?: Record<string, { at: string; by?: string }>;
+  mailFrom?: string | null; mailSent?: Record<string, { at: string; by?: string }>; confirmInfo?: Record<string, TrialConfirmInfo>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
@@ -1044,7 +1046,7 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
               </thead>
               <tbody>
                 {filtered.map((l) => (
-                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} mailFrom={mailFrom} mailSent={mailSent[l.id]} />
+                  <LessonRow key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} mailFrom={mailFrom} mailSent={mailSent[l.id]} confirmState={confirmInfo[l.id]} />
                 ))}
               </tbody>
             </table>
@@ -1052,7 +1054,7 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
 
           <div className="md:hidden space-y-2">
             {filtered.map((l) => (
-              <LessonCard key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} mailFrom={mailFrom} mailSent={mailSent[l.id]} />
+              <LessonCard key={l.id} lesson={l} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees} isAdmin={isAdmin} currentMemberId={currentMemberId} openReportId={openReportId} mailFrom={mailFrom} mailSent={mailSent[l.id]} confirmState={confirmInfo[l.id]} />
             ))}
           </div>
         </>

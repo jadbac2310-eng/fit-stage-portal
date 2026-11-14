@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/line/webhook",   // LINE Webhook（署名で検証）
   "/api/line/login",     // LINE通知からの自動ログイン（署名トークンで検証）
   "/api/cron/",          // Cron（CRON_SECRET で検証）
+  "/trial-confirm",      // お客様が体験の確定メールの「予約を確認しました」から開く（署名つきリンクで検証）
 ];
 
 export async function middleware(request: NextRequest) {

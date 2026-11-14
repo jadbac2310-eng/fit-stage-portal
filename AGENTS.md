@@ -191,6 +191,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
   info@fitstage.jp は ImprovMX の転送用アドレス（MX は improvmx、SPF に _spf.google.com 入り）で、FIT STAGE の Gmail `fitstage.000@gmail.com` に「他のアドレスから送信」として登録済み（2026-10-25 に送れている）。
   Vercel に `STORE_GMAIL_USER`=fitstage.000@gmail.com・`STORE_GMAIL_APP_PASSWORD`（そのアカウントのアプリパスワード）・`STORE_MAIL_FROM`=info@fitstage.jp・`STORE_MAIL_FROM_NAME`=FIT STAGE を入れる。
   未設定のあいだは請求書と同じ GMAIL_USER（jadbac.2310）から送る。送った控えは送信元アカウントの「送信済み」に残る。請求書の送信元は変えていない。
+- **「予約を確認しました」ボタン**（2026-11-14 尚樹「予約OKな方は完了ボタンを押して。押されていない方には電話で確認する場合がある、と書く」）。
+  本文の「■ ご予約の確認のお願い」にリンクが入り、HTML版ではそこが濃紺×金のボタンになる（テキスト版も一緒に送る。`confirmMailHtml`）。
+  リンクは体験IDと予約日時を署名したもの（`lib/trial-confirm-token.ts`。鍵は `LINE_LOGIN_SECRET` か `CRON_SECRET` に用途名を混ぜたもの。鍵が無ければボタンの段落ごと入らない）。
+  押すとお客様用のページ `/trial-confirm`（ログイン不要。`middleware.ts` の `PUBLIC_PATHS`。ポータルの枠は出さない）が開き、JavaScript で自動的に記録する（メールの安全チェックがリンクを先読みしても記録されない）。
+  記録は activity_logs（entity_type `trial_confirmed`、文の最後に「（11/27(金) 11:30）」＝確認した予約の日時）。日時を変えたあとの古い確認は数えない（`isTrialConfirmed`）。古いメールのボタンは「日時が変更されています」と出る。キャンセル・過ぎた予約は受け付けない。
+  一覧には「✓確認済」（緑）／確定メールを送ったのに押されていない人は「未確認」（黄）。
+- **前日18時に、明日の体験で確認が取れていない人を LINE で知らせる**（`lib/trial-unconfirmed.ts`。`/api/cron/store-tomorrow` の中で動く。店舗レッスンの知らせを止めてもこちらは動く）。
+  宛先は代表（全員分）と担当トレーナー（自分の分）。確定メール未送信の人も入れる。電話番号つき。止めるときは `LINE_NOTIFY_TRIAL_UNCONFIRMED=off`。
+  お客様が押したときの LINE は送らない（無料枠の節約。一覧で見る）。
+- 本文の「■ お時間の変更・お問い合わせ」：「お時間の変更やお問い合わせは、下記のLINEにてお願いいたします。お電話でも承ります。」＋前日21時までは無料。
 - 送った記録は activity_logs（entity_type `trial_confirm_mail`）。一覧のボタンが「確定メール済」になり、10分以内の再送は確認を出す。日時を変えたときは送り直せる。
 - 店舗は 予約の店舗マスタ → 申込の「希望店舗」→ 場所 の順に名前で判定（江坂・庄内・曽根/城山）。分からなければ本文に「（ここに場所を入れてください）」が入り、そのままでは送れない。
 

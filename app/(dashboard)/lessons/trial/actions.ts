@@ -8,6 +8,8 @@ import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity, getTrialConfirmMailSent, TRIAL_CONFIRM_MAIL_ENTITY } from "@/lib/activity-logs";
+import { trialConfirmUrl } from "@/lib/trial-confirm-token";
+import { confirmMailHtml } from "@/lib/trial-confirm-mail";
 import { isMailConfigured, sendMail } from "@/lib/mailer";
 import { parseTrialNote } from "@/lib/trial-note";
 import { writePersonalNote } from "@/lib/trial-personal-note";
@@ -226,7 +228,10 @@ export async function sendTrialConfirmMailAction(
     }
   }
 
-  const sent = await sendMail({ to, subject: mail.subject.trim(), text: mail.body, account: "store" });
+  // 「予約を確認しました」のリンクが本文に残っていれば、そこをボタンにしたHTML版も付ける
+  const confirmUrl = trialConfirmUrl(lesson.id, lesson.scheduledAt);
+  const html = confirmUrl && mail.body.includes(confirmUrl) ? confirmMailHtml(mail.body, confirmUrl) : undefined;
+  const sent = await sendMail({ to, subject: mail.subject.trim(), text: mail.body, html, account: "store" });
   if (!sent.ok) return sent;
   await logActivity({
     action: "create", entityType: TRIAL_CONFIRM_MAIL_ENTITY, entityId: id,

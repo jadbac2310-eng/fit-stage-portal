@@ -86,7 +86,12 @@ export interface ConfirmMailInput {
   pair?: boolean;
   /** お客様の申込内容に合わせた一言（空なら入れない） */
   personalNote?: string;
+  /** 「予約を確認しました」ボタンのリンク（lib/trial-confirm-token.ts。無ければ確認のお願いの段落を入れない） */
+  confirmUrl?: string;
 }
+
+/** 本文の中でボタンになる行（HTML版ではこの行と次のURLの行を1つのボタンにする） */
+export const CONFIRM_BUTTON_LINE = "▶ 予約を確認しました（ここを押してください）";
 
 export function buildConfirmMail(i: ConfirmMailInput): { subject: string; body: string } {
   const name = tidyName(i.customerName);
@@ -117,6 +122,16 @@ export function buildConfirmMail(i: ConfirmMailInput): { subject: string; body: 
     `内容：体験パーソナルトレーニング（60分・${i.pair ? "2名" : "1名"}）`,
     i.trainerName ? `担当トレーナー：${tidyName(i.trainerName)}` : null,
     "",
+    ...(i.confirmUrl
+      ? [
+          "■ ご予約の確認のお願い",
+          "ご予約内容に問題がなければ、下の「予約を確認しました」ボタンを押してください。",
+          CONFIRM_BUTTON_LINE,
+          i.confirmUrl,
+          "※ボタンが押されていない方には、お電話にてご予約を確認させていただく場合がございます。",
+          "",
+        ]
+      : []),
     "■ 体験料金",
     i.pair ? "9,900円（税込・2名合計）" : "6,600円（税込）",
     "お支払いは、現金・クレジットカード・PayPay がご利用いただけます。",
@@ -128,9 +143,9 @@ export function buildConfirmMail(i: ConfirmMailInput): { subject: string; body: 
     ...(i.personalNote?.trim() ? [i.personalNote.trim(), ""] : []),
     "当日は、普段の運動習慣や気になるところを伺いながら進めますので、どうぞ気軽にお越しください。",
     "",
-    "■ 日程の変更・キャンセルについて",
+    "■ お時間の変更・お問い合わせ",
+    "お時間の変更やお問い合わせは、下記のLINEにてお願いいたします。お電話でも承ります。",
     "前日21時までにご連絡いただければ、変更・キャンセルは無料です。",
-    "お手数ですが、下記のお電話またはLINEからご連絡ください。",
     "",
     "当日お会いできることを楽しみにしております。",
     "ご不明な点がございましたら、お気軽にお問い合わせください。",
@@ -164,4 +179,34 @@ export function hintsFromApplication(items: { label: string; value: string }[]):
   const trainer = get("希望トレーナー");
   if (trainer && !/指名なし|なし|ない/.test(trainer)) hints.push(`希望トレーナー：「${trainer}」→ 担当が希望どおりか確認`);
   return hints;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * 本文（テキスト）からHTML版を作る。中身はテキストと同じで、
+ * 「予約を確認しました」の行と次のURLの行だけを、押しやすいボタンにする。
+ * テキスト版も一緒に送るので、HTMLを表示しないメールソフトでもURLを押せば同じ。
+ */
+export function confirmMailHtml(body: string, confirmUrl?: string): string {
+  const lines = body.split("\n");
+  const out: string[] = [];
+  const linkify = (s: string) =>
+    escapeHtml(s).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" style="color:#17284b">${u}</a>`);
+  for (let k = 0; k < lines.length; k++) {
+    const line = lines[k];
+    if (confirmUrl && line.trim() === CONFIRM_BUTTON_LINE && lines[k + 1]?.trim() === confirmUrl) {
+      out.push(
+        `<div style="margin:14px 0 10px"><a href="${escapeHtml(confirmUrl)}" ` +
+        `style="display:inline-block;background:#17284b;color:#ffffff;text-decoration:none;font-weight:bold;` +
+        `font-size:16px;padding:14px 28px;border-radius:6px;border-bottom:3px solid #C9A84C">予約を確認しました</a></div>`,
+      );
+      k++; // URL の行はボタンに含めた
+      continue;
+    }
+    out.push(line === "" ? "<br>" : `${linkify(line)}<br>`);
+  }
+  return `<div style="font-family:-apple-system,'Hiragino Sans','Hiragino Kaku Gothic ProN',Meiryo,sans-serif;font-size:14px;line-height:1.8;color:#222">${out.join("\n")}</div>`;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lightbulb, Check, ExternalLink, Sparkles, RotateCcw } from "lucide-react";
+import { Mail, Lightbulb, Check, ExternalLink, Sparkles, RotateCcw, CircleCheck, Phone } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -11,18 +11,48 @@ import type { TrialLesson } from "@/lib/trial-lessons-types";
 import { buildConfirmMail, findStore, hintsFromApplication, isPair } from "@/lib/trial-confirm-mail";
 import { sendTrialConfirmMailAction, suggestTrialPersonalNoteAction } from "./actions";
 
+/** お客様の「予約を確認しました」ボタン（lib/trial-confirm-token.ts）の状態 */
+export interface TrialConfirmInfo {
+  url?: string;               // メールに入れる確認ページのリンク（鍵が無ければ空）
+  confirmedAt?: string;       // いまの日時の予約について、お客様が押した日時
+  staleConfirmedAt?: string;  // 日時を変える前に押されていた（いまの日時は未確認）
+}
+
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
+
+/** 一覧の「✓ 確認済」「未確認」の札。確定メールを送ったのに押されていない人は、前日に電話で確かめる */
+export function ConfirmedBadge({ confirmState, sent }: { confirmState?: TrialConfirmInfo; sent: boolean }) {
+  if (confirmState?.confirmedAt) {
+    return (
+      <span title={`お客様が ${fmt(confirmState.confirmedAt)} に「予約を確認しました」を押しました`}
+        className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg border text-green-700 bg-green-50 border-green-300 whitespace-nowrap">
+        <CircleCheck size={11} />確認済
+      </span>
+    );
+  }
+  if (!sent || !confirmState?.url) return null;
+  return (
+    <span title={confirmState.staleConfirmedAt ? "日時を変える前に確認されていました。いまの日時はまだ確認されていません" : "確定メールの「予約を確認しました」がまだ押されていません。前日に電話で確かめます"}
+      className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg border text-amber-700 bg-amber-50 border-amber-300 whitespace-nowrap">
+      <Phone size={11} />未確認
+    </span>
+  );
+}
+
 /**
  * 体験レッスンの「ご予約確定」メールを送る画面（2026-11-14〜）。
  * 名前・日時・店舗・担当は予約から自動で入る。お客様の申込内容に合わせた「ひとこと」も
  * 開いたときに自動で下書きが入る（AIで作文。lib/trial-personal-note.ts）。下の目印を見ながら直せる。
  * 本文はそのまま直接直すこともできる。
  */
-export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onClose }: {
+export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, confirmState, onClose }: {
   lesson: TrialLesson;
   email?: string;
   storeName?: string;          // 店舗マスタの名前（予約に店舗が入っているとき）
   mailFrom: string | null;     // 送信元の Gmail（未設定なら Gmail で開く）
   sent?: { at: string; by?: string };
+  confirmState?: TrialConfirmInfo;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -55,6 +85,7 @@ export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onC
     trainerName: lesson.trainerMemberName,
     pair: isPair(get("利用人数")),
     personalNote,
+    confirmUrl: confirmState?.url,
   });
   const [subject, setSubject] = useState(base.subject);
   // 本文を手で直したら、それ以降は「ひとこと」を変えても上書きしない
@@ -69,6 +100,8 @@ export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onC
   if (!lesson.trainerMemberName) warnings.push("担当トレーナーが未設定です（本文に担当の行が入りません）");
   if (!store && !lesson.location) warnings.push("店舗・場所が分かりません。本文の「場所」を書き換えてください");
   if (new Date(lesson.scheduledAt).getTime() < openedAt) warnings.push("日時が過去になっています。予約の日時を確認してください");
+  if (!confirmState?.url) warnings.push("「予約を確認しました」ボタンのリンクが作れません（Vercel に CRON_SECRET がありません）。ボタン無しで送ります");
+  else if (editedBody !== null && !editedBody.includes(confirmState.url)) warnings.push("本文から「予約を確認しました」のリンクが消えています。お客様が確認ボタンを押せません");
 
   async function send() {
     setError(null);
@@ -104,6 +137,11 @@ export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, onC
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             {new Date(sent.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })}
             {sent.by ? `に${sent.by}さんが` : "に"}送信済みです。日時を変えたときなどは、もう一度送れます。
+          </p>
+        )}
+        {confirmState?.confirmedAt && (
+          <p className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <CircleCheck size={13} />お客様が {fmt(confirmState.confirmedAt)} に「予約を確認しました」を押しています。
           </p>
         )}
         {warnings.map((w) => (

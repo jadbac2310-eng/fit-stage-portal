@@ -6,7 +6,9 @@ import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
 import { getAvenirStores } from "@/lib/avenir-stores";
 import { getCustomerVenueFees } from "@/lib/customer-venue-fees";
-import { getTrialConfirmMailSent } from "@/lib/activity-logs";
+import { getTrialConfirmMailSent, getTrialConfirmations, isTrialConfirmed } from "@/lib/activity-logs";
+import { trialConfirmUrl } from "@/lib/trial-confirm-token";
+import type { TrialConfirmInfo } from "./confirm-mail-sheet";
 import { isMailConfigured, mailFromAddress } from "@/lib/mailer";
 import { TrialLessonsClient } from "./trial-lessons-client";
 
@@ -17,7 +19,7 @@ export default async function TrialLessonsPage({
 }: {
   searchParams: Promise<{ q?: string; report?: string }>;
 }) {
-  const [{ q, report }, lessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, currentMember, mailSent] = await Promise.all([
+  const [{ q, report }, lessons, customers, members, rentalGyms, stores, fctStores, avenirStores, venueFees, currentMember, mailSent, confirmations] = await Promise.all([
     searchParams,
     getTrialLessons(),
     getCustomers(),
@@ -29,7 +31,19 @@ export default async function TrialLessonsPage({
     getCustomerVenueFees(),
     getCurrentMember(),
     getTrialConfirmMailSent(),
+    getTrialConfirmations(),
   ]);
+  // 予定の体験ごとに、メールに入れる確認ボタンのリンクと、お客様が押したかどうか
+  const confirmInfo: Record<string, TrialConfirmInfo> = {};
+  for (const l of lessons) {
+    if (l.status !== "scheduled") continue;
+    const c = confirmations[l.id];
+    confirmInfo[l.id] = {
+      url: trialConfirmUrl(l.id, l.scheduledAt) ?? undefined,
+      confirmedAt: isTrialConfirmed(c, l.scheduledAt) ? c!.at : undefined,
+      staleConfirmedAt: c && !isTrialConfirmed(c, l.scheduledAt) ? c.at : undefined,
+    };
+  }
   return (
     <TrialLessonsClient
       lessons={lessons}
@@ -46,6 +60,7 @@ export default async function TrialLessonsPage({
       openReportId={report}
       mailFrom={isMailConfigured("store") ? mailFromAddress("store") : null}
       mailSent={mailSent}
+      confirmInfo={confirmInfo}
     />
   );
 }

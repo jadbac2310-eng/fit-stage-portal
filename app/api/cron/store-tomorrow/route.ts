@@ -7,6 +7,7 @@ import { pushLineMessage } from "@/lib/line";
 import { fetchSentKeys, markSent, canNotifyByLine, jstDateStr, jstDateLabel, jstTimeStr } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
 import { jstParts } from "@/lib/daily-reminders";
+import { notifyUnconfirmedTrials, trialUnconfirmedEnabled } from "@/lib/trial-unconfirmed";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ export const dynamic = "force-dynamic";
  *
  * Vercel の cron（1日1回・指定の1時間のどこか）から呼ばれる。数分おきに叩かれても、
  * 送信済みログ（line_notifications）で1日1通に収まる。明日その2店舗にレッスンが無い日は何も送らない。
+ *
+ * 同じ時刻に、明日の体験で「予約を確認しました」が押されていない人も知らせる（lib/trial-unconfirmed.ts。
+ * LINE_NOTIFY_TRIAL_UNCONFIRMED=off で止める。店舗レッスンの知らせを止めても、こちらは動く）。
  */
 const SEND_HOUR = Number(process.env.STORE_TOMORROW_HOUR ?? "18");
 const STORE_KEYS = (process.env.STORE_TOMORROW_STORES ?? "庄内,曽根").split(",").map((s) => s.trim()).filter(Boolean);
@@ -33,14 +37,29 @@ function authorized(req: NextRequest): boolean {
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if ((process.env.LINE_NOTIFY_STORE_TOMORROW ?? "").trim().toLowerCase() === "off") {
-    return NextResponse.json({ ok: true, sent: 0, disabled: true });
-  }
 
   const now = new Date();
   const fromVercelCron = req.headers.get("x-vercel-cron-schedule") !== null;
   if (!fromVercelCron && jstParts(now).hour < SEND_HOUR) {
     return NextResponse.json({ ok: true, sent: 0, waiting: true });
+  }
+
+  let unconfirmed: { sent: number; trials: number } | { error: string } | "off" = "off";
+  if (trialUnconfirmedEnabled()) {
+    try {
+      unconfirmed = await notifyUnconfirmedTrials(now);
+    } catch (e) {
+      console.error("[store-tomorrow] 未確認の体験の知らせに失敗", e);
+      unconfirmed = { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  const store = await storeTomorrow(now);
+  return NextResponse.json({ ok: true, ...store, unconfirmed });
+}
+
+async function storeTomorrow(now: Date): Promise<Record<string, unknown>> {
+  if ((process.env.LINE_NOTIFY_STORE_TOMORROW ?? "").trim().toLowerCase() === "off") {
+    return { sent: 0, disabled: true };
   }
 
   const today = jstDateStr(now);
@@ -51,7 +70,7 @@ export async function GET(req: NextRequest) {
 
   const targetStores = stores.filter((s) => STORE_KEYS.some((k) => s.name.includes(k)));
   const storeName = new Map(targetStores.map((s) => [s.id, s.name]));
-  if (storeName.size === 0) return NextResponse.json({ ok: true, sent: 0, note: "対象の店舗がマスタにありません" });
+  if (storeName.size === 0) return { sent: 0, note: "対象の店舗がマスタにありません" };
 
   type Row = { storeId: string; at: string; who: string; trainer: string };
   const rows: Row[] = [];
@@ -63,7 +82,7 @@ export async function GET(req: NextRequest) {
     if (!t.storeId || !storeName.has(t.storeId) || t.status === "cancelled" || jstDateStr(t.scheduledAt) !== tomorrow) continue;
     rows.push({ storeId: t.storeId, at: t.scheduledAt, who: `${t.customerName}（体験）`, trainer: t.trainerMemberName ?? "担当未設定" });
   }
-  if (rows.length === 0) return NextResponse.json({ ok: true, sent: 0, none: true });
+  if (rows.length === 0) return { sent: 0, none: true };
 
   // 店舗ごと・時刻順にまとめる
   const lines: string[] = [`🏠 明日 ${jstDateLabel(`${tomorrow}T00:00:00+09:00`)} の店舗レッスン`];
@@ -87,5 +106,5 @@ export async function GET(req: NextRequest) {
     const res = await pushLineMessage(m.lineUserId!, text + scheduleLink(m));
     if (res.ok) { await markSent("store-tomorrow", ref, m.id); count++; }
   }
-  return NextResponse.json({ ok: true, sent: count, lessons: rows.length });
+  return { sent: count, lessons: rows.length };
 }

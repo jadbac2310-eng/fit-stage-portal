@@ -69,6 +69,8 @@ export async function sendMail(input: {
   to: string;
   subject: string;
   text: string;
+  /** HTML版（入れるとテキスト版と両方を送る。表示はメールソフトが選ぶ） */
+  html?: string;
   attachments?: MailAttachment[];
   account?: MailAccount;
 }): Promise<{ ok: true; messageId: string } | { ok: false; error: string }> {
@@ -88,6 +90,7 @@ export async function sendMail(input: {
       to: input.to,
       subject: input.subject,
       text: input.text,
+      ...(input.html ? { html: input.html } : {}),
       attachments: input.attachments?.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType ?? "application/pdf" })),
     });
     return { ok: true, messageId: info.messageId };
