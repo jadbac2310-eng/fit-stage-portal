@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ChevronLeft, Calendar, Clock, MapPin, User, Dumbbell, FlaskConical,
-  CheckCircle, XCircle, StickyNote, Ticket, Pencil,
+  CheckCircle, XCircle, StickyNote, Ticket, Pencil, ClipboardList,
 } from "lucide-react";
 import { getLesson, getCustomerLessonHistory } from "@/lib/lessons";
 import { getSessionPassUsage } from "@/lib/session-passes";
 import { getTrialLesson, getFirstTrialLesson } from "@/lib/trial-lessons";
 import { Handover } from "../handover";
-import { getCurrentIsAdmin } from "@/lib/members";
+import { getCurrentIsAdmin, getCurrentMember } from "@/lib/members";
+import { LessonNoteEditor } from "../lesson-note";
 import { LESSON_STATUS_LABEL } from "@/lib/lessons-types";
 import { STATUS_LABEL as TRIAL_STATUS_LABEL, CONTRACT_LABEL } from "@/lib/trial-lessons-types";
 
@@ -90,7 +91,10 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
         </div>
 
         <Handover
-          trial={firstTrial}
+          trial={firstTrial && {
+            id: firstTrial.id, note: firstTrial.note, handoverNote: firstTrial.handoverNote,
+            trainerName: firstTrial.trainerMemberName, scheduledAt: firstTrial.scheduledAt,
+          }}
           history={history.map((l) => ({
             id: l.id, scheduledAt: l.scheduledAt, trainerName: l.trainerMemberName, note: l.note,
           }))}
@@ -110,8 +114,11 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
   }
 
   // ─── 体験レッスン ───────────────────────────────────
-  const trial = await getTrialLesson(id);
+  const [trial, me] = await Promise.all([getTrialLesson(id), getCurrentMember()]);
   if (!trial) notFound();
+  // 引き継ぎを書けるのは 管理者・担当トレーナー・担当営業・予約を入れた人（saveTrialHandoverNoteAction と同じ）
+  const canWriteHandover = !!me && (me.isAdmin
+    || [trial.trainerMemberId, trial.salesMemberId, trial.createdById].some((x) => !!x && x === me.id));
 
   return (
     <div className="p-4 md:p-6 max-w-lg mx-auto">
@@ -146,7 +153,12 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
         <Row icon={<User size={15} />} label="トレーナー">{trial.trainerMemberName ?? "未設定"}</Row>
         {trial.location && <Row icon={<MapPin size={15} />} label="場所">{trial.location}</Row>}
         {trial.note && <Row icon={<StickyNote size={15} />} label="備考"><span className="whitespace-pre-wrap">{trial.note}</span></Row>}
+        {trial.handoverNote && (
+          <Row icon={<ClipboardList size={15} />} label="次の人への引き継ぎ"><span className="whitespace-pre-wrap">{trial.handoverNote}</span></Row>
+        )}
       </div>
+
+      {canWriteHandover && <LessonNoteEditor lessonId={trial.id} note={trial.handoverNote} trial />}
 
       {isAdmin && (
         <Link href="/lessons/trial"

@@ -8,7 +8,7 @@ import {
   Dumbbell, FlaskConical, CheckCircle, XCircle, UserRound, Users,
   Calendar, Ticket, StickyNote, Pencil,
   ChevronLeft, ChevronRight, List, LayoutGrid,
-  Plus, Trash2, X, CalendarPlus, RotateCcw, Lock, Wallet, CopyPlus, Handshake,
+  Plus, Trash2, X, CalendarPlus, RotateCcw, Lock, Wallet, CopyPlus, Handshake, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useSubmitLock } from "@/lib/use-submit-lock";
@@ -77,6 +77,8 @@ export type ScheduleItem = {
   updatedByName?: string;
   updatedAt?: string;
   note?: string;
+  /** 体験の「次の人への引き継ぎ」（通常レッスンは note が記録） */
+  handoverNote?: string;
   contracted?: boolean | null;
   participantIds?: string[];
   participantNames?: string[];
@@ -366,7 +368,7 @@ function handoverOf(
   const all = byCustomer.get(item.customerId);
   if (!all) return undefined;
 
-  const trial = all.find((x) => x.type === "trial" && x.note);
+  const trial = all.find((x) => x.type === "trial" && (x.note || x.handoverNote));
   const history = all
     .filter((x) =>
       x.type === "regular" &&
@@ -378,7 +380,10 @@ function handoverOf(
     .map((x) => ({ id: x.id, scheduledAt: x.scheduledAt, trainerName: x.trainerName, note: x.note }));
 
   if (!trial && history.length === 0) return undefined;
-  return { trial: trial ? { id: trial.id, note: trial.note } : undefined, history };
+  return {
+    trial: trial ? { id: trial.id, note: trial.note, handoverNote: trial.handoverNote, trainerName: trial.trainerName, scheduledAt: trial.scheduledAt } : undefined,
+    history,
+  };
 }
 
 function LessonCard({
@@ -430,6 +435,9 @@ function LessonCard({
   const canCancelLesson = canCompleteLesson && !cancelled && !sameDayCancel;
   // 体験の完了/予定に戻すは、担当トレーナー・担当営業・管理者。
   // 完了にしないと売上にもコミッションにも乗らず、追客のリマインドも動かない
+  // 体験の引き継ぎは、担当トレーナー・担当営業・予約を入れた人・管理者が書ける（サーバー側と同じ）
+  const canWriteTrialHandover = isTrial && (isAdmin
+    || (!!currentMemberId && [item.trainerId, item.salesId, item.createdById].some((x) => !!x && x === currentMemberId)));
   const canCompleteTrial = isTrial && (isAdmin
     || (!!currentMemberId && (item.trainerId === currentMemberId || item.salesId === currentMemberId)));
 
@@ -668,6 +676,12 @@ function LessonCard({
             <Handover trial={item.handover.trial} history={item.handover.history} />
           )}
           {open && canWriteNote && <LessonNoteEditor lessonId={item.id} note={item.note} />}
+          {isTrial && item.handoverNote && (
+            <DetailRow icon={<ClipboardList size={13} />} label="次の人への引き継ぎ">
+              <span className="whitespace-pre-wrap">{item.handoverNote}</span>
+            </DetailRow>
+          )}
+          {open && canWriteTrialHandover && <LessonNoteEditor lessonId={item.id} note={item.handoverNote} trial />}
           <AuthorStamp
             createdByName={item.createdByName}
             createdAt={item.createdAt}

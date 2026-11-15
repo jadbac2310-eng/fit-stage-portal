@@ -136,6 +136,8 @@ export default async function SchedulePage({
       updatedByName: nameOf(t.updatedById),
       updatedAt: t.updatedAt,
       note: t.note,
+      handoverNote: t.handoverNote,
+      createdById: t.createdById,
       contracted: t.contracted,
     });
   }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, Target, History } from "lucide-react";
+import { ClipboardList, Target, History, FlaskConical } from "lucide-react";
 import { parseTrialNote } from "@/lib/trial-note";
 
 /**
@@ -34,6 +34,10 @@ export interface HandoverLesson {
 export interface HandoverTrial {
   id: string;
   note?: string;
+  /** 体験のときに担当が書いた「次の人への引き継ぎ」（2026-11-15〜） */
+  handoverNote?: string;
+  trainerName?: string;
+  scheduledAt?: string;
 }
 
 function handoverItems(trial?: HandoverTrial | null) {
@@ -52,7 +56,8 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
   // 備考が書いてある回だけ出す。空の回を並べても引き継ぎの役に立たないため
   const withNote = history.filter((l) => l.note?.trim());
 
-  if (items.length === 0 && history.length === 0) return null;
+  const trialHandover = trial?.handoverNote?.trim();
+  if (items.length === 0 && history.length === 0 && !trialHandover) return null;
 
   return (
     <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
@@ -81,6 +86,23 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
               体験レッスンの記録を見る →
             </Link>
           )}
+        </div>
+      )}
+
+      {/* 体験のときの引き継ぎ（体験の担当が書いたもの） */}
+      {trialHandover && (
+        <div className="mb-3">
+          <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1.5">
+            <FlaskConical size={11} className="text-purple-500" /> 体験のときの引き継ぎ
+          </p>
+          <Link href={`/schedule/${trial!.id}`} className="block rounded-xl bg-purple-50/60 hover:bg-purple-50 border border-purple-100 transition px-3 py-2">
+            <p className="text-[11px] text-gray-500">
+              {trial!.scheduledAt ? fmtShort(trial!.scheduledAt) : "体験"}
+              <span className="mx-1 text-gray-300">/</span>
+              {trial!.trainerName ?? "担当未設定"}
+            </p>
+            <p className="text-xs text-gray-800 whitespace-pre-wrap mt-0.5">{trialHandover}</p>
+          </Link>
         </div>
       )}
 

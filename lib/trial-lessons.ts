@@ -33,6 +33,7 @@ type DbRow = {
   customer_impression: string | null;
   exercises: unknown;
   note: string | null;
+  handover_note?: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -71,6 +72,7 @@ function fromDb(row: DbRow): TrialLesson {
     customerImpression:  row.customer_impression ?? undefined,
     exercises:           parseExercises(row.exercises),
     note:                row.note ?? undefined,
+    handoverNote:        row.handover_note ?? undefined,
     createdById:         row.created_by ?? undefined,
     updatedById:         row.updated_by ?? undefined,
     createdAt:           row.created_at,
@@ -98,6 +100,7 @@ const LIST_COLUMNS =
 // 列を名指しした段を前に、"*" の段をうしろに置く。
 // 名指しした列が未作成の環境では前半が落ちるので、そのときは "*" の段が拾う。
 const LIST_SELECTS = [
+  `${LIST_COLUMNS}, handover_note, ${JOINS}`,   // 引き継ぎ（20261115000001）。未適用なら次の段へ
   `${LIST_COLUMNS}, ${JOINS}`,
   `${LIST_COLUMNS}, customers(full_name)`,
   LIST_COLUMNS,
@@ -292,6 +295,23 @@ export async function updateTrialLesson(
   }
   if (error) throw error;
   return fromDb(data as DbRow);
+}
+
+/**
+ * 体験の「次の人への引き継ぎ」だけを書き換える（2026-11-15〜）。
+ * 列（20261115000001_trial_handover_note.sql）がまだ無いDBでは "missing" を返す。
+ */
+export async function saveTrialHandoverNote(id: string, note: string | null): Promise<"ok" | "missing"> {
+  const client = createAdminClient();
+  const patch: Record<string, unknown> = { handover_note: note, updated_at: new Date().toISOString(), updated_by: (await currentMemberId()) ?? null };
+  let { error } = await client.from("trial_lessons").update(patch).eq("id", id);
+  if (error && /updated_by/i.test(error.message ?? "")) {
+    delete patch.updated_by;
+    ({ error } = await client.from("trial_lessons").update(patch).eq("id", id));
+  }
+  if (error && (/handover_note/i.test(error.message ?? "") || ["42703", "PGRST204"].includes(error.code ?? ""))) return "missing";
+  if (error) throw error;
+  return "ok";
 }
 
 export async function deleteTrialLesson(id: string): Promise<void> {

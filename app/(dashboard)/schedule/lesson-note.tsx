@@ -7,6 +7,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { Spinner } from "@/components/ui/spinner";
 import { assertActionOk } from "@/lib/action-result";
 import { saveLessonNoteAction } from "../lessons/regular/actions";
+import { saveTrialHandoverNoteAction } from "../lessons/trial/actions";
 
 /**
  * その回の記録（備考）を、担当トレーナーがその場で書けるようにする。
@@ -17,8 +18,11 @@ import { saveLessonNoteAction } from "../lessons/regular/actions";
  * 日時・金額・お客さまには触れないようにしている。
  *
  * 完了したあとでも書ける。記録はレッスンが終わってから書くものなので。
+ *
+ * 体験（trial）でも同じ口を使う（2026-11-15〜）。体験は申込内容が備考に入っているので、
+ * 引き継ぎは別の列（trial_lessons.handover_note）に保存する。
  */
-export function LessonNoteEditor({ lessonId, note }: { lessonId: string; note?: string }) {
+export function LessonNoteEditor({ lessonId, note, trial = false }: { lessonId: string; note?: string; trial?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(note ?? "");
@@ -29,7 +33,9 @@ export function LessonNoteEditor({ lessonId, note }: { lessonId: string; note?: 
     setError("");
     await run(async () => {
       try {
-        assertActionOk(await saveLessonNoteAction(lessonId, value));
+        assertActionOk(trial
+          ? await saveTrialHandoverNoteAction(lessonId, value)
+          : await saveLessonNoteAction(lessonId, value));
         setOpen(false);
         router.refresh();
       } catch (e) {
@@ -45,7 +51,9 @@ export function LessonNoteEditor({ lessonId, note }: { lessonId: string; note?: 
         onClick={() => { setValue(note ?? ""); setOpen(true); }}
         className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl py-2 transition"
       >
-        <Pencil size={13} /> {note?.trim() ? "記録を書き直す" : "今日やったことを記録する"}
+        <Pencil size={13} /> {trial
+          ? (note?.trim() ? "引き継ぎを書き直す" : "次の人への引き継ぎを書く")
+          : (note?.trim() ? "記録を書き直す" : "今日やったことを記録する")}
       </button>
     );
   }
@@ -57,7 +65,9 @@ export function LessonNoteEditor({ lessonId, note }: { lessonId: string; note?: 
         onChange={(e) => setValue(e.target.value)}
         rows={4}
         autoFocus
-        placeholder="例）下半身中心。スクワット20kg×10×3。腰に違和感ありと申告、最後は軽めに。"
+        placeholder={trial
+          ? "例）姿勢改善が目的。右肩が上がりにくい。スクワットは自重で膝が内に入る。次回はフォームづくりから。"
+          : "例）下半身中心。スクワット20kg×10×3。腰に違和感ありと申告、最後は軽めに。"}
         className="w-full px-2.5 py-2 rounded-lg border border-gray-300 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
       />
       <p className="text-[10px] text-gray-500 mt-1">次に担当する人がここを読みます。</p>

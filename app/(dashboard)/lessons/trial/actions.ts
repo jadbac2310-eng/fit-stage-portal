@@ -3,7 +3,7 @@
 import { toDeliveryMode } from "@/lib/lessons-types";
 
 import { revalidatePath } from "next/cache";
-import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson } from "@/lib/trial-lessons";
+import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson, saveTrialHandoverNote } from "@/lib/trial-lessons";
 import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
 import { updateCustomer } from "@/lib/customers";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
@@ -189,6 +189,27 @@ export async function deleteTrialLessonAction(id: string): Promise<ActionResult>
     await deleteTrialLesson(id);
     await logActivity({ action: "delete", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを削除" });
     revalidatePath("/lessons/trial");
+  });
+}
+
+/**
+ * 体験の「次の人への引き継ぎ」を書く（2026-11-15〜）。通常レッスンの「記録」と同じ扱い。
+ * 書けるのは 管理者・担当トレーナー・担当営業・予約を入れた人（全体の編集権限が無くても書ける）。
+ */
+export async function saveTrialHandoverNoteAction(id: string, note: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const [member, lesson] = await Promise.all([getCurrentMember(), getTrialLesson(id)]);
+    if (!member) throw new ActionError("ログインが必要です");
+    if (!lesson) throw new ActionError("体験レッスンが見つかりません");
+    const allowed = member.isAdmin
+      || [lesson.trainerMemberId, lesson.salesMemberId, lesson.createdById].some((x) => !!x && x === member.id);
+    if (!allowed) throw new ActionError("引き継ぎを書けるのは、担当トレーナー・担当営業・予約を入れた人、管理者だけです");
+    const r = await saveTrialHandoverNote(id, note.trim() || null);
+    if (r === "missing") throw new ActionError("データベースの準備がまだです（20261115000001_trial_handover_note.sql を流してください）");
+    await logActivity({ action: "update", entityType: "trial_lesson", entityId: id, summary: `体験の引き継ぎを更新: ${lesson.customerName}` });
+    revalidatePath("/lessons/trial");
+    revalidatePath("/schedule");
+    revalidatePath(`/schedule/${id}`);
   });
 }
 

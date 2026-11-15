@@ -48,7 +48,8 @@ export interface TrialLesson {
   trainingContent?: string;    // 旧レポート自由記述（互換用・現在は未使用）
   exercises?: Exercise[];      // レポート: 種目ログ（種目名・重量・回数）
   customerImpression?: string;
-  note?: string;
+  note?: string;               // 申込フォームの内容（HPからの申込）・メモ
+  handoverNote?: string;       // 次の担当への引き継ぎ（2026-11-15〜。通常レッスンの「記録」にあたる）
   createdById?: string;
   updatedById?: string;
   createdAt: string;
