@@ -53,6 +53,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-10｜`20261110000001_commission_payouts.sql`（コミッションの明細・振込が済んだかの印 commission_payouts。代表のダッシュボードの箱と朝のLINEが見る）
 - 2026-11-12｜`20261111000001_wiki_cancel_deadline_21.sql`（ハンドブックのキャンセル規定 前日24時→前日21時。HPは11/11に変更済み）
 - 2026-11-13｜`20261113000001_tasks_personal.sql`（やることに持ち主 owner_member_id。空＝会社のやること（代表・管理者だけ）、入る＝その人だけの自分のやること。題名の重複は持ち主ごと）
+- 2026-11-15｜`20261115000001_trial_handover_note.sql`（体験の「次の人への引き継ぎ」trial_lessons.handover_note）
 
 ## 見た目の決まり（2026-11-10 のデザイン変更。会社のポータルらしい作り・濃紺×金）
 
