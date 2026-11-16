@@ -522,6 +522,12 @@ export function LessonForm({
       setError(`回数券の残りは${selectedPass.remainingCount}回です。${plannedCount}件はまとめて登録できません。`);
       return;
     }
+    // 担当が空のまま作ると、本人のダッシュボードの「完了待ち」に出ず、スケジュールで完了も押せない
+    // （2026-11-16、担当なしのレッスンが残っていて気づけなかった）。作るときだけ確かめる。
+    if (isCreate && !String(fd.get("trainerMemberId") ?? "").trim()) {
+      const n = buildLessonSlots().length;
+      if (!confirm(`担当トレーナーが「未設定」のまま${n > 1 ? `${n}件` : ""}登録します。\n担当が空だと、トレーナー本人の画面に出ず、完了も押せません。\nこのまま登録しますか？`)) return;
+    }
     // run() が実行中の連打を同期的に無視するため、二重作成が起きない
     await run(async () => {
       try {
