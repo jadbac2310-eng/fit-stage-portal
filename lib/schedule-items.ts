@@ -1,6 +1,6 @@
-import { getLessons } from "./lessons";
-import { getTrialLessons } from "./trial-lessons";
-import { getPersonalEvents } from "./personal-events";
+import { getLessonsInRange } from "./lessons";
+import { getTrialLessonsInRange } from "./trial-lessons";
+import { getPersonalEventsInRange } from "./personal-events";
 
 // 通知対象として正規化したスケジュール1件
 export interface NotifyItem {
@@ -18,12 +18,14 @@ export interface NotifyItem {
  * - 個人予定: 作成者＋参加者
  * - 通常レッスン: 担当トレーナー
  * - 体験レッスン: 担当トレーナー＋担当営業
+ *
+ * 開始が [fromIso, toIso) のものだけ読む（2026-11-16）。前は数分おきに全件を読んでいて、DBを重くしていた。
  */
-export async function collectNotifyItems(): Promise<NotifyItem[]> {
+export async function collectNotifyItems(fromIso: string, toIso: string): Promise<NotifyItem[]> {
   const [events, lessons, trials] = await Promise.all([
-    getPersonalEvents(),
-    getLessons(),
-    getTrialLessons(),
+    getPersonalEventsInRange(fromIso, toIso),
+    getLessonsInRange(fromIso, toIso),
+    getTrialLessonsInRange(fromIso, toIso),
   ]);
 
   const items: NotifyItem[] = [];

@@ -330,3 +330,19 @@ export async function deleteTrialLesson(id: string): Promise<void> {
  * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
  */
 export const getTrialLessons = cache(getTrialLessonsUncached);
+
+/** 開始日時が [fromIso, toIso) の体験だけ読む（数分おきのリマインド用。2026-11-16） */
+export async function getTrialLessonsInRange(fromIso: string, toIso: string): Promise<TrialLesson[]> {
+  const client = createAdminClient();
+  let last: { code?: string; message?: string } | null = null;
+  for (const select of LIST_SELECTS) {
+    const { data, error } = await client.from("trial_lessons").select(select)
+      .gte("scheduled_at", fromIso).lt("scheduled_at", toIso)
+      .order("scheduled_at", { ascending: true }).limit(1000);
+    if (!error) return (data as unknown as DbRow[]).map(fromDb);
+    last = error;
+    if (!isMissingAuthorColumn(error)) break;
+  }
+  if (last && (last.code === "42P01" || /does not exist|could not find the table/i.test(last.message ?? ""))) return [];
+  throw last;
+}

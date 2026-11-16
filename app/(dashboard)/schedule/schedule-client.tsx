@@ -363,12 +363,15 @@ function personalTimeLabel(item: ScheduleItem): string {
 function handoverOf(
   item: ScheduleItem,
   byCustomer: Map<string, ScheduleItem[]>,
+  firstTrials?: Record<string, HandoverTrial>,
 ): { trial?: HandoverTrial; history: HandoverLesson[] } | undefined {
   if (!item.customerId) return undefined;
   const all = byCustomer.get(item.customerId);
   if (!all) return undefined;
 
-  const trial = all.find((x) => x.type === "trial" && (x.note || x.handoverNote));
+  // 最初の体験は、読み込んだ期間より前のこともあるので、サーバーで全期間から選んだものを先に使う
+  const fromServer = firstTrials?.[item.customerId];
+  const trialItem = fromServer ? undefined : all.find((x) => x.type === "trial" && (x.note || x.handoverNote));
   const history = all
     .filter((x) =>
       x.type === "regular" &&
@@ -379,11 +382,10 @@ function handoverOf(
     .reverse()
     .map((x) => ({ id: x.id, scheduledAt: x.scheduledAt, trainerName: x.trainerName, note: x.note }));
 
+  const trial = fromServer
+    ?? (trialItem ? { id: trialItem.id, note: trialItem.note, handoverNote: trialItem.handoverNote, trainerName: trialItem.trainerName, scheduledAt: trialItem.scheduledAt } : undefined);
   if (!trial && history.length === 0) return undefined;
-  return {
-    trial: trial ? { id: trial.id, note: trial.note, handoverNote: trial.handoverNote, trainerName: trial.trainerName, scheduledAt: trial.scheduledAt } : undefined,
-    history,
-  };
+  return { trial, history };
 }
 
 function LessonCard({
@@ -1920,6 +1922,7 @@ function TimelineView({
 export function ScheduleClient({
   items, memberName, isAdmin = false, currentMemberId, initialMember, members = [],
   customers = [], sessionPasses = [], customerPlans = [], lessons = [], rentalGyms = [], stores = [], fctStores = [], avenirStores = [], venueFees = [], hourlyTasks = [],
+  loadedSince, firstTrials,
 }: {
   items: ScheduleItem[];
   memberName: string;
@@ -1938,6 +1941,10 @@ export function ScheduleClient({
   venueFees?: CustomerVenueFee[];
   stores?: Store[];
   hourlyTasks?: HourlyTask[];
+  /** どの日から読み込んでいるか（YYYY-MM-DD）。これより前は「さらに前を読み込む」で広げる */
+  loadedSince?: string;
+  /** お客さまごとの最初の体験（引き継ぎ用。読み込んだ期間より前の体験も入っている） */
+  firstTrials?: Record<string, HandoverTrial>;
 }) {
   // 開いたときは全体を見渡せるカレンダーから始める
   const [view, setView] = useState<"list" | "calendar" | "timeline">("calendar");
@@ -2030,8 +2037,24 @@ export function ScheduleClient({
       // 「自分は教えないが担当営業の回」に目印を付ける
       .map((it) => (filterMember !== "all" && asSalesOnly(it) ? { ...it, salesOnly: true } : it))
       // 引き継ぎを付ける。元になる履歴は絞り込み前の全部から作る
-      .map((it) => (it.type === "regular" ? { ...it, handover: handoverOf(it, byCustomer) } : it));
-  }, [items, filterMember, filterRole, filterStore, filterCustomer, byCustomer]);
+      .map((it) => (it.type === "regular" ? { ...it, handover: handoverOf(it, byCustomer, firstTrials) } : it));
+  }, [items, filterMember, filterRole, filterStore, filterCustomer, byCustomer, firstTrials]);
+
+  // 読み込んでいる期間より前を見たいとき（3か月ずつ広げる）
+  const earlierHref = (() => {
+    if (!loadedSince) return null;
+    const [y, m] = loadedSince.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 - 3, 1));
+    return `/schedule?since=${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
+  })();
+  const loadedSinceLabel = loadedSince ? `${Number(loadedSince.slice(0, 4))}年${Number(loadedSince.slice(5, 7))}月` : "";
+  const cursorBeforeLoaded = !!loadedSince && summaryMonth < loadedSince.slice(0, 7);
+  const earlierNotice = earlierHref ? (
+    <div className="flex flex-wrap items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-2 mb-3 text-xs text-amber-900">
+      <span>表示を速くするため、{loadedSinceLabel}より前は読み込んでいません。</span>
+      <Link href={earlierHref} className="font-bold underline underline-offset-2">さらに前を読み込む</Link>
+    </div>
+  ) : null;
 
   const openCreate = (defaultDate?: string) => setModal({ mode: "create", defaultDate });
   const openEdit = (item: ScheduleItem) => setModal({ mode: "edit", initial: item });
@@ -2211,6 +2234,7 @@ export function ScheduleClient({
       {/* 今月のレッスン件数（担当者別・顧客別） */}
       <MonthlyLessonSummary items={items} isAdmin={isAdmin} currentMemberId={currentMemberId} month={summaryMonth} />
 
+      {view === "calendar" && cursorBeforeLoaded && earlierNotice}
       {view === "calendar" ? (
         <CalendarView items={visibleItems} isAdmin={isAdmin} cursor={monthCursor} setCursor={setMonthCursor}
           currentMemberId={currentMemberId} onEditPersonal={openEdit} onEditLesson={openEditLesson} onDuplicateLesson={canAddLesson ? openDuplicateLesson : undefined} onEditHourly={openEditHourly}
@@ -2274,6 +2298,7 @@ export function ScheduleClient({
           ))}
         </div>
       )}
+      {tab === "past" && <div className="mt-4">{earlierNotice}</div>}
         </>
       )}
 

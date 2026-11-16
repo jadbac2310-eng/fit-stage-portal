@@ -26,7 +26,8 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   const windowMs = REMINDER_MIN * 60 * 1000;
   // 終日は対象外。個人予定は notify=false（通知オフ）のものを除外。
-  const items = (await collectNotifyItems()).filter((it) => {
+  // 今から REMINDER_MIN 分先までに始まるものだけ読む（全件は読まない）
+  const items = (await collectNotifyItems(new Date(now).toISOString(), new Date(now + windowMs + 60_000).toISOString())).filter((it) => {
     if (it.allDay || it.notify === false) return false;
     const delta = new Date(it.startAt).getTime() - now;
     return delta > 0 && delta <= windowMs;

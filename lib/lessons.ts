@@ -345,3 +345,41 @@ export async function deleteLesson(id: string): Promise<void> {
  * 次のリクエストでは必ず読み直すので、画面が古くなることはない。
  */
 export const getLessons = cache(getLessonsUncached);
+
+/**
+ * 開始日時が [fromIso, toIso) のレッスンだけ読む（2026-11-16）。
+ * 数分おきに動くリマインドが、毎回全件を読んでいてDBを重くしていたため。
+ */
+export async function getLessonsInRange(fromIso: string, toIso: string): Promise<Lesson[]> {
+  const client = createAdminClient();
+  for (let i = 0; i < SELECTS.length; i++) {
+    const { data, error } = await client.from("lessons").select(SELECTS[i])
+      .gte("scheduled_at", fromIso).lt("scheduled_at", toIso)
+      .order("scheduled_at", { ascending: true }).limit(1000);
+    if (!error) return (data as unknown as DbRow[]).map(fromDb);
+    if (!isMissingOptionalColumn(error) || i === SELECTS.length - 1) throw error;
+  }
+  return [];
+}
+
+/**
+ * 回数券の「何回目」を数えるための最小限の列（2026-11-16）。
+ * スケジュールは直近のレッスンしか読まなくなったので、画面に出る回数券の分だけ、古い回も含めて数え直す。
+ */
+export async function getPassLessonStubs(passIds: string[]): Promise<{ id: string; sessionPassId: string; scheduledAt: string; createdAt: string; status: string }[]> {
+  const ids = [...new Set(passIds.filter(Boolean))];
+  if (ids.length === 0) return [];
+  const client = createAdminClient();
+  const out: { id: string; sessionPassId: string; scheduledAt: string; createdAt: string; status: string }[] = [];
+  for (let k = 0; k < ids.length; k += 100) {
+    const { data, error } = await fetchAllRows((from, to) =>
+      client.from("lessons").select("id, session_pass_id, scheduled_at, created_at, status")
+        .in("session_pass_id", ids.slice(k, k + 100))
+        .order("id", { ascending: true }).range(from, to));
+    if (error) throw error;
+    for (const r of (data ?? []) as { id: string; session_pass_id: string; scheduled_at: string; created_at: string; status: string }[]) {
+      out.push({ id: r.id, sessionPassId: r.session_pass_id, scheduledAt: r.scheduled_at, createdAt: r.created_at, status: r.status });
+    }
+  }
+  return out;
+}

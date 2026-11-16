@@ -105,6 +105,26 @@ export async function getPersonalEventsAround(dayYmd: string): Promise<PersonalE
   return (data as unknown as DbRow[]).map(fromDb);
 }
 
+/**
+ * 開始日時が [fromIso, toIso) の個人予定だけ読む（2026-11-16）。
+ * スケジュール画面（直近だけ読む）と、数分おきのリマインドで使う。toIso を省くと先は全部。
+ */
+export async function getPersonalEventsInRange(fromIso: string, toIso?: string): Promise<PersonalEvent[]> {
+  const client = createAdminClient();
+  const read = (select: string) => fetchAllRows((from, to) => {
+    let q = client.from("personal_events").select(select).gte("start_at", fromIso);
+    if (toIso) q = q.lt("start_at", toIso);
+    return q.order("start_at", { ascending: false }).order("id", { ascending: true }).range(from, to);
+  });
+  let { data, error } = await read(SELECT);
+  if (error && isMissingMemberJoin(error)) ({ data, error } = await read(SELECT_LEGACY));
+  if (error) {
+    if (error.code === "42P01" || /does not exist|could not find the table/i.test(error.message)) return [];
+    throw error;
+  }
+  return (data as unknown as DbRow[]).map(fromDb);
+}
+
 export async function getPersonalEvent(id: string): Promise<PersonalEvent | null> {
   const client = createAdminClient();
   let { data, error } = await client.from("personal_events").select(SELECT).eq("id", id).single();

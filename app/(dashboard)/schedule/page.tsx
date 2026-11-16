@@ -1,5 +1,5 @@
 import { getCurrentMember, getMembers } from "@/lib/members";
-import { getLessons } from "@/lib/lessons";
+import { getLessons, getPassLessonStubs } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
@@ -10,19 +10,34 @@ import { getStores } from "@/lib/stores";
 import { getFctStores } from "@/lib/fct-stores";
 import { getAvenirStores } from "@/lib/avenir-stores";
 import { getCustomerVenueFees } from "@/lib/customer-venue-fees";
-import { getPersonalEvents } from "@/lib/personal-events";
+import { getPersonalEventsInRange } from "@/lib/personal-events";
 import { getHourlyTasks } from "@/lib/hourly-tasks";
 import { ScheduleClient, type ScheduleItem } from "./schedule-client";
+import type { HandoverTrial } from "./handover";
+
+/**
+ * どこから読むか（日本時間の YYYY-MM-01）。既定は2か月前の1日から（先の予定は全部）。
+ * 前は全期間を毎回読んで端末へ送っていて、記録が増えるほど遅くなっていた（2026-11-16）。
+ * もっと前を見たいときは ?since=YYYY-MM で広げる（画面の「さらに前を読み込む」）。
+ */
+const DEFAULT_MONTHS_BACK = 2;
+function resolveSince(param?: string): string {
+  if (param && /^\d{4}-\d{2}$/.test(param)) return `${param}-01`;
+  const jst = new Date(Date.now() + 9 * 3600 * 1000);
+  const d = new Date(Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth() - DEFAULT_MONTHS_BACK, 1));
+  return d.toISOString().slice(0, 10);
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function SchedulePage({
   searchParams,
 }: {
-  searchParams: Promise<{ member?: string }>;
+  searchParams: Promise<{ member?: string; since?: string }>;
 }) {
   // ダッシュボードの「今日は◯レッスン」から、全員ぶんを開いて内訳を見られるようにする
-  const { member: memberParam } = await searchParams;
+  const { member: memberParam, since: sinceParam } = await searchParams;
+  const since = resolveSince(sinceParam);
   const member = await getCurrentMember();
 
   if (!member) {
@@ -39,11 +54,11 @@ export default async function SchedulePage({
   // 全員が全員のスケジュールを閲覧できる（編集は管理者のみ）。担当者フィルタ用に全員分を取得。
   // customers / sessionPasses / customerPlans はスケジュールから通常レッスンを追加するフォーム用。
   const [lessons, trialLessons, members, personalEvents, hourlyTasks, customers, sessionPasses, customerPlans, rentalGyms, stores, fctStores, avenirStores, venueFees] = await Promise.all([
-    getLessons(),
-    getTrialLessons(),
+    getLessons(since),
+    getTrialLessons(),          // 体験は件数が少なく、引き継ぎ（最初の困りごと）に古い回も要るので全部読む
     getMembers(),
-    getPersonalEvents(),
-    getHourlyTasks(),
+    getPersonalEventsInRange(`${since}T00:00:00+09:00`),
+    getHourlyTasks(since),
     getCustomers(),
     getAllSessionPasses(),
     getAllCustomerPlans(),
@@ -55,13 +70,16 @@ export default async function SchedulePage({
   ]);
 
   const items: ScheduleItem[] = [];
-  const nameOf = (id?: string) => (id ? members.find((m) => m.id === id)?.name : undefined);
-  const avatarOf = (id?: string) => (id ? members.find((m) => m.id === id)?.avatarUrl : undefined);
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const nameOf = (id?: string) => (id ? memberById.get(id)?.name : undefined);
+  const avatarOf = (id?: string) => (id ? memberById.get(id)?.avatarUrl : undefined);
+  const sinceMs = new Date(`${since}T00:00:00+09:00`).getTime();
 
-  // 回数券レッスンが「何回目の利用か」を事前計算（回数券ごとに紐づくレッスンを日時順に数える）
-  const lessonsByPass = new Map<string, typeof lessons>();
-  for (const l of lessons) {
-    if (!l.sessionPassId) continue;
+  // 回数券レッスンが「何回目の利用か」を事前計算（回数券ごとに紐づくレッスンを日時順に数える）。
+  // 読み込んだ期間より前の回も数えに入れるため、画面に出る回数券の分だけ、全期間の回を軽い列で読み直す。
+  const passStubs = await getPassLessonStubs(lessons.map((l) => l.sessionPassId ?? ""));
+  const lessonsByPass = new Map<string, { id: string; scheduledAt: string; createdAt: string; status?: string }[]>();
+  for (const l of passStubs) {
     const arr = lessonsByPass.get(l.sessionPassId);
     if (arr) arr.push(l);
     else lessonsByPass.set(l.sessionPassId, [l]);
@@ -82,7 +100,7 @@ export default async function SchedulePage({
   // 営業担当の表示と「◯◯さんのスケジュール」（営業別カレンダー）の両方で使える。
   const salesOf = new Map(customers.map((c) => [c.id, c.salesMemberId]));
 
-  // 通常レッスン（全件）
+  // 通常レッスン（読み込んだ期間のぶん）
   for (const l of lessons) {
     const salesId = salesOf.get(l.customerId);
     items.push({
@@ -113,8 +131,18 @@ export default async function SchedulePage({
     });
   }
 
-  // 体験レッスン（全件）
+  // 体験レッスン（読み込んだ期間のぶん）。引き継ぎ用に、お客さまごとの最初の体験は全期間から作る。
+  const firstTrials: Record<string, HandoverTrial> = {};
+  for (const t of [...trialLessons].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
+    if (!t.note && !t.handoverNote) continue;
+    if (firstTrials[t.customerId]) continue;
+    firstTrials[t.customerId] = { id: t.id, note: t.note, handoverNote: t.handoverNote, trainerName: t.trainerMemberName, scheduledAt: t.scheduledAt };
+  }
+  const shownCustomers = new Set(lessons.map((l) => l.customerId));
+  for (const id of Object.keys(firstTrials)) if (!shownCustomers.has(id)) delete firstTrials[id];
+
   for (const t of trialLessons) {
+    if (new Date(t.scheduledAt).getTime() < sinceMs) continue;
     items.push({
       id: t.id,
       type: "trial",
@@ -211,6 +239,8 @@ export default async function SchedulePage({
       venueFees={venueFees}
       stores={stores}
       hourlyTasks={hourlyTasks}
+      loadedSince={since}
+      firstTrials={firstTrials}
     />
   );
 }
