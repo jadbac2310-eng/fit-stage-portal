@@ -1,6 +1,8 @@
 import { getCurrentIsAdmin, getMembers } from "@/lib/members";
 import { loadOpsFindings } from "@/lib/ops-check-load";
+import { Suspense } from "react";
 import { AiOfficeView } from "./ai-office-view";
+import { GrowthSection } from "./growth-section";
 
 export const dynamic = "force-dynamic";
 
@@ -27,5 +29,15 @@ export default async function AiOfficePage() {
     loadOpsFindings().catch(() => null),
   ]);
   const owner = members.find((m) => m.isOwner);
-  return <AiOfficeView owner={owner && { name: owner.name, avatarUrl: owner.avatarUrl }} findings={findings} />;
+  return (
+    <AiOfficeView
+      owner={owner && { name: owner.name, avatarUrl: owner.avatarUrl }}
+      findings={findings}
+      growthSlot={
+        <Suspense fallback={<p className="text-xs text-gray-400 border border-[var(--portal-line)] bg-white px-3 py-3">HP・集客部の報告を読み込んでいます…</p>}>
+          <GrowthSection />
+        </Suspense>
+      }
+    />
+  );
 }

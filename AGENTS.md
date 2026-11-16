@@ -232,7 +232,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
   読み込みは `lib/ops-check-load.ts`（過去 `OPS_CHECK_DAYS` 日、既定60）。画面は開いたときの状態をそのまま出す（表は作っていない）。
   朝9時の `daily-reminders` で社長へ LINE を1日1通（各項目5件まで＋件数。何も無い日は送らない）。止めるときは `LINE_NOTIFY_OPS_CHECK=off`。
   直すのは人。チェックは何も書き換えない。
-- ポータル開発部（稼働中）＝ Claude Code のセッション。HP・集客部は準備中（週1回のSEO報告を作る予定）。
+- **HP・集客部**（稼働中・2026-11-16）：`lib/hp-growth.ts`（純粋関数）が `/seo` と同じ `getSearchOverview(28)` から、今週の提案を3つまで（10位以内で押されていない言葉→タイトル・説明文／11〜20位→見出し・本文／クリックが半分以下に減ったページ）。店舗・サービスのページを優先。
+  画面では `growth-section.tsx` を `Suspense` で後から出す（サーチコンソールの読み込みで画面全体を待たせない）。毎週月曜9時に社長へ LINE（`daily-reminders`。止めるときは `LINE_NOTIFY_HP_GROWTH=off`）。HP を直すのは社長の OK のあと HP のセッションで。
+- ポータル開発部（稼働中）＝ Claude Code のセッション。
+- **擬人化（ビジネスマン風）**：部署ごとに架空の部長（業務チェック部 正木 誠／ポータル開発部 築山 匠／HP・集客部 広瀬 遥）。名前・ひとこと・見た目は `departments.ts`。
+  アバターは `business-avatar.tsx` のスーツ姿の SVG（髪型 short/side/bob/back とネクタイの色で描き分け。外部画像は読まない）。
 - 方針：決めるのは社長。AI は 見つける・下書き・作る まで。お客様へのメール/LINE・料金・お金に関わる変更は社長のOKのあと。
 
 ## 請求書（メールで送る）

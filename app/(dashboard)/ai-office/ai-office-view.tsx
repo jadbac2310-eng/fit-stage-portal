@@ -3,12 +3,15 @@ import { PageTitle } from "@/components/ui/page-title";
 import { SectionBox } from "@/components/ui/section-box";
 import { groupFindings, OPS_CHECK_LABEL, opsSlotLabel, type OpsFinding } from "@/lib/ops-check";
 import { AI_DEPARTMENTS, type AiDepartment } from "./departments";
+import { BusinessAvatar } from "./business-avatar";
 
 /** AI部署の画面の見た目（データは page.tsx で読む。偽データでも描けるように分けている） */
-export function AiOfficeView({ owner, findings }: {
+export function AiOfficeView({ owner, findings, growthSlot }: {
   owner?: { name: string; avatarUrl?: string };
   /** null＝読み込めなかった */
   findings: OpsFinding[] | null;
+  /** HP・集客部の報告（サーチコンソールを読むので、ページとは別に後から出す） */
+  growthSlot?: React.ReactNode;
 }) {
   const counts: Record<string, string> = {
     "ops-check": findings === null ? "読み込めませんでした" : findings.length === 0 ? "気になるところはありません" : `気になるところ ${findings.length}件`,
@@ -43,8 +46,10 @@ export function AiOfficeView({ owner, findings }: {
         </div>
       </section>
 
+      {growthSlot}
+
       {/* 業務チェック部の報告 */}
-      <SectionBox title="業務チェック部の報告（いまの状態）" padded>
+      <SectionBox title="業務チェック部 正木部長の報告（いまの状態）" padded>
         {findings === null ? (
           <p className="text-sm text-red-600">データを読み込めませんでした。少し待ってから開き直してください。</p>
         ) : findings.length === 0 ? (
@@ -90,10 +95,11 @@ function DepartmentCard({ d, status }: { d: AiDepartment; status?: string }) {
     <div className="relative border border-[var(--portal-line)] bg-white">
       <div aria-hidden className="hidden md:block absolute -top-5 left-1/2 w-0.5 h-5 bg-[var(--portal-navy)]" />
       <div className="flex items-center gap-3 px-3 py-3 border-b-2 border-[var(--portal-navy)]">
-        <AiAvatar char={d.avatar} dim={!active} />
+        <BusinessAvatar look={d.look} dim={!active} title={`${d.name} ${d.title} ${d.personName}`} />
         <div className="min-w-0">
           <p className="text-sm font-bold text-gray-900">{d.name}</p>
-          <p className="text-xs text-gray-500">{d.persona}</p>
+          <p className="text-xs text-gray-700">{d.title}　{d.personName}<span className="ml-1 text-[10px] font-bold text-gold-600">AI</span></p>
+          <p className="text-[11px] text-gray-500 mt-0.5">{d.persona}</p>
         </div>
         <span className={`ml-auto text-[11px] font-bold px-2 py-0.5 border flex-shrink-0 ${
           active ? "text-green-700 bg-green-50 border-green-300" : "text-gray-500 bg-gray-50 border-gray-300"
@@ -107,19 +113,5 @@ function DepartmentCard({ d, status }: { d: AiDepartment; status?: string }) {
         {status && <p className="font-semibold text-navy-900">今日：{status}</p>}
       </div>
     </div>
-  );
-}
-
-/** AI の担当者のアバター（濃紺の丸に金の縁、部署の1文字。右下に AI の札） */
-function AiAvatar({ char, dim = false }: { char: string; dim?: boolean }) {
-  return (
-    <span className="relative flex-shrink-0">
-      <span className={`w-11 h-11 rounded-full flex items-center justify-center text-base font-bold ring-2 ${
-        dim ? "bg-gray-200 text-gray-500 ring-gray-300" : "bg-navy-900 text-white ring-gold-500"
-      }`}>
-        {char}
-      </span>
-      <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold px-1 leading-4 ${dim ? "bg-gray-400 text-white" : "bg-gold-500 text-navy-900"}`}>AI</span>
-    </span>
   );
 }

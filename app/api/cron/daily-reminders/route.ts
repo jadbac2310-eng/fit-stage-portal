@@ -13,6 +13,8 @@ import { getCommissionPayouts } from "@/lib/commission-payouts";
 import { loadTrainerStatements } from "@/lib/commission-statement-load";
 import { loadOpsFindings } from "@/lib/ops-check-load";
 import { buildOpsCheckMessage } from "@/lib/ops-check";
+import { buildGrowthReport, buildGrowthMessage } from "@/lib/hp-growth";
+import { getSearchOverview } from "@/lib/search-console";
 import { portalUrl } from "@/lib/line-notify";
 
 export const runtime = "nodejs";
@@ -101,6 +103,24 @@ export async function GET(req: NextRequest) {
         else for (const id of commissionTo) await markSent("daily", ref, id); // 何も無い日は送らない（同じ日に読み直さない）
       } catch (e) {
         console.error("[daily-reminders] 業務チェックに失敗", e);
+      }
+    }
+  }
+
+  // HP・集客部（AI部署）：月曜の朝に、検索の報告と今週の提案を代表へ（lib/hp-growth.ts）。
+  // 止めるときは LINE_NOTIFY_HP_GROWTH=off。サーチコンソールが読めない週は送らない。
+  const growthOn = (process.env.LINE_NOTIFY_HP_GROWTH ?? "").trim().toLowerCase() !== "off";
+  const isMonday = new Date(now.getTime() + 9 * 3600 * 1000).getUTCDay() === 1;
+  if (growthOn && isMonday && commissionTo.length > 0) {
+    const p = jstParts(now);
+    const ref = `hp-growth:${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+    const done = await fetchSentKeys("daily", [ref]);
+    if (commissionTo.some((id) => !done.has(`${ref}__${id}`))) {
+      try {
+        const report = buildGrowthReport(await getSearchOverview(28));
+        if (report) reminders.push({ ref, recipientIds: commissionTo, text: buildGrowthMessage(report, portalUrl("/ai-office")) });
+      } catch (e) {
+        console.error("[daily-reminders] HP・集客部の報告に失敗", e);
       }
     }
   }
