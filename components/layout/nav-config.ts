@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Bot,
   Database,
   BookOpen,
   Dumbbell,
@@ -62,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "ビジョン・ルール", href: "/wiki",      icon: BookOpen },
     { label: "今日の一手",     href: "/fortune",     icon: MoonStar },
     { label: "アシスタント",   href: "/assistant",   icon: Sparkles },
+    { label: "AI部署",         href: "/ai-office",   icon: Bot,         adminOnly: true },
   ] },
   { title: "設定", items: [
     { label: "マスタ管理",     href: "/master",      icon: Database },

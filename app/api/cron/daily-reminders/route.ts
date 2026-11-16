@@ -11,6 +11,9 @@ import { commissionCandidates, buildCommissionReminders, commissionTargetMonth }
 import { buildPayoutTodos } from "@/lib/commission-payouts-types";
 import { getCommissionPayouts } from "@/lib/commission-payouts";
 import { loadTrainerStatements } from "@/lib/commission-statement-load";
+import { loadOpsFindings } from "@/lib/ops-check-load";
+import { buildOpsCheckMessage } from "@/lib/ops-check";
+import { portalUrl } from "@/lib/line-notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +83,24 @@ export async function GET(req: NextRequest) {
         }
       } catch (e) {
         console.error("[daily-reminders] コミッションの知らせを作れませんでした", e);
+      }
+    }
+  }
+
+  // 業務チェック部（AI部署）：完了忘れ・担当なし・二重登録などを、代表へ1日1通まとめて（lib/ops-check.ts）。
+  // 止めるときは LINE_NOTIFY_OPS_CHECK=off。今日の分をもう送っていれば読みに行かない。
+  const opsOn = (process.env.LINE_NOTIFY_OPS_CHECK ?? "").trim().toLowerCase() !== "off";
+  if (opsOn && commissionTo.length > 0) {
+    const p = jstParts(now);
+    const ref = `ops-check:${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+    const done = await fetchSentKeys("daily", [ref]);
+    if (commissionTo.some((id) => !done.has(`${ref}__${id}`))) {
+      try {
+        const text = buildOpsCheckMessage(await loadOpsFindings(now), portalUrl("/ai-office"));
+        if (text) reminders.push({ ref, recipientIds: commissionTo, text });
+        else for (const id of commissionTo) await markSent("daily", ref, id); // 何も無い日は送らない（同じ日に読み直さない）
+      } catch (e) {
+        console.error("[daily-reminders] 業務チェックに失敗", e);
       }
     }
   }
