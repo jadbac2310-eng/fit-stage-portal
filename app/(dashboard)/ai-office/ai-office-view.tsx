@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Clapperboard, ClipboardCheck, Wrench, TrendingUp } from "lucide-react";
 import { PageTitle } from "@/components/ui/page-title";
 import { SectionBox } from "@/components/ui/section-box";
 import { groupFindings, OPS_CHECK_LABEL, opsSlotLabel, type OpsFinding } from "@/lib/ops-check";
@@ -23,6 +24,19 @@ export function AiOfficeView({ owner, findings, growthSlot, orders = [] }: {
   const openOrders = orders.filter((o) => o.status !== "完了");
   const orderCount = (key: string) => openOrders.filter((o) => o.deptKey === key).length;
 
+  // 部長たちのひとこと（今の状態に合わせて変わる。おもしろく、でも中身は本当のこと）
+  const chiefLine = `カット！今朝の報告は社長あての1通にまとめてある。${openOrders.length ? `指示は${openOrders.length}件、各部署に回したぞ。` : "指示はいつでも受け付ける。"}`;
+  const lineOf = (key: string): string => {
+    const n = orderCount(key);
+    if (key === "ops-check") {
+      if (findings === null) return "今日は帳簿が読めなかった。もう一度開いてくれ。";
+      return findings.length === 0 ? "異常なし。すべて時間どおりだ。" : `気になるところが${findings.length}件。今日のうちに片付けよう。`;
+    }
+    if (key === "portal-dev") return n > 0 ? `指示${n}件、作り込み中だ。細部で手は抜かん。` : "次の注文を待っている。言うてくれたらすぐ作る。";
+    if (key === "hp-growth") return n > 0 ? `指示${n}件、数字を見ながら進めてる！` : "数字は正直！毎週月曜に今週の一手を出すよ。";
+    return "";
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
       <PageTitle title="AI部署" sub="FIT STAGE を手伝う AI の担当と、今日の報告です。決めるのは社長、AI は見つけて・下書きして・作るところまで。" />
@@ -43,21 +57,9 @@ export function AiOfficeView({ owner, findings, growthSlot, orders = [] }: {
             </div>
           </div>
           <div aria-hidden className="w-0.5 h-5 bg-[var(--portal-navy)]" />
-          {/* 統括（社長のすぐ下） */}
-          <div className="w-full max-w-md border-2 border-gold-500 bg-white">
-            <div className="flex items-center gap-3 px-3 py-3 border-b border-[var(--portal-line)]">
-              <BusinessAvatar look={CHIEF.look} title={`${CHIEF.name} ${CHIEF.title} ${CHIEF.personName}`} />
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900">{CHIEF.name}</p>
-                <p className="text-xs text-gray-700">{CHIEF.title}　{CHIEF.personName}<span className="ml-1 text-[10px] font-bold text-gold-600">AI</span></p>
-                <p className="text-[11px] text-gray-500 mt-0.5">{CHIEF.persona}</p>
-              </div>
-              <span className="ml-auto text-[11px] font-bold px-2 py-0.5 border flex-shrink-0 text-green-700 bg-green-50 border-green-300">稼働中</span>
-            </div>
-            <div className="px-3 py-2.5 space-y-1 text-xs text-gray-700">
-              <p>{CHIEF.role}</p>
-              <p className="text-gray-500">動く時：{CHIEF.when}</p>
-            </div>
+          {/* 統括本部（社長のすぐ下） */}
+          <div className="w-full max-w-md">
+            <PersonCard d={CHIEF} active line={chiefLine} status={openOrders.length ? `進行中の指示 ${openOrders.length}件` : undefined} wide />
           </div>
           <div aria-hidden className="w-0.5 h-5 bg-[var(--portal-navy)]" />
         </div>
@@ -65,7 +67,12 @@ export function AiOfficeView({ owner, findings, growthSlot, orders = [] }: {
         <div className="relative grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 md:pt-5">
           {/* 部署をつなぐ横の線（パソコンのみ） */}
           <div aria-hidden className="hidden md:block absolute top-0 left-[16.66%] right-[16.66%] h-0.5 bg-[var(--portal-navy)]" />
-          {AI_DEPARTMENTS.map((d) => <DepartmentCard key={d.key} d={d} status={counts[d.key]} orders={orderCount(d.key)} />)}
+          {AI_DEPARTMENTS.map((d) => (
+            <div key={d.key} className="relative">
+              <div aria-hidden className="hidden md:block absolute -top-5 left-1/2 w-0.5 h-5 bg-[var(--portal-navy)]" />
+              <PersonCard d={d} active={d.state === "active"} line={lineOf(d.key)} status={counts[d.key]} orders={orderCount(d.key)} />
+            </div>
+          ))}
         </div>
       </section>
 
@@ -114,30 +121,50 @@ function FindingRow({ f }: { f: OpsFinding }) {
   );
 }
 
-function DepartmentCard({ d, status, orders = 0 }: { d: AiDepartment; status?: string; orders?: number }) {
-  const active = d.state === "active";
+const ICONS = { chief: Clapperboard, check: ClipboardCheck, dev: Wrench, growth: TrendingUp } as const;
+
+/** 部署（統括本部も）のカード：上に部署の色の線、アバターに部署のアイコン、部長のひとこと、やること・報告・今日の3行 */
+function PersonCard({ d, active, line, status, orders = 0, wide = false }: {
+  d: Pick<AiDepartment, "name" | "plain" | "color" | "icon" | "title" | "personName" | "persona" | "look" | "when">;
+  active: boolean;
+  line?: string;
+  status?: string;
+  orders?: number;
+  wide?: boolean;
+}) {
+  const Icon = ICONS[d.icon];
   return (
-    <div className="relative border border-[var(--portal-line)] bg-white">
-      <div aria-hidden className="hidden md:block absolute -top-5 left-1/2 w-0.5 h-5 bg-[var(--portal-navy)]" />
-      <div className="flex items-center gap-3 px-3 py-3 border-b-2 border-[var(--portal-navy)]">
-        <BusinessAvatar look={d.look} dim={!active} title={`${d.name} ${d.title} ${d.personName}`} />
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-gray-900">{d.name}</p>
-          <p className="text-xs text-gray-700">{d.title}　{d.personName}<span className="ml-1 text-[10px] font-bold text-gold-600">AI</span></p>
-          <p className="text-[11px] text-gray-500 mt-0.5">{d.persona}</p>
-        </div>
-        <span className={`ml-auto text-[11px] font-bold px-2 py-0.5 border flex-shrink-0 ${
-          active ? "text-green-700 bg-green-50 border-green-300" : "text-gray-500 bg-gray-50 border-gray-300"
-        }`}>
-          {active ? "稼働中" : "準備中"}
+    <div className="bg-white border border-[var(--portal-line)] h-full flex flex-col" style={{ borderTop: `4px solid ${active ? d.color : "#D1D5DB"}` }}>
+      <div className="flex items-start gap-3 px-3 pt-3">
+        <span className="relative flex-shrink-0">
+          <BusinessAvatar look={d.look} dim={!active} title={`${d.name} ${d.title} ${d.personName}`} size={wide ? 80 : 72} />
+          <span className="absolute -bottom-1 -right-1 w-7 h-7 flex items-center justify-center border-2 border-white" style={{ background: active ? d.color : "#9CA3AF" }}>
+            <Icon size={15} color="#FFFFFF" strokeWidth={2.2} />
+          </span>
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-base font-bold text-gray-900">{d.name}</p>
+            <span className={`ml-auto text-[11px] font-bold px-1.5 py-0.5 border flex-shrink-0 ${active ? "text-green-700 bg-green-50 border-green-300" : "text-gray-500 bg-gray-50 border-gray-300"}`}>
+              {active ? "稼働中" : "準備中"}
+            </span>
+          </div>
+          <p className="text-xs font-semibold" style={{ color: active ? d.color : "#6B7280" }}>{d.plain}</p>
+          <p className="text-xs text-gray-800 mt-1">{d.title}　<span className="font-bold">{d.personName}</span><span className="ml-1 text-[10px] font-bold text-gold-600">AI</span></p>
+          <p className="text-[11px] text-gray-500">{d.persona}</p>
+        </div>
       </div>
-      <div className="px-3 py-2.5 space-y-1.5 text-xs text-gray-700">
-        <p>{d.role}</p>
-        <p className="text-gray-500">動く時：{d.when}</p>
-        {status && <p className="font-semibold text-navy-900">今日：{status}</p>}
-        {orders > 0 && <p className="font-semibold text-gold-600">社長からの指示：{orders}件</p>}
-      </div>
+      {line && (
+        <div className="mx-3 mt-2.5 relative bg-gray-50 border border-[var(--portal-line)] px-2.5 py-1.5 text-xs text-gray-800">
+          <span aria-hidden className="absolute -top-[6px] left-6 w-2.5 h-2.5 bg-gray-50 border-l border-t border-[var(--portal-line)] rotate-45" />
+          「{line}」
+        </div>
+      )}
+      <dl className="mt-auto mx-3 mb-3 mt-2.5 text-xs border-t border-[var(--portal-line)] pt-2 space-y-1">
+        <div className="flex gap-2"><dt className="w-14 flex-shrink-0 text-gray-500">報告</dt><dd className="text-gray-700">{d.when}</dd></div>
+        {status && <div className="flex gap-2"><dt className="w-14 flex-shrink-0 text-gray-500">今日</dt><dd className="font-semibold text-navy-900">{status}</dd></div>}
+        {orders > 0 && <div className="flex gap-2"><dt className="w-14 flex-shrink-0 text-gray-500">指示</dt><dd className="font-semibold text-gold-600">社長からの指示 {orders}件</dd></div>}
+      </dl>
     </div>
   );
 }
