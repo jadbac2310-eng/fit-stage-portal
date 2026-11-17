@@ -26,6 +26,7 @@ import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import { enrollmentFeeOf } from "@/lib/enrollment-fee";
 import { PageTitle } from "@/components/ui/page-title";
+import { joinDates, joinedInMonth } from "@/lib/joined";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString("ja-JP")}`;
@@ -631,16 +632,24 @@ export function RevenueDashboardClient({
   // 今月の実績（全体）
   const biz = useMemo(() => {
     const inMonth = (iso: string, m: string, day: number | null) => isoToMonth(iso) === m && withinDay(iso, day);
+    // 入会＝初めて回数券を買った人・体験で成約した人（全員向けの「今月のFIT STAGE」と同じ数え方。lib/joined.ts）
+    const joined = joinDates(sessionPasses, trialLessons);
+    const nameOf = new Map(customers.map((c) => [c.id, c.fullName]));
     const count = (m: string, day: number | null) => ({
-      newCustomers: customers.filter((c) => inMonth(c.createdAt, m, day)).length,
+      newCustomers: joinedInMonth(joined, m, day).filter(([id]) => nameOf.has(id)).length,
       contracted:   trialLessons.filter((t) => inMonth(t.scheduledAt, m, day)).length,
     });
+    const joinedNames = joinedInMonth(joined, month)
+      .filter(([id]) => nameOf.has(id))
+      .sort((a, b) => (a[1] < b[1] ? 1 : -1))
+      .map(([id]) => nameOf.get(id)!);
     return {
       ...count(month, null),
+      joinedNames,
       prev: count(prevMonthOf(month), compareDay),
       activeCustomers: customers.filter((c) => c.status === "active").length,
     };
-  }, [customers, trialLessons, month, compareDay]);
+  }, [customers, trialLessons, sessionPasses, month, compareDay]);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto pb-10">
@@ -769,11 +778,17 @@ export function RevenueDashboardClient({
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-white rounded-2xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5 mb-1">
-            <UserPlus size={12} className="text-gray-400" /> 新規顧客
+            <UserPlus size={12} className="text-gray-400" /> 入会
           </p>
           <p className="text-xl font-bold text-gray-900">
             {biz.newCustomers}<Delta now={biz.newCustomers} prev={biz.prev.newCustomers} goodWhenUp />
           </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">初めて回数券を買った人・体験で成約した人</p>
+          {biz.joinedNames.length > 0 && (
+            <p className="text-[11px] text-gray-600 mt-0.5">
+              {biz.joinedNames.slice(0, 6).join("・")}{biz.joinedNames.length > 6 ? ` ほか${biz.joinedNames.length - 6}名` : ""}
+            </p>
+          )}
           <p className="text-[11px] text-gray-400 mt-0.5">在籍中 {biz.activeCustomers}名</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-200 p-4">

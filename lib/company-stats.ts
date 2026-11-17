@@ -19,6 +19,7 @@ import type { TrialLesson } from "./trial-lessons-types";
 import { resolveLessonFee, resolveTrialFee, type CommissionContext } from "./commissions";
 import { jstDay } from "./highlights-types";
 import { enrollmentFeeOf } from "./enrollment-fee";
+import { joinDates } from "./joined";
 
 /** お祝いする通算本数。細かく出すと見なくなるので、節目だけ */
 const MILESTONES = [100, 250, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 20000, 30000, 50000];
@@ -118,13 +119,7 @@ export function companyStats(
 
   // ─── 入会したお客さま ───
   // 入会日＝初めて回数券を買った日と、体験で成約した日（体験の日）の、早いほう。
-  const joinedAt = new Map<string, string>();
-  const setEarlier = (id: string, day: string) => {
-    const cur0 = joinedAt.get(id);
-    if (!cur0 || day < cur0) joinedAt.set(id, day);
-  };
-  for (const p of ctx.sessionPasses) if (p.purchasedAt) setEarlier(p.customerId, p.purchasedAt.slice(0, 10));
-  for (const t of trialLessons) if (t.contracted === true && t.customerId) setEarlier(t.customerId, jstDay(t.scheduledAt));
+  const joinedAt = joinDates(ctx.sessionPasses, trialLessons);
   const nameOf = new Map(customers.map((c) => [c.id, c.fullName]));
   const joinedIn = (r: { from: string; to: string }) =>
     Array.from(joinedAt.entries()).filter(([id, day]) => nameOf.has(id) && day >= r.from && day <= r.to);
