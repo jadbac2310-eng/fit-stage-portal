@@ -1,5 +1,8 @@
 import { getCurrentIsAdmin, getMembers } from "@/lib/members";
 import { loadOpsFindings } from "@/lib/ops-check-load";
+import { getTasks } from "@/lib/tasks";
+import { ordersOf, stalledOrders, orderBrief } from "@/lib/ai-orders";
+import type { OrderRow } from "./order-panel";
 import { Suspense } from "react";
 import { AiOfficeView } from "./ai-office-view";
 import { GrowthSection } from "./growth-section";
@@ -24,15 +27,24 @@ export default async function AiOfficePage() {
     );
   }
 
-  const [members, findings] = await Promise.all([
+  const [members, findings, tasks] = await Promise.all([
     getMembers(),
     loadOpsFindings().catch(() => null),
+    getTasks().catch(() => []),   // 会社のやること（指示はここに【部署名】つきで入っている）
   ]);
+  const now = new Date();
+  const stalledIds = new Set(stalledOrders(tasks, now).map((o) => o.task.id));
+  const orders: OrderRow[] = ordersOf(tasks).map((o) => ({
+    id: o.task.id, deptKey: o.dept.key, deptName: o.dept.name, title: o.title,
+    status: o.task.status, dueOn: o.task.dueOn, updatedAt: o.task.updatedAt,
+    stalled: stalledIds.has(o.task.id), brief: orderBrief(o),
+  }));
   const owner = members.find((m) => m.isOwner);
   return (
     <AiOfficeView
       owner={owner && { name: owner.name, avatarUrl: owner.avatarUrl }}
       findings={findings}
+      orders={orders}
       growthSlot={
         <Suspense fallback={<p className="text-xs text-gray-400 border border-[var(--portal-line)] bg-white px-3 py-3">HP・集客部の報告を読み込んでいます…</p>}>
           <GrowthSection />

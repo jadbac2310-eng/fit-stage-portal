@@ -17,6 +17,8 @@ import { buildGrowthReport, buildGrowthMessage } from "@/lib/hp-growth";
 import { getSearchOverview } from "@/lib/search-console";
 import { portalUrl } from "@/lib/line-notify";
 import { buildChiefDigest } from "@/lib/chief-digest";
+import { buildStalledMessage } from "@/lib/ai-orders";
+import { getTasks } from "@/lib/tasks";
 import { CHIEF } from "@/app/(dashboard)/ai-office/departments";
 
 export const runtime = "nodejs";
@@ -109,6 +111,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 統括本部：社長が出した指示のうち、3日以上動いていないもの（lib/ai-orders.ts）。朝の1通に入る。
+  // 止めるときは LINE_NOTIFY_ORDERS=off。
+  const ordersOn = (process.env.LINE_NOTIFY_ORDERS ?? "").trim().toLowerCase() !== "off";
+  if (ordersOn && commissionTo.length > 0) {
+    const p = jstParts(now);
+    const ref = `orders-stalled:${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+    const done = await fetchSentKeys("daily", [ref]);
+    if (commissionTo.some((id) => !done.has(`${ref}__${id}`))) {
+      try {
+        const text = buildStalledMessage(await getTasks(), now);
+        if (text) reminders.push({ ref, recipientIds: commissionTo, text });
+      } catch (e) {
+        console.error("[daily-reminders] 止まっている指示の確認に失敗", e);
+      }
+    }
+  }
+
   // HP・集客部（AI部署）：月曜の朝に、検索の報告と今週の提案を代表へ（lib/hp-growth.ts）。
   // 止めるときは LINE_NOTIFY_HP_GROWTH=off。サーチコンソールが読めない週は送らない。
   const growthOn = (process.env.LINE_NOTIFY_HP_GROWTH ?? "").trim().toLowerCase() !== "off";
@@ -147,7 +166,7 @@ export async function GET(req: NextRequest) {
       if (mine.length < 2) continue; // 1通しかない日はまとめない（そのまま送る）
       const p = jstParts(now);
       const text = buildChiefDigest(mine, {
-        chiefName: CHIEF.personName, dateLabel: `${p.month}/${p.day}`, pageUrl: portalUrl("/ai-office"),
+        chiefName: CHIEF.personName, chiefTitle: CHIEF.fullTitle, dateLabel: `${p.month}/${p.day}`, pageUrl: portalUrl("/ai-office"),
       });
       if (!text) continue;
       const res = await pushLineMessage(owner.lineUserId!, text);

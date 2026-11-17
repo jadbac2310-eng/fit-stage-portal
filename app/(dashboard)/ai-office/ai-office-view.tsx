@@ -4,18 +4,24 @@ import { SectionBox } from "@/components/ui/section-box";
 import { groupFindings, OPS_CHECK_LABEL, opsSlotLabel, type OpsFinding } from "@/lib/ops-check";
 import { AI_DEPARTMENTS, CHIEF, type AiDepartment } from "./departments";
 import { BusinessAvatar } from "./business-avatar";
+import { OrderPanel, type OrderRow } from "./order-panel";
 
 /** AI部署の画面の見た目（データは page.tsx で読む。偽データでも描けるように分けている） */
-export function AiOfficeView({ owner, findings, growthSlot }: {
+export function AiOfficeView({ owner, findings, growthSlot, orders = [] }: {
   owner?: { name: string; avatarUrl?: string };
   /** null＝読み込めなかった */
   findings: OpsFinding[] | null;
   /** HP・集客部の報告（サーチコンソールを読むので、ページとは別に後から出す） */
   growthSlot?: React.ReactNode;
+  /** 社長からの指示（会社のやることの【部署名】つき） */
+  orders?: OrderRow[];
 }) {
   const counts: Record<string, string> = {
     "ops-check": findings === null ? "読み込めませんでした" : findings.length === 0 ? "気になるところはありません" : `気になるところ ${findings.length}件`,
   };
+  // 部署ごとの進行中の指示の件数
+  const openOrders = orders.filter((o) => o.status !== "完了");
+  const orderCount = (key: string) => openOrders.filter((o) => o.deptKey === key).length;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
@@ -59,9 +65,11 @@ export function AiOfficeView({ owner, findings, growthSlot }: {
         <div className="relative grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 md:pt-5">
           {/* 部署をつなぐ横の線（パソコンのみ） */}
           <div aria-hidden className="hidden md:block absolute top-0 left-[16.66%] right-[16.66%] h-0.5 bg-[var(--portal-navy)]" />
-          {AI_DEPARTMENTS.map((d) => <DepartmentCard key={d.key} d={d} status={counts[d.key]} />)}
+          {AI_DEPARTMENTS.map((d) => <DepartmentCard key={d.key} d={d} status={counts[d.key]} orders={orderCount(d.key)} />)}
         </div>
       </section>
+
+      <OrderPanel chiefLabel={`${CHIEF.fullTitle} ${CHIEF.personName}`} orders={orders} />
 
       {growthSlot}
 
@@ -73,7 +81,7 @@ export function AiOfficeView({ owner, findings, growthSlot }: {
           <p className="text-sm text-gray-600">気になるところはありません。</p>
         ) : (
           <div className="space-y-4">
-            <p className="text-xs text-gray-500">毎朝9時、統括の朝の1通にも入ります。直したものは、この画面を開き直すと消えます。</p>
+            <p className="text-xs text-gray-500">毎朝9時、統括本部長の朝の1通にも入ります。直したものは、この画面を開き直すと消えます。</p>
             {groupFindings(findings).map((g) => (
               <div key={g.kind}>
                 <p className="text-sm font-bold text-gray-900">{OPS_CHECK_LABEL[g.kind].title}（{g.items.length}件）</p>
@@ -106,7 +114,7 @@ function FindingRow({ f }: { f: OpsFinding }) {
   );
 }
 
-function DepartmentCard({ d, status }: { d: AiDepartment; status?: string }) {
+function DepartmentCard({ d, status, orders = 0 }: { d: AiDepartment; status?: string; orders?: number }) {
   const active = d.state === "active";
   return (
     <div className="relative border border-[var(--portal-line)] bg-white">
@@ -128,6 +136,7 @@ function DepartmentCard({ d, status }: { d: AiDepartment; status?: string }) {
         <p>{d.role}</p>
         <p className="text-gray-500">動く時：{d.when}</p>
         {status && <p className="font-semibold text-navy-900">今日：{status}</p>}
+        {orders > 0 && <p className="font-semibold text-gold-600">社長からの指示：{orders}件</p>}
       </div>
     </div>
   );

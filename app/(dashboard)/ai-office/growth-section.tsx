@@ -18,7 +18,7 @@ export function GrowthView({ report, error }: { report: GrowthReport | null; err
         <p className="text-sm text-gray-600">{error ? `検索の数字を読めませんでした（${error}）` : "まだ報告できる数字がありません。"}</p>
       ) : (
         <div className="space-y-3 text-sm">
-          <p className="text-xs text-gray-500">{report.period.from}〜{report.period.to}・その前の28日と比べて。毎週月曜、統括の朝の1通にも入ります。</p>
+          <p className="text-xs text-gray-500">{report.period.from}〜{report.period.to}・その前の28日と比べて。毎週月曜、統括本部長の朝の1通にも入ります。</p>
           <div className="grid grid-cols-2 gap-2">
             <Stat label="クリック" value={report.clicks} prev={report.prevClicks} />
             <Stat label="表示" value={report.impressions} prev={report.prevImpressions} />

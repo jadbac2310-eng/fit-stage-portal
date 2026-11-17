@@ -20,12 +20,13 @@ const SECTIONS: { prefix: string; section: Section }[] = [
   { prefix: "commission-pay-eve",   section: { key: "money", label: "明日はコミッションの振込日", from: "経理", order: 2 } },
   { prefix: "invoice-send",         section: { key: "invoice", label: "請求書の送付日", from: "経理", order: 3 } },
   { prefix: "commission-statement", section: { key: "money", label: "コミッション明細を送る時期", from: "経理", order: 4 } },
+  { prefix: "orders-stalled",       section: { key: "orders", label: "止まっている指示", from: "統括本部", order: 4.5 } },
   { prefix: "ops-check",            section: { key: "ops", label: "入力の気になるところ", from: "業務チェック部", order: 5 } },
   { prefix: "trial-followup",       section: { key: "trial", label: "体験の結果が未入力", from: "営業", order: 6 } },
   { prefix: "hourly-pending",       section: { key: "hourly", label: "予定のままの業務", from: "経理", order: 7 } },
   { prefix: "hp-growth",            section: { key: "growth", label: "今週の検索の報告", from: "HP・集客部", order: 8 } },
 ];
-const OTHER: Section = { key: "other", label: "そのほかのお知らせ", from: "統括", order: 9 };
+const OTHER: Section = { key: "other", label: "そのほかのお知らせ", from: "統括本部", order: 9 };
 
 export function sectionOf(ref: string): Section {
   return SECTIONS.find((s) => ref.startsWith(s.prefix))?.section ?? OTHER;
@@ -47,12 +48,12 @@ function body(text: string): string {
   return out.join("\n").replace(/\n+$/, "");
 }
 
-export function buildChiefDigest(items: DigestInput[], opts: { chiefName: string; dateLabel: string; pageUrl: string }): string | null {
+export function buildChiefDigest(items: DigestInput[], opts: { chiefName: string; chiefTitle?: string; dateLabel: string; pageUrl: string }): string | null {
   if (items.length === 0) return null;
   const sorted = [...items].sort((a, b) => sectionOf(a.ref).order - sectionOf(b.ref).order || a.ref.localeCompare(b.ref));
 
   const head = [
-    `🗂 統括 ${opts.chiefName}より：${opts.dateLabel} の朝の報告`,
+    `🗂 ${opts.chiefTitle ?? "統括本部長"} ${opts.chiefName}より：${opts.dateLabel} の朝の報告`,
     "",
     "■ 今日、社長に見てほしいこと",
     ...sorted.slice(0, 3).map((it, i) => `${i + 1}. ${sectionOf(it.ref).label}（${sectionOf(it.ref).from}）`),
