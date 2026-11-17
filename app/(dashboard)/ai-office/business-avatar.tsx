@@ -21,11 +21,13 @@ export function BusinessAvatar({ look, size = 56, dim = false, title }: { look: 
   const skin = dim ? "#E5E7EB" : SKIN;
   const bg = dim ? "#F3F4F6" : "#E8ECF4";
   const female = look.hair === "bob";
+  // 同じページに何人も並ぶので、切り抜きの id を人ごとに分ける（同じ id が重なるとブラウザによって崩れる）
+  const clipId = `av-${look.hair}-${look.accent.replace(/[^0-9a-z]/gi, "")}${dim ? "-d" : ""}`;
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={title ?? "AIの担当者"} className="flex-shrink-0">
       <circle cx="32" cy="32" r="32" fill={bg} />
-      <clipPath id="av-clip"><circle cx="32" cy="32" r="32" /></clipPath>
-      <g clipPath="url(#av-clip)">
+      <clipPath id={clipId}><circle cx="32" cy="32" r="32" /></clipPath>
+      <g clipPath={`url(#${clipId})`}>
         {/* 後ろ髪（ボブ） */}
         {female && <path d="M17 30 C16 14 48 14 47 30 L48 42 L16 42 Z" fill={hair} />}
         {/* 首 */}
