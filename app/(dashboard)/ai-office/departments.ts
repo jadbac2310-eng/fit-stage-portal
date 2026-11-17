@@ -18,16 +18,31 @@ export interface AiDepartment {
   state: "active" | "planned";
 }
 
+/**
+ * 統括（社長のすぐ下。2026-11-17）。各部署の報告を朝の1通にまとめ、大事な順に並べる（lib/chief-digest.ts）。
+ * 名前は尚樹の指定（映画監督の名前をあだ名として使う。社内向けの呼び名）。
+ */
+export const CHIEF: Omit<AiDepartment, "key" | "state"> & { key: "chief" } = {
+  key: "chief",
+  name: "統括室",
+  title: "室長",
+  personName: "スティーブン・スピルバーグ",
+  persona: "全体を見て、社長に見せる順番を決める",
+  look: { hair: "back", accent: "#C9A84C", suit: "#0F1B33" },
+  role: "朝9時の知らせ（業務チェック部・HP・集客部・コミッション・請求書など）を、社長あての1通にまとめて大事な順に並べる。決めるのは社長。",
+  when: "毎朝9時（社長へ LINE を1通）",
+};
+
 export const AI_DEPARTMENTS: AiDepartment[] = [
   {
     key: "ops-check",
     name: "業務チェック部",
     title: "部長",
-    personName: "正木 誠",
-    persona: "几帳面な点検役。毎朝いちばんに出社",
+    personName: "クリストファー・ノーラン",
+    persona: "時間と細部にうるさい点検役",
     look: { hair: "side", accent: "#C9A84C" },
     role: "レッスン・体験の入力を見て、完了忘れ・担当なし・二重登録・コース未設定・体験の結果未入力を拾う。直すのは人。",
-    when: "毎朝9時（社長へ LINE）・この画面を開いたとき",
+    when: "毎朝（統括の朝の1通に入る）・この画面を開いたとき",
     state: "active",
   },
   {
@@ -45,11 +60,11 @@ export const AI_DEPARTMENTS: AiDepartment[] = [
     key: "hp-growth",
     name: "HP・集客部",
     title: "部長",
-    personName: "広瀬 遥",
+    personName: "スティーヴ・ムック",
     persona: "検索の数字を読む集客の担当",
-    look: { hair: "bob", accent: "#B23A48" },
+    look: { hair: "short", accent: "#B23A48", suit: "#3A3F4B" },
     role: "サーチコンソールの数字を見て、今週直すと効くところを3つまで提案する。HP を直すのは社長の OK のあと（HP のセッションへ）。",
-    when: "毎週月曜9時（社長へ LINE）・この画面を開いたとき",
+    when: "毎週月曜（統括の朝の1通に入る）・この画面を開いたとき",
     state: "active",
   },
 ];

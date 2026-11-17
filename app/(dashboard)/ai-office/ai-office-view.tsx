@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageTitle } from "@/components/ui/page-title";
 import { SectionBox } from "@/components/ui/section-box";
 import { groupFindings, OPS_CHECK_LABEL, opsSlotLabel, type OpsFinding } from "@/lib/ops-check";
-import { AI_DEPARTMENTS, type AiDepartment } from "./departments";
+import { AI_DEPARTMENTS, CHIEF, type AiDepartment } from "./departments";
 import { BusinessAvatar } from "./business-avatar";
 
 /** AI部署の画面の見た目（データは page.tsx で読む。偽データでも描けるように分けている） */
@@ -37,6 +37,23 @@ export function AiOfficeView({ owner, findings, growthSlot }: {
             </div>
           </div>
           <div aria-hidden className="w-0.5 h-5 bg-[var(--portal-navy)]" />
+          {/* 統括（社長のすぐ下） */}
+          <div className="w-full max-w-md border-2 border-gold-500 bg-white">
+            <div className="flex items-center gap-3 px-3 py-3 border-b border-[var(--portal-line)]">
+              <BusinessAvatar look={CHIEF.look} title={`${CHIEF.name} ${CHIEF.title} ${CHIEF.personName}`} />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900">{CHIEF.name}</p>
+                <p className="text-xs text-gray-700">{CHIEF.title}　{CHIEF.personName}<span className="ml-1 text-[10px] font-bold text-gold-600">AI</span></p>
+                <p className="text-[11px] text-gray-500 mt-0.5">{CHIEF.persona}</p>
+              </div>
+              <span className="ml-auto text-[11px] font-bold px-2 py-0.5 border flex-shrink-0 text-green-700 bg-green-50 border-green-300">稼働中</span>
+            </div>
+            <div className="px-3 py-2.5 space-y-1 text-xs text-gray-700">
+              <p>{CHIEF.role}</p>
+              <p className="text-gray-500">動く時：{CHIEF.when}</p>
+            </div>
+          </div>
+          <div aria-hidden className="w-0.5 h-5 bg-[var(--portal-navy)]" />
         </div>
 
         <div className="relative grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 md:pt-5">
@@ -49,14 +66,14 @@ export function AiOfficeView({ owner, findings, growthSlot }: {
       {growthSlot}
 
       {/* 業務チェック部の報告 */}
-      <SectionBox title="業務チェック部 正木部長の報告（いまの状態）" padded>
+      <SectionBox title={`業務チェック部 ${headOf("ops-check")}の報告（いまの状態）`} padded>
         {findings === null ? (
           <p className="text-sm text-red-600">データを読み込めませんでした。少し待ってから開き直してください。</p>
         ) : findings.length === 0 ? (
           <p className="text-sm text-gray-600">気になるところはありません。</p>
         ) : (
           <div className="space-y-4">
-            <p className="text-xs text-gray-500">毎朝9時に同じ内容を LINE でもお知らせします。直したものは、この画面を開き直すと消えます。</p>
+            <p className="text-xs text-gray-500">毎朝9時、統括の朝の1通にも入ります。直したものは、この画面を開き直すと消えます。</p>
             {groupFindings(findings).map((g) => (
               <div key={g.kind}>
                 <p className="text-sm font-bold text-gray-900">{OPS_CHECK_LABEL[g.kind].title}（{g.items.length}件）</p>
@@ -114,4 +131,10 @@ function DepartmentCard({ d, status }: { d: AiDepartment; status?: string }) {
       </div>
     </div>
   );
+}
+
+/** 部署の部長の呼び名（「クリストファー・ノーラン部長」） */
+export function headOf(key: string): string {
+  const d = AI_DEPARTMENTS.find((x) => x.key === key);
+  return d ? `${d.personName}${d.title}` : "";
 }

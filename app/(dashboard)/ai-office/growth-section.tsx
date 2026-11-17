@@ -2,8 +2,9 @@ import Link from "next/link";
 import { SectionBox } from "@/components/ui/section-box";
 import { getSearchOverview } from "@/lib/search-console";
 import { buildGrowthReport, type GrowthReport } from "@/lib/hp-growth";
+import { headOf } from "./ai-office-view";
 
-/** HP・集客部 広瀬部長の報告（サーチコンソールを読むので Suspense の中で後から出す） */
+/** HP・集客部の部長の報告（サーチコンソールを読むので Suspense の中で後から出す） */
 export async function GrowthSection() {
   const overview = await getSearchOverview(28);
   const report = buildGrowthReport(overview);
@@ -12,12 +13,12 @@ export async function GrowthSection() {
 
 export function GrowthView({ report, error }: { report: GrowthReport | null; error?: string }) {
   return (
-    <SectionBox title="HP・集客部 広瀬部長の報告（検索・直近28日）" action={{ label: "SEOの画面へ", href: "/seo" }} padded>
+    <SectionBox title={`HP・集客部 ${headOf("hp-growth")}の報告（検索・直近28日）`} action={{ label: "SEOの画面へ", href: "/seo" }} padded>
       {!report ? (
         <p className="text-sm text-gray-600">{error ? `検索の数字を読めませんでした（${error}）` : "まだ報告できる数字がありません。"}</p>
       ) : (
         <div className="space-y-3 text-sm">
-          <p className="text-xs text-gray-500">{report.period.from}〜{report.period.to}・その前の28日と比べて。毎週月曜9時に LINE でもお知らせします。</p>
+          <p className="text-xs text-gray-500">{report.period.from}〜{report.period.to}・その前の28日と比べて。毎週月曜、統括の朝の1通にも入ります。</p>
           <div className="grid grid-cols-2 gap-2">
             <Stat label="クリック" value={report.clicks} prev={report.prevClicks} />
             <Stat label="表示" value={report.impressions} prev={report.prevImpressions} />

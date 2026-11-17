@@ -16,6 +16,8 @@ import { buildOpsCheckMessage } from "@/lib/ops-check";
 import { buildGrowthReport, buildGrowthMessage } from "@/lib/hp-growth";
 import { getSearchOverview } from "@/lib/search-console";
 import { portalUrl } from "@/lib/line-notify";
+import { buildChiefDigest } from "@/lib/chief-digest";
+import { CHIEF } from "@/app/(dashboard)/ai-office/departments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,10 +133,34 @@ export async function GET(req: NextRequest) {
   const sent = await fetchSentKeys("daily", reminders.map((r) => r.ref));
 
   let count = 0;
+
+  // 統括（AI部署の室長）：代表あての知らせは1通にまとめて、大事な順に並べて送る（lib/chief-digest.ts）。
+  // 送れたら、まとめた知らせそれぞれを「代表に送った」ことにする（下のループで個別に送らない）。
+  // 止めるときは LINE_DIGEST=off（今までどおり1通ずつ）。
+  const digestOn = (process.env.LINE_DIGEST ?? "").trim().toLowerCase() !== "off";
+  const digested = new Set<string>(); // `${ref}__${memberId}`
+  if (digestOn) {
+    for (const oid of owners) {
+      const owner = memberById.get(oid);
+      if (!owner || !canNotifyByLine(owner)) continue;
+      const mine = reminders.filter((r) => r.recipientIds.includes(oid) && !sent.has(`${r.ref}__${oid}`));
+      if (mine.length < 2) continue; // 1通しかない日はまとめない（そのまま送る）
+      const p = jstParts(now);
+      const text = buildChiefDigest(mine, {
+        chiefName: CHIEF.personName, dateLabel: `${p.month}/${p.day}`, pageUrl: portalUrl("/ai-office"),
+      });
+      if (!text) continue;
+      const res = await pushLineMessage(owner.lineUserId!, text);
+      if (!res.ok) continue; // 送れなければ、下で1通ずつ送る
+      count++;
+      for (const r of mine) { await markSent("daily", r.ref, oid); digested.add(`${r.ref}__${oid}`); }
+    }
+  }
+
   for (const r of reminders) {
     for (const mid of new Set(r.recipientIds)) {
       const member = memberById.get(mid);
-      if (!member || !canNotifyByLine(member) || sent.has(`${r.ref}__${mid}`)) continue;
+      if (!member || !canNotifyByLine(member) || sent.has(`${r.ref}__${mid}`) || digested.has(`${r.ref}__${mid}`)) continue;
       const res = await pushLineMessage(member.lineUserId!, r.text + scheduleLink(member));
       if (res.ok) { await markSent("daily", r.ref, mid); count++; }
     }
