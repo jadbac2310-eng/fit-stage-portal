@@ -84,6 +84,8 @@ export interface ConfirmMailInput {
   placeText?: string;
   trainerName?: string;
   pair?: boolean;
+  /** 出張の体験料金（9,900円）でご案内するか（lib/commissions-types.ts の isOnsiteTrialPrice） */
+  onsitePrice?: boolean;
   /** お客様の申込内容に合わせた一言（空なら入れない） */
   personalNote?: string;
   /** 「予約を確認しました」ボタンのリンク（lib/trial-confirm-token.ts。無ければ確認のお願いの段落を入れない） */
@@ -133,7 +135,8 @@ export function buildConfirmMail(i: ConfirmMailInput): { subject: string; body: 
         ]
       : []),
     "■ 体験料金",
-    i.pair ? "9,900円（税込・2名合計）" : "6,600円（税込）",
+    // 店舗：1名 6,600円／ペア 9,900円。出張：9,900円（2026-11-18〜。HPの料金と同じにする）
+    i.pair ? "9,900円（税込・2名合計）" : i.onsitePrice ? "9,900円（税込）" : "6,600円（税込）",
     "お支払いは、現金・クレジットカード・PayPay がご利用いただけます。",
     "",
     "■ 持ち物",

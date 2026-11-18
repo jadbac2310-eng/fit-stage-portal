@@ -9,7 +9,7 @@ import {
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
 import type { TrialNoteItem } from "@/lib/trial-note";
-import { TRIAL_LESSON_COURSE_NAME } from "@/lib/commissions-types";
+import { TRIAL_LESSON_COURSE_NAME, isOnsiteTrialPrice } from "@/lib/commissions-types";
 import { parseTrialNote, isShortNote, looksLikeApplication, joinTrialNote } from "@/lib/trial-note";
 import { Customer, isFctCustomer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
@@ -68,8 +68,17 @@ function ContractBadge({ contracted }: { contracted: boolean | null }) {
 
 // 料金区分バッジ。既定（体験レッスン・金額指定なし）のときは何も出さず、
 // 都度などに切り替えた回だけ一覧で分かるようにする。
-function CourseBadge({ course, amount }: { course?: string; amount?: number }) {
-  if (!course && amount == null) return null;
+function CourseBadge({ course, amount, onsitePrice }: { course?: string; amount?: number; onsitePrice?: boolean }) {
+  if (!course && amount == null) {
+    // 出張の体験は店舗（6,600円）と金額が違うので、一覧でも分かるようにする
+    if (!onsitePrice) return null;
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+        <Coins size={10} />
+        出張の体験・¥9,900
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
       <Coins size={10} />
@@ -219,6 +228,9 @@ function LessonForm({
   const [customerId, setCustomerId] = useState(defaultValues?.customerId ?? "");
   const [location, setLocation] = useState(defaultValues?.location ?? "");
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(defaultValues?.deliveryMode ?? "store");
+  // 出張の体験は 9,900円（2026-11-18 以降に登録した分）。新しく作る体験は登録日が今日なので、出張なら 9,900円
+  const onsiteTrialPrice = deliveryMode === "onsite"
+    && (!defaultValues?.createdAt || isOnsiteTrialPrice({ deliveryMode, createdAt: defaultValues.createdAt }));
   const [rentalGymId, setRentalGymId] = useState(defaultValues?.rentalGymId ?? "");
   const [rentalGymFee, setRentalGymFee] = useState(
     defaultValues?.rentalGymFee != null ? String(defaultValues.rentalGymFee) : ""
@@ -556,9 +568,11 @@ function LessonForm({
           {TRIAL_COURSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <p className="text-xs text-gray-400 mt-1">
-          {course === TRIAL_LESSON_COURSE_NAME
-            ? "通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます。"
-            : `売上・歩合・請求は「${course}」の単価で計上されます。`}
+          {course !== TRIAL_LESSON_COURSE_NAME
+            ? `売上・歩合・請求は「${course}」の単価で計上されます。`
+            : onsiteTrialPrice
+              ? "通常はこのまま。出張の体験は 9,900円で計上されます（店舗の体験は 6,600円）。"
+              : "通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます。"}
         </p>
       </div>
 
@@ -774,7 +788,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
         <div className="flex flex-col gap-1">
           <StatusBadge status={lesson.status} />
           <ContractBadge contracted={lesson.contracted} />
-          <CourseBadge course={lesson.course} amount={lesson.amount} />
+          <CourseBadge course={lesson.course} amount={lesson.amount} onsitePrice={isOnsiteTrialPrice(lesson)} />
         </div>
       </td>
       <td className="px-4 py-3">
@@ -890,7 +904,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
         <div className="flex flex-col items-end gap-1">
           <StatusBadge status={lesson.status} />
           <ContractBadge contracted={lesson.contracted} />
-          <CourseBadge course={lesson.course} amount={lesson.amount} />
+          <CourseBadge course={lesson.course} amount={lesson.amount} onsitePrice={isOnsiteTrialPrice(lesson)} />
         </div>
       </div>
       <div className="space-y-1">

@@ -10,10 +10,31 @@ export const LESSON_PRICE: Record<string, number> = {
   "回数券16回": 9300,
   "回数券32回": 9000,
   "体験レッスン": 6600,
+  "出張体験レッスン": 9900,   // 出張の体験（2026-11-18〜。通常の出張1名60分と同じ額）
 };
 
 // 体験レッスンのコース名（歩合計算・プランマスタでの単価キーとして使用）
 export const TRIAL_LESSON_COURSE_NAME = "体験レッスン";
+
+/**
+ * 出張の体験は 9,900円（2026-11-18 尚樹「出張の場合は体験も全部とりあえず9,900円」）。
+ * 店舗の体験は 6,600円のまま。HPの料金（/price/・/service/personal/ ほか）と同じにする。
+ * プランマスタに「出張体験レッスン」という単発の行を足せば、そちらの金額が優先される。
+ */
+export const ONSITE_TRIAL_COURSE_NAME = "出張体験レッスン";
+
+/**
+ * この日時より後に「登録した」出張の体験から 9,900円にする（日本時間 2026-11-18 0:00）。
+ * それより前に登録した体験は 6,600円でご案内済みなので、過去の売上・歩合・請求は変えない。
+ */
+export const ONSITE_TRIAL_FROM = "2026-11-17T15:00:00.000Z";
+
+/** 出張の体験料金（9,900円）で扱う体験かどうか。実施形態が「出張」で、切り替え日以降に登録したもの */
+export function isOnsiteTrialPrice(trial: { deliveryMode?: string | null; createdAt?: string | null }): boolean {
+  if (trial.deliveryMode !== "onsite" || !trial.createdAt) return false;
+  const t = new Date(trial.createdAt).getTime();
+  return Number.isFinite(t) && t >= new Date(ONSITE_TRIAL_FROM).getTime();
+}
 
 // トレーナー歩合率 (50%)
 export const TRAINER_RATE = 0.50;

@@ -9,6 +9,7 @@ import { useSubmitLock } from "@/lib/use-submit-lock";
 import { parseTrialNote } from "@/lib/trial-note";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import { buildConfirmMail, findStore, hintsFromApplication, isPair } from "@/lib/trial-confirm-mail";
+import { isOnsiteTrialPrice } from "@/lib/commissions-types";
 import { sendTrialConfirmMailAction, suggestTrialPersonalNoteAction } from "./actions";
 
 /** お客様の「予約を確認しました」ボタン（lib/trial-confirm-token.ts）の状態 */
@@ -84,6 +85,7 @@ export function ConfirmMailSheet({ lesson, email, storeName, mailFrom, sent, con
     placeText: store ? undefined : lesson.location,
     trainerName: lesson.trainerMemberName,
     pair: isPair(get("利用人数")),
+    onsitePrice: isOnsiteTrialPrice(lesson),
     personalNote,
     confirmUrl: confirmState?.url,
   });
