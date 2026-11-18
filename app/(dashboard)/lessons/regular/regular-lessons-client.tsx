@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useId } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Plus, Pencil, Trash2, X, Search, MapPin, Calendar,
@@ -28,6 +29,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { CustomerPicker } from "@/components/ui/customer-picker";
+import { MultiDateCalendar } from "@/components/ui/multi-date-calendar";
+import { SessionPassForm } from "../../plans/session-pass-form";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
@@ -294,6 +297,12 @@ export function LessonForm({
   );
   const scheduledDate = startLocal ? startLocal.slice(0, 10) : "";
   function onStartChange(v: string) {
+    // 複数日時で足した日のうち、開始と同じ時刻のものは、開始の時刻を変えたら一緒に変える
+    // （カレンダーで日だけ選んだあとに時刻を直しても、全部の日がそろうように）
+    const oldTime = startLocal.slice(11), newTime = v.slice(11);
+    if (oldTime && newTime && oldTime !== newTime) {
+      setExtraStarts((prev) => prev.map((x) => (x.slice(11) === oldTime ? `${x.slice(0, 10)}T${newTime}` : x)));
+    }
     setStartLocal(v);
     setEndLocal(localPlusHour(v));
     const d = v.slice(0, 10);
@@ -317,6 +326,19 @@ export function LessonForm({
   const [extraStarts, setExtraStarts] = useState<string[]>([]); // datetime-local の開始
   const [recurrence, setRecurrence] = useState<"daily" | "weekly" | "biweekly" | "monthly">("weekly");
   const [recurUntil, setRecurUntil] = useState("");
+
+  /** カレンダーで日をタップ：その日が入っていなければ開始と同じ時刻で足し、入っていれば外す */
+  function toggleExtraDate(date: string) {
+    const time = startLocal.slice(11);
+    if (!time) return;
+    setExtraStarts((prev) => prev.some((x) => x.slice(0, 10) === date)
+      ? prev.filter((x) => x.slice(0, 10) !== date)
+      : [...prev.filter(Boolean), `${date}T${time}`].sort());
+  }
+
+  // その場で回数券を足す（管理者だけ）。足した券は、一覧が読み直されたらそのまま選ぶ
+  const [showAddPass, setShowAddPass] = useState(false);
+  const [pendingPassId, setPendingPassId] = useState("");
 
   function buildLessonSlots(): { scheduledAt: string; endAt: string | null }[] {
     const base = { scheduledAt: localInputToISO(startLocal), endAt: endLocal ? localInputToISO(endLocal) : null };
@@ -585,7 +607,27 @@ export function LessonForm({
   // 作成する件数（単発は1件、複数日時・繰り返しはその件数）と回数券の残数の突き合わせ。
   // 残数を超えた件数をまとめて登録すると、超過分が0消費のまま登録されてしまうため事前に止める。
   const plannedCount = isCreate && startLocal ? buildLessonSlots().length : 1;
+  // その場で足した回数券が一覧に入ってきたら、コースを「回数券」にしてその券を選ぶ
+  if (pendingPassId && sessionPasses.some((p) => p.id === pendingPassId)) {
+    setSelectedCourse("回数券");
+    setSelectedPassId(pendingPassId);
+    setPendingPassId("");
+  }
   const selectedPass = sessionPasses.find((p) => p.id === selectedPassId);
+  /** このお客様に、残りのある回数券があるか */
+  const hasUsablePass = sessionPasses.some((p) => p.customerId === selectedCustomerId && p.remainingCount > 0);
+  /** その場で回数券を足せるか（管理者で、お客様を選んでいるとき） */
+  const canAddPass = isAdmin && selectedCustomerId !== "";
+  // このお客様のレッスンがすでに入っている日（複数日時のカレンダーに点を付ける）
+  const busyDates = useMemo(() => {
+    const set = new Set<string>();
+    if (!selectedCustomerId) return set;
+    for (const l of allLessons) {
+      if (l.customerId !== selectedCustomerId || l.status === "cancelled" || l.id === defaultValues?.id) continue;
+      set.add(isoToLocalInput(l.scheduledAt).slice(0, 10));
+    }
+    return set;
+  }, [allLessons, selectedCustomerId, defaultValues?.id]);
   const passShortage = isCreate && isSessionPassCourse && selectedPass
     ? plannedCount - selectedPass.remainingCount
     : 0;
@@ -674,7 +716,27 @@ export function LessonForm({
 
           {multiMode === "multiple" && (
             <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
-              <p className="text-[11px] text-gray-400 mb-2">{tt("同じ内容のレッスンを別の日時にも登録します（各60分）。", "Adds the same lesson on other dates too (60 min each).")}</p>
+              <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
+                {startLocal
+                  ? tt(`カレンダーで日をタップすると、開始と同じ時刻（${startLocal.slice(11)}）で追加されます。もう一度タップすると外れます（各60分）。`,
+                       `Tap days on the calendar to add them at the same time as the start (${startLocal.slice(11)}). Tap again to remove (60 min each).`)
+                  : tt("先に上の「開始」に日時を入れてください。", "Enter the start date and time first.")}
+              </p>
+              <MultiDateCalendar
+                key={startLocal.slice(0, 7) || "none"}
+                baseDate={startLocal.slice(0, 10)}
+                selected={extraStarts.filter(Boolean).map((x) => x.slice(0, 10))}
+                onToggle={toggleExtraDate}
+                busyDates={busyDates}
+                lang={lang}
+                disabled={!startLocal}
+              />
+              <p className="text-xs font-semibold text-gray-700 mt-2.5 mb-2">
+                {tt(`登録する件数：${plannedCount}件（開始の日を含む）`, `Lessons to add: ${plannedCount} (including the start date)`)}
+              </p>
+              {extraStarts.length > 0 && (
+                <p className="text-[11px] text-gray-400 mb-1.5">{tt("時刻を変えたい日は、下で直せます。", "You can change the time of each date below.")}</p>
+              )}
               {extraStarts.map((s, i) => (
                 <div key={i} className="flex gap-2 mb-2 items-center">
                   <input type="datetime-local" value={s}
@@ -686,7 +748,7 @@ export function LessonForm({
               ))}
               <button type="button" onClick={() => setExtraStarts((prev) => [...prev, startLocal])}
                 className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
-                <Plus size={14} /> {tt("日時を追加", "Add date")}
+                <Plus size={14} /> {tt("日時を1件ずつ追加", "Add one date")}
               </button>
             </div>
           )}
@@ -947,6 +1009,12 @@ export function LessonForm({
             {singleCourses.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? (isFreeLesson(o.value) ? "Free (not billed)" : courseLabel(o.value, lang)) : o.label}</option>)}
           </optgroup>
         </select>
+        {canAddPass && !isSessionPassCourse && !hasUsablePass && (
+          <button type="button" onClick={() => setShowAddPass(true)}
+            className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 rounded-lg px-2 py-1 -ml-2 transition">
+            <Plus size={13} /> {tt("回数券を追加して、このレッスンに使う", "Add a pass and use it for this lesson")}
+          </button>
+        )}
         {selectedCustomerId !== "" && passCourses.length === 0 && monthlyCourses.length === 0 && (
           <p className="text-xs text-gray-400 mt-1.5">
             {tt("この顧客は有効な回数券・加入中プランがありません（都度のみ選択できます）", "This client has no active pass or plan (Pay per session only)")}
@@ -1005,7 +1073,9 @@ export function LessonForm({
           </label>
           {noPassAvailable ? (
             <p className="text-xs text-red-600 font-medium">
-              {tt("有効な回数券がありません。目次の「回数券」から追加してください。", "No active pass. Ask an admin to add one.")}
+              {canAddPass
+                ? tt("有効な回数券がありません。下のボタンから追加できます。", "No active pass. Add one with the button below.")
+                : tt("有効な回数券がありません。目次の「回数券」から追加してください。", "No active pass. Ask an admin to add one.")}
             </p>
           ) : (
             <select name="sessionPassId" required value={selectedPassId}
@@ -1022,6 +1092,20 @@ export function LessonForm({
               {tt(`回数券の残りは${selectedPass.remainingCount}回です（登録しようとしている件数: ${plannedCount}件）。日時を${passShortage}件減らすか、回数券を追加してください。`,
                 `Only ${selectedPass.remainingCount} sessions left (you are adding ${plannedCount}). Remove ${passShortage} date(s) or add a pass.`)}
             </p>
+          )}
+          {canAddPass && (
+            <button type="button" onClick={() => setShowAddPass(true)}
+              className={cn(
+                "mt-2 w-full flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold py-2.5 transition border",
+                noPassAvailable || passShortage > 0
+                  ? "bg-amber-500 border-amber-500 text-white hover:bg-amber-600"
+                  : "bg-white border-amber-300 text-amber-700 hover:bg-amber-100",
+              )}>
+              <Plus size={14} /> {tt("回数券を追加する", "Add a pass")}
+            </button>
+          )}
+          {pendingPassId && (
+            <p className="text-xs text-amber-700 mt-2 flex items-center gap-1.5"><Spinner size={12} /> {tt("追加した回数券を読み込んでいます…", "Loading the new pass…")}</p>
           )}
         </div>
       )}
@@ -1060,6 +1144,31 @@ export function LessonForm({
           className="w-full mt-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition disabled:opacity-50">
           {locked ? <Spinner size={15} /> : <Trash2 size={15} />} {locked ? tt("削除中…", "Deleting…") : tt("このレッスンを削除", "Delete this lesson")}
         </button>
+      )}
+
+      {/* その場で回数券を足す窓。フォームの中にフォームは置けないので、画面のいちばん外（body）に出す。
+          クリックがこのフォームや外側の窓の「閉じる」に伝わらないよう、ここで止める。 */}
+      {showAddPass && canAddPass && createPortal(
+        <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center"
+          onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAddPass(false)} />
+          <div role="dialog" aria-modal="true" aria-label={tt("回数券を追加", "Add a pass")}
+            className="relative w-full md:max-w-md bg-white rounded-t-3xl md:rounded-2xl p-4 pb-8 md:pb-4 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><Ticket size={15} className="text-amber-500" /> {tt("回数券を追加", "Add a pass")}</p>
+              <button type="button" onClick={() => setShowAddPass(false)} className="p-1.5 text-gray-400 hover:text-gray-600" aria-label={tt("閉じる", "Close")}><X size={18} /></button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+              {customers.find((c) => c.id === selectedCustomerId)?.fullName ?? ""}{tt(" 様の回数券。追加すると、このレッスンにそのまま使えます（入力中の内容は消えません）。", " — once added, it is used for this lesson (what you entered stays).")}
+            </p>
+            <SessionPassForm
+              customerId={selectedCustomerId}
+              onClose={() => setShowAddPass(false)}
+              onCreated={(id) => setPendingPassId(id)}
+            />
+          </div>
+        </div>,
+        document.body,
       )}
     </form>
   );

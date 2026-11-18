@@ -39,6 +39,7 @@ import type { AvenirStore } from "@/lib/avenir-stores";
 import type { CustomerVenueFee } from "@/lib/customer-venue-fees-types";
 import type { HourlyTask } from "@/lib/hourly-tasks-types";
 import { LessonForm } from "../lessons/regular/regular-lessons-client";
+import { MultiDateCalendar } from "@/components/ui/multi-date-calendar";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 import { setTrialLessonStatusAction } from "../lessons/trial/actions";
 import { assertActionOk } from "@/lib/action-result";
@@ -1186,6 +1187,12 @@ function PersonalEventModal({
   function addExtraSlot() {
     setExtraSlots((prev) => [...prev, { date: startDate, startTime, endTime }]);
   }
+  /** カレンダーで日をタップ：その日が入っていなければ同じ時刻で足し、入っていれば外す */
+  function toggleExtraDate(date: string) {
+    setExtraSlots((prev) => prev.some((x) => x.date === date)
+      ? prev.filter((x) => x.date !== date)
+      : [...prev, { date, startTime, endTime }].sort((a, b) => a.date.localeCompare(b.date)));
+  }
   function removeExtraSlot(idx: number) {
     setExtraSlots((prev) => prev.filter((_, i) => i !== idx));
   }
@@ -1337,7 +1344,21 @@ function PersonalEventModal({
               {/* 複数日時 */}
               {multiMode === "multiple" && (
                 <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
-                  <p className="text-[11px] text-gray-400 mb-2">{tt("同じ予定名で別の日時にも登録します。", "Adds the same event on other dates too.")}</p>
+                  <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
+                    {tt(`カレンダーで日をタップすると、同じ予定を${allDay ? "その日" : `同じ時刻（${startTime}〜${endTime}）`}にも登録します。もう一度タップすると外れます。`,
+                        `Tap days on the calendar to add the same event${allDay ? "" : ` at the same time (${startTime}–${endTime})`}. Tap again to remove.`)}
+                  </p>
+                  <MultiDateCalendar
+                    key={startDate.slice(0, 7) || "none"}
+                    baseDate={startDate}
+                    selected={extraSlots.map((x) => x.date).filter(Boolean)}
+                    onToggle={toggleExtraDate}
+                    lang={lang}
+                    disabled={!startDate}
+                  />
+                  <p className="text-xs font-semibold text-gray-700 mt-2.5 mb-2">
+                    {tt(`登録する件数：${1 + extraSlots.filter((x) => x.date).length}件（最初の日を含む）`, `Events to add: ${1 + extraSlots.filter((x) => x.date).length} (including the first date)`)}
+                  </p>
                   {extraSlots.map((s, i) => (
                     <div key={i} className="flex gap-2 mb-2 items-center">
                       <input type="date" value={s.date} onChange={(e) => updateExtraSlot(i, { date: e.target.value })}
@@ -1355,7 +1376,7 @@ function PersonalEventModal({
                   ))}
                   <button type="button" onClick={addExtraSlot}
                     className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
-                    <Plus size={14} /> {tt("日時を追加", "Add a date")}
+                    <Plus size={14} /> {tt("日時を1件ずつ追加", "Add one date")}
                   </button>
                 </div>
               )}

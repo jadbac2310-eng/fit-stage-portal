@@ -81,8 +81,13 @@ export async function deletePlanAction(id: string): Promise<ActionResult> {
 }
 
 // ─── 回数券 ───────────────────────────────────────────
-export async function createSessionPassAction(formData: FormData): Promise<ActionResult> {
-  return runAction(async () => {
+/**
+ * 回数券を追加する。うまくいったら、できた回数券の id も返す
+ * （レッスンの登録フォームからその場で足したとき、足した券をそのまま選べるように）。
+ */
+export async function createSessionPassAction(formData: FormData): Promise<ActionResult & { passId?: string }> {
+  let passId: string | undefined;
+  const result = await runAction(async () => {
     await requireAdmin();
     const customerId  = (formData.get("customerId")  as string)?.trim();
     const totalCount  = parseInt((formData.get("totalCount") as string)?.trim(), 10);
@@ -95,11 +100,14 @@ export async function createSessionPassAction(formData: FormData): Promise<Actio
 
     if (!customerId || !totalCount || !purchasedAt) return;
 
-    await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
+    const pass = await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
+    passId = pass.id;
     revalidatePath("/master/customers"); // 審査中→在籍中に変わることがある
     revalidatePath("/plans");
     revalidatePath("/lessons/regular");
+    revalidatePath("/schedule");
   });
+  return result.ok ? { ok: true, passId } : result;
 }
 
 export async function updateSessionPassAction(id: string, formData: FormData): Promise<ActionResult> {
