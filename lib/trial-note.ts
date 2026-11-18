@@ -12,6 +12,7 @@
  */
 
 import { prettyChannelText } from "./acquisition-channel";
+import { isPair } from "./trial-confirm-mail";
 
 export interface TrialNoteItem {
   label: string;
@@ -105,4 +106,13 @@ export function isShortNote(note?: string): boolean {
   if (!note) return true;
   const trimmed = note.trim();
   return trimmed.length <= 60 && !trimmed.includes("\n");
+}
+
+/**
+ * 備考から、2名（ペア）の体験かどうか。
+ * 申込フォームの「利用人数: 2名」のほか、手で備考に「利用人数: 2名」と書いた行も読む。
+ * 確定メールの料金と、出張の体験の計上額（2名は 13,500円）で同じ判定を使う。
+ */
+export function isPairTrialNote(note?: string): boolean {
+  return isPair(parseTrialNote(note).items.find((x) => x.label === "利用人数")?.value);
 }

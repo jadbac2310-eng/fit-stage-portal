@@ -11,8 +11,9 @@ import { hourlyTaskHours, hourlyTaskAmount } from "./hourly-tasks-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
 import {
   getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS, TRIAL_LESSON_COURSE_NAME,
-  ONSITE_TRIAL_COURSE_NAME, isOnsiteTrialPrice,
+  ONSITE_TRIAL_COURSE_NAME, ONSITE_TRIAL_PAIR_COURSE_NAME, isOnsiteTrialPrice,
 } from "./commissions-types";
+import { isPairTrialNote } from "./trial-note";
 
 // ─── 表示行・集計の型 ────────────────────────────────────
 export interface TrainerLessonRow {
@@ -217,9 +218,13 @@ export function resolveTrialLessonFee(ctx: Pick<CommissionContext, "lessonFees">
   return ctx.lessonFees?.[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME);
 }
 
-/** 出張の体験1件あたりの単価（プランマスタに「出張体験レッスン」の行があればそれ、無ければ 9,900円） */
-export function resolveOnsiteTrialFee(ctx: Pick<CommissionContext, "lessonFees">): number {
-  return ctx.lessonFees?.[ONSITE_TRIAL_COURSE_NAME] ?? getLessonFee(ONSITE_TRIAL_COURSE_NAME);
+/**
+ * 出張の体験1件あたりの単価。1名は 9,900円、2名は 13,500円（2名合計）。
+ * プランマスタに「出張体験レッスン」「出張体験レッスン2名」の行があれば、そちらの金額が優先される。
+ */
+export function resolveOnsiteTrialFee(ctx: Pick<CommissionContext, "lessonFees">, pair = false): number {
+  const name = pair ? ONSITE_TRIAL_PAIR_COURSE_NAME : ONSITE_TRIAL_COURSE_NAME;
+  return ctx.lessonFees?.[name] ?? getLessonFee(name);
 }
 
 /**
@@ -227,9 +232,10 @@ export function resolveOnsiteTrialFee(ctx: Pick<CommissionContext, "lessonFees">
  * この回だけの金額(amount) → 料金区分(course)の単価 → 体験レッスンの標準単価、の順に見る。
  * course 未設定は「体験レッスン」で、店舗・オンラインは 6,600円。
  * 実施形態が「出張」の体験は 9,900円（2026-11-18 以降に登録した分。isOnsiteTrialPrice）。
+ * そのうち備考に「利用人数: 2名」とあるものは 13,500円（2名合計）。
  */
 export function resolveTrialFee(
-  trial: Pick<TrialLesson, "course" | "amount"> & Partial<Pick<TrialLesson, "deliveryMode" | "createdAt">>,
+  trial: Pick<TrialLesson, "course" | "amount"> & Partial<Pick<TrialLesson, "deliveryMode" | "createdAt" | "note">>,
   ctx: Pick<CommissionContext, "lessonFees">,
 ): number {
   if (trial.amount != null) return trial.amount;
@@ -237,7 +243,7 @@ export function resolveTrialFee(
   if (course && course !== TRIAL_LESSON_COURSE_NAME) {
     return ctx.lessonFees?.[course] ?? getLessonFee(course);
   }
-  if (isOnsiteTrialPrice(trial)) return resolveOnsiteTrialFee(ctx);
+  if (isOnsiteTrialPrice(trial)) return resolveOnsiteTrialFee(ctx, isPairTrialNote(trial.note));
   return resolveTrialLessonFee(ctx);
 }
 
