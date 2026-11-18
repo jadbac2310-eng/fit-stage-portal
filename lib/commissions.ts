@@ -12,6 +12,7 @@ import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
 import {
   getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS, TRIAL_LESSON_COURSE_NAME,
   ONSITE_TRIAL_COURSE_NAME, ONSITE_TRIAL_PAIR_COURSE_NAME, isOnsiteTrialPrice,
+  STORE_PAIR_TRIAL_COURSE_NAME, isStorePairTrialPeriod,
 } from "./commissions-types";
 import { isPairTrialNote } from "./trial-note";
 
@@ -228,14 +229,23 @@ export function resolveOnsiteTrialFee(ctx: Pick<CommissionContext, "lessonFees">
 }
 
 /**
+ * 店舗の体験・2名（ペア）1件あたりの単価。9,900円（2名合計）。
+ * プランマスタに「体験レッスン2名」の行があれば、そちらの金額が優先される。
+ */
+export function resolveStorePairTrialFee(ctx: Pick<CommissionContext, "lessonFees">): number {
+  return ctx.lessonFees?.[STORE_PAIR_TRIAL_COURSE_NAME] ?? getLessonFee(STORE_PAIR_TRIAL_COURSE_NAME);
+}
+
+/**
  * 体験レッスン1件の計上額。
  * この回だけの金額(amount) → 料金区分(course)の単価 → 体験レッスンの標準単価、の順に見る。
  * course 未設定は「体験レッスン」で、店舗・オンラインは 6,600円。
  * 実施形態が「出張」の体験は 9,900円（2026-11-18 以降に登録した分。isOnsiteTrialPrice）。
  * そのうち備考に「利用人数: 2名」とあるものは 13,500円（2名合計）。
+ * 店舗の体験で備考に「利用人数: 2名」とあるものは 9,900円（2名合計。2026-11-01 以降に実施する分。isStorePairTrialPeriod）。
  */
 export function resolveTrialFee(
-  trial: Pick<TrialLesson, "course" | "amount"> & Partial<Pick<TrialLesson, "deliveryMode" | "createdAt" | "note">>,
+  trial: Pick<TrialLesson, "course" | "amount"> & Partial<Pick<TrialLesson, "deliveryMode" | "createdAt" | "note" | "scheduledAt">>,
   ctx: Pick<CommissionContext, "lessonFees">,
 ): number {
   if (trial.amount != null) return trial.amount;
@@ -244,6 +254,7 @@ export function resolveTrialFee(
     return ctx.lessonFees?.[course] ?? getLessonFee(course);
   }
   if (isOnsiteTrialPrice(trial)) return resolveOnsiteTrialFee(ctx, isPairTrialNote(trial.note));
+  if (isStorePairTrialPeriod(trial) && isPairTrialNote(trial.note)) return resolveStorePairTrialFee(ctx);
   return resolveTrialLessonFee(ctx);
 }
 

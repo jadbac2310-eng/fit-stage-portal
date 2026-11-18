@@ -10,6 +10,7 @@ export const LESSON_PRICE: Record<string, number> = {
   "回数券16回": 9300,
   "回数券32回": 9000,
   "体験レッスン": 6600,
+  "体験レッスン2名": 9900,     // 店舗の体験・ペア（2名合計。HPの料金・確定メールと同じ額）
   "出張体験レッスン": 9900,   // 出張の体験（2026-11-18〜。通常の出張1名60分と同じ額）
   "出張体験レッスン2名": 13500, // 出張の体験・2名（通常の出張2名60分と同じ額。2名合計）
 };
@@ -40,6 +41,27 @@ export function isOnsiteTrialPrice(trial: { deliveryMode?: string | null; create
   if (trial.deliveryMode !== "onsite" || !trial.createdAt) return false;
   const t = new Date(trial.createdAt).getTime();
   return Number.isFinite(t) && t >= new Date(ONSITE_TRIAL_FROM).getTime();
+}
+
+/**
+ * 店舗の体験・2名（ペア）は 9,900円（2名合計。2026-11-18 尚樹「なおす」）。
+ * 確定メールとHPは前から 9,900円なのに、売上・歩合・請求だけ 1名と同じ 6,600円で計上していたのを直した。
+ * 2名かどうかは、備考の「利用人数: 2名」で見分ける（lib/trial-note.ts の isPairTrialNote）。
+ * プランマスタに「体験レッスン2名」という単発の行を足せば、そちらの金額が優先される。
+ */
+export const STORE_PAIR_TRIAL_COURSE_NAME = "体験レッスン2名";
+
+/**
+ * 実施日がこの日時以降の体験から、店舗のペアを 9,900円で計上する（日本時間 2026-11-01 0:00）。
+ * 10月までの月は 6,600円で締めて支払い済みなので、過去の売上・歩合・請求は変えない。
+ */
+export const STORE_PAIR_TRIAL_FROM = "2026-10-31T15:00:00.000Z";
+
+/** 店舗のペア料金（9,900円）で扱う体験かどうか。実施形態が「店舗」で、実施日が切り替え日以降のもの（2名かどうかは別に見る） */
+export function isStorePairTrialPeriod(trial: { deliveryMode?: string | null; scheduledAt?: string | null }): boolean {
+  if ((trial.deliveryMode ?? "store") !== "store" || !trial.scheduledAt) return false;
+  const t = new Date(trial.scheduledAt).getTime();
+  return Number.isFinite(t) && t >= new Date(STORE_PAIR_TRIAL_FROM).getTime();
 }
 
 // トレーナー歩合率 (50%)

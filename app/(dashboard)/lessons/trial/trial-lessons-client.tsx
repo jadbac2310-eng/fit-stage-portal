@@ -9,7 +9,7 @@ import {
 import { AuthorStamp } from "@/components/ui/author-stamp";
 import { TrialLesson, TrialLessonStatus, STATUS_LABEL, TRIAL_COURSE_OPTIONS } from "@/lib/trial-lessons-types";
 import type { TrialNoteItem } from "@/lib/trial-note";
-import { TRIAL_LESSON_COURSE_NAME, isOnsiteTrialPrice } from "@/lib/commissions-types";
+import { TRIAL_LESSON_COURSE_NAME, isOnsiteTrialPrice, isStorePairTrialPeriod } from "@/lib/commissions-types";
 import { parseTrialNote, isShortNote, looksLikeApplication, joinTrialNote, isPairTrialNote } from "@/lib/trial-note";
 import { Customer, isFctCustomer } from "@/lib/customers-types";
 import { Member } from "@/lib/members";
@@ -74,26 +74,24 @@ function ContractBadge({ contracted }: { contracted: boolean | null }) {
 
 // 料金区分バッジ。既定（体験レッスン・金額指定なし）のときは何も出さず、
 // 都度などに切り替えた回だけ一覧で分かるようにする。
-function CourseBadge({ course, amount, onsitePrice, pair }: { course?: string; amount?: number; onsitePrice?: boolean; pair?: boolean }) {
+function CourseBadge({ course, amount, onsitePrice, pair, storePair }: { course?: string; amount?: number; onsitePrice?: boolean; pair?: boolean; storePair?: boolean }) {
   const lang = useLang();
   const tt = makeT(lang);
-  if (!course && amount == null) {
-    // 出張の体験は店舗（6,600円）と金額が違うので、一覧でも分かるようにする
-    if (!onsitePrice) return null;
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-        <Coins size={10} />
-        {pair ? tt("出張の体験（2名）・¥13,500", "On-site trial (2) · ¥13,500") : tt("出張の体験・¥9,900", "On-site trial · ¥9,900")}
-      </span>
-    );
-  }
-  return (
+  const badge = (text: string) => (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
       <Coins size={10} />
-      {courseLabel(course ?? TRIAL_LESSON_COURSE_NAME, lang)}
-      {amount != null && `・¥${amount.toLocaleString("ja-JP")}`}
+      {text}
     </span>
   );
+  // 料金区分が「体験レッスン」のままで、この回だけの金額も無い体験（resolveTrialFee が標準の額を返すもの）
+  const standard = (!course || course === TRIAL_LESSON_COURSE_NAME) && amount == null;
+  // 出張の体験と、店舗のペアの体験は、店舗の1名（6,600円）と金額が違うので、一覧でも分かるようにする
+  if (standard && onsitePrice) {
+    return badge(pair ? tt("出張の体験（2名）・¥13,500", "On-site trial (2) · ¥13,500") : tt("出張の体験・¥9,900", "On-site trial · ¥9,900"));
+  }
+  if (standard && storePair) return badge(tt("体験（2名）・¥9,900", "Trial (2) · ¥9,900"));
+  if (!course && amount == null) return null;
+  return badge(`${courseLabel(course ?? TRIAL_LESSON_COURSE_NAME, lang)}${amount != null ? `・¥${amount.toLocaleString("ja-JP")}` : ""}`);
 }
 
 // ─── 備考（申込フォームの回答） ───────────────────────
@@ -587,7 +585,7 @@ function LessonForm({
             ? tt(`売上・歩合・請求は「${course}」の単価で計上されます。`, `Sales, pay and invoice use the "${courseLabel(course, lang)}" price.`)
             : onsiteTrialPrice
               ? tt("通常はこのまま。出張の体験は 1名 9,900円、2名は 13,500円で計上されます（2名のときは備考に「利用人数: 2名」と書いてください。店舗の体験は 6,600円）。", "Usually leave as is. On-site trial is ¥9,900 for 1 person, ¥13,500 for 2 (for 2 people, write 「利用人数: 2名」 in the notes). Studio trial is ¥6,600.")
-              : tt("通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます。", "Usually leave as is. The trial price is used.")}
+              : tt("通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます（店舗は 1名 6,600円。2名は 9,900円で、備考に「利用人数: 2名」と書いてください）。", "Usually leave as is. The trial price is used (studio: ¥6,600 for 1 person, ¥9,900 for 2 — for 2 people, write 「利用人数: 2名」 in the notes).")}
         </p>
       </div>
 
@@ -807,7 +805,8 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
         <div className="flex flex-col gap-1">
           <StatusBadge status={lesson.status} />
           <ContractBadge contracted={lesson.contracted} />
-          <CourseBadge course={lesson.course} amount={lesson.amount} onsitePrice={isOnsiteTrialPrice(lesson)} pair={isPairTrialNote(lesson.note)} />
+          <CourseBadge course={lesson.course} amount={lesson.amount} onsitePrice={isOnsiteTrialPrice(lesson)} pair={isPairTrialNote(lesson.note)}
+            storePair={isStorePairTrialPeriod(lesson) && isPairTrialNote(lesson.note)} />
         </div>
       </td>
       <td className="px-4 py-3">
@@ -925,7 +924,8 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
         <div className="flex flex-col items-end gap-1">
           <StatusBadge status={lesson.status} />
           <ContractBadge contracted={lesson.contracted} />
-          <CourseBadge course={lesson.course} amount={lesson.amount} onsitePrice={isOnsiteTrialPrice(lesson)} pair={isPairTrialNote(lesson.note)} />
+          <CourseBadge course={lesson.course} amount={lesson.amount} onsitePrice={isOnsiteTrialPrice(lesson)} pair={isPairTrialNote(lesson.note)}
+            storePair={isStorePairTrialPeriod(lesson) && isPairTrialNote(lesson.note)} />
         </div>
       </div>
       <div className="space-y-1">
