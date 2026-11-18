@@ -4,9 +4,12 @@ import { getLessons } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 
 import { PageTitle } from "@/components/ui/page-title";
+import { getLang } from "@/lib/i18n-server";
+import { makeT } from "@/lib/i18n";
 export const dynamic = "force-dynamic";
 
 export default async function LessonsPage() {
+  const t = makeT(await getLang());
   const [lessons, trialLessons] = await Promise.all([
     getLessons(),
     getTrialLessons(),
@@ -16,7 +19,7 @@ export default async function LessonsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <PageTitle title="レッスン" sub="通常レッスン・体験レッスンの管理" />
+      <PageTitle title={t("レッスン", "Lessons")} sub={t("通常レッスン・体験レッスンの管理", "Regular and trial lessons")} />
 
       <div className="space-y-2">
 
@@ -28,11 +31,11 @@ export default async function LessonsPage() {
             <Dumbbell size={20} className="text-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm">通常レッスン</p>
-            <p className="text-xs text-gray-500 mt-0.5">顧客ごとのレッスン管理</p>
+            <p className="font-semibold text-gray-900 text-sm">{t("通常レッスン", "Lessons")}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t("顧客ごとのレッスン管理", "Lessons by client")}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xs text-gray-400">{lessons.length}件</span>
+            <span className="text-xs text-gray-400">{t(`${lessons.length}件`, `${lessons.length}`)}</span>
             <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-500 transition" />
           </div>
         </Link>
@@ -45,13 +48,13 @@ export default async function LessonsPage() {
             <FlaskConical size={20} className="text-purple-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm">体験レッスン</p>
-            <p className="text-xs text-gray-500 mt-0.5">体験・営業・契約結果の管理</p>
+            <p className="font-semibold text-gray-900 text-sm">{t("体験レッスン", "Trial lessons")}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t("体験・営業・契約結果の管理", "Trials, sales and results")}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {scheduledTrials > 0 && (
               <span className="text-xs bg-purple-100 text-purple-700 font-medium px-2 py-0.5 rounded-full">
-                予定 {scheduledTrials}件
+                {t(`予定 ${scheduledTrials}件`, `${scheduledTrials} upcoming`)}
               </span>
             )}
             <ArrowRight size={16} className="text-gray-400 group-hover:text-purple-500 transition" />

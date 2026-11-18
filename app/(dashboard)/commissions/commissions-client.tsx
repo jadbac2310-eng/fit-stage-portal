@@ -23,17 +23,21 @@ import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { cn } from "@/lib/cn";
 import { FCT_DEFAULT_RATE } from "@/lib/fct-types";
 import type { CommissionAdjustment } from "@/lib/commission-adjustments-types";
-import { payDayNotice } from "@/lib/commission-pay-date";
+import { payDayNotice, normalizePayDay } from "@/lib/commission-pay-date";
 import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
+import { useLang } from "@/components/i18n/lang-provider";
+import { makeT, courseLabel, type Lang } from "@/lib/i18n";
 
 // ─── 月選択肢生成（直近12か月） ─────────────────────────
-function getMonthOptions(): { value: string; label: string }[] {
+function getMonthOptions(lang: Lang): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = [];
   const now = new Date();
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+    const label = lang === "en"
+      ? d.toLocaleDateString("en-US", { year: "numeric", month: "long" })
+      : `${d.getFullYear()}年${d.getMonth() + 1}月`;
     options.push({ value, label });
   }
   return options;
@@ -92,8 +96,10 @@ function SectionCard({
 
 // ─── トレーナータブ ──────────────────────────────────────
 function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; isAdmin: boolean; avatarOf?: (id: string) => string | undefined }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   if (entries.length === 0) {
-    return <p className="text-sm text-gray-400 text-center py-10">この月の完了レッスンはありません</p>;
+    return <p className="text-sm text-gray-400 text-center py-10">{tt("この月の完了レッスンはありません", "No finished lessons this month")}</p>;
   }
 
   const grandTotal = entries.reduce((s, e) => s + e.total, 0);
@@ -101,8 +107,8 @@ function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; i
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-gray-500">{entries.length}名</p>
-        <p className="text-sm font-bold text-gray-700">合計 {yen(grandTotal)}</p>
+        <p className="text-xs text-gray-500">{tt(`${entries.length}名`, `${entries.length} ${entries.length === 1 ? "person" : "people"}`)}</p>
+        <p className="text-sm font-bold text-gray-700">{tt("合計", "Total")} {yen(grandTotal)}</p>
       </div>
       {entries.map((entry) => (
         <SectionCard key={entry.memberId} name={entry.memberName} avatarUrl={avatarOf?.(entry.memberId)} total={entry.total}>
@@ -110,18 +116,18 @@ function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; i
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-400 border-b border-gray-100">
-                  <th className="text-left py-1.5 pr-3 font-medium">顧客</th>
-                  <th className="text-left py-1.5 pr-3 font-medium">コース</th>
-                  <th className="text-left py-1.5 pr-3 font-medium">日付</th>
+                  <th className="text-left py-1.5 pr-3 font-medium">{tt("顧客", "Client")}</th>
+                  <th className="text-left py-1.5 pr-3 font-medium">{tt("コース", "Course")}</th>
+                  <th className="text-left py-1.5 pr-3 font-medium">{tt("日付", "Date")}</th>
                   {isAdmin && <th className="text-right py-1.5 pr-3 font-medium">単価</th>}
-                  <th className="text-right py-1.5 font-medium">歩合</th>
+                  <th className="text-right py-1.5 font-medium">{tt("歩合", "Pay")}</th>
                 </tr>
               </thead>
               <tbody>
                 {entry.lessons.map((l) => (
                   <tr key={l.lessonId} className="border-b border-gray-50 last:border-0">
                     <td className="py-1.5 pr-3 text-gray-700">{l.customerName}</td>
-                    <td className="py-1.5 pr-3 text-gray-600">{l.course || "—"}</td>
+                    <td className="py-1.5 pr-3 text-gray-600">{courseLabel(l.course, lang) || "—"}</td>
                     <td className="py-1.5 pr-3 text-gray-500">{formatDate(l.scheduledAt)}</td>
                     {isAdmin && <td className="py-1.5 pr-3 text-right text-gray-600">{yen(l.fee)}</td>}
                     <td className="py-1.5 text-right font-semibold text-blue-600">{yen(l.commission)}</td>
@@ -130,7 +136,7 @@ function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; i
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
+                  <td colSpan={isAdmin ? 4 : 3} className="pt-2 text-right text-xs font-bold text-gray-700">{tt("小計", "Subtotal")}</td>
                   <td className="pt-2 text-right text-sm font-bold text-blue-600">{yen(entry.total)}</td>
                 </tr>
               </tfoot>
@@ -144,8 +150,10 @@ function TrainerTab({ entries, isAdmin, avatarOf }: { entries: TrainerEntry[]; i
 
 // ─── 営業タブ ─────────────────────────────────────────────
 function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdmin: boolean; avatarOf?: (id: string) => string | undefined }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   if (entries.length === 0) {
-    return <p className="text-sm text-gray-400 text-center py-10">この月の歩合・ボーナスはありません</p>;
+    return <p className="text-sm text-gray-400 text-center py-10">{tt("この月の歩合・ボーナスはありません", "No commission or bonus this month")}</p>;
   }
 
   const grandTotal = entries.reduce((s, e) => s + e.total, 0);
@@ -153,8 +161,8 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-gray-500">{entries.length}名</p>
-        <p className="text-sm font-bold text-gray-700">合計 {yen(grandTotal)}</p>
+        <p className="text-xs text-gray-500">{tt(`${entries.length}名`, `${entries.length} ${entries.length === 1 ? "person" : "people"}`)}</p>
+        <p className="text-sm font-bold text-gray-700">{tt("合計", "Total")} {yen(grandTotal)}</p>
       </div>
       {entries.map((entry) => (
         <SectionCard
@@ -162,24 +170,24 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
           name={entry.memberName}
           avatarUrl={avatarOf?.(entry.memberId)}
           total={entry.total}
-          subtitle={`レッスン ${yen(entry.lessonTotal)} ＋ ボーナス ${yen(entry.bonusTotal)}`}
+          subtitle={tt(`レッスン ${yen(entry.lessonTotal)} ＋ ボーナス ${yen(entry.bonusTotal)}`, `Lessons ${yen(entry.lessonTotal)} + bonus ${yen(entry.bonusTotal)}`)}
         >
           {/* レッスン歩合 */}
           {entry.lessons.length > 0 && (
             <div className="mb-4">
               <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
-                <TrendingUp size={11} /> レッスン歩合
+                <TrendingUp size={11} /> {tt("レッスン歩合", "Lesson commission")}
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-gray-400 border-b border-gray-100">
-                      <th className="text-left py-1.5 pr-3 font-medium">顧客</th>
-                      <th className="text-left py-1.5 pr-2 font-medium">区分</th>
-                      <th className="text-left py-1.5 pr-3 font-medium">コース</th>
-                      <th className="text-left py-1.5 pr-3 font-medium">日付</th>
+                      <th className="text-left py-1.5 pr-3 font-medium">{tt("顧客", "Client")}</th>
+                      <th className="text-left py-1.5 pr-2 font-medium">{tt("区分", "Type")}</th>
+                      <th className="text-left py-1.5 pr-3 font-medium">{tt("コース", "Course")}</th>
+                      <th className="text-left py-1.5 pr-3 font-medium">{tt("日付", "Date")}</th>
                       {isAdmin && <th className="text-right py-1.5 pr-3 font-medium">単価</th>}
-                      <th className="text-right py-1.5 font-medium">歩合</th>
+                      <th className="text-right py-1.5 font-medium">{tt("歩合", "Pay")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -193,10 +201,10 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
                               ? "bg-blue-100 text-blue-700"
                               : "bg-gray-100 text-gray-600"
                           )}>
-                            {l.customerType === "corporate" ? "法人" : "個人"}
+                            {l.customerType === "corporate" ? tt("法人", "Company") : tt("個人", "Personal")}
                           </span>
                         </td>
-                        <td className="py-1.5 pr-3 text-gray-600">{l.course || "—"}</td>
+                        <td className="py-1.5 pr-3 text-gray-600">{courseLabel(l.course, lang) || "—"}</td>
                         <td className="py-1.5 pr-3 text-gray-500">{formatDate(l.scheduledAt)}</td>
                         {isAdmin && <td className="py-1.5 pr-3 text-right text-gray-600">{yen(l.fee)}</td>}
                         <td className="py-1.5 text-right font-semibold text-blue-600">
@@ -212,7 +220,7 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={isAdmin ? 5 : 4} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
+                      <td colSpan={isAdmin ? 5 : 4} className="pt-2 text-right text-xs font-bold text-gray-700">{tt("小計", "Subtotal")}</td>
                       <td className="pt-2 text-right text-sm font-bold text-blue-600">{yen(entry.lessonTotal)}</td>
                     </tr>
                   </tfoot>
@@ -225,16 +233,16 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
           {entry.bonuses.length > 0 && (
             <div>
               <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
-                <Award size={11} /> 成約ボーナス
+                <Award size={11} /> {tt("成約ボーナス", "Sign-up bonus")}
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-gray-400 border-b border-gray-100">
-                      <th className="text-left py-1.5 pr-3 font-medium">顧客</th>
-                      <th className="text-left py-1.5 pr-3 font-medium">区分</th>
-                      <th className="text-left py-1.5 pr-3 font-medium">成約日</th>
-                      <th className="text-right py-1.5 font-medium">ボーナス</th>
+                      <th className="text-left py-1.5 pr-3 font-medium">{tt("顧客", "Client")}</th>
+                      <th className="text-left py-1.5 pr-3 font-medium">{tt("区分", "Type")}</th>
+                      <th className="text-left py-1.5 pr-3 font-medium">{tt("成約日", "Date")}</th>
+                      <th className="text-right py-1.5 font-medium">{tt("ボーナス", "Bonus")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -248,7 +256,7 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
                               ? "bg-blue-100 text-blue-700"
                               : "bg-gray-100 text-gray-600"
                           )}>
-                            {b.customerType === "corporate" ? "法人" : "個人"}
+                            {b.customerType === "corporate" ? tt("法人", "Company") : tt("個人", "Personal")}
                           </span>
                         </td>
                         <td className="py-1.5 pr-3 text-gray-500">{formatDate(b.scheduledAt)}</td>
@@ -258,7 +266,7 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={3} className="pt-2 text-right text-xs font-bold text-gray-700">小計</td>
+                      <td colSpan={3} className="pt-2 text-right text-xs font-bold text-gray-700">{tt("小計", "Subtotal")}</td>
                       <td className="pt-2 text-right text-sm font-bold text-green-600">{yen(entry.bonusTotal)}</td>
                     </tr>
                   </tfoot>
@@ -274,16 +282,18 @@ function SalesTab({ entries, isAdmin, avatarOf }: { entries: SalesEntry[]; isAdm
 
 // ─── 業務（時給）タブ ─────────────────────────────────────
 function HourlyTaskTable({ rows, muted }: { rows: HourlyEntry["tasks"]; muted?: boolean }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
           <tr className="text-gray-400 border-b border-gray-100">
-            <th className="text-left py-1.5 pr-3 font-medium">業務内容</th>
-            <th className="text-left py-1.5 pr-3 font-medium">日付</th>
-            <th className="text-right py-1.5 pr-3 font-medium">時間</th>
-            <th className="text-right py-1.5 pr-3 font-medium">時給</th>
-            <th className="text-right py-1.5 font-medium">金額</th>
+            <th className="text-left py-1.5 pr-3 font-medium">{tt("業務内容", "Work")}</th>
+            <th className="text-left py-1.5 pr-3 font-medium">{tt("日付", "Date")}</th>
+            <th className="text-right py-1.5 pr-3 font-medium">{tt("時間", "Hours")}</th>
+            <th className="text-right py-1.5 pr-3 font-medium">{tt("時給", "Rate")}</th>
+            <th className="text-right py-1.5 font-medium">{tt("金額", "Amount")}</th>
           </tr>
         </thead>
         <tbody>
@@ -305,8 +315,10 @@ function HourlyTaskTable({ rows, muted }: { rows: HourlyEntry["tasks"]; muted?: 
 }
 
 function HourlyTab({ entries, isAdmin, avatarOf }: { entries: HourlyEntry[]; isAdmin: boolean; avatarOf?: (id: string) => string | undefined }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   if (entries.length === 0) {
-    return <p className="text-sm text-gray-400 text-center py-10">この月の業務はありません</p>;
+    return <p className="text-sm text-gray-400 text-center py-10">{tt("この月の業務はありません", "No hourly work this month")}</p>;
   }
 
   const grandTotal = entries.reduce((s, e) => s + e.total, 0);
@@ -314,8 +326,8 @@ function HourlyTab({ entries, isAdmin, avatarOf }: { entries: HourlyEntry[]; isA
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-gray-500">{entries.length}名</p>
-        <p className="text-sm font-bold text-gray-700">合計 {yen(grandTotal)}</p>
+        <p className="text-xs text-gray-500">{tt(`${entries.length}名`, `${entries.length} ${entries.length === 1 ? "person" : "people"}`)}</p>
+        <p className="text-sm font-bold text-gray-700">{tt("合計", "Total")} {yen(grandTotal)}</p>
       </div>
       {entries.map((entry) => (
         <SectionCard
@@ -325,17 +337,17 @@ function HourlyTab({ entries, isAdmin, avatarOf }: { entries: HourlyEntry[]; isA
           total={entry.total}
           subtitle={
             entry.pending.length > 0
-              ? `完了 ${entry.tasks.length}件 ／ 未完了 ${entry.pending.length}件（${yen(entry.pendingTotal)}）`
-              : `完了 ${entry.tasks.length}件`
+              ? tt(`完了 ${entry.tasks.length}件 ／ 未完了 ${entry.pending.length}件（${yen(entry.pendingTotal)}）`, `${entry.tasks.length} done / ${entry.pending.length} not done (${yen(entry.pendingTotal)})`)
+              : tt(`完了 ${entry.tasks.length}件`, `${entry.tasks.length} done`)
           }
         >
           {entry.tasks.length > 0 && (
             <div className={entry.pending.length > 0 ? "mb-4" : undefined}>
               <p className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
-                <Clock size={11} /> 完了した業務
+                <Clock size={11} /> {tt("完了した業務", "Finished work")}
               </p>
               <HourlyTaskTable rows={entry.tasks} />
-              <p className="pt-2 text-right text-sm font-bold text-blue-600">小計 {yen(entry.total)}</p>
+              <p className="pt-2 text-right text-sm font-bold text-blue-600">{tt("小計", "Subtotal")} {yen(entry.total)}</p>
             </div>
           )}
 
@@ -343,14 +355,14 @@ function HourlyTab({ entries, isAdmin, avatarOf }: { entries: HourlyEntry[]; isA
           {entry.pending.length > 0 && (
             <div className="rounded-xl bg-amber-50 border border-amber-100 p-3">
               <p className="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1">
-                <AlertTriangle size={11} /> まだ「予定」のままの業務
+                <AlertTriangle size={11} /> {tt("まだ「予定」のままの業務", "Work still marked \"Scheduled\"")}
               </p>
               <HourlyTaskTable rows={entry.pending} muted />
-              <p className="pt-2 text-right text-sm font-bold text-amber-600">対象外 {yen(entry.pendingTotal)}</p>
+              <p className="pt-2 text-right text-sm font-bold text-amber-600">{tt("対象外", "Not paid")} {yen(entry.pendingTotal)}</p>
               <p className="text-[11px] text-amber-600 mt-1.5 leading-relaxed">
                 {isAdmin
                   ? "「完了」にすると支払い対象に入ります。スケジュールから変更してください。"
-                  : "実施済みであれば、管理者に「完了」への変更を依頼してください。"}
+                  : tt("実施済みであれば、管理者に「完了」への変更を依頼してください。", "If you did it, ask an admin to mark it Done.")}
               </p>
             </div>
           )}
@@ -456,7 +468,9 @@ export function CommissionsClient({
   isAdmin:      boolean;
   currentMemberId?: string;
 }) {
-  const monthOptions = useMemo(() => getMonthOptions(), []);
+  const lang = useLang();
+  const tt = makeT(lang);
+  const monthOptions = useMemo(() => getMonthOptions(lang), [lang]);
   const [month,    setMonth]    = useState(currentMonth);
   const [activeTab, setActiveTab] = useState<"trainer" | "sales" | "hourly">("trainer");
 
@@ -498,8 +512,9 @@ export function CommissionsClient({
   // 自分の分だけ見ている人には自分の支払日を、管理者には全員ぶん（例外は名前付き）を出す
   const payNotice = useMemo(() => {
     const self = isAdmin ? null : members.find((m) => m.id === currentMemberId) ?? null;
+    if (self && lang === "en") return `Month-end close · paid on day ${normalizePayDay(self.commissionPayDay)} of next month`;
     return payDayNotice(members, self);
-  }, [members, isAdmin, currentMemberId]);
+  }, [members, isAdmin, currentMemberId, lang]);
 
   // この月の前払いの差し引き。合計からは引かれるので、タブの数字と食い違う前に知らせる
   const monthAdjustments = useMemo(
@@ -512,10 +527,10 @@ export function CommissionsClient({
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       {/* ヘッダー */}
       <PageTitle
-        title="歩合管理"
+        title={tt("歩合管理", "Commission")}
         sub={
           <>
-            {isAdmin ? "月別のトレーナー・営業歩合を確認できます" : "あなたの月別歩合を確認できます"}
+            {isAdmin ? "月別のトレーナー・営業歩合を確認できます" : tt("あなたの月別歩合を確認できます", "Your pay by month")}
           </>
         }
       />
@@ -523,12 +538,12 @@ export function CommissionsClient({
       {/* 管理者向けリンク（月次明細・歩合率設定） */}
       {isAdmin && <AdminLinks />}
       <div className="md:hidden mb-4">
-        <h1 className="text-lg font-bold text-gray-900">歩合管理</h1>
+        <h1 className="text-lg font-bold text-gray-900">{tt("歩合管理", "Commission")}</h1>
       </div>
 
       {/* 月選択 */}
       <div className="flex items-center gap-3 mb-5">
-        <label className="text-sm font-semibold text-gray-600">対象月</label>
+        <label className="text-sm font-semibold text-gray-600">{tt("対象月", "Month")}</label>
         <select
           value={month}
           onChange={(e) => setMonth(e.target.value)}
@@ -545,23 +560,23 @@ export function CommissionsClient({
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
           <p className="text-xs font-semibold text-blue-600 flex items-center gap-1.5 mb-1">
-            <Users size={12} /> トレーナー合計
+            <Users size={12} /> {tt("トレーナー合計", "Trainer total")}
           </p>
           <p className="text-xl font-bold text-blue-700">{yen(trainerTotal)}</p>
-          <p className="text-xs text-blue-400 mt-0.5">{isAdmin ? `${trainerEntries.length}名` : "あなたの分"}</p>
+          <p className="text-xs text-blue-400 mt-0.5">{isAdmin ? `${trainerEntries.length}名` : tt("あなたの分", "Yours")}</p>
         </div>
         <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
           <p className="text-xs font-semibold text-green-600 flex items-center gap-1.5 mb-1">
-            <TrendingUp size={12} /> 営業合計
+            <TrendingUp size={12} /> {tt("営業合計", "Sales total")}
           </p>
           <p className="text-xl font-bold text-green-700">{yen(salesTotal)}</p>
-          <p className="text-xs text-green-400 mt-0.5">{isAdmin ? `${salesEntries.length}名` : "あなたの分"}</p>
+          <p className="text-xs text-green-400 mt-0.5">{isAdmin ? `${salesEntries.length}名` : tt("あなたの分", "Yours")}</p>
         </div>
         {/* 業務は金額が横に長くなりやすいので、2カラムをまたいで1行使う */}
         <div className="col-span-2 bg-amber-50 rounded-2xl p-4 border border-amber-100">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-xs font-semibold text-amber-600 flex items-center gap-1.5">
-              <Clock size={12} /> 業務合計（時給）
+              <Clock size={12} /> {tt("業務合計（時給）", "Hourly work total")}
             </p>
             <p className="text-xl font-bold text-amber-700">{yen(hourlyTotal)}</p>
           </div>
@@ -569,8 +584,8 @@ export function CommissionsClient({
             <p className="text-xs text-amber-600 mt-1.5 flex items-start gap-1 leading-relaxed">
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
               <span>
-                まだ「予定」のままの業務が {pendingCount}件（{yen(pendingTotal)}）あります。
-                完了にしないと支払い対象に入りません。
+                {tt(`まだ「予定」のままの業務が ${pendingCount}件（${yen(pendingTotal)}）あります。完了にしないと支払い対象に入りません。`,
+                  `${pendingCount} work item(s) (${yen(pendingTotal)}) are still "Scheduled". They are not paid until marked Done.`)}
               </span>
             </p>
           )}
@@ -582,7 +597,7 @@ export function CommissionsClient({
         <div className="rounded-2xl bg-indigo-50 border border-indigo-100 p-4 mb-5">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-xs font-semibold text-indigo-600 flex items-center gap-1.5">
-              <Wallet size={12} /> 前払い・差し引き
+              <Wallet size={12} /> {tt("前払い・差し引き", "Advance / deduction")}
             </p>
             <p className={cn("text-xl font-bold", adjustmentTotal < 0 ? "text-red-600" : "text-green-700")}>
               {adjustmentTotal < 0 ? "−" : "＋"}{yen(Math.abs(adjustmentTotal))}
@@ -601,7 +616,7 @@ export function CommissionsClient({
             ))}
           </ul>
           <p className="text-[11px] text-indigo-500 mt-2 leading-relaxed">
-            総支給額（下のタブの金額）は変わりません。支給日に振り込む額だけが変わります。
+            {tt("総支給額（下のタブの金額）は変わりません。支給日に振り込む額だけが変わります。", "Your total pay (below) stays the same. Only the amount transferred on payday changes.")}
           </p>
           {isAdmin && (
             <Link href="/commissions/adjustments" className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-800 underline mt-1.5">
@@ -619,7 +634,7 @@ export function CommissionsClient({
             onClick={() => setActiveTab(tab)}
             className={tabButton(activeTab === tab)}
           >
-            {tab === "trainer" ? "トレーナー" : tab === "sales" ? "営業" : "業務"}
+            {tab === "trainer" ? tt("トレーナー", "Trainer") : tab === "sales" ? tt("営業", "Sales") : tt("業務", "Hourly")}
             {tab === "hourly" && pendingCount > 0 && (
               <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-amber-500 align-middle" />
             )}

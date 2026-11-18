@@ -12,6 +12,8 @@ import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import { recentReadStart } from "@/lib/recent-months";
 import { CommissionsClient } from "./commissions-client";
+import { getLang } from "@/lib/i18n-server";
+import { makeT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +21,12 @@ export default async function CommissionsPage() {
   const member = await getCurrentMember();
 
   if (!member) {
+    const t = makeT(await getLang());
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 px-6 text-center">
         <p className="text-4xl">💰</p>
-        <p className="text-sm font-semibold text-gray-600">担当者アカウントに紐づいていません</p>
-        <p className="text-xs text-gray-400">管理者に担当者の割り当てを依頼してください</p>
+        <p className="text-sm font-semibold text-gray-600">{t("担当者アカウントに紐づいていません", "Your login is not linked to a staff account")}</p>
+        <p className="text-xs text-gray-400">{t("管理者に担当者の割り当てを依頼してください", "Ask an admin to link it")}</p>
       </div>
     );
   }

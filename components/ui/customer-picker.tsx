@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, ChevronDown, X, Clock } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useLang } from "@/components/i18n/lang-provider";
+import { makeT } from "@/lib/i18n";
 
 /**
  * 顧客を選ぶ欄（どの画面でも同じもの）。
@@ -77,11 +79,15 @@ const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
   trial:    { label: "体験",   cls: "bg-purple-50 text-purple-700" },
   inactive: { label: "退会",   cls: "bg-gray-100 text-gray-500" },
 };
+const STATUS_CHIP_EN: Record<string, string> = { pending: "Pending", trial: "Trial", inactive: "Left" };
 
 export function CustomerPicker({
-  customers, name, value, defaultValue, onChange, required, placeholder = "顧客をえらぶ…",
+  customers, name, value, defaultValue, onChange, required, placeholder: placeholderProp,
   emptyOption, excludeIds, className,
 }: Props) {
+  const lang = useLang();
+  const tt = makeT(lang);
+  const placeholder = placeholderProp ?? tt("顧客をえらぶ…", "Choose a client…");
   const controlled = value !== undefined;
   const [inner, setInner] = useState(defaultValue ?? emptyOption?.value ?? "");
   const selectedId = controlled ? value : inner;
@@ -128,7 +134,7 @@ export function CustomerPicker({
       // 検索中は、前方一致を先に・退会は後ろに、1つの一覧で出す
       const starts = (c: PickerCustomer) => (normalizeForSearch(labelOf(c)).startsWith(q) ? 0 : 1);
       const rank = (c: PickerCustomer) => STATUS_RANK[c.status ?? "active"] ?? 0;
-      return [{ title: `${matches.length}件`, items: [...matches].sort((a, b) => starts(a) - starts(b) || (rank(a) === 2 ? 1 : 0) - (rank(b) === 2 ? 1 : 0) || byName(a, b)) }];
+      return [{ key: "hits", title: tt(`${matches.length}件`, `${matches.length} found`), items: [...matches].sort((a, b) => starts(a) - starts(b) || (rank(a) === 2 ? 1 : 0) - (rank(b) === 2 ? 1 : 0) || byName(a, b)) }];
     }
 
     const recentItems = recent.map((id) => pool.find((c) => c.id === id)).filter((c): c is PickerCustomer => !!c && c.status !== "inactive");
@@ -136,12 +142,12 @@ export function CustomerPicker({
     const rest = matches.filter((c) => !recentSet.has(c.id));
     const active  = rest.filter((c) => (STATUS_RANK[c.status ?? "active"] ?? 0) === 0).sort(byName);
     const waiting = rest.filter((c) => (STATUS_RANK[c.status ?? "active"] ?? 0) === 1).sort(byName);
-    const out: { title: string; items: PickerCustomer[] }[] = [];
-    if (recentItems.length) out.push({ title: "最近えらんだ人", items: recentItems });
-    if (active.length) out.push({ title: waiting.length || recentItems.length ? "在籍中" : "", items: active });
-    if (waiting.length) out.push({ title: "体験・審査中", items: waiting });
+    const out: { key: string; title: string; items: PickerCustomer[] }[] = [];
+    if (recentItems.length) out.push({ key: "recent", title: tt("最近えらんだ人", "Recent"), items: recentItems });
+    if (active.length) out.push({ key: "active", title: waiting.length || recentItems.length ? tt("在籍中", "Active") : "", items: active });
+    if (waiting.length) out.push({ key: "waiting", title: tt("体験・審査中", "Trial / pending"), items: waiting });
     return out;
-  }, [pool, query, recent]);
+  }, [pool, query, recent, tt]);
 
   const inactiveCount = useMemo(() => pool.filter((c) => c.status === "inactive").length, [pool]);
 
@@ -175,7 +181,7 @@ export function CustomerPicker({
         </span>
         {selected?.status && STATUS_CHIP[selected.status] && (
           <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0", STATUS_CHIP[selected.status].cls)}>
-            {STATUS_CHIP[selected.status].label}
+            {lang === "en" ? STATUS_CHIP_EN[selected.status] : STATUS_CHIP[selected.status].label}
           </span>
         )}
         <ChevronDown size={15} className={cn("text-gray-400 flex-shrink-0 transition", open && "rotate-180")} />
@@ -199,11 +205,11 @@ export function CustomerPicker({
                   if (first) pick(first.id);
                 }
               }}
-              placeholder="名前の一部で検索（例：堀、田中）"
+              placeholder={tt("名前の一部で検索（例：堀、田中）", "Search by name")}
               className="w-full pl-9 pr-9 py-2.5 text-[16px] sm:text-sm focus:outline-none"
             />
             {query && (
-              <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400" aria-label="検索を消す">
+              <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400" aria-label={tt("検索を消す", "Clear search")}>
                 <X size={14} />
               </button>
             )}
@@ -217,7 +223,7 @@ export function CustomerPicker({
               <div key={i}>
                 {s.title && (
                   <p className="sticky top-0 z-[1] bg-gray-50/95 px-3 py-1 text-[10px] font-semibold text-gray-500 flex items-center gap-1">
-                    {s.title === "最近えらんだ人" && <Clock size={10} />}{s.title}
+                    {s.key === "recent" && <Clock size={10} />}{s.title}
                   </p>
                 )}
                 {s.items.map((c) => (
@@ -227,11 +233,11 @@ export function CustomerPicker({
             ))}
             {sections.every((s) => s.items.length === 0) && (
               <p className="px-3 py-6 text-center text-xs text-gray-400">
-                {query ? "見つかりません。字を減らすか、別の書き方で試してください" : "顧客がいません"}
+                {query ? tt("見つかりません。字を減らすか、別の書き方で試してください", "No match. Try fewer letters or another spelling.") : tt("顧客がいません", "No clients")}
               </p>
             )}
             {!query && inactiveCount > 0 && (
-              <p className="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100">退会した人（{inactiveCount}人）は、名前で検索すると出ます</p>
+              <p className="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100">{tt(`退会した人（${inactiveCount}人）は、名前で検索すると出ます`, `Former clients (${inactiveCount}) show up when you search by name`)}</p>
             )}
           </div>
         </div>
@@ -243,6 +249,7 @@ export function CustomerPicker({
 function Option({ label, active, status, muted, onPick }: {
   label: string; active: boolean; status?: string; muted?: boolean; onPick: () => void;
 }) {
+  const lang = useLang();
   const chip = status ? STATUS_CHIP[status] : undefined;
   return (
     <button
@@ -255,7 +262,7 @@ function Option({ label, active, status, muted, onPick }: {
       )}
     >
       <span className="flex-1 min-w-0 truncate">{label}</span>
-      {chip && <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", chip.cls)}>{chip.label}</span>}
+      {chip && <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", chip.cls)}>{lang === "en" ? STATUS_CHIP_EN[status!] : chip.label}</span>}
     </button>
   );
 }

@@ -36,8 +36,12 @@ import { Confetti } from "@/components/ui/confetti";
 import { CustomerPicker } from "@/components/ui/customer-picker";
 
 import { PageTitle } from "@/components/ui/page-title";
+import { useLang } from "@/components/i18n/lang-provider";
+import { makeT, courseLabel, dateLocale, DELIVERY_MODE_EN, VENUE_KIND_EN } from "@/lib/i18n";
 // ─── バッジ ───────────────────────────────────────────
 function StatusBadge({ status }: { status: TrialLessonStatus }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   return (
     <span className={cn(
       "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
@@ -48,12 +52,14 @@ function StatusBadge({ status }: { status: TrialLessonStatus }) {
       {status === "scheduled" && <Clock size={10} />}
       {status === "completed" && <CheckCircle size={10} />}
       {status === "cancelled" && <XCircle size={10} />}
-      {STATUS_LABEL[status]}
+      {tt(STATUS_LABEL[status], { scheduled: "Scheduled", completed: "Done", cancelled: "Cancelled" }[status])}
     </span>
   );
 }
 
 function ContractBadge({ contracted }: { contracted: boolean | null }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   if (contracted === null) return null;
   return (
     <span className={cn(
@@ -61,7 +67,7 @@ function ContractBadge({ contracted }: { contracted: boolean | null }) {
       contracted ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
     )}>
       {contracted ? <CheckCircle size={10} /> : <XCircle size={10} />}
-      {contracted ? "契約成功" : "不成立"}
+      {contracted ? tt("契約成功", "Signed up") : tt("不成立", "Not signed")}
     </span>
   );
 }
@@ -69,20 +75,22 @@ function ContractBadge({ contracted }: { contracted: boolean | null }) {
 // 料金区分バッジ。既定（体験レッスン・金額指定なし）のときは何も出さず、
 // 都度などに切り替えた回だけ一覧で分かるようにする。
 function CourseBadge({ course, amount, onsitePrice, pair }: { course?: string; amount?: number; onsitePrice?: boolean; pair?: boolean }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   if (!course && amount == null) {
     // 出張の体験は店舗（6,600円）と金額が違うので、一覧でも分かるようにする
     if (!onsitePrice) return null;
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
         <Coins size={10} />
-        {pair ? "出張の体験（2名）・¥13,500" : "出張の体験・¥9,900"}
+        {pair ? tt("出張の体験（2名）・¥13,500", "On-site trial (2) · ¥13,500") : tt("出張の体験・¥9,900", "On-site trial · ¥9,900")}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
       <Coins size={10} />
-      {course ?? TRIAL_LESSON_COURSE_NAME}
+      {courseLabel(course ?? TRIAL_LESSON_COURSE_NAME, lang)}
       {amount != null && `・¥${amount.toLocaleString("ja-JP")}`}
     </span>
   );
@@ -95,6 +103,8 @@ function CourseBadge({ course, amount, onsitePrice, pair }: { course?: string; a
 function NoteItems({ items, freeText, className }: {
   items: TrialNoteItem[]; freeText?: string; className?: string;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   return (
     <div className={cn("rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 space-y-1.5 text-xs", className)}>
       {items.map((item, i) => (
@@ -105,7 +115,7 @@ function NoteItems({ items, freeText, className }: {
       ))}
       {freeText && (
         <div>
-          <p className="text-[11px] text-gray-400">メモ</p>
+          <p className="text-[11px] text-gray-400">{tt("メモ", "Memo")}</p>
           <p className="text-gray-700 leading-snug whitespace-pre-wrap">{freeText}</p>
         </div>
       )}
@@ -115,6 +125,8 @@ function NoteItems({ items, freeText, className }: {
 
 // 一覧用: 既定は畳んでおき、タップで項目リストを開く
 function NoteBlock({ note }: { note?: string }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [open, setOpen] = useState(false);
   if (!note?.trim()) return null;
 
@@ -139,7 +151,7 @@ function NoteBlock({ note }: { note?: string }) {
         className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600 transition"
       >
         <StickyNote size={11} className="text-gray-400 flex-shrink-0" />
-        <span className="font-medium">申込内容{count > 0 && `（${count}項目）`}</span>
+        <span className="font-medium">{tt("申込内容", "Booking form")}{count > 0 && tt(`（${count}項目）`, ` (${count})`)}</span>
         <ChevronDown size={12} className={cn("text-gray-400 transition-transform", open && "rotate-180")} />
       </button>
 
@@ -173,6 +185,7 @@ function VenueFeeField({
   label: string; name: string; value: string;
   onChange: (v: string) => void; isAdmin: boolean; note: string;
 }) {
+  const tt = makeT(useLang());
   return (
     <div className="mt-2">
       <label className="text-xs font-semibold text-gray-600 mb-1.5 block">{label}</label>
@@ -192,7 +205,7 @@ function VenueFeeField({
           </p>
           <input type="hidden" name={name} value={value} />
           <p className="text-xs text-gray-400 mt-1">
-            会場の料金です（変更できるのは管理者のみ）。あなたの歩合からは引かれません。
+            {tt("会場の料金です（変更できるのは管理者のみ）。あなたの歩合からは引かれません。", "Venue fee (only admins can change it). It is not taken from your pay.")}
           </p>
         </>
       )}
@@ -219,6 +232,8 @@ function LessonForm({
   action: (fd: FormData) => Promise<ActionResult | void>;
   submitLabel: string;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [error, setError] = useState("");
@@ -384,7 +399,7 @@ function LessonForm({
     if (raw) fd.set("scheduledAt", localInputToISO(raw));
     await run(async () => {
       try { assertActionOk(await action(fd)); router.refresh(); onClose(); }
-      catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+      catch (e) { setError(e instanceof Error ? e.message : tt("エラー", "Error")); }
     });
   }
 
@@ -396,7 +411,7 @@ function LessonForm({
   return (
     <form action={handleSubmit} className="space-y-4">
       <div>
-        <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
+        <label className={labelClass}><User size={12} /> {tt("顧客", "Client")} <span className="text-red-500">*</span></label>
         <CustomerPicker
           customers={customers} name="customerId" required value={customerId}
           onChange={(id) => { setCustomerId(id); syncVenueFeeFor(id); }}
@@ -404,29 +419,29 @@ function LessonForm({
       </div>
 
       <div>
-        <label className={labelClass}><User size={12} /> 営業担当者 <span className="text-red-500">*</span></label>
+        <label className={labelClass}><User size={12} /> {tt("営業担当者", "Sales")} <span className="text-red-500">*</span></label>
         <select name="salesMemberId" required defaultValue={defaultValues?.salesMemberId ?? ""} className={inputClass}>
-          <option value="">営業担当者を選択...</option>
+          <option value="">{tt("営業担当者を選択...", "Choose sales...")}</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>)}
         </select>
       </div>
 
       <div>
-        <label className={labelClass}><User size={12} /> トレーニング担当者</label>
+        <label className={labelClass}><User size={12} /> {tt("トレーニング担当者", "Trainer")}</label>
         <select name="trainerMemberId" defaultValue={defaultValues?.trainerMemberId ?? ""} className={inputClass}>
-          <option value="">未定</option>
+          <option value="">{tt("未定", "Not decided")}</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>)}
         </select>
       </div>
 
       <div>
-        <label className={labelClass}><Calendar size={12} /> 予定日時 <span className="text-red-500">*</span></label>
+        <label className={labelClass}><Calendar size={12} /> {tt("予定日時", "Date & time")} <span className="text-red-500">*</span></label>
         <input name="scheduledAt" type="datetime-local" required defaultValue={defaultScheduledAt} className={inputClass} />
       </div>
 
       {/* 実施形態（どこでやるか）。請求書の品目にも出るので、推測ではなく明示的に選ぶ */}
       <div>
-        <label className={labelClass}><MapPin size={12} /> 実施形態</label>
+        <label className={labelClass}><MapPin size={12} /> {tt("実施形態", "Where")}</label>
         <div className="flex gap-2">
           {DELIVERY_MODE_OPTIONS.map((o) => (
             <button
@@ -440,13 +455,13 @@ function LessonForm({
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
               )}
             >
-              {o.label}
+              {lang === "en" ? DELIVERY_MODE_EN[o.value] : o.label}
             </button>
           ))}
         </div>
         <input type="hidden" name="deliveryMode" value={deliveryMode} />
         <p className="text-xs text-gray-400 mt-1">
-          出張・オンラインは請求書の品目に「（出張）」「（オンライン）」と出ます。店舗は無印です。
+          {tt("出張・オンラインは請求書の品目に「（出張）」「（オンライン）」と出ます。店舗は無印です。", "On-site and Online are shown on the invoice. Studio has no mark.")}
         </p>
       </div>
 
@@ -454,7 +469,7 @@ function LessonForm({
           選択肢に料金は入れない。スマホだと1件が2行に折り返して一覧がとても縦長になるため、
           料金は選んだあとに下の入力欄で見せる。 */}
       <div className={cn(onsite && "hidden")}>
-        <label className={labelClass}><Building2 size={12} /> 会場</label>
+        <label className={labelClass}><Building2 size={12} /> {tt("会場", "Venue")}</label>
         <div className="grid grid-cols-3 gap-1.5">
           {venueKinds.map((k) => (
             <button
@@ -468,31 +483,31 @@ function LessonForm({
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
               )}
             >
-              {k.label}
+              {lang === "en" ? VENUE_KIND_EN[k.value] ?? k.label : k.label}
             </button>
           ))}
         </div>
         {venueKind === "store" && (
           <select value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">FIT STAGEの店舗を選択</option>
+            <option value="">{tt("FIT STAGEの店舗を選択", "Choose a FIT STAGE studio")}</option>
             {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         )}
         {venueKind === "gym" && (
           <select value={rentalGymId} onChange={(e) => onRentalGymChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">レンタルジムを選択</option>
+            <option value="">{tt("レンタルジムを選択", "Choose a rental gym")}</option>
             {rentalGyms.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         )}
         {venueKind === "fct" && (
           <select value={fctStoreId} onChange={(e) => onFctStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">FCT店舗を選択</option>
+            <option value="">{tt("FCT店舗を選択", "Choose an FCT venue")}</option>
             {fctStores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         )}
         {venueKind === "avenir" && (
           <select value={avenirStoreId} onChange={(e) => onAvenirStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">アヴニール店舗を選択</option>
+            <option value="">{tt("アヴニール店舗を選択", "Choose an Avenir venue")}</option>
             {avenirStores.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
@@ -502,19 +517,19 @@ function LessonForm({
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
         <input type="hidden" name="avenirStoreId" value={avenirStoreId} />
         {storeId && (
-          <VenueFeeField label="店舗の利用料（税込）" name="storeFee" value={storeFee}
+          <VenueFeeField label={tt("店舗の利用料（税込）", "Studio fee (incl. tax)")} name="storeFee" value={storeFee}
             onChange={setStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
         {rentalGymId && (
-          <VenueFeeField label="レンタルジム代（税込）" name="rentalGymFee" value={rentalGymFee}
+          <VenueFeeField label={tt("レンタルジム代（税込）", "Rental gym fee (incl. tax)")} name="rentalGymFee" value={rentalGymFee}
             onChange={setRentalGymFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
         {fctStoreId && (
-          <VenueFeeField label="FCT店舗の利用料（税込）" name="fctStoreFee" value={fctStoreFee}
+          <VenueFeeField label={tt("FCT店舗の利用料（税込）", "FCT venue fee (incl. tax)")} name="fctStoreFee" value={fctStoreFee}
             onChange={setFctStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
         {avenirStoreId && (
-          <VenueFeeField label="アヴニール店舗の利用料（税込）" name="avenirStoreFee" value={avenirStoreFee}
+          <VenueFeeField label={tt("アヴニール店舗の利用料（税込）", "Avenir venue fee (incl. tax)")} name="avenirStoreFee" value={avenirStoreFee}
             onChange={setAvenirStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます。"} />
         )}
       </div>
@@ -522,13 +537,13 @@ function LessonForm({
       {/* 場所。会場を選んだらその名前で決まるので入力欄は出さない（会場と二重に見えて、
           会場を選ばずに場所へ会場名を打ってしまう＝利用料が引かれない事故を防ぐ）。 */}
       <div>
-        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
+        <label className={labelClass}><MapPin size={12} /> {onsite ? tt("訪問先（住所など）", "Visit address") : tt("場所", "Place")}</label>
         {locationLocked ? (
           <>
             <p className="px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">{location || "—"}</p>
             <input type="hidden" name="location" value={location} />
             <p className="text-[11px] text-gray-400 mt-1">
-              上で選んだ{venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}の名前が入ります
+              {tt(`上で選んだ${venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}の名前が入ります`, "Filled in from the venue chosen above")}
             </p>
           </>
         ) : (
@@ -537,13 +552,13 @@ function LessonForm({
               name="location"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder={onsite ? "住所や施設名（任意）" : "会場マスタに無い場所だけ入力（任意）"}
+              placeholder={onsite ? tt("住所や施設名（任意）", "Address or building (optional)") : tt("会場マスタに無い場所だけ入力（任意）", "Only for places not in the venue list (optional)")}
               className={inputClass}
             />
             <p className="text-[11px] text-gray-400 mt-1">
               {onsite
-                ? "出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でOK）"
-                : "上で会場を選んだときは入力不要です。分からなければ空欄でかまいません。"}
+                ? tt("出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でOK）", "No venue for on-site. Adding the address helps later (optional).")
+                : tt("上で会場を選んだときは入力不要です。分からなければ空欄でかまいません。", "Not needed if you chose a venue above. Leave blank if unsure.")}
             </p>
             {venueHint && (
               <button
@@ -551,9 +566,9 @@ function LessonForm({
                 onClick={() => applyVenue(venueHint.kind, venueHint.id)}
                 className="mt-2 w-full text-left rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 hover:bg-amber-100 transition"
               >
-                <p className="text-xs font-semibold text-amber-800">「{venueHint.name}」は会場に登録されています</p>
+                <p className="text-xs font-semibold text-amber-800">{tt(`「${venueHint.name}」は会場に登録されています`, `"${venueHint.name}" is in the venue list`)}</p>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  タップして会場に設定してください。いまのままだと利用料が引かれません。
+                  {tt("タップして会場に設定してください。いまのままだと利用料が引かれません。", "Tap to set it as the venue. Otherwise the venue fee is not counted.")}
                 </p>
               </button>
             )}
@@ -563,16 +578,16 @@ function LessonForm({
 
       {/* 料金区分。基本は体験レッスンだが、都度料金で実施する場合などに切り替える */}
       <div>
-        <label className={labelClass}><Coins size={12} /> 料金区分</label>
+        <label className={labelClass}><Coins size={12} /> {tt("料金区分", "Price type")}</label>
         <select name="course" value={course} onChange={(e) => setCourse(e.target.value)} className={inputClass}>
-          {TRIAL_COURSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {TRIAL_COURSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? courseLabel(o.value, lang) : o.label}</option>)}
         </select>
         <p className="text-xs text-gray-400 mt-1">
           {course !== TRIAL_LESSON_COURSE_NAME
-            ? `売上・歩合・請求は「${course}」の単価で計上されます。`
+            ? tt(`売上・歩合・請求は「${course}」の単価で計上されます。`, `Sales, pay and invoice use the "${courseLabel(course, lang)}" price.`)
             : onsiteTrialPrice
-              ? "通常はこのまま。出張の体験は 1名 9,900円、2名は 13,500円で計上されます（2名のときは備考に「利用人数: 2名」と書いてください。店舗の体験は 6,600円）。"
-              : "通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます。"}
+              ? tt("通常はこのまま。出張の体験は 1名 9,900円、2名は 13,500円で計上されます（2名のときは備考に「利用人数: 2名」と書いてください。店舗の体験は 6,600円）。", "Usually leave as is. On-site trial is ¥9,900 for 1 person, ¥13,500 for 2 (for 2 people, write 「利用人数: 2名」 in the notes). Studio trial is ¥6,600.")
+              : tt("通常はこのまま。売上・歩合・請求は体験レッスンの単価で計上されます。", "Usually leave as is. The trial price is used.")}
         </p>
       </div>
 
@@ -592,26 +607,26 @@ function LessonForm({
       {/* 申込フォームの回答（読み取り専用）。編集できるのは下のメモだけ */}
       {isApplication && (
         <div>
-          <label className={labelClass}><ClipboardList size={12} /> 申込内容（{parsedNote.items.length}項目）</label>
+          <label className={labelClass}><ClipboardList size={12} /> {tt(`申込内容（${parsedNote.items.length}項目）`, `Booking form (${parsedNote.items.length})`)}</label>
           <NoteItems items={parsedNote.items} />
-          <p className="text-xs text-gray-400 mt-1">申込フォームの回答です。編集せずそのまま保存されます。</p>
+          <p className="text-xs text-gray-400 mt-1">{tt("申込フォームの回答です。編集せずそのまま保存されます。", "Answers from the booking form. Saved as is.")}</p>
         </div>
       )}
 
       <div>
-        <label className={labelClass}><StickyNote size={12} /> {isApplication ? "メモ（申し送り）" : "備考"}</label>
+        <label className={labelClass}><StickyNote size={12} /> {isApplication ? tt("メモ（申し送り）", "Memo (handover)") : tt("備考", "Notes")}</label>
         {/* 保存する備考は「申込内容の原文 ＋ メモ」を組み立てたもの */}
         <input type="hidden" name="note" value={noteToSave} />
         <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={3}
-          placeholder={isApplication ? "当日の申し送りなど..." : "第2希望日時、申し送りなど..."}
+          placeholder={isApplication ? tt("当日の申し送りなど...", "Notes for the day...") : tt("第2希望日時、申し送りなど...", "Second choice time, notes...")}
           className={cn(inputClass, "resize-none")} />
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
-        <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
+        <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">{tt("キャンセル", "Cancel")}</button>
         <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
-          {loading && <Spinner size={14} />}{loading ? "保存中..." : submitLabel}
+          {loading && <Spinner size={14} />}{loading ? tt("保存中...", "Saving...") : submitLabel}
         </button>
       </div>
     </form>
@@ -626,6 +641,8 @@ function ContractResultForm({
   lesson: TrialLesson;
   onClose: () => void;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const router = useRouter();
   const { locked: loading, run } = useSubmitLock();
   const [contracted, setContracted] = useState<string>(
@@ -649,7 +666,7 @@ function ContractResultForm({
         } else {
           onClose();
         }
-      } catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+      } catch (e) { setError(e instanceof Error ? e.message : tt("エラー", "Error")); }
     });
   }
 
@@ -661,9 +678,9 @@ function ContractResultForm({
       <div className="py-8 text-center">
         <Confetti />
         <p className="text-4xl">🎉</p>
-        <p className="mt-3 text-lg font-bold text-gray-900">成約おめでとうございます！</p>
-        <p className="mt-1 text-sm text-gray-500">{lesson.customerName} さん</p>
-        <p className="mt-3 text-xs text-gray-400">みんなのLINEにもお知らせしました。</p>
+        <p className="mt-3 text-lg font-bold text-gray-900">{tt("成約おめでとうございます！", "Congratulations on the sign-up!")}</p>
+        <p className="mt-1 text-sm text-gray-500">{tt(`${lesson.customerName} さん`, lesson.customerName)}</p>
+        <p className="mt-3 text-xs text-gray-400">{tt("みんなのLINEにもお知らせしました。", "The team was told on LINE.")}</p>
       </div>
     );
   }
@@ -671,30 +688,30 @@ function ContractResultForm({
   return (
     <form action={handleSubmit} className="space-y-4">
       <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-700 font-medium">
-        記録するとステータスが「完了」になります
+        {tt("記録するとステータスが「完了」になります", "Saving this marks the trial as Done")}
       </div>
 
       <div>
-        <label className={labelClass}>契約結果</label>
+        <label className={labelClass}>{tt("契約結果", "Result")}</label>
         <select name="contracted" value={contracted} onChange={(e) => setContracted(e.target.value)} className={inputClass}>
-          <option value="null">未確定</option>
-          <option value="true">契約成功</option>
-          <option value="false">不成立</option>
+          <option value="null">{tt("未確定", "Not decided")}</option>
+          <option value="true">{tt("契約成功", "Signed up")}</option>
+          <option value="false">{tt("不成立", "Not signed")}</option>
         </select>
       </div>
 
       <div>
-        <label className={labelClass}><StickyNote size={12} /> 備考</label>
+        <label className={labelClass}><StickyNote size={12} /> {tt("備考", "Notes")}</label>
         <textarea name="note" defaultValue={lesson.note} rows={2}
-          placeholder="次回アクション、申し送りなど..."
+          placeholder={tt("次回アクション、申し送りなど...", "Next step, notes...")}
           className={cn(inputClass, "resize-none")} />
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
-        <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">キャンセル</button>
+        <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">{tt("キャンセル", "Cancel")}</button>
         <button type="submit" disabled={loading} className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
-          {loading && <Spinner size={14} />}{loading ? "記録中..." : "契約結果を記録"}
+          {loading && <Spinner size={14} />}{loading ? tt("記録中...", "Saving...") : tt("契約結果を記録", "Save result")}
         </button>
       </div>
     </form>
@@ -710,6 +727,8 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
   isAdmin: boolean; currentMemberId?: string; openReportId?: string;
   mailFrom?: string | null; mailSent?: { at: string; by?: string }; confirmState?: TrialConfirmInfo;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [mailOpen, setMailOpen] = useState(false);
   const mailSheet = mailOpen ? (
@@ -726,18 +745,18 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
     || (!!currentMemberId && (lesson.trainerMemberId === currentMemberId || lesson.salesMemberId === currentMemberId));
 
   const scheduledDate = new Date(lesson.scheduledAt);
-  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+  const dateStr = scheduledDate.toLocaleDateString(dateLocale(lang), { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
   const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 
   if (mode === "edit") return (
     <tr><td colSpan={7} className="px-4 py-3">
       <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm font-bold text-gray-900">体験レッスンを編集</p>
+          <p className="text-sm font-bold text-gray-900">{tt("体験レッスンを編集", "Edit trial lesson")}</p>
           <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
         <LessonForm isAdmin={isAdmin} defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
-          onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+          onClose={() => setMode("view")} action={boundUpdate} submitLabel={tt("保存する", "Save")} />
       </div>
     </td></tr>
   );
@@ -747,7 +766,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
       <div className="bg-white rounded-2xl border-2 border-green-400 p-4 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-bold text-gray-900">
-            契約結果 — {lesson.customerName}
+            {tt("契約結果", "Result")} — {lesson.customerName}
           </p>
           <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
         </div>
@@ -774,7 +793,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
         />
       </td>
       <td className="px-4 py-3">
-        <p className="text-xs text-gray-600">{lesson.salesMemberName || <span className="text-gray-300">未割当</span>}</p>
+        <p className="text-xs text-gray-600">{lesson.salesMemberName || <span className="text-gray-300">{tt("未割当", "Not set")}</span>}</p>
       </td>
       <td className="px-4 py-3">
         <p className="text-xs text-gray-600">{lesson.trainerMemberName ?? <span className="text-gray-300">—</span>}</p>
@@ -802,7 +821,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
                   : "text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-300"
               )}>
               <Mail size={11} />
-              {mailSent ? "確定メール済" : "確定メール"}
+              {mailSent ? tt("確定メール済", "Email sent") : tt("確定メール", "Confirm email")}
             </button>
           )}
           {lesson.status === "scheduled" && <ConfirmedBadge confirmState={confirmState} sent={!!mailSent} />}
@@ -815,7 +834,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
                   : "text-gray-600 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300"
               )}>
               <ClipboardList size={11} />
-              契約結果
+              {tt("契約結果", "Result")}
             </button>
           )}
           {isAdmin && (
@@ -826,10 +845,10 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
               </button>
               <button onClick={() => {
                 if (deleting) return;
-                if (!confirm(`${lesson.customerName} の体験レッスンを削除しますか？`)) return;
+                if (!confirm(tt(`${lesson.customerName} の体験レッスンを削除しますか？`, `Delete the trial lesson for ${lesson.customerName}?`))) return;
                 runDelete(async () => {
                   try { assertActionOk(await deleteTrialLessonAction(lesson.id)); router.refresh(); }
-                  catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+                  catch (e) { alert(e instanceof Error ? e.message : tt("削除に失敗しました", "Could not delete")); }
                 });
               }} disabled={deleting}
                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
@@ -853,6 +872,8 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
   isAdmin: boolean; currentMemberId?: string; openReportId?: string;
   mailFrom?: string | null; mailSent?: { at: string; by?: string }; confirmState?: TrialConfirmInfo;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [mode, setMode] = useState<"view" | "edit" | "report">(lesson.id === openReportId ? "report" : "view");
   const [mailOpen, setMailOpen] = useState(false);
   const mailSheet = mailOpen ? (
@@ -869,24 +890,24 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
     || (!!currentMemberId && (lesson.trainerMemberId === currentMemberId || lesson.salesMemberId === currentMemberId));
 
   const scheduledDate = new Date(lesson.scheduledAt);
-  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+  const dateStr = scheduledDate.toLocaleDateString(dateLocale(lang), { year: "numeric", month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
   const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
 
   if (mode === "edit") return (
     <div className="bg-white rounded-2xl border-2 border-blue-400 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-bold text-gray-900">体験レッスンを編集</p>
+        <p className="text-sm font-bold text-gray-900">{tt("体験レッスンを編集", "Edit trial lesson")}</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
       <LessonForm isAdmin={isAdmin} defaultValues={lesson} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
-        onClose={() => setMode("view")} action={boundUpdate} submitLabel="保存する" />
+        onClose={() => setMode("view")} action={boundUpdate} submitLabel={tt("保存する", "Save")} />
     </div>
   );
 
   if (mode === "report") return (
     <div className="bg-white rounded-2xl border-2 border-green-400 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-bold text-gray-900">契約結果 — {lesson.customerName}</p>
+        <p className="text-sm font-bold text-gray-900">{tt("契約結果", "Result")} — {lesson.customerName}</p>
         <button onClick={() => setMode("view")} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
       </div>
       <ContractResultForm lesson={lesson} onClose={() => setMode("view")} />
@@ -898,7 +919,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <p className="text-sm font-bold text-gray-900">{lesson.customerName}</p>
-          <p className="text-xs text-gray-500 mt-0.5">営業: {lesson.salesMemberName || "未割当"}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{tt("営業", "Sales")}: {lesson.salesMemberName || tt("未割当", "Not set")}</p>
           {lesson.trainerMemberName && <p className="text-xs text-gray-500">TR: {lesson.trainerMemberName}</p>}
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -928,7 +949,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
                 : "text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-300"
             )}>
             <Mail size={11} />
-            {mailSent ? "確定メール済" : "確定メール"}
+            {mailSent ? tt("確定メール済", "Email sent") : tt("確定メール", "Confirm email")}
           </button>
         )}
         {lesson.status === "scheduled" && <ConfirmedBadge confirmState={confirmState} sent={!!mailSent} />}
@@ -941,25 +962,25 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
                 : "text-gray-600 bg-gray-50 hover:bg-blue-50 border-gray-200 hover:border-blue-300 hover:text-blue-600"
             )}>
             <ClipboardList size={11} />
-            契約結果
+            {tt("契約結果", "Result")}
           </button>
         )}
         {isAdmin && (
           <>
             <button onClick={() => setMode("edit")}
               className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 font-medium bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 px-2.5 py-1.5 rounded-lg transition">
-              <Pencil size={11} /> 編集
+              <Pencil size={11} /> {tt("編集", "Edit")}
             </button>
             <button onClick={() => {
               if (deleting) return;
-              if (!confirm(`${lesson.customerName} の体験レッスンを削除しますか？`)) return;
+              if (!confirm(tt(`${lesson.customerName} の体験レッスンを削除しますか？`, `Delete the trial lesson for ${lesson.customerName}?`))) return;
               runDelete(async () => {
                   try { assertActionOk(await deleteTrialLessonAction(lesson.id)); router.refresh(); }
-                  catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+                  catch (e) { alert(e instanceof Error ? e.message : tt("削除に失敗しました", "Could not delete")); }
                 });
             }} disabled={deleting}
               className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 font-medium bg-red-50 hover:bg-red-100 border border-red-300 px-2.5 py-1.5 rounded-lg transition">
-              {deleting ? <><Spinner size={11} /> 削除中...</> : <><Trash2 size={11} /> 削除</>}
+              {deleting ? <><Spinner size={11} /> {tt("削除中...", "Deleting...")}</> : <><Trash2 size={11} /> {tt("削除", "Delete")}</>}
             </button>
           </>
         )}
@@ -979,6 +1000,8 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
   initialSearch?: string; openReportId?: string;
   mailFrom?: string | null; mailSent?: Record<string, { at: string; by?: string }>; confirmInfo?: Record<string, TrialConfirmInfo>;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
   const [filterStatus, setFilterStatus] = useState<TrialLessonStatus | "">("");
@@ -993,12 +1016,12 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       <PageTitle
-        title="体験レッスン"
-        sub={`${lessons.length}件`}
+        title={tt("体験レッスン", "Trial lessons")}
+        sub={tt(`${lessons.length}件`, `${lessons.length} trials`)}
         right={
           <button onClick={() => setShowAdd(true)}
             className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition">
-            <Plus size={16} /> 体験レッスンを追加
+            <Plus size={16} /> {tt("体験レッスンを追加", "Add trial lesson")}
           </button>
         }
       />
@@ -1007,41 +1030,41 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="顧客名・担当者・場所で検索..."
+            placeholder={tt("顧客名・担当者・場所で検索...", "Search by client, staff or place...")}
             className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as TrialLessonStatus | "")}
           className="px-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-          <option value="">全ステータス</option>
-          <option value="scheduled">予定</option>
-          <option value="completed">完了</option>
-          <option value="cancelled">キャンセル</option>
+          <option value="">{tt("全ステータス", "All statuses")}</option>
+          <option value="scheduled">{tt("予定", "Scheduled")}</option>
+          <option value="completed">{tt("完了", "Done")}</option>
+          <option value="cancelled">{tt("キャンセル", "Cancelled")}</option>
         </select>
       </div>
 
       {showAdd && (
         <div className="hidden md:block bg-white rounded-2xl border-2 border-blue-400 p-5 mb-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-bold text-gray-900">体験レッスンを追加</p>
+            <p className="text-sm font-bold text-gray-900">{tt("体験レッスンを追加", "Add trial lesson")}</p>
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <LessonForm isAdmin={isAdmin} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
-            onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel="追加する" />
+            onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel={tt("追加する", "Add")} />
         </div>
       )}
 
       {lessons.length === 0 && !showAdd ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🗓️</p>
-          <p className="text-sm font-semibold text-gray-600">体験レッスンが登録されていません</p>
+          <p className="text-sm font-semibold text-gray-600">{tt("体験レッスンが登録されていません", "No trial lessons yet")}</p>
           <button onClick={() => setShowAdd(true)}
             className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
-            <Plus size={15} /> 体験レッスンを追加
+            <Plus size={15} /> {tt("体験レッスンを追加", "Add trial lesson")}
           </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-sm text-gray-500">該当する体験レッスンが見つかりません</p>
+          <p className="text-sm text-gray-500">{tt("該当する体験レッスンが見つかりません", "No matching trial lessons")}</p>
         </div>
       ) : (
         <>
@@ -1049,12 +1072,12 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">日時</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">顧客</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">営業担当</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">トレーナー</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">場所</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">状態</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{tt("日時", "Date")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{tt("顧客", "Client")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{tt("営業担当", "Sales")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{tt("トレーナー", "Trainer")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{tt("場所", "Place")}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{tt("状態", "Status")}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -1076,14 +1099,14 @@ export function TrialLessonsClient({ lessons, customers, members, rentalGyms = [
 
       <button onClick={() => setShowAdd(true)}
         className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-        aria-label="体験レッスンを追加">
+        aria-label={tt("体験レッスンを追加", "Add trial lesson")}>
         <Plus size={26} />
       </button>
 
       {showAdd && (
-        <BottomSheet title="体験レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
+        <BottomSheet title={tt("体験レッスンを追加", "Add trial lesson")} onClose={() => setShowAdd(false)} scrollable>
           <LessonForm isAdmin={isAdmin} customers={customers} members={members} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
-            onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel="追加する" />
+            onClose={() => setShowAdd(false)} action={createTrialLessonAction} submitLabel={tt("追加する", "Add")} />
         </BottomSheet>
       )}
     </div>

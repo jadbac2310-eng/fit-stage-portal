@@ -6,6 +6,7 @@ import { Mail, Lightbulb, Check, ExternalLink, Sparkles, RotateCcw, CircleCheck,
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { useSubmitLock } from "@/lib/use-submit-lock";
+import { useLang } from "@/components/i18n/lang-provider";
 import { parseTrialNote } from "@/lib/trial-note";
 import type { TrialLesson } from "@/lib/trial-lessons-types";
 import { buildConfirmMail, findStore, hintsFromApplication, isPair } from "@/lib/trial-confirm-mail";
@@ -24,11 +25,12 @@ const fmt = (iso: string) =>
 
 /** 一覧の「✓ 確認済」「未確認」の札。確定メールを送ったのに押されていない人は、前日に電話で確かめる */
 export function ConfirmedBadge({ confirmState, sent }: { confirmState?: TrialConfirmInfo; sent: boolean }) {
+  const en = useLang() === "en";
   if (confirmState?.confirmedAt) {
     return (
       <span title={`お客様が ${fmt(confirmState.confirmedAt)} に「予約を確認しました」を押しました`}
         className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg border text-green-700 bg-green-50 border-green-300 whitespace-nowrap">
-        <CircleCheck size={11} />確認済
+        <CircleCheck size={11} />{en ? "Confirmed" : "確認済"}
       </span>
     );
   }
@@ -36,7 +38,7 @@ export function ConfirmedBadge({ confirmState, sent }: { confirmState?: TrialCon
   return (
     <span title={confirmState.staleConfirmedAt ? "日時を変える前に確認されていました。いまの日時はまだ確認されていません" : "確定メールの「予約を確認しました」がまだ押されていません。前日に電話で確かめます"}
       className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg border text-amber-700 bg-amber-50 border-amber-300 whitespace-nowrap">
-      <Phone size={11} />未確認
+      <Phone size={11} />{en ? "Not confirmed" : "未確認"}
     </span>
   );
 }

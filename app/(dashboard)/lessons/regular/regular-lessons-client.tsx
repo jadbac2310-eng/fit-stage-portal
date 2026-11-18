@@ -31,8 +31,11 @@ import { CustomerPicker } from "@/components/ui/customer-picker";
 import { assertActionOk, type ActionResult } from "@/lib/action-result";
 
 import { PageTitle, tabsWrap, tabButton } from "@/components/ui/page-title";
+import { useLang } from "@/components/i18n/lang-provider";
+import { makeT, courseLabel, dateLocale, LESSON_STATUS_EN, DELIVERY_MODE_EN, VENUE_KIND_EN, type Lang } from "@/lib/i18n";
 // ─── バッジ ───────────────────────────────────────────
 function CourseBadge({ course }: { course?: string }) {
+  const lang = useLang();
   if (!course) return null;
   const isSessionPass = course.startsWith("回数券");
   const isMonthly = course.startsWith("月");
@@ -43,12 +46,13 @@ function CourseBadge({ course }: { course?: string }) {
       isMonthly     ? "bg-blue-100 text-blue-700"   :
                       "bg-gray-100 text-gray-600"
     )}>
-      {course}
+      {courseLabel(course, lang)}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: LessonStatus }) {
+  const lang = useLang();
   return (
     <span className={cn(
       "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
@@ -60,14 +64,15 @@ function StatusBadge({ status }: { status: LessonStatus }) {
       {status === "scheduled" && <Clock size={9} />}
       {status === "completed" && <CheckCircle size={9} />}
       {(status === "cancelled" || status === "cancelled_same_day") && <XCircle size={9} />}
-      {LESSON_STATUS_LABEL[status]}
+      {lang === "en" ? LESSON_STATUS_EN[status] : LESSON_STATUS_LABEL[status]}
     </span>
   );
 }
 
 // レッスン日時 → "2026年6月" 形式（顧客ごとの一覧を月単位でかためて見やすくするための小見出し）
-function monthLabel(iso: string): string {
+function monthLabel(iso: string, lang: Lang): string {
   const d = new Date(iso);
+  if (lang === "en") return d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
   return `${d.getFullYear()}年${d.getMonth() + 1}月`;
 }
 
@@ -91,6 +96,8 @@ function LessonMonthGroup({
   currentMemberId?: string;
   defaultOpen?: boolean;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [open, setOpen] = useState(!!defaultOpen);
   const scheduledCount = lessons.filter((l) => l.status === "scheduled").length;
 
@@ -102,7 +109,7 @@ function LessonMonthGroup({
       >
         <span className="text-xs font-bold text-gray-600">{label}</span>
         <span className="text-[11px] text-gray-400">
-          {lessons.length}件{scheduledCount > 0 && `・予定 ${scheduledCount}件`}
+          {tt(`${lessons.length}件`, `${lessons.length}`)}{scheduledCount > 0 && tt(`・予定 ${scheduledCount}件`, ` · ${scheduledCount} upcoming`)}
         </span>
         <span className="ml-auto text-gray-300 flex-shrink-0">
           {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -121,7 +128,8 @@ function LessonMonthGroup({
   );
 }
 
-function passLabel(pass: SessionPass) {
+function passLabel(pass: SessionPass, lang: Lang) {
+  if (lang === "en") return `${pass.totalCount}-session pass (${pass.remainingCount} left)${pass.expiredAt ? "  expires " + pass.expiredAt : ""}`;
   return `${pass.totalCount}回券（残り${pass.remainingCount}回）${pass.expiredAt ? "　期限: " + pass.expiredAt : ""}`;
 }
 
@@ -132,7 +140,9 @@ function computeSuggestion(
   allLessons: Lesson[],
   customerPlans: CustomerPlanRecord[],
   excludeLessonId?: string,
-): { course: string; withinPlan: boolean; message: string } | null {
+  lang: Lang = "ja",
+): { course: string; withinPlan: boolean; noPlan?: boolean; message: string } | null {
+  const tt = makeT(lang);
   const date = scheduledAt.slice(0, 10);
   if (!date || date.length < 10) return null;
   const month = date.slice(0, 7);
@@ -149,7 +159,7 @@ function computeSuggestion(
   ).length;
 
   if (!activePlan) {
-    return { course: "", withinPlan: false, message: "この日付に適用中のプランがありません" };
+    return { course: "", withinPlan: false, noPlan: true, message: tt("この日付に適用中のプランがありません", "No monthly plan on this date") };
   }
 
   const planSessions = parseInt(activePlan.plan.replace("月", "").replace("回", ""), 10);
@@ -157,13 +167,13 @@ function computeSuggestion(
     return {
       course: activePlan.plan,
       withinPlan: true,
-      message: `プラン内（${activePlan.plan}：今月 ${monthCount + 1} / ${planSessions} 回目）`,
+      message: tt(`プラン内（${activePlan.plan}：今月 ${monthCount + 1} / ${planSessions} 回目）`, `Within plan (${courseLabel(activePlan.plan, lang)}: ${monthCount + 1} of ${planSessions} this month)`),
     };
   }
   return {
     course: "",
     withinPlan: false,
-    message: `${activePlan.plan} の上限（${planSessions}回/月）を超えています。都度 または 回数券 を選択してください。`,
+    message: tt(`${activePlan.plan} の上限（${planSessions}回/月）を超えています。都度 または 回数券 を選択してください。`, `Over the ${courseLabel(activePlan.plan, lang)} limit (${planSessions}/month). Choose Pay per session or Session pass.`),
   };
 }
 
@@ -214,6 +224,7 @@ function VenueFeeField({
   label: string; name: string; value: string;
   onChange: (v: string) => void; isAdmin: boolean; note: string;
 }) {
+  const tt = makeT(useLang());
   return (
     <div className="mt-2">
       <label className="text-xs font-semibold text-gray-600 mb-1.5 block">{label}</label>
@@ -233,7 +244,7 @@ function VenueFeeField({
           </p>
           <input type="hidden" name={name} value={value} />
           <p className="text-xs text-gray-400 mt-1">
-            会場の料金です（変更できるのは管理者のみ）。あなたの歩合からは引かれません。
+            {tt("会場の料金です（変更できるのは管理者のみ）。あなたの歩合からは引かれません。", "Venue fee (only admins can change it). It is not taken from your pay.")}
           </p>
         </>
       )}
@@ -267,6 +278,8 @@ export function LessonForm({
   onDelete?: () => Promise<ActionResult | void>;  // 編集時の削除（管理者または登録者本人）
   submitLabel: string;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const router = useRouter();
   const { locked, run } = useSubmitLock();
   const [error, setError] = useState("");
@@ -290,11 +303,11 @@ export function LessonForm({
 
   async function handleDelete() {
     if (!onDelete) return;
-    if (!confirm("このレッスンを削除しますか？")) return;
+    if (!confirm(tt("このレッスンを削除しますか？", "Delete this lesson?"))) return;
     setError("");
     await run(async () => {
       try { assertActionOk(await onDelete()); router.refresh(); onClose(); }
-      catch (e) { setError(e instanceof Error ? e.message : "削除に失敗しました"); }
+      catch (e) { setError(e instanceof Error ? e.message : tt("削除に失敗しました", "Could not delete")); }
     });
   }
 
@@ -499,9 +512,9 @@ export function LessonForm({
 
   const suggestion = useMemo(
     () => selectedCustomerId && scheduledDate
-      ? computeSuggestion(selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id)
+      ? computeSuggestion(selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id, lang)
       : null,
-    [selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id]
+    [selectedCustomerId, scheduledDate, allLessons, customerPlans, defaultValues?.id, lang]
   );
 
   function applySuggestion(customerId: string, date: string) {
@@ -517,16 +530,19 @@ export function LessonForm({
 
   async function handleSubmit(fd: FormData) {
     setError("");
-    if (!startLocal) { setError("開始日時を入力してください"); return; }
+    if (!startLocal) { setError(tt("開始日時を入力してください", "Enter the start time")); return; }
     if (passShortage > 0 && selectedPass) {
-      setError(`回数券の残りは${selectedPass.remainingCount}回です。${plannedCount}件はまとめて登録できません。`);
+      setError(tt(`回数券の残りは${selectedPass.remainingCount}回です。${plannedCount}件はまとめて登録できません。`, `Only ${selectedPass.remainingCount} sessions left on the pass. You can't add ${plannedCount} at once.`));
       return;
     }
     // 担当が空のまま作ると、本人のダッシュボードの「完了待ち」に出ず、スケジュールで完了も押せない
     // （2026-11-16、担当なしのレッスンが残っていて気づけなかった）。作るときだけ確かめる。
     if (isCreate && !String(fd.get("trainerMemberId") ?? "").trim()) {
       const n = buildLessonSlots().length;
-      if (!confirm(`担当トレーナーが「未設定」のまま${n > 1 ? `${n}件` : ""}登録します。\n担当が空だと、トレーナー本人の画面に出ず、完了も押せません。\nこのまま登録しますか？`)) return;
+      if (!confirm(tt(
+        `担当トレーナーが「未設定」のまま${n > 1 ? `${n}件` : ""}登録します。\n担当が空だと、トレーナー本人の画面に出ず、完了も押せません。\nこのまま登録しますか？`,
+        `No trainer is set${n > 1 ? ` for these ${n} lessons` : ""}.\nWithout a trainer, it won't show on the trainer's screen and can't be marked done.\nSave anyway?`,
+      ))) return;
     }
     // run() が実行中の連打を同期的に無視するため、二重作成が起きない
     await run(async () => {
@@ -543,7 +559,7 @@ export function LessonForm({
         }
         router.refresh();
         onClose();
-      } catch (e) { setError(e instanceof Error ? e.message : "エラー"); }
+      } catch (e) { setError(e instanceof Error ? e.message : tt("エラー", "Error")); }
     });
   }
 
@@ -616,7 +632,7 @@ export function LessonForm({
         <input type="hidden" name="customerId" value={fixedCustomerId} />
       ) : (
         <div>
-          <label className={labelClass}><User size={12} /> 顧客 <span className="text-red-500">*</span></label>
+          <label className={labelClass}><User size={12} /> {tt("顧客", "Client")} <span className="text-red-500">*</span></label>
           <CustomerPicker
             customers={customers} name="customerId" required value={selectedCustomerId}
             onChange={(id) => { setSelectedCustomerId(id); setSelectedPassId(""); syncVenueFeeFor(id); applyFctVenue(id); revalidateCourse(id, refDate); applySuggestion(id, scheduledDate); }}
@@ -625,31 +641,31 @@ export function LessonForm({
       )}
 
       <div>
-        <label className={labelClass}><User size={12} /> 担当トレーナー</label>
+        <label className={labelClass}><User size={12} /> {tt("担当トレーナー", "Trainer")}</label>
         <select name="trainerMemberId" defaultValue={defaultValues?.trainerMemberId ?? ""} className={inputClass}>
-          <option value="">未設定</option>
+          <option value="">{tt("未設定", "Not set")}</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.role ? `（${m.role}）` : ""}</option>)}
         </select>
       </div>
 
       <div>
-        <label className={labelClass}><Calendar size={12} /> 開始 <span className="text-red-500">*</span></label>
+        <label className={labelClass}><Calendar size={12} /> {tt("開始", "Start")} <span className="text-red-500">*</span></label>
         <input type="datetime-local" required value={startLocal} onChange={(e) => onStartChange(e.target.value)}
           className={inputClass} />
       </div>
 
       <div>
-        <label className={labelClass}><Calendar size={12} /> 終了</label>
+        <label className={labelClass}><Calendar size={12} /> {tt("終了", "End")}</label>
         <input type="datetime-local" value={endLocal} onChange={(e) => setEndLocal(e.target.value)}
           className={inputClass} />
-        <p className="text-xs text-gray-400 mt-1">基本60分。開始を入れると終了は1時間後が初期値になります（変更可）。</p>
+        <p className="text-xs text-gray-400 mt-1">{tt("基本60分。開始を入れると終了は1時間後が初期値になります（変更可）。", "Usually 60 min. End is set to 1 hour after start (you can change it).")}</p>
       </div>
 
       {/* 登録方法（作成時のみ・単発／複数日時／繰り返しは排他） */}
       {isCreate && (
         <div className="space-y-3">
           <div className={tabsWrap}>
-            {([["single", "単発"], ["multiple", "複数日時"], ["recurring", "繰り返し"]] as const).map(([key, label]) => (
+            {([["single", tt("単発", "Single")], ["multiple", tt("複数日時", "Several dates")], ["recurring", tt("繰り返し", "Repeat")]] as const).map(([key, label]) => (
               <button key={key} type="button" onClick={() => setMultiMode(key)} className={tabButton(multiMode === key, "sm")}>
                 {label}
               </button>
@@ -658,7 +674,7 @@ export function LessonForm({
 
           {multiMode === "multiple" && (
             <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
-              <p className="text-[11px] text-gray-400 mb-2">同じ内容のレッスンを別の日時にも登録します（各60分）。</p>
+              <p className="text-[11px] text-gray-400 mb-2">{tt("同じ内容のレッスンを別の日時にも登録します（各60分）。", "Adds the same lesson on other dates too (60 min each).")}</p>
               {extraStarts.map((s, i) => (
                 <div key={i} className="flex gap-2 mb-2 items-center">
                   <input type="datetime-local" value={s}
@@ -670,7 +686,7 @@ export function LessonForm({
               ))}
               <button type="button" onClick={() => setExtraStarts((prev) => [...prev, startLocal])}
                 className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
-                <Plus size={14} /> 日時を追加
+                <Plus size={14} /> {tt("日時を追加", "Add date")}
               </button>
             </div>
           )}
@@ -680,17 +696,17 @@ export function LessonForm({
               <div className="flex gap-2">
                 <select value={recurrence} onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
                   className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="daily">毎日</option>
-                  <option value="weekly">毎週</option>
-                  <option value="biweekly">隔週</option>
-                  <option value="monthly">毎月</option>
+                  <option value="daily">{tt("毎日", "Daily")}</option>
+                  <option value="weekly">{tt("毎週", "Weekly")}</option>
+                  <option value="biweekly">{tt("隔週", "Every 2 weeks")}</option>
+                  <option value="monthly">{tt("毎月", "Monthly")}</option>
                 </select>
                 <input type="date" value={recurUntil} min={startLocal.slice(0, 10)} onChange={(e) => setRecurUntil(e.target.value)}
                   className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <p className="text-[11px] text-gray-400 mt-1">
-                {recurUntil ? "開始日から終了日まで、同じ時間・長さで繰り返し作成します。" : "繰り返しの終了日を選んでください。"}
-                {selectedCourse.startsWith("回数券") ? " ※回数券は作成数だけ消費されます。" : ""}
+                {recurUntil ? tt("開始日から終了日まで、同じ時間・長さで繰り返し作成します。", "Repeats at the same time and length from the start date to the end date.") : tt("繰り返しの終了日を選んでください。", "Choose the last date.")}
+                {selectedCourse.startsWith("回数券") ? tt(" ※回数券は作成数だけ消費されます。", " Each lesson uses one session from the pass.") : ""}
               </p>
             </div>
           )}
@@ -703,7 +719,7 @@ export function LessonForm({
           "rounded-xl px-3 py-2 text-xs font-medium flex items-center gap-2",
           suggestion.withinPlan
             ? "bg-green-50 border border-green-200 text-green-700"
-            : suggestion.message.includes("適用中のプランがありません")
+            : suggestion.noPlan
               ? "bg-gray-50 border border-gray-200 text-gray-500"
               : "bg-orange-50 border border-orange-200 text-orange-700"
         )}>
@@ -714,7 +730,7 @@ export function LessonForm({
 
       {/* 実施形態（どこでやるか）。請求書の品目にも出るので、推測ではなく明示的に選ぶ */}
       <div>
-        <label className={labelClass}><MapPin size={12} /> 実施形態</label>
+        <label className={labelClass}><MapPin size={12} /> {tt("実施形態", "Where")}</label>
         <div className="flex gap-2">
           {DELIVERY_MODE_OPTIONS.map((o) => (
             <button
@@ -728,13 +744,13 @@ export function LessonForm({
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
               )}
             >
-              {o.label}
+              {lang === "en" ? DELIVERY_MODE_EN[o.value] : o.label}
             </button>
           ))}
         </div>
         <input type="hidden" name="deliveryMode" value={deliveryMode} />
         <p className="text-xs text-gray-400 mt-1">
-          出張・オンラインは請求書の品目に「（出張）」「（オンライン）」と出ます。店舗は無印です。
+          {tt("出張・オンラインは請求書の品目に「（出張）」「（オンライン）」と出ます。店舗は無印です。", "On-site and Online are shown on the invoice. Studio has no mark.")}
         </p>
       </div>
 
@@ -742,21 +758,21 @@ export function LessonForm({
           選択肢に料金は入れない。スマホだと1件が2行に折り返して一覧がとても縦長になるため、
           料金は選んだあとに下の入力欄で見せる。 */}
       <div className={cn(onsite && "hidden")}>
-        <label className={labelClass}><Building2 size={12} /> 会場</label>
+        <label className={labelClass}><Building2 size={12} /> {tt("会場", "Venue")}</label>
         {fctCustomer && (fctStoreId ? (
           <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
-            FCTのお客さま。この会場の歩合は <span className="font-semibold">{fctRate}%</span> です（会場代は0円）。
+            {tt("FCTのお客さま。この会場の歩合は ", "FCT client. The rate at this venue is ")}<span className="font-semibold">{fctRate}%</span>{tt(" です（会場代は0円）。", " (no venue fee).")}
             {isAdmin && fctPay > 0 && <> FCTから入るのは <span className="font-semibold">¥{fctPay.toLocaleString("ja-JP")}</span> / 回。</>}
           </p>
         ) : (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-2 leading-relaxed">
-            FCTのお客さまです。<span className="font-semibold">会場でFCT店舗を選んでください</span>。
-            選ばないと歩合率が決まらないので、{FCT_DEFAULT_RATE}%で計算されます。
+            {tt("FCTのお客さまです。", "FCT client. ")}<span className="font-semibold">{tt("会場でFCT店舗を選んでください", "Choose an FCT venue")}</span>{tt("。", ".")}
+            {tt(`選ばないと歩合率が決まらないので、${FCT_DEFAULT_RATE}%で計算されます。`, ` Otherwise ${FCT_DEFAULT_RATE}% is used.`)}
           </p>
         ))}
         {venueHistory.length > 0 && (
           <div className="mb-2">
-            <p className="text-[11px] text-gray-400 mb-1">よく使う会場（タップで選択）</p>
+            <p className="text-[11px] text-gray-400 mb-1">{tt("よく使う会場（タップで選択）", "Recent venues (tap to choose)")}</p>
             <div className="flex flex-wrap gap-1.5">
               {venueHistory.map((v) => (
                 <button
@@ -789,31 +805,31 @@ export function LessonForm({
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-blue-300"
               )}
             >
-              {k.label}
+              {lang === "en" ? VENUE_KIND_EN[k.value] ?? k.label : k.label}
             </button>
           ))}
         </div>
         {venueKind === "store" && (
           <select value={storeId} onChange={(e) => onStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">FIT STAGEの店舗を選択</option>
+            <option value="">{tt("FIT STAGEの店舗を選択", "Choose a FIT STAGE studio")}</option>
             {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         )}
         {venueKind === "gym" && (
           <select value={rentalGymId} onChange={(e) => onRentalGymChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">レンタルジムを選択</option>
+            <option value="">{tt("レンタルジムを選択", "Choose a rental gym")}</option>
             {rentalGyms.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         )}
         {venueKind === "fct" && (
           <select value={fctStoreId} onChange={(e) => onFctStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">FCT店舗を選択</option>
+            <option value="">{tt("FCT店舗を選択", "Choose an FCT venue")}</option>
             {fctStores.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         )}
         {venueKind === "avenir" && (
           <select value={avenirStoreId} onChange={(e) => onAvenirStoreChange(e.target.value)} className={cn(inputClass, "mt-2")}>
-            <option value="">アヴニール店舗を選択</option>
+            <option value="">{tt("アヴニール店舗を選択", "Choose an Avenir venue")}</option>
             {avenirStores.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         )}
@@ -823,22 +839,22 @@ export function LessonForm({
         <input type="hidden" name="fctStoreId"  value={fctStoreId} />
         <input type="hidden" name="avenirStoreId" value={avenirStoreId} />
         {storeId && (
-          <VenueFeeField label="店舗の利用料（税込）" name="storeFee" value={storeFee}
+          <VenueFeeField label={tt("店舗の利用料（税込）", "Studio fee (incl. tax)")} name="storeFee" value={storeFee}
             onChange={setStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。"} />
         )}
         {rentalGymId && (
-          <VenueFeeField label="レンタルジム代（税込）" name="rentalGymFee" value={rentalGymFee}
+          <VenueFeeField label={tt("レンタルジム代（税込）", "Rental gym fee (incl. tax)")} name="rentalGymFee" value={rentalGymFee}
             onChange={setRentalGymFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。"} />
         )}
         {fctStoreId && (
-          <VenueFeeField label="FCT店舗の利用料（税込）" name="fctStoreFee" value={fctStoreFee}
+          <VenueFeeField label={tt("FCT店舗の利用料（税込）", "FCT venue fee (incl. tax)")} name="fctStoreFee" value={fctStoreFee}
             onChange={setFctStoreFee} isAdmin={isAdmin}
             note={fctCustomer
               ? "FCTのお客さまなので0円です（場所はFCTが用意してくれるため）。"
               : "マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。"} />
         )}
         {avenirStoreId && (
-          <VenueFeeField label="アヴニール店舗の利用料（税込）" name="avenirStoreFee" value={avenirStoreFee}
+          <VenueFeeField label={tt("アヴニール店舗の利用料（税込）", "Avenir venue fee (incl. tax)")} name="avenirStoreFee" value={avenirStoreFee}
             onChange={setAvenirStoreFee} isAdmin={isAdmin} note={"マスタの料金が初期値です。利益の計算でこの額を差し引きます（歩合は差し引きません）。"} />
         )}
       </div>
@@ -847,13 +863,13 @@ export function LessonForm({
           会場を選ばずに場所へ会場名を打ってしまう＝利用料が引かれない事故が起きていた）。
           会場マスタに無いところでやるときだけ手で書く。 */}
       <div>
-        <label className={labelClass}><MapPin size={12} /> {onsite ? "訪問先（住所など）" : "場所"}</label>
+        <label className={labelClass}><MapPin size={12} /> {onsite ? tt("訪問先（住所など）", "Visit address") : tt("場所", "Place")}</label>
         {locationLocked ? (
           <>
             <p className="px-3.5 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-700">{location || "—"}</p>
             <input type="hidden" name="location" value={location} />
             <p className="text-[11px] text-gray-400 mt-1">
-              上で選んだ{venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}の名前が入ります
+              {tt(`上で選んだ${venueKindLabel(rentalGymId, fctStoreId, avenirStoreId)}の名前が入ります`, "Filled in from the venue chosen above")}
             </p>
           </>
         ) : (
@@ -863,7 +879,7 @@ export function LessonForm({
               list={locationListId}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder={onsite ? "住所や施設名（任意）" : "会場マスタに無い場所だけ入力（任意）"}
+              placeholder={onsite ? tt("住所や施設名（任意）", "Address or building (optional)") : tt("会場マスタに無い場所だけ入力（任意）", "Only for places not in the venue list (optional)")}
               className={inputClass}
             />
             <datalist id={locationListId}>
@@ -871,8 +887,8 @@ export function LessonForm({
             </datalist>
             <p className="text-[11px] text-gray-400 mt-1">
               {onsite
-                ? "出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でOK）"
-                : "上で会場を選んだときは入力不要です。分からなければ空欄でかまいません。"}
+                ? tt("出張は会場を選びません。訪問先の住所を入れておくと後で分かりやすいです（空欄でOK）", "No venue for on-site. Adding the address helps later (optional).")
+                : tt("上で会場を選んだときは入力不要です。分からなければ空欄でかまいません。", "Not needed if you chose a venue above. Leave blank if unsure.")}
             </p>
             {venueHint && (
               <button
@@ -880,15 +896,15 @@ export function LessonForm({
                 onClick={() => applyVenue(venueHint.kind, venueHint.id)}
                 className="mt-2 w-full text-left rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 hover:bg-amber-100 transition"
               >
-                <p className="text-xs font-semibold text-amber-800">「{venueHint.name}」は会場に登録されています</p>
+                <p className="text-xs font-semibold text-amber-800">{tt(`「${venueHint.name}」は会場に登録されています`, `"${venueHint.name}" is in the venue list`)}</p>
                 <p className="text-[11px] text-amber-700 mt-0.5">
-                  タップして会場に設定してください。いまのままだと利用料が引かれません。
+                  {tt("タップして会場に設定してください。いまのままだと利用料が引かれません。", "Tap to set it as the venue. Otherwise the venue fee is not counted.")}
                 </p>
               </button>
             )}
             {locationHistory.length > 0 && (
               <div className="mt-2">
-                <p className="text-[11px] text-gray-400 mb-1">よく使う場所（タップで入力）</p>
+                <p className="text-[11px] text-gray-400 mb-1">{tt("よく使う場所（タップで入力）", "Recent places (tap to fill in)")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {locationHistory.slice(0, 12).map((loc) => (
                     <button
@@ -913,27 +929,27 @@ export function LessonForm({
       </div>
 
       <div>
-        <label className={labelClass}>コース <span className="text-red-500">*</span></label>
+        <label className={labelClass}>{tt("コース", "Course")} <span className="text-red-500">*</span></label>
         {/* 必須。未選択だと請求書の明細に載らず請求漏れになるため空のまま登録させない */}
         <select name="course" required value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)} className={inputClass}>
-          <option value="">選択してください</option>
+          <option value="">{tt("選択してください", "Choose")}</option>
           {passCourses.length > 0 && (
-            <optgroup label="回数券">
-              {passCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <optgroup label={tt("回数券", "Session pass")}>
+              {passCourses.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? courseLabel(o.value, lang) : o.label}</option>)}
             </optgroup>
           )}
           {monthlyCourses.length > 0 && (
-            <optgroup label="月会費">
-              {monthlyCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <optgroup label={tt("月会費", "Monthly")}>
+              {monthlyCourses.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? courseLabel(o.value, lang) : o.label}</option>)}
             </optgroup>
           )}
-          <optgroup label="単発">
-            {singleCourses.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          <optgroup label={tt("単発", "Single")}>
+            {singleCourses.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? (isFreeLesson(o.value) ? "Free (not billed)" : courseLabel(o.value, lang)) : o.label}</option>)}
           </optgroup>
         </select>
         {selectedCustomerId !== "" && passCourses.length === 0 && monthlyCourses.length === 0 && (
           <p className="text-xs text-gray-400 mt-1.5">
-            この顧客は有効な回数券・加入中プランがありません（都度のみ選択できます）
+            {tt("この顧客は有効な回数券・加入中プランがありません（都度のみ選択できます）", "This client has no active pass or plan (Pay per session only)")}
           </p>
         )}
       </div>
@@ -948,7 +964,7 @@ export function LessonForm({
         <>
           <input type="hidden" name="amount" value="0" />
           <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-            この回は<span className="font-semibold">無料</span>です。請求書には0円で載り、売上には入りません。
+            {tt("この回は", "This lesson is ")}<span className="font-semibold">{tt("無料", "free")}</span>{tt("です。請求書には0円で載り、売上には入りません。", ". It shows as ¥0 on the invoice and is not counted as sales.")}
           </p>
         </>
       )}
@@ -985,26 +1001,26 @@ export function LessonForm({
       {isSessionPassCourse && (
         <div className={cn("rounded-xl p-3 border", noPassAvailable ? "bg-red-50 border-red-300" : "bg-amber-50 border-amber-200")}>
           <label className={cn(labelClass, noPassAvailable ? "text-red-600" : "text-amber-700")}>
-            <Ticket size={12} /> 使用する回数券 <span className="text-red-500">*</span>
+            <Ticket size={12} /> {tt("使用する回数券", "Pass to use")} <span className="text-red-500">*</span>
           </label>
           {noPassAvailable ? (
             <p className="text-xs text-red-600 font-medium">
-              有効な回数券がありません。目次の「回数券」から追加してください。
+              {tt("有効な回数券がありません。目次の「回数券」から追加してください。", "No active pass. Ask an admin to add one.")}
             </p>
           ) : (
             <select name="sessionPassId" required value={selectedPassId}
               onChange={(e) => setSelectedPassId(e.target.value)} className={inputClass}>
-              <option value="">回数券を選択...</option>
+              <option value="">{tt("回数券を選択...", "Choose a pass...")}</option>
               {availablePasses.map((p) => (
-                <option key={p.id} value={p.id}>{passLabel(p)}</option>
+                <option key={p.id} value={p.id}>{passLabel(p, lang)}</option>
               ))}
             </select>
           )}
           {passShortage > 0 && selectedPass && (
             <p className="text-xs text-red-600 font-medium mt-2 flex items-start gap-1">
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-              回数券の残りは{selectedPass.remainingCount}回です（登録しようとしている件数: {plannedCount}件）。
-              日時を{passShortage}件減らすか、回数券を追加してください。
+              {tt(`回数券の残りは${selectedPass.remainingCount}回です（登録しようとしている件数: ${plannedCount}件）。日時を${passShortage}件減らすか、回数券を追加してください。`,
+                `Only ${selectedPass.remainingCount} sessions left (you are adding ${plannedCount}). Remove ${passShortage} date(s) or add a pass.`)}
             </p>
           )}
         </div>
@@ -1012,37 +1028,37 @@ export function LessonForm({
 
       {defaultValues?.id && (
         <div>
-          <label className={labelClass}>ステータス</label>
+          <label className={labelClass}>{tt("ステータス", "Status")}</label>
           <select name="status" defaultValue={defaultValues?.status ?? "scheduled"} className={inputClass}>
-            <option value="scheduled">予定</option>
-            <option value="completed">完了</option>
-            <option value="cancelled_same_day">当日キャンセル（前日21時以降・実施扱い・売上/歩合あり）</option>
-            <option value="cancelled">キャンセル（白紙）</option>
+            <option value="scheduled">{tt("予定", "Scheduled")}</option>
+            <option value="completed">{tt("完了", "Done")}</option>
+            <option value="cancelled_same_day">{tt("当日キャンセル（前日21時以降・実施扱い・売上/歩合あり）", "Late cancel (after 9 pm the day before — counted, you get paid)")}</option>
+            <option value="cancelled">{tt("キャンセル（白紙）", "Cancelled (not counted)")}</option>
           </select>
         </div>
       )}
 
       <div>
-        <label className={labelClass}><StickyNote size={12} /> 備考</label>
+        <label className={labelClass}><StickyNote size={12} /> {tt("備考", "Notes")}</label>
         <textarea name="note" defaultValue={defaultValues?.note} rows={2}
-          placeholder="連絡事項など" className={cn(inputClass, "resize-none")} />
+          placeholder={tt("連絡事項など", "Anything to share")} className={cn(inputClass, "resize-none")} />
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onClose}
           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-          キャンセル
+          {tt("キャンセル", "Cancel")}
         </button>
         <button type="submit" disabled={locked || noPassAvailable || passShortage > 0}
           className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
-          {locked && <Spinner size={14} />}{locked ? "保存中..." : submitLabel}
+          {locked && <Spinner size={14} />}{locked ? tt("保存中...", "Saving...") : submitLabel}
         </button>
       </div>
       {onDelete && (
         <button type="button" onClick={handleDelete} disabled={locked}
           className="w-full mt-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 transition disabled:opacity-50">
-          {locked ? <Spinner size={15} /> : <Trash2 size={15} />} {locked ? "削除中…" : "このレッスンを削除"}
+          {locked ? <Spinner size={15} /> : <Trash2 size={15} />} {locked ? tt("削除中…", "Deleting…") : tt("このレッスンを削除", "Delete this lesson")}
         </button>
       )}
     </form>
@@ -1052,13 +1068,15 @@ export function LessonForm({
 
 // ─── 回数券セクション（閲覧のみ） ────────────────────
 function SessionPassSection({ passes }: { passes: SessionPass[] }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   return (
     <div className="py-3 border-t border-gray-100">
       <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5 mb-2">
-        <Ticket size={11} /> 回数券
+        <Ticket size={11} /> {tt("回数券", "Session passes")}
       </p>
       {passes.length === 0 ? (
-        <p className="text-xs text-gray-400">回数券なし（顧客マスタから追加できます）</p>
+        <p className="text-xs text-gray-400">{tt("回数券なし（顧客マスタから追加できます）", "No passes")}</p>
       ) : (
         <div className="space-y-1.5">
           {passes.map((pass) => (
@@ -1072,16 +1090,16 @@ function SessionPassSection({ passes }: { passes: SessionPass[] }) {
             )}>
               <Ticket size={12} className={pass.remainingCount === 0 ? "text-gray-300" : "text-amber-500"} />
               <div className="flex-1">
-                <span className="font-semibold">{pass.totalCount}回券</span>
-                <span className="ml-2 text-gray-500">{pass.totalCount - pass.remainingCount}/{pass.totalCount}回 消化</span>
+                <span className="font-semibold">{tt(`${pass.totalCount}回券`, `${pass.totalCount}-session pass`)}</span>
+                <span className="ml-2 text-gray-500">{tt(`${pass.totalCount - pass.remainingCount}/${pass.totalCount}回 消化`, `${pass.totalCount - pass.remainingCount}/${pass.totalCount} used`)}</span>
                 <span className={cn(
                   "ml-2 font-bold",
                   pass.remainingCount === 0 ? "text-gray-400" :
                   pass.remainingCount <= 2  ? "text-red-600"  : "text-amber-700"
                 )}>
-                  残り{pass.remainingCount}回
+                  {tt(`残り${pass.remainingCount}回`, `${pass.remainingCount} left`)}
                 </span>
-                {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">（使い切り）</span>}
+                {pass.remainingCount === 0 && <span className="ml-1 text-gray-400">{tt("（使い切り）", "(used up)")}</span>}
               </div>
               <div className="text-gray-400 text-right">
                 <p>{pass.purchasedAt}</p>
@@ -1102,6 +1120,8 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   avenirStores: AvenirStore[];
   venueFees: CustomerVenueFee[]; isAdmin: boolean; currentMemberId?: string;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { locked: deleting, run: runDelete } = useSubmitLock();
@@ -1110,7 +1130,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   const canEdit = isAdmin || (!!lesson.createdById && lesson.createdById === currentMemberId);
 
   const scheduledDate = new Date(lesson.scheduledAt);
-  const dateStr = scheduledDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+  const dateStr = scheduledDate.toLocaleDateString(dateLocale(lang), { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
   const timeStr = scheduledDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
   const endTimeStr = lesson.endAt
     ? new Date(lesson.endAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" })
@@ -1137,13 +1157,13 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
   if (editing) return (
     <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 my-2">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-bold text-gray-700">レッスンを編集</p>
+        <p className="text-xs font-bold text-gray-700">{tt("レッスンを編集", "Edit lesson")}</p>
         <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
       </div>
       <LessonForm isAdmin={isAdmin} defaultValues={lesson} customers={customers} members={members} sessionPasses={sessionPasses}
         customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
         fixedCustomerId={lesson.customerId} onClose={() => setEditing(false)}
-        action={boundUpdate} submitLabel="保存する" />
+        action={boundUpdate} submitLabel={tt("保存する", "Save")} />
     </div>
   );
 
@@ -1162,7 +1182,7 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           <p className={cn("text-xs flex items-center gap-1",
             lesson.trainerMemberId ? "text-gray-600" : "text-amber-600 font-medium")}>
             <User size={10} className="flex-shrink-0" />
-            {lesson.trainerMemberName ?? "担当未設定"}
+            {lesson.trainerMemberName ?? tt("担当未設定", "No trainer")}
           </p>
           {lesson.location && (
             <p className="text-xs text-gray-500 flex items-center gap-1">
@@ -1174,10 +1194,10 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           // 1行の文として流す（前は flex で文字の切れ端ごとに箱になり、狭い画面で「36／回／券」と縦に割れていた）
           <p className={cn("text-xs mt-0.5", overConsumed ? "text-red-600" : "text-amber-600")}>
             <Ticket size={10} className="inline-block align-[-1px] mr-1" />
-            <span className="whitespace-nowrap">{linkedPass.totalCount}回券</span>
-            {sessionNumber > 0 && <span className="font-semibold whitespace-nowrap">の{sessionNumber}回目</span>}
-            {sessionNumber === 0 && <span className="whitespace-nowrap">・消化なし</span>}
-            <span className="whitespace-nowrap">{overConsumed ? "・回数超過" : `・残り${remainingAfter}回`}</span>
+            <span className="whitespace-nowrap">{tt(`${linkedPass.totalCount}回券`, `${linkedPass.totalCount}-session pass`)}</span>
+            {sessionNumber > 0 && <span className="font-semibold whitespace-nowrap">{tt(`の${sessionNumber}回目`, ` · #${sessionNumber}`)}</span>}
+            {sessionNumber === 0 && <span className="whitespace-nowrap">{tt("・消化なし", " · not used")}</span>}
+            <span className="whitespace-nowrap">{overConsumed ? tt("・回数超過", " · over the limit") : tt(`・残り${remainingAfter}回`, ` · ${remainingAfter} left`)}</span>
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}
@@ -1198,10 +1218,10 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
           </button>
           <button onClick={() => {
             if (deleting) return;
-            if (!confirm("このレッスンを削除しますか？")) return;
+            if (!confirm(tt("このレッスンを削除しますか？", "Delete this lesson?"))) return;
             runDelete(async () => {
               try { assertActionOk(await deleteLessonAction(lesson.id)); router.refresh(); }
-              catch (e) { alert(e instanceof Error ? e.message : "削除に失敗しました"); }
+              catch (e) { alert(e instanceof Error ? e.message : tt("削除に失敗しました", "Could not delete")); }
             });
           }} disabled={deleting}
             className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-50">
@@ -1217,15 +1237,17 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
 // ─── 顧客グループ ─────────────────────────────────────
 /** その顧客の体験レッスン。編集は体験レッスン管理で行うので、ここは見るだけ。 */
 function TrialSection({ trials }: { trials: TrialLesson[] }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   if (trials.length === 0) return null;
   const sorted = [...trials].sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
   return (
     <div className="py-3 border-t border-gray-100">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
-          <FlaskConical size={12} className="text-purple-500" /> 体験レッスン
+          <FlaskConical size={12} className="text-purple-500" /> {tt("体験レッスン", "Trial lessons")}
         </p>
-        <Link href="/lessons/trial" className="text-xs text-blue-600 hover:underline">体験レッスン管理 →</Link>
+        <Link href="/lessons/trial" className="text-xs text-blue-600 hover:underline">{tt("体験レッスン管理 →", "Trial lessons →")}</Link>
       </div>
       <div className="space-y-1.5">
         {sorted.map((t) => (
@@ -1236,7 +1258,7 @@ function TrialSection({ trials }: { trials: TrialLesson[] }) {
               t.status === "completed" ? "bg-green-100 text-green-700" :
               t.status === "cancelled" ? "bg-gray-100 text-gray-500" : "bg-blue-100 text-blue-700",
             )}>
-              {t.status === "completed" ? "完了" : t.status === "cancelled" ? "キャンセル" : "予定"}
+              {t.status === "completed" ? tt("完了", "Done") : t.status === "cancelled" ? tt("キャンセル", "Cancelled") : tt("予定", "Scheduled")}
             </span>
             {t.status === "completed" && (
               <span className={cn(
@@ -1244,7 +1266,7 @@ function TrialSection({ trials }: { trials: TrialLesson[] }) {
                 t.contracted === true ? "bg-blue-50 text-blue-700" :
                 t.contracted === false ? "bg-gray-50 text-gray-500" : "bg-amber-50 text-amber-700",
               )}>
-                {t.contracted === true ? "成約" : t.contracted === false ? "不成立" : "結果未入力"}
+                {t.contracted === true ? tt("成約", "Signed up") : t.contracted === false ? tt("不成立", "Not signed") : tt("結果未入力", "No result yet")}
               </span>
             )}
             <span className="text-gray-400 truncate">{t.trainerMemberName ?? ""}</span>
@@ -1272,6 +1294,8 @@ function CustomerGroup({ customer, lessons, trialLessons, sessionPasses, custome
   isAdmin: boolean;
   currentMemberId?: string;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -1283,12 +1307,12 @@ function CustomerGroup({ customer, lessons, trialLessons, sessionPasses, custome
   const monthGroups = useMemo(() => {
     const map = new Map<string, Lesson[]>();
     for (const l of lessons) {
-      const label = monthLabel(l.scheduledAt);
+      const label = monthLabel(l.scheduledAt, lang);
       if (!map.has(label)) map.set(label, []);
       map.get(label)!.push(l);
     }
     return Array.from(map.entries()).map(([label, ls]) => ({ label, lessons: ls }));
-  }, [lessons]);
+  }, [lessons, lang]);
   const lowPassCount = customerPasses.some((p) => p.remainingCount > 0 && p.remainingCount <= 2);
   const exhaustedPass = customerPasses.some((p) => p.remainingCount === 0);
 
@@ -1301,24 +1325,24 @@ function CustomerGroup({ customer, lessons, trialLessons, sessionPasses, custome
             <p className="text-sm font-bold text-gray-900">{customer.fullName}</p>
             {hasUnassigned && (
               <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
-                <AlertTriangle size={10} /> 担当未設定
+                <AlertTriangle size={10} /> {tt("担当未設定", "No trainer")}
               </span>
             )}
             {lowPassCount && (
               <span className="inline-flex items-center gap-1 text-xs text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full font-medium">
-                <Ticket size={10} /> 回数券残りわずか
+                <Ticket size={10} /> {tt("回数券残りわずか", "Pass almost used up")}
               </span>
             )}
             {exhaustedPass && !lowPassCount && (
               <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full font-medium">
-                <Ticket size={10} /> 回数券使い切り
+                <Ticket size={10} /> {tt("回数券使い切り", "Pass used up")}
               </span>
             )}
           </div>
           <p className="text-xs text-gray-400 mt-0.5">
-            {lessons.length}件{scheduledCount > 0 && `（予定 ${scheduledCount}件）`}
-            {trialLessons.length > 0 && `　体験 ${trialLessons.length}件`}
-            {customerPasses.length > 0 && `　回数券: ${customerPasses.reduce((s, p) => s + p.remainingCount, 0)}回残`}
+            {tt(`${lessons.length}件`, `${lessons.length} lessons`)}{scheduledCount > 0 && tt(`（予定 ${scheduledCount}件）`, ` (${scheduledCount} upcoming)`)}
+            {trialLessons.length > 0 && tt(`　体験 ${trialLessons.length}件`, `  ${trialLessons.length} trial`)}
+            {customerPasses.length > 0 && tt(`　回数券: ${customerPasses.reduce((s, p) => s + p.remainingCount, 0)}回残`, `  Pass: ${customerPasses.reduce((s, p) => s + p.remainingCount, 0)} left`)}
           </p>
         </div>
         <div className="flex-shrink-0 text-gray-400">
@@ -1341,13 +1365,13 @@ function CustomerGroup({ customer, lessons, trialLessons, sessionPasses, custome
               <LessonForm isAdmin={isAdmin} customers={customers} members={members} sessionPasses={sessionPasses}
                 customerPlans={customerPlans} allLessons={allLessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
                 fixedCustomerId={customer.id} onClose={() => setShowAdd(false)}
-                action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
+                action={createLessonAction} multiAction={createLessonsAction} submitLabel={tt("追加する", "Add")} />
             </div>
           ) : (
             <div className="py-2">
               <button onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                <Plus size={13} /> レッスンを追加
+                <Plus size={13} /> {tt("レッスンを追加", "Add lesson")}
               </button>
             </div>
           )}
@@ -1371,6 +1395,8 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
   venueFees?: CustomerVenueFee[]; isAdmin: boolean; currentMemberId?: string;
   initialSearch?: string;
 }) {
+  const lang = useLang();
+  const tt = makeT(lang);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState(initialSearch);
 
@@ -1408,13 +1434,13 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <PageTitle
-        title="通常レッスン"
+        title={tt("通常レッスン", "Lessons")}
         sub={
           <span className="flex items-center gap-3">
-            <span>{lessons.length}件</span>
+            <span>{tt(`${lessons.length}件`, `${lessons.length} lessons`)}</span>
             {totalUnassigned > 0 && (
               <span className="text-amber-600 flex items-center gap-1 font-medium">
-                <AlertTriangle size={11} /> 担当未設定 {totalUnassigned}件
+                <AlertTriangle size={11} /> {tt(`担当未設定 ${totalUnassigned}件`, `${totalUnassigned} without trainer`)}
               </span>
             )}
           </span>
@@ -1422,7 +1448,7 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
         right={
           <button onClick={() => setShowAdd(true)}
             className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition">
-            <Plus size={16} /> レッスンを追加
+            <Plus size={16} /> {tt("レッスンを追加", "Add lesson")}
           </button>
         }
       />
@@ -1430,34 +1456,34 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
       <div className="mb-4 relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="顧客名で検索..."
+          placeholder={tt("顧客名で検索...", "Search by client name...")}
           className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
 
       {showAdd && (
         <div className="hidden md:block bg-white rounded-2xl border-2 border-blue-400 p-5 mb-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-bold text-gray-900">レッスンを追加</p>
+            <p className="text-sm font-bold text-gray-900">{tt("レッスンを追加", "Add lesson")}</p>
             <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
           </div>
           <LessonForm isAdmin={isAdmin} customers={customers} members={members} sessionPasses={sessionPasses}
             customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
-            onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
+            onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel={tt("追加する", "Add")} />
         </div>
       )}
 
       {grouped.length === 0 && !showAdd ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">🏋️</p>
-          <p className="text-sm font-semibold text-gray-600">レッスンが登録されていません</p>
+          <p className="text-sm font-semibold text-gray-600">{tt("レッスンが登録されていません", "No lessons yet")}</p>
           <button onClick={() => setShowAdd(true)}
             className="mt-5 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
-            <Plus size={15} /> レッスンを追加
+            <Plus size={15} /> {tt("レッスンを追加", "Add lesson")}
           </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-sm text-gray-500">該当する顧客が見つかりません</p>
+          <p className="text-sm text-gray-500">{tt("該当する顧客が見つかりません", "No matching clients")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -1471,15 +1497,15 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
 
       <button onClick={() => setShowAdd(true)}
         className="md:hidden fixed bottom-6 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg shadow-blue-200 flex items-center justify-center transition z-30"
-        aria-label="レッスンを追加">
+        aria-label={tt("レッスンを追加", "Add lesson")}>
         <Plus size={26} />
       </button>
 
       {showAdd && (
-        <BottomSheet title="レッスンを追加" onClose={() => setShowAdd(false)} scrollable>
+        <BottomSheet title={tt("レッスンを追加", "Add lesson")} onClose={() => setShowAdd(false)} scrollable>
           <LessonForm isAdmin={isAdmin} customers={customers} members={members} sessionPasses={sessionPasses}
             customerPlans={customerPlans} allLessons={lessons} rentalGyms={rentalGyms} stores={stores} fctStores={fctStores} avenirStores={avenirStores} venueFees={venueFees}
-            onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel="追加する" />
+            onClose={() => setShowAdd(false)} action={createLessonAction} multiAction={createLessonsAction} submitLabel={tt("追加する", "Add")} />
         </BottomSheet>
       )}
     </div>

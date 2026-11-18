@@ -1,3 +1,6 @@
+"use client";
+
+import { useLang } from "@/components/i18n/lang-provider";
 import { UserRound, PencilLine } from "lucide-react";
 
 function fmt(iso?: string): string {
@@ -20,17 +23,18 @@ export function AuthorStamp({
   updatedAt?: string;
   className?: string;
 }) {
+  const en = useLang() === "en";
   if (!createdAt && !createdByName && !updatedByName) return null;
   return (
     <div className={["flex flex-col gap-0.5 text-[10px] text-gray-400", className].filter(Boolean).join(" ")}>
       <span className="flex items-center gap-1">
         <UserRound size={9} className="flex-shrink-0" />
-        作成: {createdByName ?? "—"}{createdAt ? `（${fmt(createdAt)}）` : ""}
+        {en ? "Created" : "作成"}: {createdByName ?? "—"}{createdAt ? (en ? ` (${fmt(createdAt)})` : `（${fmt(createdAt)}）`) : ""}
       </span>
       {updatedByName && (
         <span className="flex items-center gap-1">
           <PencilLine size={9} className="flex-shrink-0" />
-          編集: {updatedByName}{updatedAt ? `（${fmt(updatedAt)}）` : ""}
+          {en ? "Edited" : "編集"}: {updatedByName}{updatedAt ? (en ? ` (${fmt(updatedAt)})` : `（${fmt(updatedAt)}）`) : ""}
         </span>
       )}
     </div>

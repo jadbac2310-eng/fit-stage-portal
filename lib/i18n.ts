@@ -44,3 +44,14 @@ export function courseLabel(course: string | undefined | null, lang: Lang): stri
   if (!course) return "";
   return lang === "en" ? COURSE_EN[course] ?? course : course;
 }
+
+/** レッスンの状況（LESSON_STATUS_LABEL の英語） */
+export const LESSON_STATUS_EN: Record<string, string> = {
+  scheduled: "Scheduled", completed: "Done", cancelled: "Cancelled", cancelled_same_day: "Late cancel",
+};
+/** 実施形態（DELIVERY_MODE_OPTIONS の英語） */
+export const DELIVERY_MODE_EN: Record<string, string> = { store: "Studio", onsite: "On-site", online: "Online" };
+/** 会場の種類（venueKindOptions の英語） */
+export const VENUE_KIND_EN: Record<string, string> = {
+  none: "None", store: "FIT STAGE", gym: "Rental gym", fct: "FCT", avenir: "Avenir",
+};
