@@ -46,6 +46,19 @@ type Body = {
   source_referrer?: string;
   source_landing?: string;
   source_utm?: string;
+  /**
+   * ここから下は「初回の前のご記入フォーム」（HPの /en/first-session/、2026-11-18〜）から来る項目。
+   * WhatsApp・LINE で日程が決まった出張のお客様に、こちらからリンクを送って書いてもらう。
+   * 店舗の体験予約フォームからは来ない（来なければ今までどおり）。
+   */
+  /** 実施形態。"onsite"（出張）のときだけ見る。それ以外・未指定は今までどおり「店舗」 */
+  delivery_mode?: string;
+  /** 場所（「ご自宅：〇〇」「ホテル：〇〇」など。出張のときの体験の「場所」に入る） */
+  place?: string;
+  /** 持病・痛み・医師からの運動制限（事故防止のため必ず読む） */
+  health?: string;
+  /** どのフォームから来たか（通知と備考の「経路」に出す。例：「英語の初回フォーム」） */
+  form_label?: string;
 };
 
 
@@ -85,10 +98,13 @@ function buildNote(b: Body, secondISO: string | null): string {
     ["性別", b.gender],
     ["希望トレーナー", b.trainer],
     ["駐車場", b.parking],
+    ["場所", b.place],
     ["お悩み・目的", b.goals],
     ["運動習慣", b.habit],
+    ["持病・痛み・運動の制限", b.health],
     ["詳しい内容・ご要望", b.goal],
-    ["経路", channelLabel(b)],
+    // こちらから送ったフォームに書いてもらった分は、どのフォームかを経路に出す（HPで見つけた人と分けて数えるため）
+    ["経路", b.form_label?.trim() ? b.form_label : channelLabel(b)],
   ];
   return lines
     .filter(([, v]) => v && v.trim())
@@ -97,7 +113,7 @@ function buildNote(b: Body, secondISO: string | null): string {
 }
 
 /** 予約が入ったことを管理者のLINEへ通知する（失敗しても申込は成功扱い） */
-async function notifyAdmins(customerName: string, storeName: string | undefined, firstISO: string | null) {
+async function notifyAdmins(customerName: string, storeName: string | undefined, firstISO: string | null, extra?: { formLabel?: string; place?: string; people?: string }) {
   if ((process.env.LINE_NOTIFY_RESERVATION ?? "").trim().toLowerCase() === "off") return;
   try {
     const members = await getMembers();
@@ -108,10 +124,12 @@ async function notifyAdmins(customerName: string, storeName: string | undefined,
     if (targets.length === 0) return;
 
     const text = [
-      "🔔 体験レッスンの申込が入りました",
+      extra?.formLabel ? `📝 ${extra.formLabel}の記入が届きました` : "🔔 体験レッスンの申込が入りました",
       `お名前: ${customerName}`,
       storeName ? `希望店舗: ${storeName}` : null,
-      firstISO ? `希望日時: ${jstLabel(firstISO)}` : null,
+      extra?.place ? `場所: ${extra.place}` : null,
+      extra?.people ? `人数: ${extra.people}` : null,
+      firstISO ? `${extra?.formLabel ? "日時" : "希望日時"}: ${jstLabel(firstISO)}` : null,
       "",
       portalUrl("/lessons/trial"),
     ].filter(Boolean).join("\n");
@@ -171,6 +189,8 @@ export async function POST(req: NextRequest) {
       // 「迷っている・相談したい」「指名なし」や、名前が合わないときは空欄のまま（担当者があとで入れる・直す）。
       const [stores, members] = await Promise.all([getStores(), getMembers()]);
       const store = matchStoreByName(body.store_name, stores);
+      // 店舗が選ばれていれば店舗を優先する（「出張」で来ていても、江坂店などで受けるなら店舗の体験）
+      const onsite = !store && body.delivery_mode === "onsite";
       const trainer = matchMemberByName(body.trainer, members);
 
       await addTrialLesson({
@@ -178,8 +198,11 @@ export async function POST(req: NextRequest) {
         // 希望日時が取れないときは申込日時を仮で入れる（担当者が後で確定する）
         scheduledAt: firstISO ?? new Date().toISOString(),
         storeId: store?.id ?? null,
-        location: store?.name,
+        // 店舗が決まっていれば店舗名。出張のフォームなら、書いてもらった場所をそのまま入れる
+        location: store?.name ?? (onsite ? body.place?.trim() || undefined : undefined),
         storeFee: store ? store.fee : null,
+        // 出張にしておくと、体験料金が出張の額（1名 9,900円・2名 13,500円）で計上される
+        deliveryMode: onsite ? "onsite" : undefined,
         trainerMemberId: trainer?.id,
         note: buildNote(body, secondISO) || undefined,
       });
@@ -188,7 +211,11 @@ export async function POST(req: NextRequest) {
       console.error("[reserve-webhook] 体験レッスンの作成に失敗", e);
     }
 
-    await notifyAdmins(fullName, body.store_name?.trim(), firstISO);
+    await notifyAdmins(fullName, body.store_name?.trim(), firstISO, {
+      formLabel: body.form_label?.trim() || undefined,
+      place: body.place?.trim() || undefined,
+      people: body.form_label?.trim() ? body.people?.trim() || undefined : undefined,
+    });
 
     return NextResponse.json({ success: true, customer_id: customer.id, trial_created: trialCreated });
   } catch (e) {
