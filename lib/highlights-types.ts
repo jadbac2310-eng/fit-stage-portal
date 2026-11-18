@@ -202,6 +202,8 @@ export interface Milestone {
   customerName: string;
   /** 画面に出す一言 */
   label:        string;
+  /** 英語の文（英語に切り替えている人向け） */
+  labelEn?:     string;
   /** 🎉 など */
   emoji:        string;
 }
@@ -250,6 +252,7 @@ export function todayMilestones(
       out.push({
         customerId, customerName: name, emoji: count === 1 ? "🌱" : "🎉",
         label: count === 1 ? "今日が初めてのレッスンです" : `今日で通算${count}回目のレッスンです`,
+        labelEn: count === 1 ? "today is their first session" : `today is session #${count}`,
       });
       continue; // 1人につき1つまで（並びすぎると読まれない）
     }
@@ -259,7 +262,7 @@ export function todayMilestones(
     if (first !== today && first.slice(5) === today.slice(5)) {
       const years = parseInt(today.slice(0, 4), 10) - parseInt(first.slice(0, 4), 10);
       if (years >= 1) {
-        out.push({ customerId, customerName: name, emoji: "🎂", label: `初めて来てくれた日から${years}年です` });
+        out.push({ customerId, customerName: name, emoji: "🎂", label: `初めて来てくれた日から${years}年です`, labelEn: `${years} year${years > 1 ? "s" : ""} since their first visit` });
       }
     }
   }

@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, LogOut } from "lucide-react";
-import { getAncestors } from "./nav-config";
+import { getAncestors, navLabel } from "./nav-config";
+import { useLang, useT } from "@/components/i18n/lang-provider";
+import { LangSwitch } from "./lang-switch";
 import { Avatar } from "@/components/ui/avatar";
 
 /**
@@ -28,12 +30,14 @@ export function Header({
   const pathname = usePathname();
   const router = useRouter();
 
+  const lang = useLang();
+  const t = useT();
   const ancestors = getAncestors(pathname);
   const currentNode = ancestors[ancestors.length - 1];
-  const title = currentNode?.label ?? "FIT STAGE ポータル";
+  const title = currentNode ? navLabel(currentNode, lang) : t("FIT STAGE ポータル", "FIT STAGE Portal");
 
   async function handleLogout() {
-    if (!confirm("ログアウトしますか？")) return;
+    if (!confirm(t("ログアウトしますか？", "Log out?"))) return;
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -46,7 +50,7 @@ export function Header({
         <button
           onClick={onMenuOpen}
           className="p-1.5 -ml-1 text-white/90 hover:text-white transition flex-shrink-0"
-          aria-label="メニューを開く"
+          aria-label={t("メニューを開く", "Open menu")}
         >
           <Menu size={22} />
         </button>
@@ -58,11 +62,12 @@ export function Header({
         </Link>
 
         <div className="flex items-center gap-1">
+          <LangSwitch dark className="mr-1" />
           {userName && <Avatar name={userName} src={avatarUrl} size="sm" />}
           <button
             onClick={handleLogout}
             className="p-2 text-white/70 hover:text-white transition-colors"
-            aria-label="ログアウト"
+            aria-label={t("ログアウト", "Log out")}
           >
             <LogOut size={18} />
           </button>
@@ -72,15 +77,15 @@ export function Header({
       {/* いまどこ（ホーム ＞ ページ名）と今日の日付。こちらはスクロールで流れる（画面を狭くしないため） */}
       <div className="print:hidden bg-white border-b border-[var(--portal-line)] px-3 md:px-5 py-1.5 flex items-center justify-between gap-3 text-[11px] text-gray-500">
         <p className="min-w-0 truncate">
-          <Link href="/dashboard" className="hover:underline">ホーム</Link>
+          <Link href="/dashboard" className="hover:underline">{t("ホーム", "Home")}</Link>
           {ancestors.filter((n) => n.href !== "/dashboard").map((n) => (
             <span key={n.href}>
               <span className="mx-1">＞</span>
-              <Link href={n.href} className="hover:underline">{n.label}</Link>
+              <Link href={n.href} className="hover:underline">{navLabel(n, lang)}</Link>
             </span>
           ))}
           {ancestors.length === 0 && <><span className="mx-1">＞</span>{title}</>}
-          {ancestors.length === 1 && ancestors[0].href === "/dashboard" && <><span className="mx-1">＞</span>ダッシュボード</>}
+          {ancestors.length === 1 && ancestors[0].href === "/dashboard" && <><span className="mx-1">＞</span>{t("ダッシュボード", "Dashboard")}</>}
         </p>
         {todayLabel && <p className="flex-shrink-0 tabular-nums">{todayLabel}</p>}
       </div>

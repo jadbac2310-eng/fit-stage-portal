@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ExternalLink, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { visibleNavGroups, getActiveHref } from "./nav-config";
+import { visibleNavGroups, getActiveHref, navLabel, navGroupTitle } from "./nav-config";
+import { useLang, useT } from "@/components/i18n/lang-provider";
+import { LangSwitch } from "./lang-switch";
 import { Avatar } from "@/components/ui/avatar";
 
 export function Sidebar({
@@ -23,9 +25,11 @@ export function Sidebar({
   const pathname = usePathname();
   const activeHref = getActiveHref(pathname);
   const router   = useRouter();
+  const lang = useLang();
+  const t = useT();
 
   async function handleLogout() {
-    if (!confirm("ログアウトしますか？")) return;
+    if (!confirm(t("ログアウトしますか？", "Log out?"))) return;
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -45,7 +49,7 @@ export function Sidebar({
             <img src="/logo-wordmark-white.png" alt="FIT STAGE" width={900} height={312} className="h-10 w-auto" />
           </Link>
           {mobile && (
-            <button onClick={onClose} aria-label="閉じる" className="text-white/70 hover:text-white transition p-2 -mr-1">
+            <button onClick={onClose} aria-label={t("閉じる", "Close")} className="text-white/70 hover:text-white transition p-2 -mr-1">
               <X size={22} />
             </button>
           )}
@@ -60,7 +64,7 @@ export function Sidebar({
               "px-4 font-bold tracking-wider text-gold-500 bg-black/15 border-b border-white/10",
               mobile ? "pt-3 pb-1.5 text-[11px]" : "pt-2.5 pb-1 text-[10px]",
             )}>
-              {group.title}
+              {navGroupTitle(group, lang)}
             </p>
             <ul>
               {group.items.map((node) => {
@@ -76,7 +80,7 @@ export function Sidebar({
                 const inner = (
                   <>
                     {Icon && <Icon size={mobile ? 21 : 17} className="flex-shrink-0" />}
-                    <span className="truncate">{node.label}</span>
+                    <span className="truncate">{navLabel(node, lang)}</span>
                     {node.external && <ExternalLink size={mobile ? 16 : 13} className="flex-shrink-0 ml-auto text-white/50" />}
                   </>
                 );
@@ -111,8 +115,12 @@ export function Sidebar({
           className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors w-full"
         >
           <LogOut size={18} />
-          ログアウト
+          {t("ログアウト", "Log out")}
         </button>
+        {/* 言語の切り替え（日本語／英語） */}
+        <div className="px-3 pt-1 pb-1">
+          <LangSwitch dark />
+        </div>
       </div>
     </aside>
   );

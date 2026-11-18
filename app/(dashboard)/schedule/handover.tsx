@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClipboardList, Target, History, FlaskConical } from "lucide-react";
 import { parseTrialNote } from "@/lib/trial-note";
+import { makeT, dateLocale, type Lang } from "@/lib/i18n";
 
 /**
  * 引き継ぎの申し送り。
@@ -45,13 +46,14 @@ function handoverItems(trial?: HandoverTrial | null) {
   return parseTrialNote(trial.note).items.filter((i) => !SKIP.test(i.label) && i.value);
 }
 
-function fmtShort(iso: string) {
-  return new Date(iso).toLocaleDateString("ja-JP", {
+function fmtShort(iso: string, lang: Lang = "ja") {
+  return new Date(iso).toLocaleDateString(dateLocale(lang), {
     month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo",
   });
 }
 
-export function Handover({ trial, history }: { trial?: HandoverTrial | null; history: HandoverLesson[] }) {
+export function Handover({ trial, history, lang = "ja" }: { trial?: HandoverTrial | null; history: HandoverLesson[]; lang?: Lang }) {
+  const t = makeT(lang);
   const items = handoverItems(trial);
   // 備考が書いてある回だけ出す。空の回を並べても引き継ぎの役に立たないため
   const withNote = history.filter((l) => l.note?.trim());
@@ -63,14 +65,14 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
     <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
       <div className="flex items-center gap-1.5 mb-3">
         <ClipboardList size={14} className="text-indigo-600" />
-        <p className="text-xs font-bold text-gray-700">引き継ぎ</p>
+        <p className="text-xs font-bold text-gray-700">{t("引き継ぎ", "Handover")}</p>
       </div>
 
       {/* 最初の困りごと・目的 */}
       {items.length > 0 && (
         <div className="mb-3">
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1.5">
-            <Target size={11} className="text-amber-500" /> 最初の困りごと・目的
+            <Target size={11} className="text-amber-500" /> {t("最初の困りごと・目的", "Original concerns & goals")}
           </p>
           <div className="rounded-xl bg-amber-50/60 border border-amber-100 px-3 py-2 space-y-1">
             {items.map((i) => (
@@ -83,7 +85,7 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
           </div>
           {trial && (
             <Link href={`/schedule/${trial.id}`} className="text-[11px] text-blue-600 hover:underline mt-1 inline-block">
-              体験レッスンの記録を見る →
+              {t("体験レッスンの記録を見る →", "See the trial record →")}
             </Link>
           )}
         </div>
@@ -93,13 +95,13 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
       {trialHandover && (
         <div className="mb-3">
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1.5">
-            <FlaskConical size={11} className="text-purple-500" /> 体験のときの引き継ぎ
+            <FlaskConical size={11} className="text-purple-500" /> {t("体験のときの引き継ぎ", "Handover from the trial")}
           </p>
           <Link href={`/schedule/${trial!.id}`} className="block rounded-xl bg-purple-50/60 hover:bg-purple-50 border border-purple-100 transition px-3 py-2">
             <p className="text-[11px] text-gray-500">
-              {trial!.scheduledAt ? fmtShort(trial!.scheduledAt) : "体験"}
+              {trial!.scheduledAt ? fmtShort(trial!.scheduledAt, lang) : t("体験", "Trial")}
               <span className="mx-1 text-gray-300">/</span>
-              {trial!.trainerName ?? "担当未設定"}
+              {trial!.trainerName ?? t("担当未設定", "No coach")}
             </p>
             <p className="text-xs text-gray-800 whitespace-pre-wrap mt-0.5">{trialHandover}</p>
           </Link>
@@ -109,13 +111,13 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
       {/* 前回までにやったこと */}
       <div>
         <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1 mb-1.5">
-          <History size={11} className="text-gray-400" /> 前回までの記録
+          <History size={11} className="text-gray-400" /> {t("前回までの記録", "Previous sessions")}
         </p>
         {withNote.length === 0 ? (
           <p className="text-xs text-gray-400">
             {history.length === 0
-              ? "このお客さまは今回が初めてです。"
-              : `直近${history.length}回ぶんに備考がありません。レッスン後に「何をしたか」を残すと、次の担当に伝わります。`}
+              ? t("このお客さまは今回が初めてです。", "This is their first session.")
+              : t(`直近${history.length}回ぶんに備考がありません。レッスン後に「何をしたか」を残すと、次の担当に伝わります。`, `No notes on the last ${history.length} session(s). Write what you did after each session so the next coach knows.`)}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -126,9 +128,9 @@ export function Handover({ trial, history }: { trial?: HandoverTrial | null; his
                 className="block rounded-xl bg-gray-50 hover:bg-gray-100 transition px-3 py-2"
               >
                 <p className="text-[11px] text-gray-500">
-                  {fmtShort(l.scheduledAt)}
+                  {fmtShort(l.scheduledAt, lang)}
                   <span className="mx-1 text-gray-300">/</span>
-                  {l.trainerName ?? "担当未設定"}
+                  {l.trainerName ?? t("担当未設定", "No coach")}
                 </p>
                 <p className="text-xs text-gray-800 whitespace-pre-wrap mt-0.5">{l.note}</p>
               </Link>

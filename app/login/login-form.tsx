@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import { useT } from "@/components/i18n/lang-provider";
 
 export function LoginForm() {
   const router = useRouter();
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,10 +31,10 @@ export function LoginForm() {
         router.refresh();
       } else {
         const data = await res.json();
-        setError(data.error || "ログインに失敗しました");
+        setError(data.error || t("ログインに失敗しました", "Login failed"));
       }
     } catch {
-      setError("ネットワークエラーが発生しました");
+      setError(t("ネットワークエラーが発生しました", "Network error. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -43,7 +45,7 @@ export function LoginForm() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                メールアドレス
+                {t("メールアドレス", "Email")}
               </label>
               <input
                 type="email"
@@ -58,7 +60,7 @@ export function LoginForm() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                パスワード
+                {t("パスワード", "Password")}
               </label>
               <div className="relative">
                 <input
@@ -96,7 +98,7 @@ export function LoginForm() {
               ) : (
                 <LogIn size={16} />
               )}
-              {loading ? "ログイン中..." : "ログイン"}
+              {loading ? t("ログイン中...", "Logging in...") : t("ログイン", "Log in")}
             </button>
           </form>
         </div>

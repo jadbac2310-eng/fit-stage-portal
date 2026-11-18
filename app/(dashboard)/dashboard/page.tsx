@@ -42,6 +42,9 @@ import { MenuTiles, QuickLinks } from "./menu-tiles";
 import { SectionBox } from "@/components/ui/section-box";
 import { Suspense } from "react";
 import { CommissionTodoBox, CommissionTodoSkeleton } from "./commission-todo-box";
+import { getLang } from "@/lib/i18n-server";
+import { makeT } from "@/lib/i18n";
+import { randomQuoteEn, missionOfTheDayEn, tipOfTheDayEn, fortuneOfTheDayEn, greetingEn, seasonalEn } from "@/lib/daily-cards-en";
 
 export const dynamic = "force-dynamic";
 
@@ -160,8 +163,12 @@ export default async function DashboardPage() {
   const unassigned = currentMember?.isAdmin
     ? allFollows.filter((f) => !f.salesMemberId && !fctIds.has(f.customerId))
     : [];
+  // 英語に切り替えている人には、日替わりの中身も英語版を出す（lib/daily-cards-en.ts）
+  const lang = await getLang();
+  const en = lang === "en";
+  const t = makeT(lang);
   // 格言は開くたびに変える（1日1つだと、だんだん見なくなるため）
-  const quote      = randomQuote();
+  const quote      = en ? randomQuoteEn() : randomQuote();
   // 連続記録と称号（自分の担当ぶんだけ）
   const streak = weeklyStreak(lessons, trialLessons, myId, now);
   const badges = earnedBadges(lessons, trialLessons, myId, streak, now);
@@ -172,11 +179,12 @@ export default async function DashboardPage() {
   const sBadges    = salesBadges(trialLessons, myId, sMonth, sStreak, coverage, now);
 
   const celebrate = earnedToday([...badges, ...sBadges], now);
-  const mission = missionOfTheDay(now);
-  const tip     = tipOfTheDay(now);
-  const fortune = fortuneOfTheDay(now, myId);   // 運勢だけは人ごとに変える
+  const mission = en ? missionOfTheDayEn(now) : missionOfTheDay(now);
+  const tip     = en ? tipOfTheDayEn(now) : tipOfTheDay(now);
+  const fortune = en ? fortuneOfTheDayEn(now, myId) : fortuneOfTheDay(now, myId);   // 運勢だけは人ごとに変える
   // 生年月日が入っていれば、おみくじの代わりに本人の星まわり（六星占術の考え方）を出す
-  const st = starToday(currentMember?.birthDate, myId, now);
+  // 星まわりの文は日本語だけなので、英語のときはおみくじを出す
+  const st = en ? null : starToday(currentMember?.birthDate, myId, now);
   if (st) {
     fortune.emoji = st.emoji;
     fortune.message = st.summary;
@@ -185,8 +193,8 @@ export default async function DashboardPage() {
       month: st.month, monthName: PHASE_TEXT[st.month].name, tip: st.tip,
     };
   }
-  const hello   = greeting(now);
-  const season  = seasonal(now);
+  const hello   = en ? greetingEn(now) : greeting(now);
+  const season  = en ? seasonalEn(now) : seasonal(now);
 
   // LINE通知の連携カード（トークン設定済み かつ 従業員向け通知が1つでも有効なときのみ表示）
   const lineEnabled = isLineConfigured() && anyStaffNotifyEnabled();
@@ -202,7 +210,7 @@ export default async function DashboardPage() {
       {/* あいさつ・季節のひとこと */}
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
         <p className="text-sm font-bold text-gray-900">
-          {hello}{currentMember?.name ? `、${currentMember.name}さん` : ""}
+          {hello}{currentMember?.name ? (en ? `, ${currentMember.name}` : `、${currentMember.name}さん`) : ""}
         </p>
         {season && (
           <p className="text-xs text-gray-500">
@@ -215,7 +223,7 @@ export default async function DashboardPage() {
       <div className="grid gap-3 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:items-start">
         <div className="space-y-3 min-w-0">
           {/* 日替わりの1枚・本日の予定・節目 */}
-          <TodayCard rows={rows} teamCount={teamCount} milestones={milestones} quote={quote} mission={mission} tip={tip} fortune={fortune} />
+          <TodayCard rows={rows} teamCount={teamCount} milestones={milestones} quote={quote} mission={mission} tip={tip} fortune={fortune} lang={lang} />
 
           {/* 代表だけ：先月ぶんのコミッションの明細・振込が済んだか（別に読むので、ほかの表示は待たせない） */}
           {currentMember?.isOwner && (
@@ -228,35 +236,35 @@ export default async function DashboardPage() {
           {pendingRows.length > 0 && <PendingLessonsCard rows={pendingRows} />}
 
           {/* 今月のFIT STAGE（全員に見せる。金額は出さない） */}
-          <CompanyCard stats={company} />
+          <CompanyCard stats={company} lang={lang} />
         </div>
 
         <div className="space-y-3 min-w-0">
           {/* メニュー（目次と同じ行き先をタイルで） */}
-          <MenuTiles isAdmin={currentMember?.isAdmin ?? false} />
+          <MenuTiles isAdmin={currentMember?.isAdmin ?? false} lang={lang} />
 
           {/* 今月の自分 */}
-          <SectionBox title="今月の自分" action={{ label: "歩合の内訳", href: "/commissions" }}>
+          <SectionBox title={t("今月の自分", "My month")} action={{ label: t("歩合の内訳", "Commission details"), href: "/commissions" }}>
             <div className="grid grid-cols-2">
               <Link href="/commissions" className="p-3 hover:bg-gray-50 transition">
-                <p className="text-[11px] text-gray-500 flex items-center gap-1"><TrendingUp size={11} /> 自分の歩合</p>
+                <p className="text-[11px] text-gray-500 flex items-center gap-1"><TrendingUp size={11} /> {t("自分の歩合", "My commission")}</p>
                 <CountUp value={myCommissionThisMonth} prefix="¥" className="block text-2xl font-bold text-blue-700" />
                 {diffPercent !== null && (
                   <p className={cn("text-[11px] mt-0.5 font-semibold", diffPercent >= 0 ? "text-green-600" : "text-gray-400")}>
-                    先月の同日 {yen(myLastMtd)} と比べて {diffPercent >= 0 ? "+" : ""}{diffPercent}%
+                    {t("先月の同日", "Same day last month")} {yen(myLastMtd)} {t("と比べて", "→")} {diffPercent >= 0 ? "+" : ""}{diffPercent}%
                   </p>
                 )}
               </Link>
               <div className="p-3 border-l border-[var(--portal-line)]">
-                <p className="text-[11px] text-gray-500 flex items-center gap-1"><Dumbbell size={11} /> 自分のレッスン</p>
+                <p className="text-[11px] text-gray-500 flex items-center gap-1"><Dumbbell size={11} /> {t("自分のレッスン", "My sessions")}</p>
                 <p className="flex items-baseline">
                   <CountUp value={myCountThisMtd} className="text-2xl font-bold text-blue-700" />
-                  <span className="text-xs font-bold ml-0.5">本</span>
+                  <span className="text-xs font-bold ml-0.5">{t("本", "")}</span>
                   <Delta now={myCountThisMtd} prev={myCountLastMtd} goodWhenUp />
                 </p>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  このあとの予定 {myScheduledThisMonth.length}件
-                  {myCountLastMtd > 0 && <>・先月の同日 {myCountLastMtd}本</>}
+                  {t("このあとの予定", "Upcoming")} {myScheduledThisMonth.length}{t("件", "")}
+                  {myCountLastMtd > 0 && <>・{t("先月の同日", "same day last month")} {myCountLastMtd}{t("本", "")}</>}
                 </p>
               </div>
             </div>
@@ -265,41 +273,41 @@ export default async function DashboardPage() {
         <div className="border-t border-[var(--portal-line)] p-3 space-y-3">
           {(projection.count > 0 || pendingTotal > 0) && (
             <div>
-              <p className="text-xs font-semibold text-gray-500">今月の着地見込み</p>
+              <p className="text-xs font-semibold text-gray-500">{t("今月の着地見込み", "Month-end forecast")}</p>
               <p className="text-xl font-bold text-gray-900 mt-0.5 flex items-baseline">
                 {yen(forecast)}
                 <Delta now={forecast} prev={myLastMonthFinal} goodWhenUp />
               </p>
               <p className="text-[11px] text-gray-400 mt-0.5">
-                いまの確定 {yen(myCommissionThisMonth)}
-                {pendingTotal > 0 && ` ＋ 完了待ち ${yen(pendingTotal)}`}
-                {projection.count > 0 && ` ＋ これからの予定${projection.count}件 ${yen(projection.remaining)}`}
+                {t("いまの確定", "Confirmed")} {yen(myCommissionThisMonth)}
+                {pendingTotal > 0 && ` ＋ ${t("完了待ち", "not marked done")} ${yen(pendingTotal)}`}
+                {projection.count > 0 && ` ＋ ${t(`これからの予定${projection.count}件`, `${projection.count} upcoming`)} ${yen(projection.remaining)}`}
               </p>
               {myLastMonthFinal > 0 && (
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  先月は最終 {yen(myLastMonthFinal)}
+                  {t("先月は最終", "Last month final")} {yen(myLastMonthFinal)}
                   {forecast > myLastMonthFinal
-                    ? `・このペースなら ${yen(forecast - myLastMonthFinal)} 上まわります`
-                    : `・あと ${yen(myLastMonthFinal - forecast)} で先月に並びます`}
+                    ? t(`・このペースなら ${yen(forecast - myLastMonthFinal)} 上まわります`, ` · on pace to beat it by ${yen(forecast - myLastMonthFinal)}`)
+                    : t(`・あと ${yen(myLastMonthFinal - forecast)} で先月に並びます`, ` · ${yen(myLastMonthFinal - forecast)} more to match it`)}
                 </p>
               )}
             </div>
           )}
           {conv && conv.held > 0 && (
             <div className={cn(projection.count > 0 || pendingTotal > 0 ? "pt-3 border-t border-gray-100" : "")}>
-              <p className="text-xs font-semibold text-gray-500">今月の体験の成約率</p>
+              <p className="text-xs font-semibold text-gray-500">{t("今月の体験の成約率", "Trial close rate this month")}</p>
               <p className="text-xl font-bold text-gray-900 mt-0.5">
-                {conv.rate}% <span className="text-sm font-medium text-gray-500">（{conv.held}件中 {conv.contracted}件）</span>
+                {conv.rate}% <span className="text-sm font-medium text-gray-500">{t(`（${conv.held}件中 ${conv.contracted}件）`, `(${conv.contracted} of ${conv.held})`)}</span>
                 <Delta now={conv.rate ?? 0} prev={lastConv?.rate} goodWhenUp />
               </p>
               {lastConv && lastConv.rate != null && (
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  先月の同日まで {lastConv.rate}%（{lastConv.held}件中 {lastConv.contracted}件）
+                  {t(`先月の同日まで ${lastConv.rate}%（${lastConv.held}件中 ${lastConv.contracted}件）`, `Same day last month ${lastConv.rate}% (${lastConv.contracted} of ${lastConv.held})`)}
                 </p>
               )}
               {conv.unknown > 0 && (
                 <Link href="/lessons/trial" className="text-[11px] text-amber-700 mt-0.5 inline-block hover:underline">
-                  結果が未入力の体験が{conv.unknown}件あります →
+                  {t(`結果が未入力の体験が${conv.unknown}件あります →`, `${conv.unknown} trial result(s) not entered →`)}
                 </Link>
               )}
             </div>
@@ -310,13 +318,13 @@ export default async function DashboardPage() {
           </SectionBox>
 
           {/* 連続記録と称号（レッスンの連続と成約の連続を1枚に） */}
-          <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} />
+          <StreakBadges streak={streak} badges={badges} salesStreak={sStreak} salesBadges={sBadges} lang={lang} />
 
           {/* 営業の自分。声をかけたい人もこの中の一番下に */}
-          <SalesCard coverage={coverage} month={sMonth} follows={follows} unassigned={unassigned} />
+          <SalesCard coverage={coverage} month={sMonth} follows={follows} unassigned={unassigned} lang={lang} />
 
           {/* 目的別で探す */}
-          <QuickLinks isAdmin={currentMember?.isAdmin ?? false} />
+          <QuickLinks isAdmin={currentMember?.isAdmin ?? false} lang={lang} />
 
           {lineEnabled && (
             <LineLinkCard linked={lineLinked} code={lineCode} oaUrl={process.env.LINE_OA_URL} />

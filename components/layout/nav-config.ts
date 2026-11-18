@@ -25,6 +25,8 @@ import {
 
 export type NavNode = {
   label:      string;
+  /** 英語の名前（英語に切り替えたとき） */
+  en?:        string;
   href:       string;
   icon?:      LucideIcon;
   adminOnly?: boolean;
@@ -32,7 +34,15 @@ export type NavNode = {
   external?:  boolean;
 };
 
-export type NavGroup = { title: string; items: NavNode[] };
+export type NavGroup = { title: string; /** 英語の見出し */ en?: string; items: NavNode[] };
+
+/** 目次・パンくずの名前（英語に切り替えているときは英語） */
+export function navLabel(node: { label: string; en?: string }, lang: "ja" | "en"): string {
+  return lang === "en" && node.en ? node.en : node.label;
+}
+export function navGroupTitle(group: NavGroup, lang: "ja" | "en"): string {
+  return lang === "en" && group.en ? group.en : group.title;
+}
 
 /**
  * 目次の並び（2026-11-12 に目的ごとのまとまりに整理）。
@@ -40,37 +50,37 @@ export type NavGroup = { title: string; items: NavNode[] };
  * 目次（sidebar.tsx）とダッシュボードの「メニュー」（menu-tiles.tsx）の両方がこれを使う。
  */
 export const NAV_GROUPS: NavGroup[] = [
-  { title: "毎日つかう", items: [
-    { label: "ダッシュボード", href: "/dashboard",  icon: LayoutDashboard },
-    { label: "スケジュール",   href: "/schedule",    icon: CalendarDays },
-    { label: "レッスン",       href: "/lessons",     icon: Dumbbell },
-    { label: "回数券",         href: "/plans",       icon: Ticket },
-    { label: "やること",       href: "/tasks",       icon: ListChecks },
+  { title: "毎日つかう", en: "Daily", items: [
+    { label: "ダッシュボード", en: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
+    { label: "スケジュール", en: "Schedule",   href: "/schedule",    icon: CalendarDays },
+    { label: "レッスン", en: "Lessons",       href: "/lessons",     icon: Dumbbell },
+    { label: "回数券", en: "Session passes",         href: "/plans",       icon: Ticket },
+    { label: "やること", en: "To-do",       href: "/tasks",       icon: ListChecks },
   ] },
-  { title: "お客さま・営業", items: [
-    { label: "顧客",           href: "/master/customers",    icon: Users },
-    { label: "入会申し込み",   href: "/master/applications", icon: FileSignature },
-    { label: "ホテル営業",     href: "/sales",               icon: Building2 },
+  { title: "お客さま・営業", en: "Customers & sales", items: [
+    { label: "顧客", en: "Customers",           href: "/master/customers",    icon: Users },
+    { label: "入会申し込み", en: "Applications",   href: "/master/applications", icon: FileSignature },
+    { label: "ホテル営業", en: "Hotel sales",     href: "/sales",               icon: Building2 },
   ] },
-  { title: "お金", items: [
-    { label: "歩合",           href: "/commissions",     icon: PiggyBank },
-    { label: "請求書",         href: "/invoices",        icon: Receipt,   adminOnly: true },
-    { label: "入金",           href: "/admin/payments",  icon: Wallet,    adminOnly: true },
-    { label: "単発の仕事",     href: "/side-jobs",       icon: Hammer,    adminOnly: true },
-    { label: "経営の数字",     href: "/admin/dashboard", icon: LineChart, adminOnly: true },
+  { title: "お金", en: "Money", items: [
+    { label: "歩合", en: "Commission",           href: "/commissions",     icon: PiggyBank },
+    { label: "請求書", en: "Invoices",         href: "/invoices",        icon: Receipt,   adminOnly: true },
+    { label: "入金", en: "Payments",           href: "/admin/payments",  icon: Wallet,    adminOnly: true },
+    { label: "単発の仕事", en: "One-off jobs",     href: "/side-jobs",       icon: Hammer,    adminOnly: true },
+    { label: "経営の数字", en: "Business numbers",     href: "/admin/dashboard", icon: LineChart, adminOnly: true },
   ] },
-  { title: "会社", items: [
-    { label: "ビジョン・ルール", href: "/wiki",      icon: BookOpen },
-    { label: "今日の一手",     href: "/fortune",     icon: MoonStar },
-    { label: "アシスタント",   href: "/assistant",   icon: Sparkles },
-    { label: "AI部署",         href: "/ai-office",   icon: Bot,         adminOnly: true },
+  { title: "会社", en: "Company", items: [
+    { label: "ビジョン・ルール", en: "Vision & rules", href: "/wiki",      icon: BookOpen },
+    { label: "今日の一手", en: "Today's move",     href: "/fortune",     icon: MoonStar },
+    { label: "アシスタント", en: "Assistant",   href: "/assistant",   icon: Sparkles },
+    { label: "AI部署", en: "AI office",         href: "/ai-office",   icon: Bot,         adminOnly: true },
   ] },
-  { title: "設定", items: [
-    { label: "マスタ管理",     href: "/master",      icon: Database },
-    { label: "SEO",            href: "/seo",         icon: Search,      adminOnly: true },
-    { label: "管理者機能",     href: "/admin",       icon: ShieldCheck, adminOnly: true },
+  { title: "設定", en: "Settings", items: [
+    { label: "マスタ管理", en: "Master data",     href: "/master",      icon: Database },
+    { label: "SEO", en: "SEO",            href: "/seo",         icon: Search,      adminOnly: true },
+    { label: "管理者機能", en: "Admin",     href: "/admin",       icon: ShieldCheck, adminOnly: true },
     // 代表個人の米国株ポータル（別リポジトリ invest-portal / Vercel）。事業データとは分離、管理者のみ表示
-    { label: "米国株ポータル", href: "https://invest-portal-ten.vercel.app", icon: TrendingUp, adminOnly: true, external: true },
+    { label: "米国株ポータル", en: "US stocks", href: "https://invest-portal-ten.vercel.app", icon: TrendingUp, adminOnly: true, external: true },
   ] },
 ];
 

@@ -42,6 +42,8 @@ import { LessonForm } from "../lessons/regular/regular-lessons-client";
 import { createLessonAction, createLessonsAction, updateLessonAction, deleteLessonAction, setLessonStatusAction } from "../lessons/regular/actions";
 import { setTrialLessonStatusAction } from "../lessons/trial/actions";
 import { assertActionOk } from "@/lib/action-result";
+import { useLang } from "@/components/i18n/lang-provider";
+import { courseLabel, type Lang } from "@/lib/i18n";
 
 export type ScheduleItem = {
   id: string;
@@ -104,9 +106,17 @@ const COLOR_MAP: Record<EventColor, { dot: string; chip: string; accent: string;
   pink:   { dot: "bg-pink-500",   chip: "bg-pink-100 text-pink-700",     accent: "bg-pink-500",   swatch: "bg-pink-500" },
   gray:   { dot: "bg-gray-500",   chip: "bg-gray-200 text-gray-700",     accent: "bg-gray-400",   swatch: "bg-gray-500" },
 };
-const COLOR_LABEL: Record<EventColor, string> = {
+const COLOR_LABEL_JA: Record<EventColor, string> = {
   blue: "青", green: "緑", red: "赤", purple: "紫", amber: "橙", pink: "桃", gray: "灰",
 };
+const COLOR_LABEL_EN: Record<EventColor, string> = {
+  blue: "Blue", green: "Green", red: "Red", purple: "Purple", amber: "Orange", pink: "Pink", gray: "Gray",
+};
+
+// ─── 言語（2026-11-18 英語切り替え） ───────────────────
+// 各部品は useLang() で言語を受け取り、tt("日本語", "English") で書く。小さな関数には lang を渡す。
+// （サーバーは何人ぶんも同時に描くので、言語をファイル共通の変数に置かない）
+const ttOf = (lang: Lang) => (ja: string, en: string) => (lang === "en" ? en : ja);
 
 // ─── 日付ユーティリティ（ローカル＝JST） ───────────────
 function startOfDay(d: Date) {
@@ -115,16 +125,19 @@ function startOfDay(d: Date) {
 function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
-const WD = ["日", "月", "火", "水", "木", "金", "土"];
+const WD_JA = ["日", "月", "火", "水", "木", "金", "土"];
+const WD_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const wdList = (lang: Lang) => (lang === "en" ? WD_EN : WD_JA);
 
-function dayLabel(d: Date): { main: string; sub: string; accent: boolean } {
+function dayLabel(d: Date, lang: Lang): { main: string; sub: string; accent: boolean } {
+  const tt = ttOf(lang);
   const today = startOfDay(new Date());
   const target = startOfDay(d);
   const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
-  const sub = `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`;
-  if (diff === 0) return { main: "今日", sub, accent: true };
-  if (diff === 1) return { main: "明日", sub, accent: true };
-  if (diff === 2) return { main: "明後日", sub, accent: false };
+  const sub = `${d.getMonth() + 1}/${d.getDate()}(${wdList(lang)[d.getDay()]})`;
+  if (diff === 0) return { main: tt("今日", "Today"), sub, accent: true };
+  if (diff === 1) return { main: tt("明日", "Tomorrow"), sub, accent: true };
+  if (diff === 2) return { main: tt("明後日", "In 2 days"), sub, accent: false };
   return { main: sub, sub: "", accent: false };
 }
 
@@ -138,14 +151,15 @@ function jstMinutes(iso: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
-function fullDateStr(iso: string) {
-  return new Date(iso).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
+function fullDateStr(iso: string, lang: Lang) {
+  return new Date(iso).toLocaleDateString(lang === "en" ? "en-US" : "ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" });
 }
 
 // 回数券の利用回数表示（例: 3回目/全10回）。回数券未使用のレッスンは null
-function passUsageLabel(item: ScheduleItem): string | null {
+function passUsageLabel(item: ScheduleItem, lang: Lang): string | null {
+  const tt = ttOf(lang);
   if (!item.passOrdinal) return null;
-  return item.passTotal ? `${item.passOrdinal}回目/全${item.passTotal}回` : `${item.passOrdinal}回目`;
+  return item.passTotal ? tt(`${item.passOrdinal}回目/全${item.passTotal}回`, `#${item.passOrdinal} of ${item.passTotal}`) : tt(`${item.passOrdinal}回目`, `#${item.passOrdinal}`);
 }
 
 // ─── 今月のレッスン件数（担当者別・顧客別） ─────────────
@@ -169,6 +183,8 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
   /** 表示する月（YYYY-MM）。カレンダーで月を動かすとここも一緒に動く */
   month: string;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const [open, setOpen] = useState(false);
   const [by, setBy] = useState<"trainer" | "customer">("trainer");
   const [expanded, setExpanded] = useState(false);
@@ -204,12 +220,12 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
         <span aria-hidden className="w-2.5 h-2.5 bg-[var(--portal-gold)] flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900">
-            {parseInt(month.slice(5), 10)}月のレッスン件数{showOwn && "（自分）"}
+            {tt(`${parseInt(month.slice(5), 10)}月のレッスン件数`, `Sessions in ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(month.slice(5), 10) - 1]}`)}{showOwn && tt("（自分）", " (mine)")}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            実施済み <span className="font-bold text-green-600">{headline.done}</span> 件
+            {tt("実施済み", "Done")} <span className="font-bold text-green-600">{headline.done}</span>{tt(" 件", "")}
             <span className="mx-1.5 text-gray-300">/</span>
-            合計 <span className="font-bold text-blue-600">{headline.total}</span> 件
+            {tt("合計", "Total")} <span className="font-bold text-blue-600">{headline.total}</span>{tt(" 件", "")}
           </p>
         </div>
         <ChevronDown size={16} className={cn("text-gray-400 flex-shrink-0 transition-transform", open && "rotate-180")} />
@@ -218,7 +234,7 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
       {open && (
         <div className="px-3 pb-3 pt-3">
           <div className={cn(tabsWrap, "mb-3")}>
-            {([["trainer", "担当者別"], ["customer", "顧客別"]] as const).map(([key, label]) => (
+            {([["trainer", tt("担当者別", "By coach")], ["customer", tt("顧客別", "By client")]] as const).map(([key, label]) => (
               <button key={key} type="button" onClick={() => { setBy(key); setExpanded(false); }} className={tabButton(by === key, "sm")}>
                 {label}
               </button>
@@ -226,7 +242,7 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
           </div>
 
           {rows.length === 0 ? (
-            <p className="text-xs text-gray-400 py-2">今月のレッスンはまだありません。</p>
+            <p className="text-xs text-gray-400 py-2">{tt("今月のレッスンはまだありません。", "No sessions this month yet.")}</p>
           ) : (
             <div>
               {visible.map((r) => {
@@ -237,12 +253,12 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
                       "flex-1 min-w-0 truncate text-xs",
                       isSelf ? "font-bold text-blue-700" : "font-medium text-gray-700",
                     )}>
-                      {r.name}{isSelf && "（自分）"}
+                      {r.name}{isSelf && tt("（自分）", " (me)")}
                     </span>
                     <span className="flex-shrink-0 text-[11px] text-gray-400">
-                      実施 <span className="text-xs font-bold text-green-600">{r.done}</span>
+                      {tt("実施", "Done")} <span className="text-xs font-bold text-green-600">{r.done}</span>
                       <span className="mx-1 text-gray-300">/</span>
-                      合計 <span className="text-xs font-bold text-blue-600">{tallyRowTotal(r)}</span>
+                      {tt("合計", "Total")} <span className="text-xs font-bold text-blue-600">{tallyRowTotal(r)}</span>
                     </span>
                   </div>
                 );
@@ -253,7 +269,7 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
                   onClick={() => setExpanded((v) => !v)}
                   className="w-full text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg py-2 mt-1 transition"
                 >
-                  {expanded ? "閉じる" : `ほか${rows.length - TALLY_PREVIEW}件を表示`}
+                  {expanded ? tt("閉じる", "Close") : tt(`ほか${rows.length - TALLY_PREVIEW}件を表示`, `Show ${rows.length - TALLY_PREVIEW} more`)}
                 </button>
               )}
             </div>
@@ -262,20 +278,19 @@ function MonthlyLessonSummary({ items, isAdmin, currentMemberId, month }: {
           {/* 見出しを自分の件数にしているぶん、全員の合計は開いたときに出す */}
           {showOwn && rows.length > 0 && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
-              <span className="flex-1 min-w-0 text-xs font-semibold text-gray-500">全員の合計</span>
+              <span className="flex-1 min-w-0 text-xs font-semibold text-gray-500">{tt("全員の合計", "Team total")}</span>
               <span className="flex-shrink-0 text-[11px] text-gray-400">
-                実施 <span className="text-xs font-bold text-green-600">{total.done}</span>
+                {tt("実施", "Done")} <span className="text-xs font-bold text-green-600">{total.done}</span>
                 <span className="mx-1 text-gray-300">/</span>
-                合計 <span className="text-xs font-bold text-blue-600">{total.total}</span>
+                {tt("合計", "Total")} <span className="text-xs font-bold text-blue-600">{total.total}</span>
               </span>
             </div>
           )}
 
           <p className="text-[11px] text-gray-400 mt-2.5 leading-relaxed">
-            {showOwn && "上の見出しは自分の担当分です。"}
-            合計は実施済み＋未実施（予定）です。通常レッスン＋体験レッスンを数えます
-            （個人予定・業務は含みません）。当日キャンセルは実施済みに数え、
-            白紙キャンセルは数えません。上の絞り込みに関係なく、今月の全件を集計します。
+            {showOwn && tt("上の見出しは自分の担当分です。", "The heading shows your own sessions. ")}
+            {tt("合計は実施済み＋未実施（予定）です。通常レッスン＋体験レッスンを数えます（個人予定・業務は含みません）。当日キャンセルは実施済みに数え、白紙キャンセルは数えません。上の絞り込みに関係なく、今月の全件を集計します。",
+              "Total = done + still scheduled. Counts regular and trial sessions (not personal events or tasks). Late cancellations count as done; free cancellations don't. Ignores the filters above.")}
           </p>
         </div>
       )}
@@ -331,6 +346,8 @@ function DetailRow({ icon, label, children }: { icon: React.ReactNode; label: st
 
 // ─── ステータスバッジ ─────────────────────────────────
 function StatusPill({ status }: { status: ScheduleItem["status"] }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   if (status === "scheduled") return null;
   return (
     <span className={cn(
@@ -339,14 +356,15 @@ function StatusPill({ status }: { status: ScheduleItem["status"] }) {
       status === "cancelled_same_day" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
     )}>
       {status === "completed" ? <CheckCircle size={9} /> : <XCircle size={9} />}
-      {status === "completed" ? "完了" : status === "cancelled_same_day" ? "当日キャンセル" : "キャンセル"}
+      {status === "completed" ? tt("完了", "Done") : status === "cancelled_same_day" ? tt("当日キャンセル", "Late cancel") : tt("キャンセル", "Cancelled")}
     </span>
   );
 }
 
 // 個人予定の時刻表示（終日 / 時間範囲）
-function personalTimeLabel(item: ScheduleItem): string {
-  if (item.allDay) return "終日";
+function personalTimeLabel(item: ScheduleItem, lang: Lang): string {
+  const tt = ttOf(lang);
+  if (item.allDay) return tt("終日", "All day");
   const start = timeStr(item.scheduledAt);
   if (item.endAt) return `${start}〜${timeStr(item.endAt)}`;
   return start;
@@ -400,6 +418,8 @@ function LessonCard({
   onDuplicateLesson?: (lessonId: string) => void;
   onEditHourly?: (hourlyId: string) => void;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const { locked: deleting, run: runDelete } = useSubmitLock();
@@ -449,26 +469,26 @@ function LessonCard({
 
   function handleDelete() {
     if (deleting) return;
-    if (!confirm("この予定を削除しますか？")) return;
+    if (!confirm(tt("この予定を削除しますか？", "Delete this event?"))) return;
     runDelete(async () => {
       try {
         assertActionOk(await deletePersonalEventAction(item.id));
         router.refresh();
       } catch (e) {
-        alert(e instanceof Error ? e.message : "削除に失敗しました");
+        alert(e instanceof Error ? e.message : tt("削除に失敗しました", "Couldn't delete"));
       }
     });
   }
 
   function handleDeleteHourly() {
     if (deleting) return;
-    if (!confirm("この業務を削除しますか？")) return;
+    if (!confirm(tt("この業務を削除しますか？", "Delete this task?"))) return;
     runDelete(async () => {
       try {
         assertActionOk(await deleteHourlyTaskAction(item.id));
         router.refresh();
       } catch (e) {
-        alert(e instanceof Error ? e.message : "削除に失敗しました");
+        alert(e instanceof Error ? e.message : tt("削除に失敗しました", "Couldn't delete"));
       }
     });
   }
@@ -495,27 +515,27 @@ function LessonCard({
   function handleSetHourlyStatus(next: "completed" | "scheduled") {
     applyStatus(next, async () => {
       assertActionOk(await setHourlyTaskStatusAction(item.id, next));
-    }, "変更に失敗しました");
+    }, tt("変更に失敗しました", "Couldn't update"));
   }
 
   function handleSetTrialStatus(next: "completed" | "scheduled") {
     applyStatus(next, async () => {
       assertActionOk(await setTrialLessonStatusAction(item.id, next));
-    }, "変更に失敗しました");
+    }, tt("変更に失敗しました", "Couldn't update"));
   }
 
   function handleSetStatus(next: "completed" | "scheduled") {
     applyStatus(next, async () => {
       assertActionOk(await setLessonStatusAction(item.id, next));
-    }, "状態の変更に失敗しました");
+    }, tt("状態の変更に失敗しました", "Couldn't change the status"));
   }
 
   function handleCancel(next: "cancelled" | "cancelled_same_day") {
-    const label = next === "cancelled_same_day" ? "当日キャンセル" : "キャンセル";
-    if (!confirm(`このレッスンを${label}にしますか？`)) return;
+    const label = next === "cancelled_same_day" ? tt("当日キャンセル", "a late cancellation") : tt("キャンセル", "cancelled");
+    if (!confirm(tt(`このレッスンを${label}にしますか？`, `Mark this session as ${label}?`))) return;
     applyStatus(next, async () => {
       assertActionOk(await setLessonStatusAction(item.id, next));
-    }, "状態の変更に失敗しました");
+    }, tt("状態の変更に失敗しました", "Couldn't change the status"));
   }
 
   return (
@@ -541,7 +561,7 @@ function LessonCard({
             isPersonal && item.allDay ? "text-[11px]" : "text-base",
             cancelled ? "text-gray-400 line-through" : "text-gray-900"
           )}>
-            {isPersonal && item.allDay ? "終日" : timeStr(item.scheduledAt)}
+            {isPersonal && item.allDay ? tt("終日", "All day") : timeStr(item.scheduledAt)}
           </span>
           {!(isPersonal && item.allDay) && item.endAt && (
             <span className={cn(
@@ -561,19 +581,19 @@ function LessonCard({
               isPersonal ? COLOR_MAP[color].chip : isTrial ? "bg-purple-100 text-purple-700" : isHourly ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
             )}>
               {isPersonal ? <CalendarPlus size={9} /> : isTrial ? <FlaskConical size={9} /> : isHourly ? <Wallet size={9} /> : <Dumbbell size={9} />}
-              {isPersonal ? "個人" : isTrial ? "体験" : isHourly ? "業務" : "通常"}
+              {isPersonal ? tt("個人", "Personal") : isTrial ? tt("体験", "Trial") : isHourly ? tt("業務", "Task") : tt("通常", "Session")}
             </span>
             {item.salesOnly && (
               <span
-                title="自分は教えませんが、担当営業のお客さまです"
+                title={tt("自分は教えませんが、担当営業のお客さまです", "Not your session, but you're the sales rep for this client")}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700"
               >
-                <Handshake size={9} /> 営業
+                <Handshake size={9} /> {tt("営業", "Sales")}
               </span>
             )}
             {item.isPrivate && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-gray-200 text-gray-600">
-                <Lock size={9} /> 非公開
+                <Lock size={9} /> {tt("非公開", "Private")}
               </span>
             )}
             <StatusPill status={status} />
@@ -581,7 +601,7 @@ function LessonCard({
                 これが消えるまではアプリを閉じないでもらう。 */}
             {settingStatus && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">
-                <Spinner size={9} /> 保存中
+                <Spinner size={9} /> {tt("保存中", "Saving")}
               </span>
             )}
           </div>
@@ -589,8 +609,8 @@ function LessonCard({
           <div className="flex items-center gap-x-3 gap-y-0.5 mt-0.5 flex-wrap">
             {item.course && (
               <span className="text-xs text-gray-500">
-                {item.course}
-                {item.passOrdinal ? `（${passUsageLabel(item)}）` : ""}
+                {courseLabel(item.course, lang)}
+                {item.passOrdinal ? `（${passUsageLabel(item, lang)}）` : ""}
               </span>
             )}
             {item.location && (
@@ -603,8 +623,8 @@ function LessonCard({
           {hasStaff && (
             <div className="text-xs text-gray-500 mt-1 flex items-center gap-x-2 gap-y-1 flex-wrap min-w-0">
               {isPersonal && <MemberLabel name={item.ownerName} avatarUrl={item.ownerAvatarUrl} />}
-              {!isPersonal && <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} suffix={isTrial ? "(ﾄﾚｰﾅｰ)" : undefined} />}
-              {isTrial && <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} suffix="(営業)" />}
+              {!isPersonal && <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} suffix={isTrial ? tt("(ﾄﾚｰﾅｰ)", "(coach)") : undefined} />}
+              {isTrial && <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} suffix={tt("(営業)", "(sales)")} />}
             </div>
           )}
         </div>
@@ -617,69 +637,69 @@ function LessonCard({
       {/* 展開詳細 */}
       {open && (
         <div className="border-t border-gray-100 px-4 py-2">
-          <DetailRow icon={<Calendar size={13} />} label="日時">
-            {fullDateStr(item.scheduledAt)} {isPersonal ? personalTimeLabel(item) : (item.endAt ? `${timeStr(item.scheduledAt)}〜${timeStr(item.endAt)}` : timeStr(item.scheduledAt))}
+          <DetailRow icon={<Calendar size={13} />} label={tt("日時", "Date & time")}>
+            {fullDateStr(item.scheduledAt, lang)} {isPersonal ? personalTimeLabel(item, lang) : (item.endAt ? `${timeStr(item.scheduledAt)}〜${timeStr(item.endAt)}` : timeStr(item.scheduledAt))}
           </DetailRow>
           {isPersonal ? (
             <>
-              <DetailRow icon={<UserRound size={13} />} label="作成者">
+              <DetailRow icon={<UserRound size={13} />} label={tt("作成者", "Owner")}>
                 {item.ownerName ? <MemberLabel name={item.ownerName} avatarUrl={item.ownerAvatarUrl} size="sm" /> : "—"}
               </DetailRow>
               {item.participantNames && item.participantNames.length > 0 && (
-                <DetailRow icon={<Users size={13} />} label="参加者">
+                <DetailRow icon={<Users size={13} />} label={tt("参加者", "Participants")}>
                   {item.participantNames.join("、")}
                 </DetailRow>
               )}
             </>
           ) : isTrial ? (
             <>
-              <DetailRow icon={<UserRound size={13} />} label="営業担当">
-                {item.salesName ? <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} size="sm" /> : "未設定"}
+              <DetailRow icon={<UserRound size={13} />} label={tt("営業担当", "Sales rep")}>
+                {item.salesName ? <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} size="sm" /> : tt("未設定", "Not set")}
               </DetailRow>
-              <DetailRow icon={<UserRound size={13} />} label="トレーナー">
-                {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+              <DetailRow icon={<UserRound size={13} />} label={tt("トレーナー", "Coach")}>
+                {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : tt("未設定", "Not set")}
               </DetailRow>
             </>
           ) : isHourly ? (
-            <DetailRow icon={<UserRound size={13} />} label="担当者">
-              {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+            <DetailRow icon={<UserRound size={13} />} label={tt("担当者", "Staff")}>
+              {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : tt("未設定", "Not set")}
             </DetailRow>
           ) : (
             <>
-              <DetailRow icon={<UserRound size={13} />} label="担当トレーナー">
-                {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : "未設定"}
+              <DetailRow icon={<UserRound size={13} />} label={tt("担当トレーナー", "Coach")}>
+                {item.trainerName ? <MemberLabel name={item.trainerName} avatarUrl={item.trainerAvatarUrl} size="sm" /> : tt("未設定", "Not set")}
               </DetailRow>
               {item.type === "regular" && (
-                <DetailRow icon={<UserRound size={13} />} label="担当営業">
-                  {item.salesName ? <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} size="sm" /> : "未設定"}
+                <DetailRow icon={<UserRound size={13} />} label={tt("担当営業", "Sales rep")}>
+                  {item.salesName ? <MemberLabel name={item.salesName} avatarUrl={item.salesAvatarUrl} size="sm" /> : tt("未設定", "Not set")}
                 </DetailRow>
               )}
             </>
           )}
           {item.type === "regular" && item.createdByName && (
-            <DetailRow icon={<CalendarPlus size={13} />} label="追加者">{item.createdByName}</DetailRow>
+            <DetailRow icon={<CalendarPlus size={13} />} label={tt("追加者", "Added by")}>{item.createdByName}</DetailRow>
           )}
           {item.course && (
-            <DetailRow icon={<Ticket size={13} />} label="コース">
-              {item.course}
+            <DetailRow icon={<Ticket size={13} />} label={tt("コース", "Course")}>
+              {courseLabel(item.course, lang)}
               {item.passOrdinal ? (
-                <span className="ml-1 font-semibold text-blue-600">{passUsageLabel(item)}</span>
+                <span className="ml-1 font-semibold text-blue-600">{passUsageLabel(item, lang)}</span>
               ) : null}
             </DetailRow>
           )}
-          {item.location && <DetailRow icon={<MapPin size={13} />} label="場所">{item.location}</DetailRow>}
+          {item.location && <DetailRow icon={<MapPin size={13} />} label={tt("場所", "Location")}>{item.location}</DetailRow>}
           {item.note && (
-            <DetailRow icon={<StickyNote size={13} />} label={isPersonal ? "メモ" : "備考"}>
+            <DetailRow icon={<StickyNote size={13} />} label={isPersonal ? tt("メモ", "Memo") : tt("備考", "Notes")}>
               <span className="whitespace-pre-wrap">{item.note}</span>
             </DetailRow>
           )}
           {/* 引き継ぎ。トレーナーが実際に見るのはこの展開カードなので、ここに出す */}
           {open && item.type === "regular" && item.handover && (
-            <Handover trial={item.handover.trial} history={item.handover.history} />
+            <Handover trial={item.handover.trial} history={item.handover.history} lang={lang} />
           )}
           {open && canWriteNote && <LessonNoteEditor lessonId={item.id} note={item.note} />}
           {isTrial && item.handoverNote && (
-            <DetailRow icon={<ClipboardList size={13} />} label="次の人への引き継ぎ">
+            <DetailRow icon={<ClipboardList size={13} />} label={tt("次の人への引き継ぎ", "Handover for the next coach")}>
               <span className="whitespace-pre-wrap">{item.handoverNote}</span>
             </DetailRow>
           )}
@@ -698,7 +718,7 @@ function LessonCard({
                 onClick={() => onEditPersonal?.(item)}
                 className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
               >
-                <Pencil size={13} /> 編集
+                <Pencil size={13} /> {tt("編集", "Edit")}
               </button>
               <button
                 type="button"
@@ -706,7 +726,7 @@ function LessonCard({
                 disabled={deleting}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2 px-4 transition disabled:opacity-50"
               >
-                <Trash2 size={13} /> {deleting ? "削除中…" : "削除"}
+                <Trash2 size={13} /> {deleting ? tt("削除中…", "Deleting…") : tt("削除", "Delete")}
               </button>
             </div>
           )}
@@ -719,7 +739,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <RotateCcw size={13} /> 予定に戻す
+                <RotateCcw size={13} /> {tt("予定に戻す", "Back to scheduled")}
               </button>
             ) : (
               <button
@@ -728,7 +748,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <CheckCircle size={13} /> 完了にする
+                <CheckCircle size={13} /> {tt("完了にする", "Mark done")}
               </button>
             )
           )}
@@ -739,7 +759,7 @@ function LessonCard({
                 onClick={() => onEditHourly?.(item.id)}
                 className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
               >
-                <Pencil size={13} /> 編集
+                <Pencil size={13} /> {tt("編集", "Edit")}
               </button>
               <button
                 type="button"
@@ -747,7 +767,7 @@ function LessonCard({
                 disabled={deleting}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 rounded-xl py-2 px-4 transition disabled:opacity-50"
               >
-                <Trash2 size={13} /> {deleting ? "削除中…" : "削除"}
+                <Trash2 size={13} /> {deleting ? tt("削除中…", "Deleting…") : tt("削除", "Delete")}
               </button>
             </div>
           )}
@@ -759,7 +779,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <RotateCcw size={13} /> 予定に戻す
+                <RotateCcw size={13} /> {tt("予定に戻す", "Back to scheduled")}
               </button>
             ) : (
               <button
@@ -768,7 +788,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <CheckCircle size={13} /> 完了にする
+                <CheckCircle size={13} /> {tt("完了にする", "Mark done")}
               </button>
             )
           )}
@@ -780,7 +800,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <XCircle size={13} /> 当日キャンセル
+                <XCircle size={13} /> {tt("当日キャンセル", "Late cancel")}
               </button>
               <button
                 type="button"
@@ -788,7 +808,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <XCircle size={13} /> キャンセル
+                <XCircle size={13} /> {tt("キャンセル", "Cancel")}
               </button>
             </div>
           )}
@@ -800,7 +820,7 @@ function LessonCard({
                   onClick={() => onEditLesson?.(item.id)}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
                 >
-                  <Pencil size={13} /> 編集
+                  <Pencil size={13} /> {tt("編集", "Edit")}
                 </button>
               )}
               {item.type === "regular" && onDuplicateLesson && (
@@ -809,7 +829,7 @@ function LessonCard({
                   onClick={() => onDuplicateLesson(item.id)}
                   className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl py-2 transition"
                 >
-                  <CopyPlus size={13} /> 複製
+                  <CopyPlus size={13} /> {tt("複製", "Duplicate")}
                 </button>
               )}
             </div>
@@ -823,7 +843,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <RotateCcw size={13} /> 予定に戻す
+                <RotateCcw size={13} /> {tt("予定に戻す", "Back to scheduled")}
               </button>
             ) : (
               <button
@@ -832,7 +852,7 @@ function LessonCard({
                 disabled={settingStatus}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-xl py-2 transition disabled:opacity-50"
               >
-                <CheckCircle size={13} /> 完了にする
+                <CheckCircle size={13} /> {tt("完了にする", "Mark done")}
               </button>
             )
           )}
@@ -841,7 +861,7 @@ function LessonCard({
               href={editHref}
               className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded-xl py-2 transition"
             >
-              <Pencil size={13} /> 体験レッスン管理で編集
+              <Pencil size={13} /> {tt("体験レッスン管理で編集", "Edit in trial sessions")}
             </Link>
           )}
         </div>
@@ -863,7 +883,9 @@ function DayGroup({
   onDuplicateLesson?: (lessonId: string) => void;
   onEditHourly?: (hourlyId: string) => void;
 }) {
-  const { main, sub, accent } = dayLabel(date);
+  const lang = useLang();
+  const tt = ttOf(lang);
+  const { main, sub, accent } = dayLabel(date, lang);
   return (
     <div>
       {/* 日付の帯。今日・明日は金の線 */}
@@ -873,7 +895,7 @@ function DayGroup({
       )}>
         <span className="text-sm font-bold text-blue-700">{main}</span>
         {sub && <span className="text-xs text-gray-600">{sub}</span>}
-        <span className="text-xs font-bold text-blue-700 ml-auto">{items.length}件</span>
+        <span className="text-xs font-bold text-blue-700 ml-auto">{items.length}{tt("件", "")}</span>
       </div>
       <div className="space-y-2">
         {items.map((it) => (
@@ -908,6 +930,8 @@ function CalendarView({
   cursor: Date;
   setCursor: Dispatch<SetStateAction<Date>>;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const [selectedKey, setSelectedKey] = useState<string | null>(() => dayKey(startOfDay(new Date())));
   const [addOpen, setAddOpen] = useState(false);
 
@@ -946,7 +970,7 @@ function CalendarView({
   const todayKey = dayKey(startOfDay(new Date()));
   const selectedItems = selectedKey ? byDay.get(selectedKey) ?? [] : [];
 
-  const monthLabel = `${cursor.getFullYear()}年${cursor.getMonth() + 1}月`;
+  const monthLabel = tt(`${cursor.getFullYear()}年${cursor.getMonth() + 1}月`, cursor.toLocaleDateString("en-US", { year: "numeric", month: "long" }));
 
   return (
     <div>
@@ -955,7 +979,7 @@ function CalendarView({
         <button
           onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() - 1, 1))}
           className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition"
-          aria-label="前の月"
+          aria-label={tt("前の月", "Previous month")}
         >
           <ChevronLeft size={18} />
         </button>
@@ -965,13 +989,13 @@ function CalendarView({
             onClick={() => { const t = new Date(); setCursor(new Date(t.getFullYear(), t.getMonth(), 1)); setSelectedKey(todayKey); }}
             className="text-xs font-medium text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition"
           >
-            今月
+            {tt("今月", "This month")}
           </button>
         </div>
         <button
           onClick={() => setCursor((c) => new Date(c.getFullYear(), c.getMonth() + 1, 1))}
           className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition"
-          aria-label="次の月"
+          aria-label={tt("次の月", "Next month")}
         >
           <ChevronRight size={18} />
         </button>
@@ -979,7 +1003,7 @@ function CalendarView({
 
       {/* 曜日ヘッダー */}
       <div className="grid grid-cols-7 mb-1.5">
-        {WD.map((w, i) => (
+        {wdList(lang).map((w, i) => (
           <div key={w} className={cn(
             "text-center text-xs font-bold py-1.5",
             i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-600"
@@ -1025,12 +1049,12 @@ function CalendarView({
                     )}
                   >
                     {it.type === "personal" && it.allDay
-                      ? "終日"
+                      ? tt("終日", "All day")
                       : `${timeStr(it.scheduledAt)}${it.endAt ? `-${timeStr(it.endAt)}` : ""}`} {it.customerName}
                   </span>
                 ))}
                 {dayItems.length > 3 && (
-                  <span className="text-[9px] font-semibold text-gray-500 px-1">+{dayItems.length - 3}件</span>
+                  <span className="text-[9px] font-semibold text-gray-500 px-1">+{dayItems.length - 3}{tt("件", "")}</span>
                 )}
               </div>
             </button>
@@ -1042,9 +1066,9 @@ function CalendarView({
       <div className="mt-5">
         <div className="flex items-center gap-2 px-1 mb-2">
           <span className="text-sm font-bold text-gray-700">
-            {selectedKey ? fullDateStr(keyToYmd(selectedKey) + "T00:00:00+09:00") : "日付を選択"}
+            {selectedKey ? fullDateStr(keyToYmd(selectedKey) + "T00:00:00+09:00", lang) : tt("日付を選択", "Pick a date")}
           </span>
-          {selectedItems.length > 0 && <span className="text-xs text-gray-300">{selectedItems.length}件</span>}
+          {selectedItems.length > 0 && <span className="text-xs text-gray-300">{selectedItems.length}{tt("件", "")}</span>}
           {selectedKey && (onAddPersonal || onAddLesson || onAddHourly) && (
             <div className="relative ml-auto flex-shrink-0">
               <button
@@ -1052,7 +1076,7 @@ function CalendarView({
                 onClick={() => setAddOpen((v) => !v)}
                 className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 hover:bg-blue-700 transition"
               >
-                <Plus size={13} /> この日に追加
+                <Plus size={13} /> {tt("この日に追加", "Add to this day")}
               </button>
               {addOpen && (
                 <>
@@ -1064,7 +1088,7 @@ function CalendarView({
                         onClick={() => { setAddOpen(false); onAddLesson(keyToYmd(selectedKey)); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                       >
-                        <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
+                        <Dumbbell size={14} className="text-blue-500" /> {tt("通常レッスン", "Session")}
                       </button>
                     )}
                     {onAddPersonal && (
@@ -1073,7 +1097,7 @@ function CalendarView({
                         onClick={() => { setAddOpen(false); onAddPersonal(keyToYmd(selectedKey)); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                       >
-                        <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                        <CalendarPlus size={14} className="text-green-500" /> {tt("個人予定", "Personal event")}
                       </button>
                     )}
                     {onAddHourly && (
@@ -1082,7 +1106,7 @@ function CalendarView({
                         onClick={() => { setAddOpen(false); onAddHourly(keyToYmd(selectedKey)); }}
                         className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                       >
-                        <Wallet size={14} className="text-amber-500" /> 業務
+                        <Wallet size={14} className="text-amber-500" /> {tt("業務", "Paid task")}
                       </button>
                     )}
                   </div>
@@ -1092,7 +1116,7 @@ function CalendarView({
           )}
         </div>
         {selectedItems.length === 0 ? (
-          <div className="text-center py-10 text-sm text-gray-400">この日の予定はありません</div>
+          <div className="text-center py-10 text-sm text-gray-400">{tt("この日の予定はありません", "Nothing scheduled")}</div>
         ) : (
           <div className="space-y-2">
             {selectedItems.map((it) => (
@@ -1117,6 +1141,8 @@ function PersonalEventModal({
   currentMemberId?: string;
   onClose: () => void;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const router = useRouter();
   const startDateInit = initial ? datePart(initial.scheduledAt) : (defaultDate ?? todayDate());
   const startTimeInit = initial && !initial.allDay ? timePart(initial.scheduledAt) : "10:00";
@@ -1219,7 +1245,7 @@ function PersonalEventModal({
         router.refresh();
         onClose();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "保存に失敗しました");
+        setError(err instanceof Error ? err.message : tt("保存に失敗しました", "Couldn't save"));
       }
     });
   }
@@ -1229,32 +1255,32 @@ function PersonalEventModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="text-base font-bold text-gray-900">{mode === "edit" ? "予定を編集" : "予定を追加"}</p>
+          <p className="text-base font-bold text-gray-900">{mode === "edit" ? tt("予定を編集", "Edit event") : tt("予定を追加", "Add event")}</p>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
 
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           {/* タイトル */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">タイトル <span className="text-red-400">*</span></label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("タイトル", "Title")} <span className="text-red-400">*</span></label>
             <input name="title" defaultValue={initial?.customerName ?? ""} required
               className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="例: 面談、外出、私用" />
+              placeholder={tt("例: 面談、外出、私用", "e.g. Meeting, out, personal")} />
           </div>
 
           {/* 誰の予定か。自分以外を選ぶと、その人のスケジュールに入る（LINEでも知らせる） */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">誰の予定</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("誰の予定", "Whose event")}</label>
             <select name="ownerId" value={ownerId} onChange={(e) => changeOwner(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              {currentMemberId && <option value={currentMemberId}>自分</option>}
+              {currentMemberId && <option value={currentMemberId}>{tt("自分", "Me")}</option>}
               {members.filter((m) => m.id !== currentMemberId).map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>
             {ownerId && ownerId !== currentMemberId && (
               <p className="text-[11px] text-blue-600 mt-1">
-                {members.find((m) => m.id === ownerId)?.name ?? ""}さんのスケジュールに入ります。あとで直せるのは、本人・あなた・管理者です。
+                {tt(`${members.find((m) => m.id === ownerId)?.name ?? ""}さんのスケジュールに入ります。あとで直せるのは、本人・あなた・管理者です。`, `Goes on ${members.find((m) => m.id === ownerId)?.name ?? ""}'s schedule. They, you and admins can edit it later.`)}
               </p>
             )}
           </div>
@@ -1263,12 +1289,12 @@ function PersonalEventModal({
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" name="allDay" checked={allDay} onChange={(e) => setAllDay(e.target.checked)}
               className="w-4 h-4 rounded border-gray-300" />
-            終日
+            {tt("終日", "All day")}
           </label>
 
           {/* 開始 */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">開始</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("開始", "Start")}</label>
             <div className="flex gap-2">
               <input type="date" name="startDate" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} required
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -1281,7 +1307,7 @@ function PersonalEventModal({
 
           {/* 終了 */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">終了 <span className="text-gray-300 font-normal">（任意）</span></label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("終了", "End")} <span className="text-gray-300 font-normal">{tt("（任意）", "(optional)")}</span></label>
             <div className="flex gap-2">
               <input type="date" name="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -1296,7 +1322,7 @@ function PersonalEventModal({
           {mode === "create" && (
             <div className="space-y-3">
               <div className={tabsWrap}>
-                {([["single", "単発"], ["multiple", "複数日時"], ["recurring", "繰り返し"]] as const).map(([key, label]) => (
+                {([["single", tt("単発", "Once")], ["multiple", tt("複数日時", "Multiple dates")], ["recurring", tt("繰り返し", "Repeat")]] as const).map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
@@ -1311,7 +1337,7 @@ function PersonalEventModal({
               {/* 複数日時 */}
               {multiMode === "multiple" && (
                 <div className="rounded-xl border border-gray-200 p-3 bg-gray-50/60">
-                  <p className="text-[11px] text-gray-400 mb-2">同じ予定名で別の日時にも登録します。</p>
+                  <p className="text-[11px] text-gray-400 mb-2">{tt("同じ予定名で別の日時にも登録します。", "Adds the same event on other dates too.")}</p>
                   {extraSlots.map((s, i) => (
                     <div key={i} className="flex gap-2 mb-2 items-center">
                       <input type="date" value={s.date} onChange={(e) => updateExtraSlot(i, { date: e.target.value })}
@@ -1329,7 +1355,7 @@ function PersonalEventModal({
                   ))}
                   <button type="button" onClick={addExtraSlot}
                     className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg px-2.5 py-1.5 transition">
-                    <Plus size={14} /> 日時を追加
+                    <Plus size={14} /> {tt("日時を追加", "Add a date")}
                   </button>
                 </div>
               )}
@@ -1343,22 +1369,22 @@ function PersonalEventModal({
                       onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
                       className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="daily">毎日</option>
-                      <option value="weekly">毎週</option>
-                      <option value="biweekly">隔週</option>
-                      <option value="monthly">毎月</option>
+                      <option value="daily">{tt("毎日", "Daily")}</option>
+                      <option value="weekly">{tt("毎週", "Weekly")}</option>
+                      <option value="biweekly">{tt("隔週", "Every 2 weeks")}</option>
+                      <option value="monthly">{tt("毎月", "Monthly")}</option>
                     </select>
                     <input
                       type="date"
                       value={recurUntil}
                       min={startDate}
                       onChange={(e) => setRecurUntil(e.target.value)}
-                      placeholder="終了日"
+                      placeholder={tt("終了日", "End date")}
                       className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1">
-                    {recurUntil ? "開始日から終了日まで、同じ時間で繰り返し作成します。" : "繰り返しの終了日を選んでください。"}
+                    {recurUntil ? tt("開始日から終了日まで、同じ時間で繰り返し作成します。", "Repeats at the same time from the start date to the end date.") : tt("繰り返しの終了日を選んでください。", "Pick an end date for the repeat.")}
                   </p>
                 </div>
               )}
@@ -1367,7 +1393,7 @@ function PersonalEventModal({
 
           {/* 場所 */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">場所</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("場所", "Location")}</label>
             <input name="location" defaultValue={initial?.location ?? ""}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
@@ -1376,7 +1402,7 @@ function PersonalEventModal({
           <div>
             <input type="hidden" name="participantIds" value={JSON.stringify(participants)} />
             <label className="text-xs font-semibold text-gray-500 mb-1 block">
-              参加者 <span className="text-gray-300 font-normal">（任意）</span>
+              {tt("参加者", "Participants")} <span className="text-gray-300 font-normal">{tt("（任意）", "(optional)")}</span>
             </label>
             {participants.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1385,7 +1411,7 @@ function PersonalEventModal({
                   return (
                     <button key={id} type="button" onClick={() => toggleParticipant(id)}
                       className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full pl-2.5 pr-1.5 py-1 hover:bg-blue-100 transition">
-                      {m?.name ?? "不明"}
+                      {m?.name ?? tt("不明", "Unknown")}
                       <X size={12} />
                     </button>
                   );
@@ -1395,12 +1421,12 @@ function PersonalEventModal({
             <input
               value={memberQuery}
               onChange={(e) => setMemberQuery(e.target.value)}
-              placeholder="担当者を検索して追加..."
+              placeholder={tt("担当者を検索して追加...", "Search staff to add...")}
               className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-1.5"
             />
             <div className="max-h-36 overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
               {filteredMembers.length === 0 ? (
-                <p className="text-xs text-gray-400 px-3 py-2">該当する担当者がいません</p>
+                <p className="text-xs text-gray-400 px-3 py-2">{tt("該当する担当者がいません", "No matching staff")}</p>
               ) : (
                 filteredMembers.map((m) => {
                   const selected = participants.includes(m.id);
@@ -1426,9 +1452,9 @@ function PersonalEventModal({
             <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
               <input type="checkbox" name="notify" checked={notify} onChange={(e) => setNotify(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300" />
-              <span className="font-medium">相手にLINEで通知する</span>
+              <span className="font-medium">{tt("相手にLINEで通知する", "Notify them on LINE")}</span>
             </label>
-            <p className="text-[11px] text-gray-400 mt-1 ml-6">参加者と、他の人の予定ならその本人に送ります。オフにすると、追加・変更・削除のLINE通知を送りません。</p>
+            <p className="text-[11px] text-gray-400 mt-1 ml-6">{tt("参加者と、他の人の予定ならその本人に送ります。オフにすると、追加・変更・削除のLINE通知を送りません。", "Sends to participants, and to the owner if it's someone else's event. Off = no LINE messages for add/change/delete.")}</p>
           </div>
 
           {/* 非公開 */}
@@ -1436,25 +1462,25 @@ function PersonalEventModal({
             <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
               <input type="checkbox" name="isPrivate" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300" />
-              <span className="font-medium">非公開にする</span>
+              <span className="font-medium">{tt("非公開にする", "Make private")}</span>
             </label>
-            <p className="text-[11px] text-gray-400 mt-1 ml-6">オンにすると、自分と参加者以外のスケジュールには表示されません。</p>
+            <p className="text-[11px] text-gray-400 mt-1 ml-6">{tt("オンにすると、自分と参加者以外のスケジュールには表示されません。", "Only you and participants will see it.")}</p>
           </div>
 
           {/* メモ */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">メモ</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("メモ", "Memo")}</label>
             <textarea name="memo" defaultValue={initial?.note ?? ""} rows={3}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
 
           {/* 色 */}
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">色</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">{tt("色", "Color")}</label>
             <input type="hidden" name="color" value={color} />
             <div className="flex gap-2 flex-wrap">
               {EVENT_COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => setColor(c)} aria-label={COLOR_LABEL[c]}
+                <button key={c} type="button" onClick={() => setColor(c)} aria-label={(lang === "en" ? COLOR_LABEL_EN : COLOR_LABEL_JA)[c]}
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center transition",
                     COLOR_MAP[c].swatch,
@@ -1471,11 +1497,11 @@ function PersonalEventModal({
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
-              キャンセル
+              {tt("キャンセル", "Cancel")}
             </button>
             <button type="submit" disabled={pending}
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
-              {pending ? <Spinner size={14} /> : null} {pending ? "保存中…" : "保存"}
+              {pending ? <Spinner size={14} /> : null} {pending ? tt("保存中…", "Saving…") : tt("保存", "Save")}
             </button>
           </div>
         </form>
@@ -1509,6 +1535,8 @@ function LessonModal({
   duplicateLesson?: Lesson;   // 指定時は「同じ内容で新規作成」
   onClose: () => void;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const router = useRouter();
   const close = () => { router.refresh(); onClose(); };
   const isEdit = !!editLesson;
@@ -1527,7 +1555,7 @@ function LessonModal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white w-full md:max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="text-base font-bold text-gray-900">{isEdit ? "通常レッスンを編集" : duplicateLesson ? "通常レッスンを複製" : "通常レッスンを追加"}</p>
+          <p className="text-base font-bold text-gray-900">{isEdit ? tt("通常レッスンを編集", "Edit session") : duplicateLesson ? tt("通常レッスンを複製", "Duplicate session") : tt("通常レッスンを追加", "Add session")}</p>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={20} /></button>
         </div>
         <div className="p-5">
@@ -1547,7 +1575,7 @@ function LessonModal({
             action={isEdit ? updateLessonAction.bind(null, editLesson!.id) : createLessonAction}
             multiAction={isEdit ? undefined : createLessonsAction}
             onDelete={isEdit ? async () => { assertActionOk(await deleteLessonAction(editLesson!.id)); } : undefined}
-            submitLabel={isEdit ? "保存する" : "追加する"}
+            submitLabel={isEdit ? tt("保存する", "Save") : tt("追加する", "Add")}
           />
         </div>
       </div>
@@ -1564,6 +1592,8 @@ function HourlyTaskModal({
   editTask?: HourlyTask; // 指定時は編集モード
   onClose: () => void;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const router = useRouter();
   const isEdit = !!editTask;
   const startDateInit = editTask ? datePart(editTask.scheduledAt) : (defaultDate ?? todayDate());
@@ -1600,7 +1630,7 @@ function HourlyTaskModal({
         router.refresh();
         onClose();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "保存に失敗しました");
+        setError(err instanceof Error ? err.message : tt("保存に失敗しました", "Couldn't save"));
       }
     });
   }
@@ -1614,7 +1644,7 @@ function HourlyTaskModal({
         router.refresh();
         onClose();
       } catch (e) {
-        alert(e instanceof Error ? e.message : "削除に失敗しました");
+        alert(e instanceof Error ? e.message : tt("削除に失敗しました", "Couldn't delete"));
       }
     });
   }
@@ -1646,7 +1676,7 @@ function HourlyTaskModal({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1 block">開始</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">{tt("開始", "Start")}</label>
             <div className="flex gap-2">
               <input type="date" name="startDate" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} required
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -1700,11 +1730,11 @@ function HourlyTaskModal({
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
-              キャンセル
+              {tt("キャンセル", "Cancel")}
             </button>
             <button type="submit" disabled={pending}
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50">
-              {pending ? <Spinner size={14} /> : null} {pending ? "保存中…" : "保存"}
+              {pending ? <Spinner size={14} /> : null} {pending ? tt("保存中…", "Saving…") : tt("保存", "Save")}
             </button>
           </div>
           {isEdit && (
@@ -1734,6 +1764,8 @@ function TimelineView({
   onAddLesson?: (ymd: string) => void;
   onAddHourly?: (ymd: string) => void;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
   const router = useRouter();
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [addOpen, setAddOpen] = useState(false);
@@ -1799,16 +1831,16 @@ function TimelineView({
       {/* 日ナビ */}
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => setDay((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1))}
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition" aria-label="前の日">
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition" aria-label={tt("前の日", "Previous day")}>
           <ChevronLeft size={18} />
         </button>
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-bold text-gray-900">{fullDateStr(day.toISOString())}</h2>
+          <h2 className="text-base font-bold text-gray-900">{fullDateStr(day.toISOString(), lang)}</h2>
           <button onClick={() => setDay(startOfDay(new Date()))}
-            className="text-xs font-medium text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition">今日</button>
+            className="text-xs font-medium text-blue-600 px-2 py-1 rounded-lg hover:bg-blue-50 transition">{tt("今日", "Today")}</button>
         </div>
         <button onClick={() => setDay((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1))}
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition" aria-label="次の日">
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition" aria-label={tt("次の日", "Next day")}>
           <ChevronRight size={18} />
         </button>
       </div>
@@ -1818,7 +1850,7 @@ function TimelineView({
         <div className="relative mb-3 flex justify-end">
           <button type="button" onClick={() => setAddOpen((v) => !v)}
             className="flex items-center gap-1 bg-blue-600 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 hover:bg-blue-700 transition">
-            <Plus size={13} /> この日に追加
+            <Plus size={13} /> {tt("この日に追加", "Add to this day")}
           </button>
           {addOpen && (
             <>
@@ -1827,19 +1859,19 @@ function TimelineView({
                 {onAddLesson && (
                   <button type="button" onClick={() => { setAddOpen(false); onAddLesson(keyToYmd(key)); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                    <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
+                    <Dumbbell size={14} className="text-blue-500" /> {tt("通常レッスン", "Session")}
                   </button>
                 )}
                 {onAddPersonal && (
                   <button type="button" onClick={() => { setAddOpen(false); onAddPersonal(keyToYmd(key)); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                    <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                    <CalendarPlus size={14} className="text-green-500" /> {tt("個人予定", "Personal event")}
                   </button>
                 )}
                 {onAddHourly && (
                   <button type="button" onClick={() => { setAddOpen(false); onAddHourly(keyToYmd(key)); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
-                    <Wallet size={14} className="text-amber-500" /> 業務
+                    <Wallet size={14} className="text-amber-500" /> {tt("業務", "Paid task")}
                   </button>
                 )}
               </div>
@@ -1854,7 +1886,7 @@ function TimelineView({
           {allDayItems.map((it) => (
             <button key={`${it.type}-${it.id}`} onClick={() => onEditPersonal?.(it)}
               className={cn("text-xs font-medium px-2 py-1 rounded-lg", COLOR_MAP[it.color ?? "blue"].chip)}>
-              終日・{it.customerName}
+              {tt("終日", "All day")}・{it.customerName}
             </button>
           ))}
         </div>
@@ -1911,7 +1943,7 @@ function TimelineView({
         </div>
 
         {timed.length === 0 && allDayItems.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">この日の予定はありません</div>
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">{tt("この日の予定はありません", "Nothing scheduled")}</div>
         )}
       </div>
     </div>
@@ -1946,6 +1978,9 @@ export function ScheduleClient({
   /** お客さまごとの最初の体験（引き継ぎ用。読み込んだ期間より前の体験も入っている） */
   firstTrials?: Record<string, HandoverTrial>;
 }) {
+  const lang = useLang();
+  const tt = ttOf(lang);
+
   // 開いたときは全体を見渡せるカレンダーから始める
   const [view, setView] = useState<"list" | "calendar" | "timeline">("calendar");
   // カレンダーで表示している月。レッスン件数サマリーもこの月に合わせる
@@ -2047,12 +2082,12 @@ export function ScheduleClient({
     const d = new Date(Date.UTC(y, m - 1 - 3, 1));
     return `/schedule?since=${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
   })();
-  const loadedSinceLabel = loadedSince ? `${Number(loadedSince.slice(0, 4))}年${Number(loadedSince.slice(5, 7))}月` : "";
+  const loadedSinceLabel = loadedSince ? tt(`${Number(loadedSince.slice(0, 4))}年${Number(loadedSince.slice(5, 7))}月`, `${Number(loadedSince.slice(5, 7))}/${Number(loadedSince.slice(0, 4))}`) : "";
   const cursorBeforeLoaded = !!loadedSince && summaryMonth < loadedSince.slice(0, 7);
   const earlierNotice = earlierHref ? (
     <div className="flex flex-wrap items-center gap-2 border border-amber-300 bg-amber-50 px-3 py-2 mb-3 text-xs text-amber-900">
-      <span>表示を速くするため、{loadedSinceLabel}より前は読み込んでいません。</span>
-      <Link href={earlierHref} className="font-bold underline underline-offset-2">さらに前を読み込む</Link>
+      <span>{tt(`表示を速くするため、${loadedSinceLabel}より前は読み込んでいません。`, `To keep things fast, nothing before ${loadedSinceLabel} is loaded.`)}</span>
+      <Link href={earlierHref} className="font-bold underline underline-offset-2">{tt("さらに前を読み込む", "Load earlier")}</Link>
     </div>
   ) : null;
 
@@ -2097,14 +2132,14 @@ export function ScheduleClient({
     <div className="p-4 md:p-6 max-w-2xl mx-auto pb-10">
       {/* ページの題と「追加」 */}
       <PageTitle
-        title="スケジュール"
+        title={tt("スケジュール", "Schedule")}
         sub={filterMember === "all"
-          ? "全員のスケジュール"
+          ? tt("全員のスケジュール", "Everyone's schedule")
           : (() => {
               const who = members.find((m) => m.id === filterMember)?.name ?? "";
-              return filterRole === "sales" ? `${who} さんが営業担当のお客さま`
-                   : filterRole === "all"   ? `${who} さんのスケジュール（営業担当ぶんも）`
-                   :                          `${who} さんのスケジュール`;
+              return filterRole === "sales" ? tt(`${who} さんが営業担当のお客さま`, `${who}'s sales clients`)
+                   : filterRole === "all"   ? tt(`${who} さんのスケジュール（営業担当ぶんも）`, `${who}'s schedule (incl. sales clients)`)
+                   :                          tt(`${who} さんのスケジュール`, `${who}'s schedule`);
             })()}
         right={
         <div className="relative flex-shrink-0">
@@ -2113,7 +2148,7 @@ export function ScheduleClient({
             onClick={() => setAddMenuOpen((v) => !v)}
             className="flex items-center gap-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl px-3.5 py-2 hover:bg-blue-700 transition shadow-sm"
           >
-            <Plus size={16} /> 追加
+            <Plus size={16} /> {tt("追加", "Add")}
           </button>
           {addMenuOpen && (
             <>
@@ -2125,7 +2160,7 @@ export function ScheduleClient({
                     onClick={() => { setAddMenuOpen(false); openLesson(); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
-                    <Dumbbell size={14} className="text-blue-500" /> 通常レッスン
+                    <Dumbbell size={14} className="text-blue-500" /> {tt("通常レッスン", "Session")}
                   </button>
                 )}
                 <button
@@ -2133,7 +2168,7 @@ export function ScheduleClient({
                   onClick={() => { setAddMenuOpen(false); openCreate(); }}
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                 >
-                  <CalendarPlus size={14} className="text-green-500" /> 個人予定
+                  <CalendarPlus size={14} className="text-green-500" /> {tt("個人予定", "Personal event")}
                 </button>
                 {isAdmin && (
                   <button
@@ -2141,7 +2176,7 @@ export function ScheduleClient({
                     onClick={() => { setAddMenuOpen(false); openHourly(); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition"
                   >
-                    <Wallet size={14} className="text-amber-500" /> 業務
+                    <Wallet size={14} className="text-amber-500" /> {tt("業務", "Paid task")}
                   </button>
                 )}
               </div>
@@ -2153,7 +2188,7 @@ export function ScheduleClient({
 
       {/* 表示切替（リスト / 時間軸 / カレンダー） */}
       <div className={cn(tabsWrap, "mb-3")}>
-        {([["list", "リスト", List], ["timeline", "時間軸", Clock], ["calendar", "カレンダー", LayoutGrid]] as const).map(([key, label, Icon]) => (
+        {([["list", tt("リスト", "List"), List], ["timeline", tt("時間軸", "Timeline"), Clock], ["calendar", tt("カレンダー", "Calendar"), LayoutGrid]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setView(key)} className={tabButton(view === key)}>
             <Icon size={15} /> {label}
           </button>
@@ -2161,21 +2196,21 @@ export function ScheduleClient({
       </div>
 
       {/* 絞り込み（担当者・立場・店舗・顧客）を1つの箱に */}
-      <SectionBox title="絞り込み" className="mb-3">
+      <SectionBox title={tt("絞り込み", "Filters")} className="mb-3">
       <div className="p-3 space-y-2.5">
 
       {/* 担当者フィルタ（全員が利用可） */}
       {members.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">担当者</span>
+          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">{tt("担当者", "Staff")}</span>
           <select
             value={filterMember}
             onChange={(e) => setFilterMember(e.target.value)}
             className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">全員のスケジュール</option>
+            <option value="all">{tt("全員のスケジュール", "Everyone")}</option>
             {currentMemberId && (
-              <option value={currentMemberId}>自分（{memberName}）</option>
+              <option value={currentMemberId}>{tt(`自分（${memberName}）`, `Me (${memberName})`)}</option>
             )}
             {members
               .filter((m) => m.id !== currentMemberId)
@@ -2190,9 +2225,9 @@ export function ScheduleClient({
       {filterMember !== "all" && (
         <div className={tabsWrap}>
           {([
-            ["trainer", "自分のスケジュール"],
-            ["sales", "営業のお客さま"],
-            ["all", "すべて"],
+            ["trainer", tt("自分のスケジュール", "Coaching")],
+            ["sales", tt("営業のお客さま", "Sales clients")],
+            ["all", tt("すべて", "All")],
           ] as const).map(([key, label]) => (
             <button key={key} type="button" onClick={() => setFilterRole(key)} className={tabButton(filterRole === key, "sm")}>
               {label}
@@ -2204,13 +2239,13 @@ export function ScheduleClient({
       {/* 店舗フィルタ（その店舗でのレッスン予定一覧） */}
       {stores.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">店舗</span>
+          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">{tt("店舗", "Store")}</span>
           <select
             value={filterStore}
             onChange={(e) => setFilterStore(e.target.value)}
             className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">すべての店舗</option>
+            <option value="all">{tt("すべての店舗", "All stores")}</option>
             {stores.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
@@ -2221,10 +2256,10 @@ export function ScheduleClient({
       {/* 顧客フィルタ（その顧客のレッスン予定一覧） */}
       {customers.length > 0 && (
         <div className="flex items-center gap-2">
-          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">顧客</span>
+          <span className="w-12 flex-shrink-0 text-xs font-bold text-gray-600">{tt("顧客", "Client")}</span>
           <CustomerPicker
             className="flex-1 min-w-0" customers={customers} value={filterCustomer} onChange={setFilterCustomer}
-            emptyOption={{ value: "all", label: "すべての顧客" }}
+            emptyOption={{ value: "all", label: tt("すべての顧客", "All clients") }}
           />
         </div>
       )}
@@ -2253,20 +2288,20 @@ export function ScheduleClient({
       {nextItem && tab === "upcoming" && (
         <div className="bg-navy-900 border-l-[5px] border-gold-500 p-3 mb-3 text-white">
           <p className="text-xs font-bold text-gold-500 flex items-center gap-1.5">
-            <Clock size={12} /> 次の予定
+            <Clock size={12} /> {tt("次の予定", "Up next")}
           </p>
           <div className="flex items-end justify-between mt-1.5">
             <div className="min-w-0">
               <p className="text-lg font-bold truncate">{nextItem.customerName}</p>
               <p className="text-xs text-blue-100 mt-0.5">
-                {new Date(nextItem.scheduledAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })}
+                {new Date(nextItem.scheduledAt).toLocaleDateString(lang === "en" ? "en-US" : "ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })}
                 {" "}{timeStr(nextItem.scheduledAt)}{nextItem.endAt ? `〜${timeStr(nextItem.endAt)}` : ""}
                 {nextItem.location && ` ・ ${nextItem.location}`}
               </p>
             </div>
             <Link href={`/schedule/${nextItem.id}`}
               className="flex-shrink-0 ml-3 bg-white text-blue-700 hover:bg-blue-50 transition px-3 py-1.5 text-xs font-bold">
-              詳細
+              {tt("詳細", "Details")}
             </Link>
           </div>
         </div>
@@ -2274,7 +2309,7 @@ export function ScheduleClient({
 
       {/* タブ */}
       <div className={cn(tabsWrap, "mb-3")}>
-        {([["upcoming", "今後の予定", upcoming.length], ["past", "過去", past.length]] as const).map(([key, label, n]) => (
+        {([["upcoming", tt("今後の予定", "Upcoming"), upcoming.length], ["past", tt("過去", "Past"), past.length]] as const).map(([key, label, n]) => (
           <button key={key} onClick={() => setTab(key)} className={tabButton(tab === key)}>
             {label}
             <span className={tabCount(tab === key)}>{n}</span>
@@ -2287,7 +2322,7 @@ export function ScheduleClient({
         <div className="text-center py-16">
           <p className="text-4xl mb-3">{tab === "upcoming" ? "🌤️" : "🗂️"}</p>
           <p className="text-sm font-semibold text-gray-600">
-            {tab === "upcoming" ? "今後の予定はありません" : "過去のレッスンはありません"}
+            {tab === "upcoming" ? tt("今後の予定はありません", "Nothing coming up") : tt("過去のレッスンはありません", "No past sessions")}
           </p>
         </div>
       ) : (

@@ -5,6 +5,7 @@ import { CountUp } from "./count-up";
 import { Delta } from "@/components/ui/delta";
 import { FollowUpsSection } from "./follow-ups-section";
 import { SectionBox } from "@/components/ui/section-box";
+import { makeT, type Lang } from "@/lib/i18n";
 
 /**
  * 営業のための1枚。
@@ -18,8 +19,9 @@ import { SectionBox } from "@/components/ui/section-box";
  * 成約の連続記録と称号は、レッスンの連続と同じ1枚（StreakBadges）にまとめた。
  */
 export function SalesCard({
-  coverage, month, follows = [], unassigned = [],
+  coverage, month, follows = [], unassigned = [], lang = "ja",
 }: {
+  lang?: Lang;
   coverage: Coverage;
   month: SalesMonth;
   /** 自分の担当で声をかけたい人（画面側で絞り込み済み） */
@@ -31,18 +33,19 @@ export function SalesCard({
 
   const diff = coverage.lastRate == null ? null : coverage.rate - coverage.lastRate;
   const mDiff = month.contracts - month.lastContracts;
+  const t = makeT(lang);
 
   return (
-    <SectionBox title="営業の自分" padded>
+    <SectionBox title={t("営業の自分", "My sales")} padded>
 
       {/* 次の予定カバー率 */}
       {coverage.total > 0 && (
         <div className="mb-3">
           <div className="flex items-baseline gap-2">
-            <p className="text-xs font-semibold text-gray-500">次の予定が入っている人</p>
+            <p className="text-xs font-semibold text-gray-500">{t("次の予定が入っている人", "Clients with a next session booked")}</p>
             <p className="ml-auto text-sm text-gray-500">
               <span className="text-xl font-bold text-gray-900">{coverage.covered}</span>
-              <span className="text-gray-400"> / {coverage.total}名</span>
+              <span className="text-gray-400"> / {coverage.total}{t("名", "")}</span>
             </p>
           </div>
 
@@ -60,11 +63,11 @@ export function SalesCard({
             <span className="font-bold text-gray-800">{coverage.rate}%</span>
             {diff != null && (
               <span className={diff > 0 ? "text-green-600 font-semibold" : diff < 0 ? "text-rose-600 font-semibold" : "text-gray-400"}>
-                {diff === 0 ? "　先週と同じ" : `　先週より ${diff > 0 ? "+" : ""}${diff}pt`}
+                {diff === 0 ? t("　先週と同じ", "  same as last week") : t(`　先週より ${diff > 0 ? "+" : ""}${diff}pt`, `  ${diff > 0 ? "+" : ""}${diff}pt vs last week`)}
               </span>
             )}
             {coverage.uncovered.length > 0 && (
-              <span className="text-gray-400">　入っていない{coverage.uncovered.length}名は下の「声をかけたい人」に</span>
+              <span className="text-gray-400">{t(`　入っていない${coverage.uncovered.length}名は下の「声をかけたい人」に`, `  ${coverage.uncovered.length} without a booking are listed below`)}</span>
             )}
           </p>
         </div>
@@ -74,37 +77,37 @@ export function SalesCard({
       <div className="grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
         <div>
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-            <Handshake size={10} className="text-gray-400" /> 今月の成約
+            <Handshake size={10} className="text-gray-400" /> {t("今月の成約", "Sign-ups this month")}
           </p>
-          <CountUp value={month.contracts} suffix="件" className="block text-lg font-bold text-gray-900" />
+          <CountUp value={month.contracts} suffix={t("件", "")} className="block text-lg font-bold text-gray-900" />
           {month.lastContracts > 0 && (
             <p className="text-[10px] text-gray-400">
-              先月の今日 {month.lastContracts}件{mDiff > 0 ? `・+${mDiff}` : mDiff < 0 ? `・${mDiff}` : "・同じ"}
+              {t(`先月の今日 ${month.lastContracts}件`, `Last month: ${month.lastContracts}`)}{mDiff > 0 ? `・+${mDiff}` : mDiff < 0 ? `・${mDiff}` : t("・同じ", " · same")}
             </p>
           )}
         </div>
         <div>
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-            <Users size={10} className="text-gray-400" /> 担当のお客さま
+            <Users size={10} className="text-gray-400" /> {t("担当のお客さま", "My clients")}
           </p>
-          <CountUp value={month.customers} suffix="名" className="block text-lg font-bold text-gray-900" />
+          <CountUp value={month.customers} suffix={t("名", "")} className="block text-lg font-bold text-gray-900" />
         </div>
         <div>
           <p className="text-[11px] font-semibold text-gray-500 flex items-center gap-1">
-            <TrendingUp size={10} className="text-gray-400" /> 担当のお客さまのレッスン
+            <TrendingUp size={10} className="text-gray-400" /> {t("担当のお客さまのレッスン", "Their sessions")}
           </p>
           <p className="flex items-baseline">
-            <CountUp value={month.lessons} suffix="本" className="text-lg font-bold text-gray-900" />
+            <CountUp value={month.lessons} suffix={t("本", "")} className="text-lg font-bold text-gray-900" />
             <Delta now={month.lessons} prev={month.lastLessons} goodWhenUp className="ml-1 text-[10px]" />
           </p>
           {month.lastLessons > 0 && (
-            <p className="text-[10px] text-gray-400">先月の今日 {month.lastLessons}本</p>
+            <p className="text-[10px] text-gray-400">{t(`先月の今日 ${month.lastLessons}本`, `Last month: ${month.lastLessons}`)}</p>
           )}
         </div>
       </div>
 
       {/* 声をかけたい人（閉じた状態では人数と内訳だけ） */}
-      <FollowUpsSection follows={follows} unassigned={unassigned} />
+      <FollowUpsSection follows={follows} unassigned={unassigned} lang={lang} />
     </SectionBox>
   );
 }

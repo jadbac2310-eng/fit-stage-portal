@@ -5,14 +5,15 @@ import Link from "next/link";
 import { Quote, Target, Lightbulb, Sparkles } from "lucide-react";
 import { secretQuote, type DailyQuote } from "@/lib/daily-quote";
 import type { DailyTip, DailyFortune } from "@/lib/daily-cards";
+import { useLang, useT } from "@/components/i18n/lang-provider";
 
 type Tab = "quote" | "mission" | "tip" | "fortune";
 
-const TABS: { id: Tab; label: string; icon: typeof Quote }[] = [
-  { id: "quote",   label: "格言",   icon: Quote },
-  { id: "mission", label: "お題",   icon: Target },
-  { id: "tip",     label: "豆知識", icon: Lightbulb },
-  { id: "fortune", label: "運勢",   icon: Sparkles },
+const TABS: { id: Tab; label: string; en: string; icon: typeof Quote }[] = [
+  { id: "quote",   label: "格言",   en: "Quote",   icon: Quote },
+  { id: "mission", label: "お題",   en: "Task",    icon: Target },
+  { id: "tip",     label: "豆知識", en: "Tip",     icon: Lightbulb },
+  { id: "fortune", label: "運勢",   en: "Fortune", icon: Sparkles },
 ];
 
 /**
@@ -30,17 +31,20 @@ export function QuoteCard({
   tip: DailyTip;
   fortune: DailyFortune;
 }) {
+  const lang = useLang();
+  const t = useT();
   const [tab, setTab] = useState<Tab>("quote");
   const [taps, setTaps] = useState(0);
   const [secretNo, setSecretNo] = useState(0);
 
-  const secret = tab === "quote" && taps >= 5;
+  // 裏・格言は日本語だけ（英語のときは出さない）
+  const secret = lang === "ja" && tab === "quote" && taps >= 5;
   const shownQuote = secret ? secretQuote(secretNo) : quote;
 
   function onBodyTap() {
     if (tab !== "quote") return;
     if (secret) { setSecretNo((n) => n + 1); return; }
-    setTaps((t) => t + 1);
+    setTaps((n) => n + 1);
   }
 
   return (
@@ -50,14 +54,14 @@ export function QuoteCard({
     ].join(" ")}>
       {/* タブ */}
       <div className={["flex gap-1 px-2 pt-1.5", secret ? "bg-gray-900" : "bg-navy-900"].join(" ")}>
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
+        {TABS.map((tb) => {
+          const Icon = tb.icon;
+          const active = tab === tb.id;
           return (
             <button
-              key={t.id}
+              key={tb.id}
               type="button"
-              onClick={() => { setTab(t.id); setTaps(0); }}
+              onClick={() => { setTab(tb.id); setTaps(0); }}
               className={[
                 "flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-bold transition",
                 active
@@ -65,7 +69,7 @@ export function QuoteCard({
                   : (secret ? "text-gray-500" : "text-white/70 hover:text-white"),
               ].join(" ")}
             >
-              <Icon size={11} /> {t.label}
+              <Icon size={11} /> {lang === "en" ? tb.en : tb.label}
             </button>
           );
         })}
@@ -75,7 +79,7 @@ export function QuoteCard({
         {tab === "quote" && (
           <div className="select-none cursor-pointer">
             <p className={["text-[10px] font-semibold tracking-widest", secret ? "text-gray-500" : "text-gray-400"].join(" ")}>
-              {secret ? "裏・格言" : "本日の格言"}
+              {secret ? "裏・格言" : t("本日の格言", "Quote of the day")}
             </p>
             <p className={["text-base font-bold mt-1", secret ? "text-gray-100" : "text-gray-900"].join(" ")}>
               {shownQuote.text}
@@ -92,7 +96,7 @@ export function QuoteCard({
                 onClick={(e) => { e.stopPropagation(); setTaps(0); setSecretNo(0); }}
                 className="text-[10px] text-gray-500 mt-2 underline"
               >
-                本日の格言に戻す
+                {t("本日の格言に戻す", "Back")}
               </button>
             )}
           </div>
@@ -100,18 +104,18 @@ export function QuoteCard({
 
         {tab === "mission" && (
           <div>
-            <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日のお題</p>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400">{t("今日のお題", "Today's task")}</p>
             <p className="text-sm font-bold text-gray-800 mt-1">{mission}</p>
-            <p className="text-xs text-gray-400 mt-1.5">ひとつだけ。できたら今日は合格。</p>
+            <p className="text-xs text-gray-400 mt-1.5">{t("ひとつだけ。できたら今日は合格。", "Just one. Do it and today's a win.")}</p>
           </div>
         )}
 
         {tab === "tip" && (
           <div>
-            <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日の豆知識</p>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400">{t("今日の豆知識", "Tip of the day")}</p>
             <p className="text-sm font-bold text-gray-800 mt-1">{tip.title}</p>
             <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{tip.body}</p>
-            <p className="text-[10px] text-gray-300 mt-1.5">お客さんにそのまま話せます。</p>
+            <p className="text-[10px] text-gray-300 mt-1.5">{t("お客さんにそのまま話せます。", "Something you can share with clients.")}</p>
           </div>
         )}
 
@@ -134,17 +138,20 @@ export function QuoteCard({
         )}
         {tab === "fortune" && !fortune.star && (
           <div>
-            <p className="text-[10px] font-semibold tracking-widest text-gray-400">今日の運勢</p>
+            <p className="text-[10px] font-semibold tracking-widest text-gray-400">{t("今日の運勢", "Today's fortune")}</p>
             <p className="text-lg font-bold text-gray-900 mt-1">
               <span className="mr-1.5">{fortune.emoji}</span>{fortune.level}
             </p>
             <p className="text-sm text-gray-700 mt-1">{fortune.message}</p>
             <p className="text-xs text-gray-500 mt-2">
-              ラッキー種目：<span className="font-bold text-gray-700">{fortune.item}</span>
+              {t("ラッキー種目：", "Lucky exercise: ")}<span className="font-bold text-gray-700">{fortune.item}</span>
             </p>
-            <p className="text-xs text-indigo-600 mt-2">
-              <Link href="/fortune" className="underline">生年月日を入れると、あなた専用の「今日の一手」に変わります</Link>
-            </p>
+            {/* 「今日の一手」（星まわり）は日本語だけなので、英語のときは案内しない */}
+            {lang === "ja" && (
+              <p className="text-xs text-indigo-600 mt-2">
+                <Link href="/fortune" className="underline">生年月日を入れると、あなた専用の「今日の一手」に変わります</Link>
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { visibleNavGroups } from "@/components/layout/nav-config";
+import { visibleNavGroups, navLabel, navGroupTitle } from "@/components/layout/nav-config";
+import { makeT, type Lang } from "@/lib/i18n";
 import { SectionBox } from "@/components/ui/section-box";
 import { cn } from "@/lib/cn";
 
@@ -8,18 +9,19 @@ import { cn } from "@/lib/cn";
  * 行き先は目次（NAV_TREE）から作るので、目次に足せばここにも出る。
  * いちばんよく使うスケジュールだけ金色にしてある。
  */
-export function MenuTiles({ isAdmin }: { isAdmin: boolean }) {
+export function MenuTiles({ isAdmin, lang = "ja" }: { isAdmin: boolean; lang?: Lang }) {
+  const t = makeT(lang);
   // 目次と同じまとまり（2026-11-12）。ダッシュボード自身は出さない
   const groups = visibleNavGroups(isAdmin)
     .map((g) => ({ ...g, items: g.items.filter((n) => n.href !== "/dashboard") }))
     .filter((g) => g.items.length > 0);
   return (
-    <SectionBox title="メニュー">
+    <SectionBox title={t("メニュー", "Menu")}>
       <div className="p-2.5 space-y-2.5">
         {groups.map((g) => (
           <div key={g.title}>
             <p className="text-[11px] font-bold text-gray-500 mb-1 flex items-center gap-1.5">
-              <span aria-hidden className="w-1.5 h-1.5 bg-[var(--portal-gold)]" />{g.title}
+              <span aria-hidden className="w-1.5 h-1.5 bg-[var(--portal-gold)]" />{navGroupTitle(g, lang)}
             </p>
             <div className="grid grid-cols-4 gap-1.5">
               {g.items.map((n) => {
@@ -30,7 +32,7 @@ export function MenuTiles({ isAdmin }: { isAdmin: boolean }) {
                     : n.external ? "bg-white text-blue-700 border border-blue-700 hover:bg-blue-50"
                     : "bg-navy-900 text-white hover:bg-navy-800",
                 );
-                const inner = (<>{Icon && <Icon size={22} strokeWidth={1.7} />}<span>{n.label}</span></>);
+                const inner = (<>{Icon && <Icon size={22} strokeWidth={1.7} />}<span>{navLabel(n, lang)}</span></>);
                 return n.external
                   ? <a key={n.href} href={n.href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
                   : <Link key={n.href} href={n.href} className={cls}>{inner}</Link>;
@@ -44,18 +46,19 @@ export function MenuTiles({ isAdmin }: { isAdmin: boolean }) {
 }
 
 /** 「目的別で探す」。よくやる作業へ1回で行くリンク */
-export function QuickLinks({ isAdmin }: { isAdmin: boolean }) {
+export function QuickLinks({ isAdmin, lang = "ja" }: { isAdmin: boolean; lang?: Lang }) {
+  const t = makeT(lang);
   // 管理者向けに並べていた行き先（入金・請求書・顧客・入会申し込み・回数券・単発の仕事）は、
   // 2026-11-12 にメニューのまとまりへ全部入れたので、ここでは出さない（同じものが2か所に並ばないように）
   if (isAdmin) return null;
   const links: { label: string; href: string }[] = [
-    { label: "レッスンを追加", href: "/lessons/regular" },
-    { label: "体験を追加", href: "/lessons/trial" },
-    { label: "自分の歩合を見る", href: "/commissions" },
-    { label: "入会申し込みを見る", href: "/master/applications" },
+    { label: t("レッスンを追加", "Add a session"), href: "/lessons/regular" },
+    { label: t("体験を追加", "Add a trial"), href: "/lessons/trial" },
+    { label: t("自分の歩合を見る", "See my commission"), href: "/commissions" },
+    { label: t("入会申し込みを見る", "See applications"), href: "/master/applications" },
   ];
   return (
-    <SectionBox title="目的別で探す">
+    <SectionBox title={t("目的別で探す", "Quick links")}>
       <div className="grid grid-cols-2 gap-1.5 p-2.5">
         {links.map((l) => (
           <Link key={l.href} href={l.href}

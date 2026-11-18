@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLang } from "@/components/i18n/lang-provider";
 
 // ログイン画面で何もしないまま5秒たつと、一度だけ画面が爆発する。
 //
@@ -27,10 +28,22 @@ const LINES = [
   "ポータルは、開いた人の味方です。",
 ];
 
+const LINES_EN = [
+  "Surprised? Go ahead and log in.",
+  "Five seconds of nothing. Forgot your password?",
+  "Daydreaming? Did you read today's quote?",
+  "Still awake? Let's get going.",
+  "Thought nothing would happen?",
+  "The portal is on your side.",
+];
+
 const SPARKS = 46;
 const SMOKES = 10;
 
 export function IdleSurprise() {
+  const lang = useLang();
+  const langRef = useRef(lang);
+  useEffect(() => { langRef.current = lang; }, [lang]);
   const [phase, setPhase] = useState<"idle" | "rumble" | "boom">("idle");
   const [burned, setBurned] = useState(false);   // 爆発のあとの姿（そのまま残る）
   const [line, setLine] = useState("");
@@ -51,7 +64,7 @@ export function IdleSurprise() {
 
       boomTimer = setTimeout(() => {
         document.body.classList.remove("fs-rumble");
-        setLine(LINES[Math.floor(Math.random() * LINES.length)]);
+        { const pool = langRef.current === "en" ? LINES_EN : LINES; setLine(pool[Math.floor(Math.random() * pool.length)]); }
         setPhase("boom");
         document.body.classList.add("fs-shake");
         document.body.classList.add("fs-burned");   // ここから見た目が変わる
