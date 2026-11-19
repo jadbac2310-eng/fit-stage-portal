@@ -23,7 +23,7 @@ export const OPS_CHECK_LABEL: Record<OpsCheckKind, { title: string; why: string 
   "no-trainer":      { title: "担当なし",         why: "トレーナー本人の画面に出ず、完了も押せません" },
   "duplicate":       { title: "二重登録の疑い",   why: "同じお客さま・同じ時刻に2件以上。回数券を余分に使っている恐れがあります" },
   "no-course":       { title: "コース未設定",     why: "請求書の明細に載りません" },
-  "trial-no-result": { title: "体験の結果未入力", why: "成約・未成約を入れないと、成約ボーナスと売上に反映されません" },
+  "trial-no-result": { title: "体験の結果未入力", why: "成約・未成約を入れないと、営業の歩合と売上に反映されません" },
 };
 
 export const OPS_CHECK_ORDER: OpsCheckKind[] = ["not-completed", "no-trainer", "duplicate", "no-course", "trial-no-result"];

@@ -1,5 +1,5 @@
 import { todayJst, todayLabel, thisMonthJst, type AssistantScope } from "./assistant-tools";
-import { SALES_RATE, CONTRACT_BONUS } from "./commissions-types";
+import { SALES_RATE, CONTRACT_BONUS, CONTRACT_BONUS_END } from "./commissions-types";
 
 /**
  * データアシスタントの案内文（system prompt）。
@@ -61,7 +61,7 @@ export function assistantSystemPrompt(scope: AssistantScope): string {
 - 会社の売上・利益・経費・会場利用料の**金額**。他の人の歩合の金額・歩合率。フィーをどう配分しているか。
   ツールの結果にもこれらは入っていない。聞かれたら「それは管理者だけが見られる」と一言で言い、代わりに出せるもの（件数・割合・伸び率、自分の歩合）を出す。
 - 他の人の操作ログ・ログイン時刻。
-- 言ってよいこと：自分の歩合（歩合ページと同じ）。営業インセンティブの決まり（個人のお客様はレッスン料の ${sr(SALES_RATE.individual)}、法人は ${sr(SALES_RATE.corporate)}。成約ボーナスは個人 ¥${CONTRACT_BONUS.individual.toLocaleString("ja-JP")}・法人 ¥${CONTRACT_BONUS.corporate.toLocaleString("ja-JP")}）。
+- 言ってよいこと：自分の歩合（歩合ページと同じ）。営業インセンティブの決まり（個人のお客様はレッスン料の ${sr(SALES_RATE.individual)}、法人は ${sr(SALES_RATE.corporate)}。担当トレーナーが誰でも、そのお客様がレッスンを続ける限り入る。体験そのものには営業の歩合は付かない。成約ボーナス（個人 ¥${CONTRACT_BONUS.individual.toLocaleString("ja-JP")}・法人 ¥${CONTRACT_BONUS.corporate.toLocaleString("ja-JP")}）は ${CONTRACT_BONUS_END} より前に体験を受けたお客様の成約までで、それ以降の体験には付かない）。
 - 「声かけ」は自分のお客様（担当営業が自分、または自分が担当したことがある人）だけ出る。
 `;
 }

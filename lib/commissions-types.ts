@@ -73,11 +73,25 @@ export const SALES_RATE = {
   corporate:  0.12,  // 法人 12%
 } as const;
 
-// 成約ボーナス
+// 成約ボーナス（2026-11-30 までに体験を受けたお客さまの成約まで。12月からは無し）
 export const CONTRACT_BONUS = {
   individual: 10_000,  // 個人 10,000円
   corporate:  25_000,  // 法人 25,000円
 } as const;
+
+/**
+ * 成約ボーナスをやめる日（2026-11-19 尚樹「成約ボーナスいらん。12月からやめよ」）。
+ * 体験の日（日本時間）がこの日より前なら今までどおり出し、この日以降は出さない。
+ * 過去の月の明細は変わらない。営業のごほうびは「入会させたお客さまの売上の10%（法人12%）がずっと」に一本化。
+ */
+export const CONTRACT_BONUS_END = "2026-12-01";
+
+/** その体験の成約ボーナス（体験の日が CONTRACT_BONUS_END 以降なら 0） */
+export function contractBonusFor(customerType: "individual" | "corporate", trialScheduledAt: string): number {
+  const jstDate = new Date(new Date(trialScheduledAt).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  if (jstDate >= CONTRACT_BONUS_END) return 0;
+  return CONTRACT_BONUS[customerType];
+}
 
 /** コースからレッスン単価を返す（未登録は 0） */
 export function getLessonFee(course: string | undefined | null): number {

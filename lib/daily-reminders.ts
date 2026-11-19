@@ -134,7 +134,7 @@ function trialFollowUpReminders(input: DailyReminderInput): DailyReminder[] {
         ref: `trial-followup:${t.id}`,              // 1件につき1回だけ
         recipientIds: to,
         text: `📣 体験レッスンの結果が未入力です\n${t.customerName} 様（${mdLabel(t.scheduledAt)} 実施）\n\n`
-            + `成約・未成約を入れておくと、成約ボーナスと売上に反映されます。`,
+            + `成約・未成約を入れておくと、営業の歩合と売上に反映されます。`,
       };
     })
     .filter((r): r is DailyReminder => r !== null);

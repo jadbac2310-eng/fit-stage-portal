@@ -10,7 +10,7 @@ import type { HourlyTask, HourlyTaskStatus } from "./hourly-tasks-types";
 import { hourlyTaskHours, hourlyTaskAmount } from "./hourly-tasks-types";
 import { planSessions, type CustomerPlanRecord } from "./customer-plans-types";
 import {
-  getLessonFee, TRAINER_RATE, SALES_RATE, CONTRACT_BONUS, TRIAL_LESSON_COURSE_NAME,
+  getLessonFee, TRAINER_RATE, SALES_RATE, contractBonusFor, TRIAL_LESSON_COURSE_NAME,
   ONSITE_TRIAL_COURSE_NAME, ONSITE_TRIAL_PAIR_COURSE_NAME, isOnsiteTrialPrice,
   STORE_PAIR_TRIAL_COURSE_NAME, isStorePairTrialPeriod,
 } from "./commissions-types";
@@ -388,7 +388,8 @@ export function buildSalesEntries(
     if (fctCustomerIds.has(tl.customerId)) continue; // FCT経由のお客さまは成約ボーナスなし
     if (isOwnerMember(tl.salesMemberId, ctx)) continue; // オーナーにはボーナスを払わない
     const cType = customerTypeMap[tl.customerId] ?? "individual";
-    const bonus = CONTRACT_BONUS[cType];
+    const bonus = contractBonusFor(cType, tl.scheduledAt); // 2026-12-01 以降の体験は 0（成約ボーナスは11月で終わり）
+    if (bonus <= 0) continue;
 
     const entry = ensureEntry(tl.salesMemberId, tl.salesMemberName);
     entry.bonuses.push({
