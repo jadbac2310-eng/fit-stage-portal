@@ -111,7 +111,7 @@ export function SessionPassForm({
           </div>
           {menu && (
             <div>
-              <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
+              <p className="text-xs font-medium text-gray-600 mb-1">回数をえらぶ</p>
               <div className="grid grid-cols-3 gap-1.5">
                 {menu.prices.map((p) => (
                   <button key={p.count} type="button" onClick={() => pickCount(p.count, p.amount)}
@@ -140,21 +140,26 @@ export function SessionPassForm({
         </div>
       )}
 
-      {/* 選んだ内容。その他のときは手で入れる。ボタンで選んだあとでも直せる（特別価格など） */}
-      {(group === "custom" || totalCount) && (
+      {/* 回数と金額。いつも出しておく（2026-11-19 尚樹「回数券の値段と回数も、入力できるように」。
+          前は回数のボタンを押すまで隠れていて、手で入れられると分からなかった）。
+          ボタンで選ぶと入り、そのあと手で直せる（特別価格・6回券など）。 */}
+      <div>
         <div className="flex gap-2">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-gray-600 mb-1">回数</p>
-            <input type="number" min="1" inputMode="numeric" placeholder="回数" value={totalCount} aria-label="回数"
+            <input type="number" min="1" inputMode="numeric" placeholder="例: 8" value={totalCount} aria-label="回数"
               onChange={(e) => setTotalCount(e.target.value)} className={inputClass} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-gray-600 mb-1">金額（税込）</p>
-            <input type="number" min="0" step="1" inputMode="numeric" placeholder="例: 36800" value={price} aria-label="金額（税込）"
+            <input type="number" min="0" step="1" inputMode="numeric" placeholder="例: 72000" value={price} aria-label="金額（税込）"
               onChange={(e) => setPrice(e.target.value)} className={inputClass} />
           </div>
         </div>
-      )}
+        {group !== "custom" && (
+          <p className="text-[11px] text-gray-400 mt-1">上のボタンで選ぶと入ります。手で入れる・直すこともできます。</p>
+        )}
+      </div>
 
       <div className="flex gap-2">
         <div className="flex-1 min-w-0">
