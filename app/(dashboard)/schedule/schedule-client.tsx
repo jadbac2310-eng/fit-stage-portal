@@ -63,6 +63,7 @@ export type ScheduleItem = {
   location?: string;
   course?: string;
   passOrdinal?: number;  // 回数券の何回目の利用か（通常レッスンで回数券使用時のみ）
+  passPending?: boolean; // 仮押さえ（コースは回数券だが、回数券がまだ付いていない）
   passTotal?: number;    // その回数券の総回数
   status: "scheduled" | "completed" | "cancelled" | "cancelled_same_day";
   trainerId?: string;
@@ -614,6 +615,11 @@ function LessonCard({
                 {item.passOrdinal ? `（${passUsageLabel(item, lang)}）` : ""}
               </span>
             )}
+            {item.passPending && (
+              <span className="text-xs font-semibold text-red-600">
+                {item.status === "scheduled" ? tt("仮押さえ（回数券なし）", "Hold (no pass)") : tt("回数券なし", "No pass")}
+              </span>
+            )}
             {item.location && (
               <span className="text-xs text-gray-400 flex items-center gap-0.5 min-w-0">
                 <MapPin size={10} className="flex-shrink-0" />
@@ -686,6 +692,11 @@ function LessonCard({
               {item.passOrdinal ? (
                 <span className="ml-1 font-semibold text-blue-600">{passUsageLabel(item, lang)}</span>
               ) : null}
+              {item.passPending && (
+                <span className="ml-1 font-semibold text-red-600">
+                  {item.status === "scheduled" ? tt("仮押さえ（回数券がありません）", "Hold (no session pass)") : tt("回数券がありません", "No session pass")}
+                </span>
+              )}
             </DetailRow>
           )}
           {item.location && <DetailRow icon={<MapPin size={13} />} label={tt("場所", "Location")}>{item.location}</DetailRow>}

@@ -1,10 +1,10 @@
 "use server";
 
-import { toDeliveryMode, canWriteLessonNote } from "@/lib/lessons-types";
+import { toDeliveryMode, canWriteLessonNote, isPassPendingLesson } from "@/lib/lessons-types";
 
 import { revalidatePath } from "next/cache";
 import { addLesson, updateLesson, deleteLesson, getLesson } from "@/lib/lessons";
-import { addSessionPass, deleteSessionPass, reserveSessionPass, releaseSessionPass } from "@/lib/session-passes";
+import { addSessionPass, deleteSessionPass, reserveSessionPass, reserveSessionPassUpTo, releaseSessionPass } from "@/lib/session-passes";
 import { passHeldByStatus } from "@/lib/session-passes-types";
 import { courseToPaymentType } from "@/lib/lessons-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
@@ -96,12 +96,14 @@ export async function createLessonAction(formData: FormData): Promise<ActionResu
 
     // 回数券は「先に確保してからレッスンを作る」。あとから消費すると、残数0でもレッスンだけが
     // 登録されてしまい、回数券に紐づくレッスン数が総回数を超える（残数表示がズレる）ため。
-    const usesPass = paymentType === "session_pass" && !!sessionPassId;
-    if (usesPass) await reserveSessionPass(sessionPassId!, 1);
+    // 残りが無いときは回数券を付けずに「仮押さえ」で入れる（createLessonsAction と同じ考え方）
+    const reserved = paymentType === "session_pass" && !!sessionPassId
+      ? await reserveSessionPassUpTo(sessionPassId!, 1) : 0;
+    const usesPass = reserved > 0;
 
     let created;
     try {
-      created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode });
+      created = await addLesson({ customerId, trainerMemberId, scheduledAt, endAt, location, course, paymentType, sessionPassId: usesPass ? sessionPassId : undefined, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode });
     } catch (e) {
       if (usesPass) await releaseSessionPass(sessionPassId!, 1); // 作成に失敗したぶんは戻す
       throw e;
@@ -111,7 +113,7 @@ export async function createLessonAction(formData: FormData): Promise<ActionResu
     await notifyLessonAdded(member, "レッスン", [{
       customerName: created.customerName,
       scheduledAt:  created.scheduledAt,
-      course:       created.course,
+      course:       isPassPendingLesson(created) ? `${created.course}・仮押さえ（回数券なし）` : created.course,
       trainerName:  created.trainerMemberName,
       location:     created.location,
     }]);
@@ -162,28 +164,36 @@ export async function createLessonsAction(formData: FormData): Promise<ActionRes
     if (slots.length > 200) throw new ActionError("一度に作成できるレッスンは最大200件です。繰り返しの終了日を見直してください。");
 
     const paymentType = courseToPaymentType(course) ?? undefined;
-    // 作成前に「件数ぶんまとめて」確保する。1件ずつ消費すると、残数が尽きたあとのレッスンが
-    // 0消費で登録され、16回券に17レッスンが紐づくような状態になってしまう。
+    // 作成前に「まとめて」確保する。1件ずつ消費すると、残数が尽きたあとのレッスンが
+    // 0消費のまま回数券に紐づき、16回券に17レッスンが付くような状態になってしまう。
+    //
+    // 残りが足りないときは、あるぶんだけ回数券を使い、あとは「仮押さえ」（回数券を付けない）で入れる
+    // （2026-11-19 尚樹。回数券を入れる前に先に日程を押さえることがあるため）。
+    // 回数券を使うのは日付の早い回から。仮押さえの回は、回数券が追加されたときに自動で付く（lib/pass-pending.ts）。
     const usesPass = paymentType === "session_pass" && !!sessionPassId;
-    if (usesPass) await reserveSessionPass(sessionPassId!, slots.length);
+    slots.sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
+    const reserved = usesPass ? await reserveSessionPassUpTo(sessionPassId!, slots.length) : 0;
 
     let count = 0;
     const created: Lesson[] = [];
     try {
       for (const s of slots) {
-        created.push(await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode }));
+        const passId = count < reserved ? sessionPassId : undefined;
+        created.push(await addLesson({ customerId, trainerMemberId, scheduledAt: s.scheduledAt!, endAt: s.endAt ?? null, location, course, paymentType, sessionPassId: passId, amount, note, createdBy: member.id, rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, deliveryMode }));
         count++;
       }
     } catch (e) {
-      if (usesPass) await releaseSessionPass(sessionPassId!, slots.length - count); // 作れなかったぶんを戻す
+      if (reserved > count) await releaseSessionPass(sessionPassId!, reserved - count); // 作れなかったぶんを戻す
       throw e;
     }
-    await logActivity({ action: "create", entityType: "lesson", entityId: customerId, summary: `通常レッスンを${count}件追加`, memberId: member.id, memberName: member.name });
+    const pendingCount = created.filter(isPassPendingLesson).length;
+    await logActivity({ action: "create", entityType: "lesson", entityId: customerId, summary: `通常レッスンを${count}件追加${pendingCount > 0 ? `（うち仮押さえ・回数券なし ${pendingCount}件）` : ""}`, memberId: member.id, memberName: member.name });
     // 何件入れても1通にまとめる（無料枠を一括登録で食い潰さないため）
     await notifyLessonAdded(member, "レッスン", created.map((l) => ({
       customerName: l.customerName,
       scheduledAt:  l.scheduledAt,
-      course:       l.course,
+      // 仮押さえは知らせの文面でも分かるようにする（管理者が回数券を足すきっかけになる）
+      course:       isPassPendingLesson(l) ? `${l.course}・仮押さえ（回数券なし）` : l.course,
       trainerName:  l.trainerMemberName,
       location:     l.location,
     })));

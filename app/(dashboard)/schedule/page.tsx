@@ -4,6 +4,7 @@ import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
 import { passUsageOrdinals } from "@/lib/session-passes-types";
+import { isPassPendingLesson } from "@/lib/lessons-types";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getRentalGyms } from "@/lib/rental-gyms";
 import { getStores } from "@/lib/stores";
@@ -113,6 +114,7 @@ export default async function SchedulePage({
       location: l.location,
       course: l.course,
       passOrdinal: passUsageByLessonId.get(l.id)?.ordinal,
+      passPending: isPassPendingLesson(l) || undefined,
       passTotal: passUsageByLessonId.get(l.id)?.total,
       status: l.status,
       trainerId: l.trainerMemberId,

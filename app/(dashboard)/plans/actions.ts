@@ -8,6 +8,7 @@ import {
 import { plansOverlap } from "@/lib/customer-plans-types";
 import { requireAdmin } from "@/lib/members";
 import { addSessionPass, updateSessionPass, deleteSessionPass } from "@/lib/session-passes";
+import { attachPendingLessonsToPass } from "@/lib/pass-pending";
 import type { ContractPlan } from "@/lib/customer-plans-types";
 import { runAction, ActionError, type ActionResult } from "@/lib/action-result";
 
@@ -85,8 +86,10 @@ export async function deletePlanAction(id: string): Promise<ActionResult> {
  * 回数券を追加する。うまくいったら、できた回数券の id も返す
  * （レッスンの登録フォームからその場で足したとき、足した券をそのまま選べるように）。
  */
-export async function createSessionPassAction(formData: FormData): Promise<ActionResult & { passId?: string }> {
+export async function createSessionPassAction(formData: FormData): Promise<ActionResult & { passId?: string; attached?: number }> {
   let passId: string | undefined;
+  /** 仮押さえに付けた件数 */
+  let attached = 0;
   const result = await runAction(async () => {
     await requireAdmin();
     const customerId  = (formData.get("customerId")  as string)?.trim();
@@ -102,12 +105,16 @@ export async function createSessionPassAction(formData: FormData): Promise<Actio
 
     const pass = await addSessionPass({ customerId, totalCount, personCount, price, purchasedAt, expiredAt, note });
     passId = pass.id;
+    // 先に日程だけ押さえてあった「仮押さえ」に、この回数券を日付の早い順で付ける。
+    // ここが失敗しても回数券の追加そのものは成功させる（付かなかった回は、レッスンの編集から手で付けられる）。
+    try { attached = await attachPendingLessonsToPass(pass); }
+    catch (e) { console.error("[plans] 仮押さえへの回数券の付け替えに失敗", e); }
     revalidatePath("/master/customers"); // 審査中→在籍中に変わることがある
     revalidatePath("/plans");
     revalidatePath("/lessons/regular");
     revalidatePath("/schedule");
   });
-  return result.ok ? { ok: true, passId } : result;
+  return result.ok ? { ok: true, passId, attached } : result;
 }
 
 export async function updateSessionPassAction(id: string, formData: FormData): Promise<ActionResult> {

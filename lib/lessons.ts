@@ -363,6 +363,26 @@ export async function getLessonsInRange(fromIso: string, toIso: string): Promise
 }
 
 /**
+ * 仮押さえのレッスン（コースは回数券・回数券が付いていない・キャンセルでない）を、日付の早い順に返す。
+ * since より前に登録したものは返さない（昔のデータに回数券なしの回が残っていても、勝手に付けないため）。
+ */
+export async function getPassPendingLessons(customerId: string, since: string): Promise<{ id: string; scheduledAt: string }[]> {
+  const client = createAdminClient();
+  const { data, error } = await client.from("lessons")
+    .select("id, scheduled_at, created_at")
+    .eq("customer_id", customerId)
+    .eq("payment_type", "session_pass")
+    .is("session_pass_id", null)
+    .neq("status", "cancelled")
+    .gte("created_at", since)
+    .order("scheduled_at", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(500);
+  if (error) throw error;
+  return ((data ?? []) as { id: string; scheduled_at: string }[]).map((r) => ({ id: r.id, scheduledAt: r.scheduled_at }));
+}
+
+/**
  * 回数券の「何回目」を数えるための最小限の列（2026-11-16）。
  * スケジュールは直近のレッスンしか読まなくなったので、画面に出る回数券の分だけ、古い回も含めて数え直す。
  */

@@ -8,7 +8,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2, FlaskConical,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, isFreeLesson, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, isFreeLesson, isPassPendingLesson, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer, isFctCustomer } from "@/lib/customers-types";
@@ -288,7 +288,15 @@ export function LessonForm({
   const [error, setError] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState(fixedCustomerId ?? defaultValues?.customerId ?? "");
   const [selectedCourse, setSelectedCourse] = useState(defaultValues?.course ?? "");
-  const [selectedPassId, setSelectedPassId] = useState(defaultValues?.sessionPassId ?? "");
+  const [selectedPassId, setSelectedPassId] = useState(() => {
+    const id = defaultValues?.sessionPassId ?? "";
+    if (defaultValues?.id) return id;   // 編集は、今付いている回数券のまま
+    // 新しく作る・複製するとき：使い切った回数券は選ばない。使える券が1枚だけなら、それを選んでおく
+    if (id && sessionPasses.some((p) => p.id === id && p.remainingCount > 0)) return id;
+    const cid = fixedCustomerId ?? defaultValues?.customerId ?? "";
+    const usable = sessionPasses.filter((p) => p.customerId === cid && p.remainingCount > 0);
+    return usable.length === 1 && (defaultValues?.course ?? "").startsWith("回数券") ? usable[0].id : "";
+  });
   // 開始・終了で管理（基本60分。開始を入れたら終了は1時間後が初期値）
   const startLocalInit = defaultValues?.scheduledAt ? isoToLocalInput(defaultValues.scheduledAt) : "";
   const [startLocal, setStartLocal] = useState(startLocalInit);
@@ -547,15 +555,22 @@ export function LessonForm({
     // コース未選択のまま登録されると請求書の明細に載らず、請求漏れになるため。
     if (!customerId) return;
     const hasPass = sessionPasses.some((p) => p.customerId === customerId && p.remainingCount > 0);
-    if (!hasPass) setSelectedCourse("都度");
+    if (hasPass) return;
+    // 回数券を使ってきたお客様（券は使い切っている）は「回数券」のままにして、「回数券がありません」と出す。
+    // 「都度」に変えてしまうと、都度の料金で請求が立ってしまう（2026-11-19 尚樹）。
+    const usedPassBefore = sessionPasses.some((p) => p.customerId === customerId);
+    setSelectedCourse(usedPassBefore ? "回数券" : "都度");
   }
 
   async function handleSubmit(fd: FormData) {
     setError("");
     if (!startLocal) { setError(tt("開始日時を入力してください", "Enter the start time")); return; }
-    if (passShortage > 0 && selectedPass) {
-      setError(tt(`回数券の残りは${selectedPass.remainingCount}回です。${plannedCount}件はまとめて登録できません。`, `Only ${selectedPass.remainingCount} sessions left on the pass. You can't add ${plannedCount} at once.`));
-      return;
+    // 回数券が無い・足りないときは「仮押さえ」で入れる。登録する前に、はっきり知らせる
+    if (isCreate && pendingCount > 0) {
+      if (!confirm(tt(
+        `${pendingCount === plannedCount ? "回数券がありません。" : "回数券が足りません。"}\n${pendingCount === plannedCount ? `${plannedCount > 1 ? `${plannedCount}件とも` : "このレッスンは"}` : `${plannedCount}件のうち${pendingCount}件は`}「仮押さえ」として登録します（回数券はまだ使われません）。\n${isAdmin ? "回数券を追加すると、日付の早い順に自動で使われます。" : "管理者に回数券の追加を頼んでください。"}\nこのまま登録しますか？`,
+        `There is no session pass.\n${pendingCount === plannedCount ? "This will be" : `${pendingCount} of ${plannedCount} will be`} saved as a hold (no session is used yet).\n${isAdmin ? "When a pass is added, it is used from the earliest date." : "Ask an admin to add a pass."}\nSave anyway?`,
+      ))) return;
     }
     // 担当が空のまま作ると、本人のダッシュボードの「完了待ち」に出ず、スケジュールで完了も押せない
     // （2026-11-16、担当なしのレッスンが残っていて気づけなかった）。作るときだけ確かめる。
@@ -599,10 +614,13 @@ export function LessonForm({
 
 
   const isSessionPassCourse = selectedCourse.startsWith("回数券");
+  // 選べる回数券：残りのあるもの。編集のときは、今付いている券（使い切っていても）も出す
   const availablePasses = sessionPasses.filter(
-    (p) => p.customerId === selectedCustomerId && (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId)
+    (p) => p.customerId === selectedCustomerId && (p.remainingCount > 0 || (!!defaultValues?.id && p.id === defaultValues?.sessionPassId))
   );
   const noPassAvailable = isSessionPassCourse && selectedCustomerId !== "" && availablePasses.length === 0;
+  /** 編集しているレッスンが「仮押さえ」（回数券なし）か。回数券なしのままでも保存できるようにする */
+  const editingPending = !!defaultValues?.id && isPassPendingLesson(defaultValues);
 
   // 作成する件数（単発は1件、複数日時・繰り返しはその件数）と回数券の残数の突き合わせ。
   // 残数を超えた件数をまとめて登録すると、超過分が0消費のまま登録されてしまうため事前に止める。
@@ -629,8 +647,12 @@ export function LessonForm({
     return set;
   }, [allLessons, selectedCustomerId, defaultValues?.id]);
   const passShortage = isCreate && isSessionPassCourse && selectedPass
-    ? plannedCount - selectedPass.remainingCount
+    ? Math.max(0, plannedCount - selectedPass.remainingCount)
     : 0;
+  /** 仮押さえ（回数券を付けずに入れる）になる件数。回数券が無ければ全部、足りなければ足りないぶん */
+  const pendingCount = !isSessionPassCourse || selectedCustomerId === "" ? 0
+    : noPassAvailable ? plannedCount
+    : passShortage;
 
   // ─── 選択可能なコースの算出 ───────────────────────────
   const today = new Date().toISOString().slice(0, 10);
@@ -640,12 +662,8 @@ export function LessonForm({
     if (value === defaultValues?.course) return true;          // 編集時は元のコースを常に許可
     if (paymentType === "single") return true;                 // 都度は常に選べる
     if (!customerId) return false;                             // 顧客未選択なら都度のみ
-    if (paymentType === "session_pass") {
-      // 残りのある回数券を1枚でも持っていれば選べる
-      return sessionPasses.some((p) =>
-        p.customerId === customerId &&
-        (p.remainingCount > 0 || p.id === defaultValues?.sessionPassId));
-    }
+    // 回数券は、券が無くても選べる（「回数券がありません」と出して、仮押さえで入れる。2026-11-19）
+    if (paymentType === "session_pass") return true;
     if (paymentType === "monthly") {
       return customerPlans.some((p) =>
         p.customerId === customerId && p.plan === value &&
@@ -1015,11 +1033,6 @@ export function LessonForm({
             <Plus size={13} /> {tt("回数券を追加して、このレッスンに使う", "Add a pass and use it for this lesson")}
           </button>
         )}
-        {selectedCustomerId !== "" && passCourses.length === 0 && monthlyCourses.length === 0 && (
-          <p className="text-xs text-gray-400 mt-1.5">
-            {tt("この顧客は有効な回数券・加入中プランがありません（都度のみ選択できます）", "This client has no active pass or plan (Pay per session only)")}
-          </p>
-        )}
       </div>
 
       {/* 単発（都度・オンライン）の金額。この回だけ単価が違うときに入力する。
@@ -1065,32 +1078,49 @@ export function LessonForm({
         );
       })()}
 
-      {/* 回数券選択（回数券コースの場合のみ） */}
+      {/* 回数券選択（回数券コースの場合のみ）。
+          回数券が無い・足りないときも登録は止めない。「回数券がありません」と出して、仮押さえ（回数券を付けない）で入れる。
+          回数券を足せるのは管理者だけ（ボタンは管理者にだけ出す。サーバー側も requireAdmin）。 */}
       {isSessionPassCourse && (
         <div className={cn("rounded-xl p-3 border", noPassAvailable ? "bg-red-50 border-red-300" : "bg-amber-50 border-amber-200")}>
           <label className={cn(labelClass, noPassAvailable ? "text-red-600" : "text-amber-700")}>
-            <Ticket size={12} /> {tt("使用する回数券", "Pass to use")} <span className="text-red-500">*</span>
+            <Ticket size={12} /> {tt("使用する回数券", "Pass to use")} {!noPassAvailable && !editingPending && <span className="text-red-500">*</span>}
           </label>
           {noPassAvailable ? (
-            <p className="text-xs text-red-600 font-medium">
-              {canAddPass
-                ? tt("有効な回数券がありません。下のボタンから追加できます。", "No active pass. Add one with the button below.")
-                : tt("有効な回数券がありません。目次の「回数券」から追加してください。", "No active pass. Ask an admin to add one.")}
-            </p>
+            <div data-pass-warning="none">
+              <p className="text-sm text-red-600 font-bold flex items-center gap-1.5">
+                <AlertTriangle size={14} className="flex-shrink-0" /> {tt("回数券がありません", "No session pass")}
+              </p>
+              <p className="text-xs text-red-600 mt-1 leading-relaxed">
+                {tt("このお客様には、使える回数券がありません。", "This client has no pass with sessions left. ")}
+                {canAddPass
+                  ? tt("下のボタンから追加できます。", "Add one with the button below.")
+                  : tt("管理者に回数券の追加を頼んでください。", "Ask an admin to add a pass.")}
+              </p>
+              <p className="text-xs text-gray-600 mt-1.5 leading-relaxed">
+                {defaultValues?.id
+                  ? tt("回数券なしのまま（仮押さえ）で保存できます。", "You can save it as a hold, without a pass.")
+                  : tt("このまま登録すると「仮押さえ」になります。予定は入りますが、回数券はまだ使われません。回数券が追加されると、日付の早い順に自動で使われます。",
+                       "If you save now, it becomes a hold: it is on the schedule, but no session is used yet. When a pass is added, it is used from the earliest date.")}
+              </p>
+            </div>
           ) : (
-            <select name="sessionPassId" required value={selectedPassId}
+            <select name="sessionPassId" required={!editingPending} value={selectedPassId}
               onChange={(e) => setSelectedPassId(e.target.value)} className={inputClass}>
-              <option value="">{tt("回数券を選択...", "Choose a pass...")}</option>
+              <option value="">{editingPending ? tt("回数券なし（仮押さえのまま）", "No pass (keep as a hold)") : tt("回数券を選択...", "Choose a pass...")}</option>
               {availablePasses.map((p) => (
                 <option key={p.id} value={p.id}>{passLabel(p, lang)}</option>
               ))}
             </select>
           )}
           {passShortage > 0 && selectedPass && (
-            <p className="text-xs text-red-600 font-medium mt-2 flex items-start gap-1">
+            <p data-pass-warning="short" className="text-xs text-red-600 font-medium mt-2 flex items-start gap-1 leading-relaxed">
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-              {tt(`回数券の残りは${selectedPass.remainingCount}回です（登録しようとしている件数: ${plannedCount}件）。日時を${passShortage}件減らすか、回数券を追加してください。`,
-                `Only ${selectedPass.remainingCount} sessions left (you are adding ${plannedCount}). Remove ${passShortage} date(s) or add a pass.`)}
+              <span>
+                {tt(`回数券が足りません（残り${selectedPass.remainingCount}回・登録する件数 ${plannedCount}件）。日付の早い${selectedPass.remainingCount}件に回数券を使い、残りの${passShortage}件は「仮押さえ」になります（回数券はまだ使われません）。`,
+                  `Not enough sessions (${selectedPass.remainingCount} left, adding ${plannedCount}). The earliest ${selectedPass.remainingCount} use the pass; the other ${passShortage} are saved as holds.`)}
+                {!canAddPass && tt("管理者に回数券の追加を頼んでください。", " Ask an admin to add a pass.")}
+              </span>
             </p>
           )}
           {canAddPass && (
@@ -1134,7 +1164,7 @@ export function LessonForm({
           className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
           {tt("キャンセル", "Cancel")}
         </button>
-        <button type="submit" disabled={locked || noPassAvailable || passShortage > 0}
+        <button type="submit" disabled={locked}
           className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold transition flex items-center justify-center gap-2">
           {locked && <Spinner size={14} />}{locked ? tt("保存中...", "Saving...") : submitLabel}
         </button>
@@ -1307,6 +1337,13 @@ function LessonItem({ lesson, customers, members, sessionPasses, customerPlans, 
             {sessionNumber > 0 && <span className="font-semibold whitespace-nowrap">{tt(`の${sessionNumber}回目`, ` · #${sessionNumber}`)}</span>}
             {sessionNumber === 0 && <span className="whitespace-nowrap">{tt("・消化なし", " · not used")}</span>}
             <span className="whitespace-nowrap">{overConsumed ? tt("・回数超過", " · over the limit") : tt(`・残り${remainingAfter}回`, ` · ${remainingAfter} left`)}</span>
+          </p>
+        )}
+        {isPassPendingLesson(lesson) && (
+          // 仮押さえ：コースは回数券だが、回数券がまだ付いていない（回数券は減っていない）
+          <p className="text-xs mt-0.5 text-red-600 font-semibold">
+            <AlertTriangle size={10} className="inline-block align-[-1px] mr-1" />
+            {lesson.status === "scheduled" ? tt("仮押さえ（回数券がありません）", "Hold (no session pass)") : tt("回数券がありません", "No session pass")}
           </p>
         )}
         {lesson.note && <p className="text-xs text-gray-400 mt-0.5 truncate">{lesson.note}</p>}

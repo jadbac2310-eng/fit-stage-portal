@@ -197,6 +197,23 @@ export async function reserveSessionPass(id: string, count = 1): Promise<void> {
   }
 }
 
+/**
+ * 回数券の残数を「あるぶんだけ」確保する（最大 count 回）。確保できた回数を返す。
+ * 残りが足りないときは、足りるぶんだけ回数券を使い、あとは仮押さえ（回数券なし）にするために使う。
+ */
+export async function reserveSessionPassUpTo(id: string, count: number): Promise<number> {
+  if (count <= 0) return 0;
+  // 読んでから確保するまでの間に他の人が使うことがあるので、だめなら残りを読み直してもう一度だけ試す
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { remaining } = await remainingCountOf(id);
+    const take = Math.min(count, Math.max(remaining, 0));
+    if (take <= 0) return 0;
+    try { await reserveSessionPass(id, take); return take; }
+    catch (e) { if (!(e instanceof ActionError) || attempt === 1) throw e; }
+  }
+  return 0;
+}
+
 /** 確保した残数を count 回ぶん戻す（レッスンの削除・回数券の付け替え・作成失敗時）。 */
 export async function releaseSessionPass(id: string, count = 1): Promise<void> {
   if (count <= 0) return;

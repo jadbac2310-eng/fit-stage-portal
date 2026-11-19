@@ -100,6 +100,16 @@ export function courseToPaymentType(course: string | undefined): LessonPaymentTy
 }
 
 /**
+ * 「仮押さえ」＝コースは回数券なのに、回数券がまだ付いていないレッスン（2026-11-19 尚樹）。
+ * 回数券を入れる前に先に日程だけ押さえたもの。回数券は減っていない。
+ * 回数券が追加されると、日付の早い順に自動で付く（lib/pass-pending.ts）。キャンセルした回は入らない。
+ */
+export function isPassPendingLesson(l: { course?: string; paymentType?: LessonPaymentType | null; sessionPassId?: string | null; status?: string }): boolean {
+  if (l.sessionPassId || l.status === "cancelled") return false;
+  return l.paymentType === "session_pass" || courseToPaymentType(l.course) === "session_pass";
+}
+
+/**
  * 単発（都度・オンライン等）レッスン1回の計上額を決める。
  * レッスン個別金額 → 顧客の都度単価 の順に見て、どちらも未設定なら null
  * （呼び出し側でプランマスタの既定単価などにフォールバックする）。
