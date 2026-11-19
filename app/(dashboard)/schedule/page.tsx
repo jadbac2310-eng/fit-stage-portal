@@ -151,6 +151,9 @@ export default async function SchedulePage({
       customerName: t.customerName,
       customerId: t.customerId,
       scheduledAt: t.scheduledAt,
+      // 体験には終了時刻の列が無い。体験は60分なので、開始の1時間後を終わりとして出す
+      // （2026-11-19 尚樹。通常レッスンは「10:00〜11:00」と出るのに、体験は「10:00」だけだった）
+      endAt: new Date(new Date(t.scheduledAt).getTime() + 60 * 60 * 1000).toISOString(),
       location: t.location,
       status: t.status,
       trainerId: t.trainerMemberId,

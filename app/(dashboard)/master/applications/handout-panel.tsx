@@ -15,6 +15,24 @@ import { cn } from "@/lib/cn";
 
 const FORM_URL = "https://www.fitstage.jp/store/join/";
 const QR_SRC   = "/join-qr/qr-all.svg";
+/** 英語の入会フォーム（出張パーソナル用。2026-11-19〜）。規約も出張向けの英語になっている */
+const FORM_URL_EN = "https://www.fitstage.jp/en/join/";
+
+/** 英語のお客様にお送りする文面（WhatsApp・LINE どちらでも） */
+function englishMessage(url: string) {
+  return [
+    "Thank you for today.",
+    "",
+    "To enrol, please fill in this form:",
+    url,
+    "",
+    "- It takes about five minutes",
+    "- Please read the terms and tick the box to agree",
+    "- Payment is due by your first session (cash, credit card, PayPay or bank transfer)",
+    "",
+    "If you have any questions, just reply to this message.",
+  ].join("\n");
+}
 
 /** 体験の後にお送りするLINEの文面。HP側のカードと同じ内容に揃えている */
 function lineMessage(url: string) {
@@ -131,6 +149,37 @@ export function HandoutPanel() {
                 </a>
                 から出せます。
               </p>
+            </div>
+          </div>
+
+          {/* 英語のお客様（出張パーソナル）用。店舗用の日本語フォームとは規約が違うので、リンクを分けている */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <p className="text-xs font-semibold text-gray-800">英語のお客様（出張パーソナル）／ English form for on-site clients</p>
+            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              英語の入会フォームです。規約は出張向け（入会金なし・回数券は8／16／32回）。届いた申込は、この一覧に「出張（英語フォーム）」と出ます。
+            </p>
+            <p className="text-xs text-gray-700 break-all bg-white border border-gray-200 rounded-xl px-3 py-2 mt-2">
+              {FORM_URL_EN}
+            </p>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <CopyButton text={FORM_URL_EN} label="リンクをコピー / Copy link" />
+              <CopyButton text={englishMessage(FORM_URL_EN)} label="英語の文面をコピー / Copy message" />
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(englishMessage(FORM_URL_EN))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:border-gray-300 transition"
+              >
+                <MessageCircle size={13} /> WhatsAppで送る / Send
+              </a>
+              <a
+                href={FORM_URL_EN}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:border-gray-300 transition"
+              >
+                <ExternalLink size={13} /> フォームを開く / Open form
+              </a>
             </div>
           </div>
         </div>
