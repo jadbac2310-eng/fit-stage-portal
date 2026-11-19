@@ -17,6 +17,8 @@ const FORM_URL = "https://www.fitstage.jp/store/join/";
 const QR_SRC   = "/join-qr/qr-all.svg";
 /** 英語の入会フォーム（出張パーソナル用。2026-11-19〜）。規約も出張向けの英語になっている */
 const FORM_URL_EN = "https://www.fitstage.jp/en/join/";
+/** 英語フォームのQR。URLを変えたら作り直す（中身は FORM_URL_EN そのもの） */
+const QR_SRC_EN   = "/join-qr/qr-en.svg";
 
 /** 英語のお客様にお送りする文面（WhatsApp・LINE どちらでも） */
 function englishMessage(url: string) {
@@ -156,30 +158,45 @@ export function HandoutPanel() {
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-xs font-semibold text-gray-800">英語のお客様（出張パーソナル）／ English form for on-site clients</p>
             <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-              英語の入会フォームです。規約は出張向け（入会金なし・回数券は8／16／32回）。届いた申込は、この一覧に「出張（英語フォーム）」と出ます。
+              英語の入会フォームです。その場でQRを読んでもらうか、リンクを送ります。規約は出張向け（入会金なし・回数券は8／16／32回）。届いた申込は、この一覧に「出張（英語フォーム）」と出ます。
             </p>
-            <p className="text-xs text-gray-700 break-all bg-white border border-gray-200 rounded-xl px-3 py-2 mt-2">
-              {FORM_URL_EN}
-            </p>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <CopyButton text={FORM_URL_EN} label="リンクをコピー / Copy link" />
-              <CopyButton text={englishMessage(FORM_URL_EN)} label="英語の文面をコピー / Copy message" />
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(englishMessage(FORM_URL_EN))}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:border-gray-300 transition"
-              >
-                <MessageCircle size={13} /> WhatsAppで送る / Send
-              </a>
-              <a
-                href={FORM_URL_EN}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:border-gray-300 transition"
-              >
-                <ExternalLink size={13} /> フォームを開く / Open form
-              </a>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4 mt-3">
+              <div className="bg-white p-3 rounded-xl border border-gray-200 self-start">
+                <NextImage
+                  src={QR_SRC_EN}
+                  alt="英語の入会フォーム（出張パーソナル用）のQRコード"
+                  width={148}
+                  height={148}
+                  unoptimized
+                  className="block w-[148px] h-[148px]"
+                />
+                <p className="text-[11px] text-gray-500 text-center mt-2">English・出張用</p>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-700 break-all bg-white border border-gray-200 rounded-xl px-3 py-2">
+                  {FORM_URL_EN}
+                </p>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <CopyButton text={FORM_URL_EN} label="Copy link" />
+                  <CopyButton text={englishMessage(FORM_URL_EN)} label="Copy message" />
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(englishMessage(FORM_URL_EN))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:border-gray-300 transition"
+                  >
+                    <MessageCircle size={13} /> WhatsApp
+                  </a>
+                  <a
+                    href={FORM_URL_EN}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:border-gray-300 transition"
+                  >
+                    <ExternalLink size={13} /> Open form
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
