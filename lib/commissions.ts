@@ -388,7 +388,7 @@ export function buildSalesEntries(
     if (fctCustomerIds.has(tl.customerId)) continue; // FCT経由のお客さまは成約ボーナスなし
     if (isOwnerMember(tl.salesMemberId, ctx)) continue; // オーナーにはボーナスを払わない
     const cType = customerTypeMap[tl.customerId] ?? "individual";
-    const bonus = contractBonusFor(cType, tl.scheduledAt); // 2026-12-01 以降の体験は 0（成約ボーナスは11月で終わり）
+    const bonus = contractBonusFor(cType, tl.scheduledAt); // 2026-11-19 以降の体験は 0（成約ボーナスは11/18の体験まで）
     if (bonus <= 0) continue;
 
     const entry = ensureEntry(tl.salesMemberId, tl.salesMemberName);
