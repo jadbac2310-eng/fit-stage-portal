@@ -405,6 +405,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - ページは **`wiki_pages.sort_order` の小さい順 → 作った順**（本のように読む順）。無指定は 100 で後ろ。
   順番を変えるのはSQLで（画面にはまだ無い）。列が無いDBでも作った順で動く（`lib/wiki.ts`）。
 - ページを増やすSQLは、scratchpad の `wiki/gen*.py` のように Markdown を書いて `E'...'` に変換して作る。
+- 2026-11-20：「私たちらしさ」の「指名制、指名料なし。」を「指名料なし。」に（尚樹「指名制は消して。指名料0はok」。`20261120000001_wiki_remove_shimeisei.sql`。HPの会社概要の「トレーナー指名制」は別）。
 - 代表の言葉から書いたページ（ビジョンの章）は、まだ尚樹が画面で直していない間は
   `on conflict do update` で本文ごと差し替えてよい。尚樹が画面で直し始めたら `do nothing` に戻す。
 
