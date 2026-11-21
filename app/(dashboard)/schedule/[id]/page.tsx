@@ -56,7 +56,8 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
     // 引き継ぎ用。前回までの記録と、最初の困りごと・目的（体験の申込内容）
     const [passUsage, history, firstTrial] = await Promise.all([
       lesson.sessionPassId ? getSessionPassUsage(lesson.sessionPassId, lesson.id) : null,
-      getCustomerLessonHistory(lesson.customerId, lesson.scheduledAt, 3),
+      // 遡れるように多めに読む（引き継ぎの箱では最初の3回だけ見せ、もっと前はたたむ）
+      getCustomerLessonHistory(lesson.customerId, lesson.scheduledAt, 50),
       getFirstTrialLesson(lesson.customerId),
     ]);
     return (
@@ -166,7 +167,7 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
         {trial.location && <Row icon={<MapPin size={15} />} label={t("場所", "Location")}>{trial.location}</Row>}
         {trial.note && <Row icon={<StickyNote size={15} />} label={t("備考", "Notes")}><span className="whitespace-pre-wrap">{trial.note}</span></Row>}
         {trial.handoverNote && (
-          <Row icon={<ClipboardList size={15} />} label={t("次の人への引き継ぎ", "Handover for the next coach")}><span className="whitespace-pre-wrap">{trial.handoverNote}</span></Row>
+          <Row icon={<ClipboardList size={15} />} label={t("体験の記録", "Trial notes")}><span className="whitespace-pre-wrap">{trial.handoverNote}</span></Row>
         )}
       </div>
 

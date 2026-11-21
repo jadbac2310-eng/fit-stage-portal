@@ -81,7 +81,7 @@ export type ScheduleItem = {
   updatedByName?: string;
   updatedAt?: string;
   note?: string;
-  /** 体験の「次の人への引き継ぎ」（通常レッスンは note が記録） */
+  /** 体験の記録（trial_lessons.handover_note。通常レッスンは note が記録） */
   handoverNote?: string;
   contracted?: boolean | null;
   participantIds?: string[];
@@ -398,7 +398,7 @@ function handoverOf(
       x.id !== item.id &&
       x.scheduledAt < item.scheduledAt &&
       (x.status === "completed" || x.status === "cancelled_same_day"))
-    .slice(-3)
+    // 読み込んだ期間の分は全部渡す（引き継ぎの箱で最初の3回だけ見せ、もっと前はたたむ）
     .reverse()
     .map((x) => ({ id: x.id, scheduledAt: x.scheduledAt, trainerName: x.trainerName, note: x.note }));
 
@@ -711,7 +711,7 @@ function LessonCard({
           )}
           {open && canWriteNote && <LessonNoteEditor lessonId={item.id} note={item.note} />}
           {isTrial && item.handoverNote && (
-            <DetailRow icon={<ClipboardList size={13} />} label={tt("次の人への引き継ぎ", "Handover for the next coach")}>
+            <DetailRow icon={<ClipboardList size={13} />} label={tt("体験の記録", "Trial notes")}>
               <span className="whitespace-pre-wrap">{item.handoverNote}</span>
             </DetailRow>
           )}

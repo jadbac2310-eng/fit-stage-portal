@@ -54,7 +54,7 @@ export function LessonNoteEditor({ lessonId, note, trial = false }: { lessonId: 
         className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl py-2 transition"
       >
         <Pencil size={13} /> {trial
-          ? (note?.trim() ? t("引き継ぎを書き直す", "Edit handover") : t("次の人への引き継ぎを書く", "Write a handover for the next coach"))
+          ? (note?.trim() ? t("体験の記録を書き直す", "Edit trial notes") : t("体験の記録を書く（備考とは別）", "Write trial notes (separate from the notes field)"))
           : (note?.trim() ? t("記録を書き直す", "Edit session notes") : t("今日やったことを記録する", "Write today's session notes"))}
       </button>
     );
