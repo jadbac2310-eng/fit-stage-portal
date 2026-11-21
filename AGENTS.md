@@ -316,6 +316,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 書けるのは 管理者・担当トレーナー・担当営業・予約を入れた人（画面とサーバーで同じ条件）。
 - 読む場所：そのお客さまの次からのレッスンの「引き継ぎ」の箱に「体験のときの引き継ぎ」（日付・担当つき）として出る（`handover.tsx`）。
 
+## AIメール担当（2026-11-21〜。フェーズ1＝読むだけ）
+
+尚樹「AIエージェントで事業を回す仕組みを段階的に。第1弾はメール担当」。**ワーカーは別リポジトリ `fit-stage-agents`**（国内VPSで pm2 常駐。Node＋TypeScript）。ポータルは「見る・止める・正解を付ける」側。
+設計と尚樹の決定は `fit-stage-agents/docs/mail-agent-phase0.md`、回答の根拠は `fit-stage-agents/knowledge/faq.md`（**HPの料金・決まりを変えたら faq.md も直す**）。
+- **メール**：info@fitstage.jp は ImprovMX で FIT STAGE の Gmail（fitstage.000）へ転送（MX を 2026-11-21 に確認）。ワーカーは **fitstage.000 の受信箱すべて**を IMAP で読む（尚樹「fitstage.000 も拾って良い」）。既読にしない。
+  noreply・各サービスのお知らせ・メーリングリスト・自分たちのメールは、AIに渡す前に決まりで「無視」（本文も保存しない）。**返信は届いたアドレスから**（フェーズ2から。尚樹の選択 B）。
+- **HPのお問い合わせ**：`/api/contact-webhook` が今までの LINE に加えて `mail_messages`（source `contact_form`）に入れる（`lib/ai-mail.ts` の `enqueueContactForm`）。**今までの LINE の知らせ（体験予約・入会・お問い合わせ・応募）はそのまま残す**（尚樹「すぐ気づけるように」）。
+- **仕分け**：Haiku（`claude-haiku-5-5`）で 定型／要確認／営業／無視。迷ったら要確認（自信が高くない定型も要確認）。返信文の作成（フェーズ2〜）は Sonnet。
+- **通知**：クレーム・当日の予約変更はすぐ LINE、ほかは **8:00・12:30・20:00** のまとめ（無視だけの回は送らない。LINE は 11/21 時点で 56/200 通）。送るのはワーカー（ポータルと同じスタッフ用公式アカウントのトークン）。
+- **安全装置**：緊急停止＝`agent_settings.kill_switch`（`/ai-mail` のボタン、または代表・管理者が LINE で「停止」。`/api/line/webhook`。**再開は画面だけ**）／月の上限（初期 $10、8割で LINE、届いたら AI を呼ばず要確認へ）／全処理を `agent_events` に／心拍が30分止まったら `/api/cron/line-reminders` が代表へ LINE を1回（`checkMailAgentHeartbeat`。止めるときは `LINE_NOTIFY_AGENT_DOWN=off`）。
+- **画面** `/ai-mail`（代表・管理者のみ。目次の「会社」）：動いているか・緊急停止・今月の AI 代と上限・仕分けの一覧（直近14日）・**正解を付ける**（`human_category`。1週間後の精度の報告に使う）・ログ。
+- **表**：`20261121000001_ai_mail_agent.sql`（`agent_settings`・`mail_messages`・`agent_events`・`agent_api_usage`。RLS 有効・ポリシーなし）。表が無いDBでもポータルは動く（読むと空、書くと何もしない）。
+- **フェーズ**：1 読むだけ（今）→ 2 要確認に下書き・承認待ち（ポータル＋LINE で OK／修正／NG）→ 3 定型の自動返信（最初の2週間は1日5件まで、スレッドに1回まで）。フェーズごとに尚樹の OK を待つ。
+- Claude の API キーは前払い・自動チャージなし（残高が上限）。ほかのキーと共通の財布なので、残高が0になるとメール担当も止まる。
+
 ## AI部署（2026-11-16 尚樹「FIT STAGE を AI の担当者による擬似会社にしたい。社長の下に部署、可視化したい」）
 
 `/ai-office`（管理者のみ。目次の「会社」→「AI部署」）。社長（`is_owner`）の下に AI の部署を組織図で並べ、部署ごとに 役割・動く時・今日の状態 を出す。
@@ -460,7 +475,7 @@ HPのフォームの内容は、メール（Formspree）とは別にポータル
 | 初回の前のご記入（英語・出張のお客様に送るフォーム） | `api/first-session.js` | 同じ `app/api/reserve-webhook/route.ts` |
 | 入会申し込み | `api/join.js` | `app/api/join-webhook/route.ts` |
 | 英語トレーナーの応募（LINE通知のみ・DB保存なし） | `api/recruit.js` | `app/api/recruit-webhook/route.ts` |
-| お問い合わせ（LINE通知のみ・DB保存なし） | `api/contact.js` | `app/api/contact-webhook/route.ts` |
+| お問い合わせ（LINE通知＋AIメール担当の `mail_messages` に保存。2026-11-21〜） | `api/contact.js` | `app/api/contact-webhook/route.ts` |
 
 - **キャンセル規定（2026-11-11〜）**：前日21時までの変更・キャンセルは無料、それ以降は回数券1回分の消化（HPの料金・店舗・会員規約・英語ページも同日に「前日24時」から変更）。ポータルの状況「当日キャンセル」は名前を変えず、前日21時を過ぎてからのキャンセルもこれで記録する（選択肢に「前日21時以降」と添えた）。
 - **「初回の前のご記入フォーム」（2026-11-18 尚樹の依頼「お客さんが入力したらポータルに入るフォームを送りたい」）**：HPの `/en/first-session/`（英語・検索には出さない）。

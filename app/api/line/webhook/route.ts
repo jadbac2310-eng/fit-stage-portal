@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyLineSignature, replyLineMessage } from "@/lib/line";
 import { getMemberByLinkCode, getMemberByLineUserId, setMemberLineUserId } from "@/lib/members";
+import { setKillSwitch } from "@/lib/ai-mail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,19 @@ async function handleEvent(event: LineEvent) {
   if (event.type === "message" && event.message?.type === "text") {
     const code = (event.message.text ?? "").trim().toUpperCase();
     if (!userId) return;
+
+    // AIメール担当の緊急停止（2026-11-21）。代表・管理者が「停止」と送ると、AIの処理と自動送信を全部止める。
+    // 再開は打ち間違いで動き出さないよう、ポータルの画面だけにしてある。
+    if (/^(停止|ストップ|stop)$/i.test(code)) {
+      const me = await getMemberByLineUserId(userId);
+      if (me && (me.isOwner || me.isAdmin)) {
+        const ok = await setKillSwitch(true, `line:${me.name}`, "LINE で「停止」").catch(() => false);
+        if (reply) await replyLineMessage(reply, ok
+          ? "AIメール担当を緊急停止しました。受信と保存だけ続けます（仕分け・通知・送信はしません）。\n再開はポータルの「AIメール担当」から。"
+          : "停止できませんでした。ポータルの「AIメール担当」の停止ボタンを押してください。");
+        return;
+      }
+    }
 
     if (!/^[A-Z0-9]{6}$/.test(code)) {
       // 連携済みの担当者が普通のメッセージを送っても自動返信しない。案内は未連携の人だけに出す。

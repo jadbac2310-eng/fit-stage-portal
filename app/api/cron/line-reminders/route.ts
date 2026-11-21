@@ -4,6 +4,7 @@ import { collectNotifyItems } from "@/lib/schedule-items";
 import { pushLineMessage } from "@/lib/line";
 import { fetchSentKeys, markSent, jstDateLabel, jstTimeStr, staffNotifyEnabled, canNotifyByLine } from "@/lib/line-notify";
 import { scheduleLink } from "@/lib/line-login";
+import { checkMailAgentHeartbeat } from "@/lib/ai-mail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ function authorized(req: NextRequest): boolean {
 // 予定の開始 REMINDER_MIN 分前にリマインドを送る。数分おきに叩かれる前提（重複は送信済みログで防止）。
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // AIメール担当（VPS のワーカー）が止まっていないか。リマインドを止めていても見る（2026-11-21）
+  await checkMailAgentHeartbeat().catch((e) => console.error("[line-reminders] AIメール担当の確認で失敗", e));
   // 既定は有効。無料枠(月200通)が苦しいときは LINE_NOTIFY_REMINDER=off で全員ぶん止められる。
   // 担当者ごとに止めたいときは、担当者マスタの「レッスンのリマインドを受け取る」を外す（下のループで見る）。
   if (!staffNotifyEnabled("reminder")) return NextResponse.json({ ok: true, sent: 0, disabled: true });

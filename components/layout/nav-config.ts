@@ -20,6 +20,7 @@ import {
   Receipt,
   Wallet,
   LineChart,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -74,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
     { label: "今日の一手", en: "Today's move",     href: "/fortune",     icon: MoonStar },
     { label: "アシスタント", en: "Assistant",   href: "/assistant",   icon: Sparkles },
     { label: "AI部署", en: "AI office",         href: "/ai-office",   icon: Bot,         adminOnly: true },
+    { label: "AIメール担当", en: "AI mail",     href: "/ai-mail",     icon: Mail,        adminOnly: true },
   ] },
   { title: "設定", en: "Settings", items: [
     { label: "マスタ管理", en: "Master data",     href: "/master",      icon: Database },

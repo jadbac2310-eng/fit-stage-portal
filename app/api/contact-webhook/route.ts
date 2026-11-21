@@ -3,6 +3,7 @@ import { getMembers } from "@/lib/members";
 import { pushLineMessage } from "@/lib/line";
 import { canNotifyByLine } from "@/lib/line-notify";
 import { channelLabel } from "@/lib/acquisition-channel";
+import { enqueueContactForm } from "@/lib/ai-mail";
 
 /**
  * HPのお問い合わせフォーム（/contact/）の内容を受け取り、管理者のLINEへ通知する。
@@ -57,6 +58,13 @@ export async function POST(req: NextRequest) {
   if (!fullName || !email) {
     return NextResponse.json({ error: "full_name and email are required" }, { status: 400 });
   }
+
+  // AIメール担当にも渡す（2026-11-21。仕分けて、まとめ通知に載せる）。表が無い・失敗しても、ここは止めない。
+  // 今までの LINE の知らせ（下）はそのまま残す（尚樹「すぐ気づけるように残す」）。
+  await enqueueContactForm({
+    fullName, email, serviceType: body.service_type, company: body.company, phone: body.phone_number,
+    message: body.message, channel: channelLabel(body),
+  }).catch((e) => console.error("[contact-webhook] AIメール担当に渡せません", e));
 
   if ((process.env.LINE_NOTIFY_CONTACT ?? "").trim().toLowerCase() === "off") {
     return NextResponse.json({ success: true, notified: 0, skipped: "off" });
