@@ -48,3 +48,10 @@ export interface SessionPass {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * スケジュールで「回数券 未払い」と出すのは、この日時より後に追加した回数券だけ（日本時間 2026-11-22 0:00）。
+ * 入金管理（/admin/payments）に入金の記録が無い回数券を「未払い」とする。
+ * それより前の回数券は、払っていても入金の記録を付けていないものがあり得るので、勝手に「未払い」と出さない。
+ */
+export const PASS_UNPAID_FROM = "2026-11-21T15:00:00.000Z";

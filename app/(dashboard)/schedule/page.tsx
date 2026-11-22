@@ -3,7 +3,8 @@ import { getLessons, getPassLessonStubs } from "@/lib/lessons";
 import { getTrialLessons } from "@/lib/trial-lessons";
 import { getCustomers } from "@/lib/customers";
 import { getAllSessionPasses } from "@/lib/session-passes";
-import { passUsageOrdinals } from "@/lib/session-passes-types";
+import { passUsageOrdinals, PASS_UNPAID_FROM } from "@/lib/session-passes-types";
+import { getPaidSourceIds } from "@/lib/payments";
 import { isPassPendingLesson } from "@/lib/lessons-types";
 import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getRentalGyms } from "@/lib/rental-gyms";
@@ -86,6 +87,14 @@ export default async function SchedulePage({
     else lessonsByPass.set(l.sessionPassId, [l]);
   }
   const passTotalById = new Map(sessionPasses.map((p) => [p.id, p.totalCount]));
+  // 回数券の未払い（2026-11-22 尚樹「未払いの回数券でレッスンするとき、スケジュールで分かるように」）。
+  // 入金管理に入金の記録が無い回数券。PASS_UNPAID_FROM より後に追加した券だけを見る
+  const usedPassIds = new Set(lessons.map((l) => l.sessionPassId).filter((x): x is string => !!x));
+  const unpaidCandidates = sessionPasses
+    .filter((p) => usedPassIds.has(p.id) && p.createdAt >= PASS_UNPAID_FROM)
+    .map((p) => p.id);
+  const paidPassIds = await getPaidSourceIds("session_pass", unpaidCandidates);
+  const unpaidPassIds = new Set(unpaidCandidates.filter((id) => !paidPassIds.has(id)));
   const passUsageByLessonId = new Map<string, { ordinal: number; total?: number }>();
   for (const [passId, passLessons] of lessonsByPass) {
     const ordinals = passUsageOrdinals(passLessons);
@@ -115,6 +124,7 @@ export default async function SchedulePage({
       course: l.course,
       passOrdinal: passUsageByLessonId.get(l.id)?.ordinal,
       passPending: isPassPendingLesson(l) || undefined,
+      passUnpaid: (!!l.sessionPassId && unpaidPassIds.has(l.sessionPassId)) || undefined,
       passTotal: passUsageByLessonId.get(l.id)?.total,
       status: l.status,
       trainerId: l.trainerMemberId,

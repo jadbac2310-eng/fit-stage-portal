@@ -55,6 +55,21 @@ async function getPaymentsUncached(): Promise<Payment[]> {
   return (data as DbRow[]).map(fromDb);
 }
 
+/**
+ * 指定した売上項目のうち、入金の記録があるものの id を返す（スケジュールの「未払い」表示用。2026-11-22）。
+ * 全件は読まず、渡した id だけを引く。読めなかったときは全部「入金済み」として返す
+ * （表を作る前や通信の失敗で、払った人に「未払い」と出すほうが困るため）。
+ */
+export async function getPaidSourceIds(sourceType: PaymentSourceType, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const { data, error } = await createAdminClient()
+    .from("payments").select("source_id")
+    .eq("source_type", sourceType)
+    .in("source_id", ids);
+  if (error) return new Set(ids);
+  return new Set((data as { source_id: string }[]).map((r) => r.source_id));
+}
+
 /** 売上1項目の入金を記録/更新する（source_type + source_id で upsert）。 */
 export async function recordPayment(input: {
   sourceType: PaymentSourceType;

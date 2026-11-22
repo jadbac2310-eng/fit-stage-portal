@@ -64,6 +64,7 @@ export type ScheduleItem = {
   course?: string;
   passOrdinal?: number;  // 回数券の何回目の利用か（通常レッスンで回数券使用時のみ）
   passPending?: boolean; // 仮押さえ（コースは回数券だが、回数券がまだ付いていない）
+  passUnpaid?: boolean;  // 使う回数券に入金の記録が無い（未払い）
   passTotal?: number;    // その回数券の総回数
   status: "scheduled" | "completed" | "cancelled" | "cancelled_same_day";
   trainerId?: string;
@@ -620,6 +621,9 @@ function LessonCard({
                 {item.status === "scheduled" ? tt("仮押さえ（回数券なし）", "Hold (no pass)") : tt("回数券なし", "No pass")}
               </span>
             )}
+            {item.passUnpaid && (
+              <span className="text-xs font-semibold text-red-600">{tt("回数券 未払い", "Pass unpaid")}</span>
+            )}
             {item.location && (
               <span className="text-xs text-gray-400 flex items-center gap-0.5 min-w-0">
                 <MapPin size={10} className="flex-shrink-0" />
@@ -696,6 +700,9 @@ function LessonCard({
                 <span className="ml-1 font-semibold text-red-600">
                   {item.status === "scheduled" ? tt("仮押さえ（回数券がありません）", "Hold (no session pass)") : tt("回数券がありません", "No session pass")}
                 </span>
+              )}
+              {item.passUnpaid && (
+                <span className="ml-1 font-semibold text-red-600">{tt("未払い（入金の記録がありません）", "Unpaid (no payment recorded)")}</span>
               )}
             </DetailRow>
           )}
