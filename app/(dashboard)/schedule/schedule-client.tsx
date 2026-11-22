@@ -1573,10 +1573,13 @@ function LessonModal({
   const close = () => { router.refresh(); onClose(); };
   const isEdit = !!editLesson;
   // 複製は「同じ内容の新しいレッスン」。日時は1週間後の同じ時刻を初期値にする（毎週の人が多いため）
+  // 備考（＝その回の記録）は写さない（2026-11-22 尚樹「俺だけ前のやつが残ったまま」）。
+  // 写すと、新しい回に前回の記録が入り、ボタンが「記録を書き直す」になって今日の記録が書きにくくなる
   const duplicated: Partial<Lesson> | undefined = duplicateLesson && {
     ...duplicateLesson,
     id: undefined,
     status: "scheduled",
+    note: undefined,
     scheduledAt: plusDaysIso(duplicateLesson.scheduledAt, 7),
     endAt: duplicateLesson.endAt ? plusDaysIso(duplicateLesson.endAt, 7) : undefined,
   };
