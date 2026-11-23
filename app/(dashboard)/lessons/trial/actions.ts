@@ -5,7 +5,8 @@ import { toDeliveryMode } from "@/lib/lessons-types";
 import { revalidatePath } from "next/cache";
 import { addTrialLesson, updateTrialLesson, deleteTrialLesson, getTrialLesson, saveTrialHandoverNote } from "@/lib/trial-lessons";
 import type { TrialLessonStatus } from "@/lib/trial-lessons-types";
-import { updateCustomer } from "@/lib/customers";
+import { updateCustomer, getCustomer } from "@/lib/customers";
+import { isFctCustomer } from "@/lib/customers-types";
 import { requireAdmin, getCurrentMember } from "@/lib/members";
 import { logActivity, getTrialConfirmMailSent, TRIAL_CONFIRM_MAIL_ENTITY } from "@/lib/activity-logs";
 import { trialConfirmUrl } from "@/lib/trial-confirm-token";
@@ -47,6 +48,28 @@ function readPlaceAndCourse(formData: FormData) {
   };
 }
 
+/** フォームの「一緒に受けた方（2人目）」。1人目と同じ人は入れない */
+function readPairCustomerId(formData: FormData, customerId: string): string | null {
+  const v = (formData.get("pairCustomerId") as string)?.trim() || "";
+  return v && v !== customerId ? v : null;
+}
+
+/**
+ * 2人目のお客さまの「担当営業」を、体験の営業担当にする（2026-11-23 尚樹「自動でサムで良い」）。
+ * 営業の10%は 顧客マスタの担当営業 → 成約した体験の営業担当 の順で決まり、2人目は体験の本人ではないため。
+ * すでに担当営業が入っている人と、FCT経由の人は触らない。
+ */
+async function assignPairSales(pairCustomerId: string | null, salesMemberId: string | undefined) {
+  if (!pairCustomerId || !salesMemberId) return;
+  try {
+    const c = await getCustomer(pairCustomerId);
+    if (!c || c.salesMemberId || isFctCustomer(c)) return;
+    await updateCustomer(pairCustomerId, { salesMemberId });
+  } catch {
+    // 担当営業を入れられなくても体験の保存は止めない（歩合は体験の2人目からも拾う）
+  }
+}
+
 export async function createTrialLessonAction(formData: FormData): Promise<ActionResult> {
   return runAction(async () => {
     const customerId      = (formData.get("customerId")      as string)?.trim();
@@ -58,6 +81,7 @@ export async function createTrialLessonAction(formData: FormData): Promise<Actio
     const { rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount } = readPlaceAndCourse(formData);
 
     if (!customerId || !salesMemberId || !scheduledAt) return;
+    const pairCustomerId = readPairCustomerId(formData, customerId);
 
     // 金額を決められるのは管理者だけ。トレーナーが入れても無視して料金区分の単価に従わせる
     const member = await getCurrentMember();
@@ -65,7 +89,9 @@ export async function createTrialLessonAction(formData: FormData): Promise<Actio
       customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
       rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course,
       amount: member?.isAdmin ? amount : null,
+      pairCustomerId,
     });
+    await assignPairSales(pairCustomerId, salesMemberId);
     await logActivity({ action: "create", entityType: "trial_lesson", entityId: created.id, summary: `体験レッスンを追加: ${created.customerName}` });
     if (member) {
       await notifyLessonAdded(member, "体験レッスン", [{
@@ -92,11 +118,14 @@ export async function updateTrialLessonAction(id: string, formData: FormData): P
     const { rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount } = readPlaceAndCourse(formData);
 
     if (!customerId || !salesMemberId || !scheduledAt) return;
+    const pairCustomerId = readPairCustomerId(formData, customerId);
 
     await updateTrialLesson(id, {
       customerId, salesMemberId, trainerMemberId, scheduledAt, location, note,
       rentalGymId, rentalGymFee, storeId, storeFee, fctStoreId, fctStoreFee, avenirStoreId, avenirStoreFee, course, amount,
+      pairCustomerId,
     });
+    await assignPairSales(pairCustomerId, salesMemberId);
     await logActivity({ action: "update", entityType: "trial_lesson", entityId: id, summary: "体験レッスンを編集" });
     revalidatePath("/lessons/trial");
   });
@@ -128,6 +157,12 @@ export async function saveContractResultAction(id: string, formData: FormData): 
     // 契約成功 → 顧客ステータスを「審査中」へ自動変更
     if (contracted === true && lesson.customerId) {
       await updateCustomer(lesson.customerId, { status: "pending" });
+    }
+    // 2名で受けた体験の2人目も、体験申し込みのままなら「審査中」に（在籍中の人は触らない）
+    if (contracted === true && lesson.pairCustomerId) {
+      const pair = await getCustomer(lesson.pairCustomerId).catch(() => null);
+      if (pair?.status === "trial") await updateCustomer(lesson.pairCustomerId, { status: "pending" });
+      await assignPairSales(lesson.pairCustomerId, lesson.salesMemberId);
     }
 
     // 成約の瞬間は全員に知らせる（もともと成約だったものを編集しただけなら送らない）
@@ -196,7 +231,7 @@ export async function deleteTrialLessonAction(id: string): Promise<ActionResult>
  * 体験の「次の人への引き継ぎ」を書く（2026-11-15〜）。通常レッスンの「記録」と同じ扱い。
  * 書けるのは 管理者・担当トレーナー・担当営業・予約を入れた人（全体の編集権限が無くても書ける）。
  */
-export async function saveTrialHandoverNoteAction(id: string, note: string): Promise<ActionResult> {
+export async function saveTrialHandoverNoteAction(id: string, note: string, who: "main" | "pair" = "main"): Promise<ActionResult> {
   return runAction(async () => {
     const [member, lesson] = await Promise.all([getCurrentMember(), getTrialLesson(id)]);
     if (!member) throw new ActionError("ログインが必要です");
@@ -204,8 +239,11 @@ export async function saveTrialHandoverNoteAction(id: string, note: string): Pro
     const allowed = member.isAdmin
       || [lesson.trainerMemberId, lesson.salesMemberId, lesson.createdById].some((x) => !!x && x === member.id);
     if (!allowed) throw new ActionError("引き継ぎを書けるのは、担当トレーナー・担当営業・予約を入れた人、管理者だけです");
-    const r = await saveTrialHandoverNote(id, note.trim() || null);
-    if (r === "missing") throw new ActionError("データベースの準備がまだです（20261115000001_trial_handover_note.sql を流してください）");
+    if (who === "pair" && !lesson.pairCustomerId) throw new ActionError("この体験には2人目が登録されていません");
+    const r = await saveTrialHandoverNote(id, note.trim() || null, who);
+    if (r === "missing") throw new ActionError(who === "pair"
+      ? "データベースの準備がまだです（20261123000001_trial_pair_customer.sql を流してください）"
+      : "データベースの準備がまだです（20261115000001_trial_handover_note.sql を流してください）");
     await logActivity({ action: "update", entityType: "trial_lesson", entityId: id, summary: `体験の引き継ぎを更新: ${lesson.customerName}` });
     revalidatePath("/lessons/trial");
     revalidatePath("/schedule");

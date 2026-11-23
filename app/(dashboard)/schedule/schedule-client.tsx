@@ -84,6 +84,10 @@ export type ScheduleItem = {
   note?: string;
   /** 体験の記録（trial_lessons.handover_note。通常レッスンは note が記録） */
   handoverNote?: string;
+  /** 2名で受けた体験の2人目（2026-11-23〜）。引き継ぎは2人目の分を別に持つ */
+  pairCustomerId?: string;
+  pairCustomerName?: string;
+  pairHandoverNote?: string;
   contracted?: boolean | null;
   participantIds?: string[];
   participantNames?: string[];
@@ -717,12 +721,23 @@ function LessonCard({
             <Handover trial={item.handover.trial} history={item.handover.history} lang={lang} />
           )}
           {open && canWriteNote && <LessonNoteEditor lessonId={item.id} note={item.note} />}
+          {isTrial && item.pairCustomerId && (
+            <DetailRow icon={<Users size={13} />} label={tt("一緒に受けた方", "Also attended")}>{item.pairCustomerName ?? tt("（2人目）", "(2nd person)")}</DetailRow>
+          )}
           {isTrial && item.handoverNote && (
-            <DetailRow icon={<ClipboardList size={13} />} label={tt("体験の記録", "Trial notes")}>
+            <DetailRow icon={<ClipboardList size={13} />} label={item.pairCustomerId ? tt(`体験の記録（${item.customerName}様）`, `Trial notes (${item.customerName})`) : tt("体験の記録", "Trial notes")}>
               <span className="whitespace-pre-wrap">{item.handoverNote}</span>
             </DetailRow>
           )}
-          {open && canWriteTrialHandover && <LessonNoteEditor lessonId={item.id} note={item.handoverNote} trial />}
+          {open && canWriteTrialHandover && <LessonNoteEditor lessonId={item.id} note={item.handoverNote} trial forName={item.pairCustomerId ? item.customerName : undefined} />}
+          {isTrial && item.pairCustomerId && item.pairHandoverNote && (
+            <DetailRow icon={<ClipboardList size={13} />} label={tt(`体験の記録（${item.pairCustomerName ?? "2人目"}様）`, `Trial notes (${item.pairCustomerName ?? "2nd person"})`)}>
+              <span className="whitespace-pre-wrap">{item.pairHandoverNote}</span>
+            </DetailRow>
+          )}
+          {open && canWriteTrialHandover && item.pairCustomerId && (
+            <LessonNoteEditor lessonId={item.id} note={item.pairHandoverNote} trial who="pair" forName={item.pairCustomerName ?? tt("2人目", "2nd person")} />
+          )}
           <AuthorStamp
             createdByName={item.createdByName}
             createdAt={item.createdAt}

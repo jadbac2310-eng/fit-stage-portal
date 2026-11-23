@@ -7,6 +7,7 @@ import {
 import { getLesson, getCustomerLessonHistory } from "@/lib/lessons";
 import { getSessionPassUsage } from "@/lib/session-passes";
 import { getTrialLesson, getFirstTrialLesson } from "@/lib/trial-lessons";
+import { getCustomer } from "@/lib/customers";
 import { Handover } from "../handover";
 import { getCurrentIsAdmin, getCurrentMember } from "@/lib/members";
 import { LessonNoteEditor } from "../lesson-note";
@@ -132,6 +133,8 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
   // 引き継ぎを書けるのは 管理者・担当トレーナー・担当営業・予約を入れた人（saveTrialHandoverNoteAction と同じ）
   const canWriteHandover = !!me && (me.isAdmin
     || [trial.trainerMemberId, trial.salesMemberId, trial.createdById].some((x) => !!x && x === me.id));
+  // 2名で受けた体験の2人目（2026-11-23〜）
+  const pairName = trial.pairCustomerId ? ((await getCustomer(trial.pairCustomerId).catch(() => null))?.fullName ?? t("2人目", "2nd person")) : undefined;
 
   return (
     <div className="p-4 md:p-6 max-w-lg mx-auto">
@@ -166,12 +169,17 @@ export default async function ScheduleDetailPage({ params }: { params: Promise<{
         <Row icon={<User size={15} />} label={t("トレーナー", "Coach")}>{trial.trainerMemberName ?? t("未設定", "Not set")}</Row>
         {trial.location && <Row icon={<MapPin size={15} />} label={t("場所", "Location")}>{trial.location}</Row>}
         {trial.note && <Row icon={<StickyNote size={15} />} label={t("備考", "Notes")}><span className="whitespace-pre-wrap">{trial.note}</span></Row>}
+        {pairName && <Row icon={<User size={15} />} label={t("一緒に受けた方", "Also attended")}>{pairName}</Row>}
         {trial.handoverNote && (
-          <Row icon={<ClipboardList size={15} />} label={t("体験の記録", "Trial notes")}><span className="whitespace-pre-wrap">{trial.handoverNote}</span></Row>
+          <Row icon={<ClipboardList size={15} />} label={pairName ? t(`体験の記録（${trial.customerName}様）`, `Trial notes (${trial.customerName})`) : t("体験の記録", "Trial notes")}><span className="whitespace-pre-wrap">{trial.handoverNote}</span></Row>
+        )}
+        {pairName && trial.pairHandoverNote && (
+          <Row icon={<ClipboardList size={15} />} label={t(`体験の記録（${pairName}様）`, `Trial notes (${pairName})`)}><span className="whitespace-pre-wrap">{trial.pairHandoverNote}</span></Row>
         )}
       </div>
 
-      {canWriteHandover && <LessonNoteEditor lessonId={trial.id} note={trial.handoverNote} trial />}
+      {canWriteHandover && <LessonNoteEditor lessonId={trial.id} note={trial.handoverNote} trial forName={pairName ? trial.customerName : undefined} />}
+      {canWriteHandover && pairName && <LessonNoteEditor lessonId={trial.id} note={trial.pairHandoverNote} trial who="pair" forName={pairName} />}
 
       {isAdmin && (
         <Link href="/lessons/trial"

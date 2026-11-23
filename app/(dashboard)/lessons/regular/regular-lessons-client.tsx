@@ -1588,7 +1588,10 @@ export function RegularLessonsClient({ lessons, trialLessons = [], customers, me
       return map.get(customerId);
     };
     lessons.forEach((l) => { ensure(l.customerId)?.lessons.push(l); });
-    trialLessons.forEach((t) => { ensure(t.customerId)?.trials.push(t); });
+    trialLessons.forEach((t) => {
+      ensure(t.customerId)?.trials.push(t);
+      if (t.pairCustomerId && t.pairCustomerId !== t.customerId) ensure(t.pairCustomerId)?.trials.push(t);  // 2名の体験の2人目にも出す
+    });
     map.forEach((g) => {
       g.lessons.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
       g.trials.sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));

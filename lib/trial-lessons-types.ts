@@ -50,6 +50,10 @@ export interface TrialLesson {
   customerImpression?: string;
   note?: string;               // 申込フォームの内容（HPからの申込）・メモ
   handoverNote?: string;       // 次の担当への引き継ぎ（2026-11-15〜。通常レッスンの「記録」にあたる）
+  /** 2名で受けた体験の2人目（2026-11-23〜。customers.id）。名前は顧客一覧から引く */
+  pairCustomerId?: string;
+  /** 2人目の引き継ぎ（1人目は handoverNote） */
+  pairHandoverNote?: string;
   createdById?: string;
   updatedById?: string;
   createdAt: string;

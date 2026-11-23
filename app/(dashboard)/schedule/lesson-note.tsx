@@ -22,8 +22,11 @@ import { useT } from "@/components/i18n/lang-provider";
  *
  * 体験（trial）でも同じ口を使う（2026-11-15〜）。体験は申込内容が備考に入っているので、
  * 引き継ぎは別の列（trial_lessons.handover_note）に保存する。
+ * 2名で受けた体験は、1人目（who="main"）と2人目（who="pair"。pair_handover_note）を別々に書く（2026-11-23〜）。forName はボタンに出す名前。
  */
-export function LessonNoteEditor({ lessonId, note, trial = false }: { lessonId: string; note?: string; trial?: boolean }) {
+export function LessonNoteEditor({ lessonId, note, trial = false, who = "main", forName }: {
+  lessonId: string; note?: string; trial?: boolean; who?: "main" | "pair"; forName?: string;
+}) {
   const router = useRouter();
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -36,7 +39,7 @@ export function LessonNoteEditor({ lessonId, note, trial = false }: { lessonId: 
     await run(async () => {
       try {
         assertActionOk(trial
-          ? await saveTrialHandoverNoteAction(lessonId, value)
+          ? await saveTrialHandoverNoteAction(lessonId, value, who)
           : await saveLessonNoteAction(lessonId, value));
         setOpen(false);
         router.refresh();
@@ -53,7 +56,7 @@ export function LessonNoteEditor({ lessonId, note, trial = false }: { lessonId: 
         onClick={() => { setValue(note ?? ""); setOpen(true); }}
         className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl py-2 transition"
       >
-        <Pencil size={13} /> {trial
+        <Pencil size={13} /> {forName && <span className="font-semibold">{t(`${forName}様：`, `${forName}: `)}</span>}{trial
           ? (note?.trim() ? t("体験の記録を書き直す", "Edit trial notes") : t("体験の記録を書く（備考とは別）", "Write trial notes (separate from the notes field)"))
           : (note?.trim() ? t("記録を書き直す", "Edit session notes") : t("今日やったことを記録する", "Write today's session notes"))}
       </button>

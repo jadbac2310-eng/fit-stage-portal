@@ -109,6 +109,7 @@ export default async function SchedulePage({
   // 顧客の担当営業。通常レッスンにも付けておくと、
   // 営業担当の表示と「◯◯さんのスケジュール」（営業別カレンダー）の両方で使える。
   const salesOf = new Map(customers.map((c) => [c.id, c.salesMemberId]));
+  const customerNameOf = new Map(customers.map((c) => [c.id, c.fullName]));
 
   // 通常レッスン（読み込んだ期間のぶん）
   for (const l of lessons) {
@@ -146,9 +147,13 @@ export default async function SchedulePage({
   // 体験レッスン（読み込んだ期間のぶん）。引き継ぎ用に、お客さまごとの最初の体験は全期間から作る。
   const firstTrials: Record<string, HandoverTrial> = {};
   for (const t of [...trialLessons].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))) {
-    if (!t.note && !t.handoverNote) continue;
-    if (firstTrials[t.customerId]) continue;
-    firstTrials[t.customerId] = { id: t.id, note: t.note, handoverNote: t.handoverNote, trainerName: t.trainerMemberName, scheduledAt: t.scheduledAt };
+    if ((t.note || t.handoverNote) && !firstTrials[t.customerId]) {
+      firstTrials[t.customerId] = { id: t.id, note: t.note, handoverNote: t.handoverNote, trainerName: t.trainerMemberName, scheduledAt: t.scheduledAt };
+    }
+    // 2名で受けた体験の2人目には、2人目の引き継ぎを出す（申込内容は2人で同じものを見せる。2026-11-23〜）
+    if (t.pairCustomerId && (t.note || t.pairHandoverNote) && !firstTrials[t.pairCustomerId]) {
+      firstTrials[t.pairCustomerId] = { id: t.id, note: t.note, handoverNote: t.pairHandoverNote, trainerName: t.trainerMemberName, scheduledAt: t.scheduledAt };
+    }
   }
   const shownCustomers = new Set(lessons.map((l) => l.customerId));
   for (const id of Object.keys(firstTrials)) if (!shownCustomers.has(id)) delete firstTrials[id];
@@ -180,6 +185,9 @@ export default async function SchedulePage({
       updatedAt: t.updatedAt,
       note: t.note,
       handoverNote: t.handoverNote,
+      pairCustomerId: t.pairCustomerId,
+      pairCustomerName: t.pairCustomerId ? customerNameOf.get(t.pairCustomerId) : undefined,
+      pairHandoverNote: t.pairHandoverNote,
       createdById: t.createdById,
       contracted: t.contracted,
     });

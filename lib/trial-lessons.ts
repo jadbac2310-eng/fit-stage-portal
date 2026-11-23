@@ -34,6 +34,8 @@ type DbRow = {
   exercises: unknown;
   note: string | null;
   handover_note?: string | null;
+  pair_customer_id?: string | null;
+  pair_handover_note?: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -73,6 +75,8 @@ function fromDb(row: DbRow): TrialLesson {
     exercises:           parseExercises(row.exercises),
     note:                row.note ?? undefined,
     handoverNote:        row.handover_note ?? undefined,
+    pairCustomerId:      row.pair_customer_id ?? undefined,
+    pairHandoverNote:    row.pair_handover_note ?? undefined,
     createdById:         row.created_by ?? undefined,
     updatedById:         row.updated_by ?? undefined,
     createdAt:           row.created_at,
@@ -100,6 +104,7 @@ const LIST_COLUMNS =
 // 列を名指しした段を前に、"*" の段をうしろに置く。
 // 名指しした列が未作成の環境では前半が落ちるので、そのときは "*" の段が拾う。
 const LIST_SELECTS = [
+  `${LIST_COLUMNS}, handover_note, pair_customer_id, pair_handover_note, ${JOINS}`,   // 2名の体験の2人目（20261123000001）。未適用なら次の段へ
   `${LIST_COLUMNS}, handover_note, ${JOINS}`,   // 引き継ぎ（20261115000001）。未適用なら次の段へ
   `${LIST_COLUMNS}, ${JOINS}`,
   `${LIST_COLUMNS}, customers(full_name)`,
@@ -146,15 +151,20 @@ async function getTrialLessonsUncached(fromDate?: string): Promise<TrialLesson[]
 export async function getFirstTrialLesson(customerId: string): Promise<TrialLesson | null> {
   if (!customerId) return null;
   const client = createAdminClient();
-  const read = (select: string) =>
+  const read = (select: string, col: "customer_id" | "pair_customer_id") =>
     client.from("trial_lessons").select(select)
-      .eq("customer_id", customerId)
+      .eq(col, customerId)
       .order("scheduled_at", { ascending: true })
       .limit(1);
-  let { data, error } = await read(SELECT);
-  if (error && isMissingAuthorColumn(error)) ({ data, error } = await read(SELECT_LEGACY));
-  if (error || !data || data.length === 0) return null;
-  return fromDb(data[0] as unknown as DbRow);
+  let { data, error } = await read(SELECT, "customer_id");
+  if (error && isMissingAuthorColumn(error)) ({ data, error } = await read(SELECT_LEGACY, "customer_id"));
+  const own = !error && data && data.length > 0 ? fromDb(data[0] as unknown as DbRow) : null;
+  // 2名で受けた体験の2人目として受けていないか（2026-11-23〜。列が無ければ探さない）。
+  // 2人目として見つかったら、引き継ぎ（handoverNote）を2人目の分に差し替えて返す
+  const pr = await read(SELECT, "pair_customer_id");
+  const asPair = !pr.error && pr.data && pr.data.length > 0 ? fromDb(pr.data[0] as unknown as DbRow) : null;
+  if (asPair && (!own || asPair.scheduledAt < own.scheduledAt)) return { ...asPair, handoverNote: asPair.pairHandoverNote };
+  return own;
 }
 
 export async function getTrialLesson(id: string): Promise<TrialLesson | null> {
@@ -185,6 +195,7 @@ export async function addTrialLesson(input: {
   course?: string | null;
   amount?: number | null;
   note?: string;
+  pairCustomerId?: string | null;
 }): Promise<TrialLesson> {
   const client = createAdminClient();
   const base = {
@@ -212,6 +223,12 @@ export async function addTrialLesson(input: {
     amount:         input.amount ?? null,
   };
   const creator = (await currentMemberId()) ?? null;
+  // 2人目（20261123000001）。列が無い環境では付けずに作る（2人目は入らない）
+  if (input.pairCustomerId) {
+    const r = await client.from("trial_lessons").insert({ ...base, ...extra, pair_customer_id: input.pairCustomerId, created_by: creator, updated_by: creator }).select(SELECT).single();
+    if (!r.error) return fromDb(r.data as DbRow);
+    if (!isMissingAuthorColumn(r.error)) throw r.error;
+  }
   let { data, error } = await client.from("trial_lessons").insert({ ...base, ...extra, created_by: creator, updated_by: creator }).select(SELECT).single();
   if (error && isMissingAuthorColumn(error)) {
     ({ data, error } = await client.from("trial_lessons").insert({ ...base, ...extra }).select(SELECT).single());
@@ -249,6 +266,7 @@ export async function updateTrialLesson(
     customerImpression: string | null;
     exercises: Exercise[];
     note: string | null;
+    pairCustomerId: string | null;
   }>
 ): Promise<TrialLesson | null> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -272,6 +290,7 @@ export async function updateTrialLesson(
   if (input.deliveryMode        !== undefined) setExtra("delivery_mode",  input.deliveryMode);
   if (input.course              !== undefined) setExtra("course",         input.course);
   if (input.amount              !== undefined) setExtra("amount",         input.amount);
+  if (input.pairCustomerId      !== undefined) setExtra("pair_customer_id", input.pairCustomerId);
   if (input.contracted          !== undefined) patch.contracted           = input.contracted;
   if (input.contractPlan        !== undefined) patch.contract_plan        = input.contractPlan;
   if (input.trainingContent     !== undefined) patch.training_content     = input.trainingContent;
@@ -282,6 +301,12 @@ export async function updateTrialLesson(
 
   const client = createAdminClient();
   let { data, error } = await client.from("trial_lessons").update(patch).eq("id", id).select(SELECT).single();
+  // 2人目の列（20261123000001）が無い環境では、それだけ外して保存し直す（ほかの変更は残す）
+  if (error && isMissingAuthorColumn(error) && "pair_customer_id" in patch) {
+    delete patch.pair_customer_id;
+    extraKeys.splice(extraKeys.indexOf("pair_customer_id"), 1);
+    ({ data, error } = await client.from("trial_lessons").update(patch).eq("id", id).select(SELECT).single());
+  }
   if (error && isMissingAuthorColumn(error)) {
     const { updated_by, ...rest } = patch;
     void updated_by;
@@ -301,9 +326,10 @@ export async function updateTrialLesson(
  * 体験の「次の人への引き継ぎ」だけを書き換える（2026-11-15〜）。
  * 列（20261115000001_trial_handover_note.sql）がまだ無いDBでは "missing" を返す。
  */
-export async function saveTrialHandoverNote(id: string, note: string | null): Promise<"ok" | "missing"> {
+export async function saveTrialHandoverNote(id: string, note: string | null, who: "main" | "pair" = "main"): Promise<"ok" | "missing"> {
   const client = createAdminClient();
-  const patch: Record<string, unknown> = { handover_note: note, updated_at: new Date().toISOString(), updated_by: (await currentMemberId()) ?? null };
+  const col = who === "pair" ? "pair_handover_note" : "handover_note";
+  const patch: Record<string, unknown> = { [col]: note, updated_at: new Date().toISOString(), updated_by: (await currentMemberId()) ?? null };
   let { error } = await client.from("trial_lessons").update(patch).eq("id", id);
   if (error && /updated_by/i.test(error.message ?? "")) {
     delete patch.updated_by;

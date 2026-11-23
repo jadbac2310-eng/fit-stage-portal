@@ -362,6 +362,10 @@ export function buildSalesEntries(
     if (tl.salesMemberId && !salesByCustomer[tl.customerId]) {
       salesByCustomer[tl.customerId] = { memberId: tl.salesMemberId, memberName: tl.salesMemberName };
     }
+    // 2名で受けた体験の2人目も、同じ営業担当（2026-11-23。顧客マスタの担当営業が入っていればそちらが先）
+    if (tl.pairCustomerId && tl.salesMemberId && !salesByCustomer[tl.pairCustomerId] && !fctCustomerIds.has(tl.pairCustomerId)) {
+      salesByCustomer[tl.pairCustomerId] = { memberId: tl.salesMemberId, memberName: tl.salesMemberName };
+    }
   }
 
   const map = new Map<string, SalesEntry>();

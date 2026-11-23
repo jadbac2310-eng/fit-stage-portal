@@ -239,6 +239,8 @@ function LessonForm({
   // 場所（通常レッスンと同じ挙動）: レンタルジム/店舗を選ぶと場所名を自動入力し、手入力は不可にする。
   // レンタルジムと店舗は排他（どちらか一方だけ）。
   const [customerId, setCustomerId] = useState(defaultValues?.customerId ?? "");
+  // 2名で受ける体験の2人目（2026-11-23〜）。入会後はそれぞれのお客さまとして引き継ぎを書けるようにするため
+  const [pairCustomerId, setPairCustomerId] = useState(defaultValues?.pairCustomerId ?? "");
   const [location, setLocation] = useState(defaultValues?.location ?? "");
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>(defaultValues?.deliveryMode ?? "store");
   // 出張の体験は 9,900円（2026-11-18 以降に登録した分）。新しく作る体験は登録日が今日なので、出張なら 9,900円
@@ -414,6 +416,20 @@ function LessonForm({
           customers={customers} name="customerId" required value={customerId}
           onChange={(id) => { setCustomerId(id); syncVenueFeeFor(id); }}
         />
+      </div>
+
+      <div>
+        <label className={labelClass}><User size={12} /> {tt("一緒に受ける方（2名のとき）", "Second person (for 2-person trials)")}</label>
+        <CustomerPicker
+          customers={customers} name="pairCustomerId" value={pairCustomerId}
+          emptyOption={{ value: "", label: tt("なし（1名）", "None (1 person)") }}
+          excludeIds={customerId ? [customerId] : undefined}
+          onChange={setPairCustomerId}
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          {tt("2名で受けるときは、もう1人も顧客として登録して選んでください。体験の記録を1人ずつ書けて、それぞれの次のレッスンに引き継がれます。もう1人の担当営業は、この体験の営業担当になります（空いていれば）。",
+            "For 2-person trials, register the second person as a client and choose them here. Trial notes can then be written per person and carry over to each person's sessions. Their sales rep is set to this trial's sales rep (if empty).")}
+        </p>
       </div>
 
       <div>
@@ -781,6 +797,7 @@ function LessonRow({ lesson, customers, members, rentalGyms, stores, fctStores, 
       </td>
       <td className="px-4 py-3">
         <p className="text-sm font-semibold text-gray-900">{lesson.customerName}</p>
+        {lesson.pairCustomerId && <p className="text-xs text-gray-500">{tt("＋ ", "+ ")}{customers.find((c) => c.id === lesson.pairCustomerId)?.fullName ?? tt("2人目", "2nd person")}</p>}
         <div className="mt-1"><NoteBlock note={lesson.note} /></div>
         <AuthorStamp
           createdByName={members.find((m) => m.id === lesson.createdById)?.name}
@@ -918,6 +935,7 @@ function LessonCard({ lesson, customers, members, rentalGyms, stores, fctStores,
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <p className="text-sm font-bold text-gray-900">{lesson.customerName}</p>
+          {lesson.pairCustomerId && <p className="text-xs text-gray-500">{tt("＋ ", "+ ")}{customers.find((c) => c.id === lesson.pairCustomerId)?.fullName ?? tt("2人目", "2nd person")}</p>}
           <p className="text-xs text-gray-500 mt-0.5">{tt("営業", "Sales")}: {lesson.salesMemberName || tt("未割当", "Not set")}</p>
           {lesson.trainerMemberName && <p className="text-xs text-gray-500">TR: {lesson.trainerMemberName}</p>}
         </div>
