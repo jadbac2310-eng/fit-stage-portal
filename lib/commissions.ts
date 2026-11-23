@@ -124,34 +124,41 @@ export interface CommissionMember {
   id: string;
   name: string;
   isOwner?: boolean;
-  /** 研修中の1レッスンの支払額（円）。trainingUntil の日までは歩合率をかけずにこの額 */
+  /** 研修中の1レッスンの支払額（円）。研修の間（trainingFrom〜trainingUntil）は歩合率をかけずにこの額 */
   trainingPay?: number;
-  /** 研修の最後の日（YYYY-MM-DD・日本時間） */
+  /** 研修を始めた日（YYYY-MM-DD・日本時間） */
+  trainingFrom?: string;
+  /** 研修を終えた日（その日を含む）。空なら研修中 */
   trainingUntil?: string;
 }
 
 /** 担当者マスタの行から、歩合の計算に要る分だけを取り出す（画面へ渡すときもこれを使う） */
 export function toCommissionMembers(
-  members: { id: string; name: string; isOwner?: boolean; trainingPay?: number; trainingUntil?: string }[],
+  members: { id: string; name: string; isOwner?: boolean; trainingPay?: number; trainingFrom?: string; trainingUntil?: string }[],
 ): CommissionMember[] {
   return members.map((m) => ({
     id: m.id, name: m.name, isOwner: m.isOwner,
-    ...(m.trainingPay != null && m.trainingUntil ? { trainingPay: m.trainingPay, trainingUntil: m.trainingUntil } : {}),
+    ...(m.trainingPay != null && m.trainingFrom
+      ? { trainingPay: m.trainingPay, trainingFrom: m.trainingFrom, ...(m.trainingUntil && { trainingUntil: m.trainingUntil }) }
+      : {}),
   }));
 }
 
 /**
  * 研修中なら、そのレッスンの支払額（円）。研修でなければ null。
- * レッスンの日（日本時間）が研修の最後の日まで（その日を含む）なら研修の額。次の日からは通常の歩合。
+ * レッスンの日（日本時間）が 研修を始めた日〜終えた日（どちらも含む。終えた日が空なら今も研修中）なら研修の額。
+ * 担当者マスタで「研修中」をオフにすると終えた日が入るので、それより前のレッスンは後から見ても研修の額のまま。
  */
 export function trainingPayFor(
   memberId: string, scheduledAt: string | undefined, ctx: Pick<CommissionContext, "members">,
 ): number | null {
   if (!scheduledAt) return null;
   const m = ctx.members.find((x) => x.id === memberId);
-  if (m?.trainingPay == null || !m.trainingUntil) return null;
+  if (m?.trainingPay == null || !m.trainingFrom) return null;
   const jstDate = new Date(new Date(scheduledAt).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-  return jstDate <= m.trainingUntil ? Math.max(0, Math.round(m.trainingPay)) : null;
+  if (jstDate < m.trainingFrom) return null;
+  if (m.trainingUntil && jstDate > m.trainingUntil) return null;
+  return Math.max(0, Math.round(m.trainingPay));
 }
 
 /**

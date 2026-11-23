@@ -104,7 +104,7 @@ export function DetailsClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:       { id: string; name: string; avatarUrl?: string; isOwner?: boolean; trainingPay?: number; trainingUntil?: string }[];
+  members:       { id: string; name: string; avatarUrl?: string; isOwner?: boolean; trainingPay?: number; trainingFrom?: string; trainingUntil?: string }[];
   trainerRates:  { memberId: string; customerId: string; rate: number }[];
   rentalGyms:    { id: string; name: string; fee: number }[];
   stores:        { id: string; name: string }[];

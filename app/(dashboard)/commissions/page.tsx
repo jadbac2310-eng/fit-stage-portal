@@ -77,7 +77,7 @@ export default async function CommissionsPage() {
       members={members.map((m) => ({
         id: m.id, name: m.name, avatarUrl: m.avatarUrl, isOwner: m.isOwner, commissionPayDay: m.commissionPayDay,
         // 研修の額も支払いの条件なので、歩合率と同じく他人ぶんは渡さない
-        ...((member.isAdmin || m.id === member.id) && { trainingPay: m.trainingPay, trainingUntil: m.trainingUntil }),
+        ...((member.isAdmin || m.id === member.id) && { trainingPay: m.trainingPay, trainingFrom: m.trainingFrom, trainingUntil: m.trainingUntil }),
       }))}
       trainerRates={trainerRates}
       fctStores={fctStores.map((f) => ({ id: f.id, rate: f.rate }))}

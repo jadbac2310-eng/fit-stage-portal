@@ -24,9 +24,11 @@ export interface Member {
   invoiceNumber?: string;  // インボイス登録番号（コミッション明細に表示）
   /** 生年月日（YYYY-MM-DD）。星まわり（運気）を出すのに使う。本人か管理者が入れる */
   birthDate?: string;
-  /** 研修中の1レッスンの支払額（円）。trainingUntil の日までのレッスンは、歩合率ではなくこの額を払う */
+  /** 研修中の1レッスンの支払額（円）。研修の間のレッスンは、歩合率ではなくこの額を払う */
   trainingPay?: number;
-  /** 研修の最後の日（YYYY-MM-DD・日本時間）。次の日からは通常の歩合 */
+  /** 研修を始めた日（YYYY-MM-DD・日本時間。担当者マスタで「研修中」をオンにした日） */
+  trainingFrom?: string;
+  /** 研修を終えた日（オフにした日の前の日）。空なら研修中 */
   trainingUntil?: string;
   lineUserId?: string;
   lineLinkCode?: string;
@@ -51,6 +53,7 @@ type DbRow = {
   birth_date?: string | null;
   training_pay?: number | null;
   training_until?: string | null;
+  training_from?: string | null;
   line_user_id?: string | null;
   line_link_code?: string | null;
   created_at: string;
@@ -75,6 +78,7 @@ function fromDb(row: DbRow): Member {
     birthDate:  row.birth_date   ?? undefined,
     trainingPay:   row.training_pay   ?? undefined,
     trainingUntil: row.training_until ?? undefined,
+    trainingFrom:  row.training_from  ?? undefined,
     lineUserId:   row.line_user_id   ?? undefined,
     lineLinkCode: row.line_link_code ?? undefined,
     createdAt:  row.created_at,
@@ -152,7 +156,7 @@ export async function addMember(
 
 export async function updateMember(
   id: string,
-  data: Partial<Omit<Member, "id" | "createdAt" | "commissionRate" | "birthDate" | "trainingPay" | "trainingUntil">> & { commissionRate?: number | null; birthDate?: string | null; trainingPay?: number | null; trainingUntil?: string | null }
+  data: Partial<Omit<Member, "id" | "createdAt" | "commissionRate" | "birthDate" | "trainingPay" | "trainingUntil" | "trainingFrom">> & { commissionRate?: number | null; birthDate?: string | null; trainingPay?: number | null; trainingUntil?: string | null; trainingFrom?: string | null }
 ): Promise<Member | null> {
   const patch: Record<string, unknown> = {};
   if (data.name       !== undefined) patch.name         = data.name;
@@ -171,13 +175,14 @@ export async function updateMember(
   if (data.birthDate      !== undefined) patch.birth_date      = data.birthDate      ?? null;
   if (data.trainingPay    !== undefined) patch.training_pay    = data.trainingPay    ?? null;
   if (data.trainingUntil  !== undefined) patch.training_until  = data.trainingUntil  ?? null;
+  if (data.trainingFrom   !== undefined) patch.training_from   = data.trainingFrom   ?? null;
 
   const client = createAdminClient();
   let { data: row, error } = await client.from("members").update(patch).eq("id", id).select().single();
-  // training_pay / training_until 列が未適用の環境では、その列を外して再試行（担当者の編集自体は止めない）
-  if (error && /training_(pay|until)/i.test(error.message ?? "") && ("training_pay" in patch || "training_until" in patch)) {
-    const { training_pay, training_until, ...rest } = patch;
-    void training_pay; void training_until;
+  // training_* 列が未適用の環境では、その列を外して再試行（担当者の編集自体は止めない）
+  if (error && /training_(pay|until|from)/i.test(error.message ?? "") && ("training_pay" in patch || "training_until" in patch || "training_from" in patch)) {
+    const { training_pay, training_until, training_from, ...rest } = patch;
+    void training_pay; void training_until; void training_from;
     ({ data: row, error } = await client.from("members").update(rest).eq("id", id).select().single());
   }
   // birth_date 列が未適用の環境では、その列を外して再試行（担当者の編集自体は止めない）

@@ -533,7 +533,7 @@ export function RevenueDashboardClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:       { id: string; name: string; isOwner?: boolean; trainingPay?: number; trainingUntil?: string }[];
+  members:       { id: string; name: string; isOwner?: boolean; trainingPay?: number; trainingFrom?: string; trainingUntil?: string }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   hourlyTasks?:  HourlyTask[];
   expenses?:     Expense[];

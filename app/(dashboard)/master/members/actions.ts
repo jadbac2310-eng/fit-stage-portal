@@ -26,20 +26,32 @@ function sameStoragePath(oldUrl: string, newUrl: string): boolean {
   return strip(oldUrl) === strip(newUrl);
 }
 
+/** 日本時間の今日（YYYY-MM-DD）から n 日ずらした日 */
+function jstDay(offsetDays = 0): string {
+  return new Date(Date.now() + 9 * 3600 * 1000 + offsetDays * 86400 * 1000).toISOString().slice(0, 10);
+}
+
 /**
- * 研修中の歩合（最後の日・1回の額）。両方そろっていれば研修、どちらか空なら研修なし（null）。
- * 欄が無いフォームからは undefined（触らない）。
+ * 研修中の歩合のオン／オフ（2026-11-23 尚樹「タイミング見て自分で切り替えられる方がいい」）。
+ * - オンにした … 始めた日＝今日（研修中の人は前の始めた日のまま）、終えた日は空。1回の額を入れ直す
+ * - オフにした … 終えた日＝昨日（今日のレッスンから通常の歩合）。始めた日と額は残す（研修中のレッスンは研修の額のまま）
+ * 欄が無いフォーム（新規登録など）からは undefined（触らない）。
  */
-function readTraining(formData: FormData): { trainingPay: number | null; trainingUntil: string | null } | undefined {
-  const untilRaw = formData.get("trainingUntil");
-  const payRaw   = formData.get("trainingPay");
-  if (untilRaw === null && payRaw === null) return undefined;
-  const until = ((untilRaw as string | null) ?? "").trim();
-  const pay   = Number(((payRaw as string | null) ?? "").trim().replace(/[,，円]/g, ""));
-  const okDate = /^\d{4}-\d{2}-\d{2}$/.test(until);
-  const okPay  = ((payRaw as string | null) ?? "").trim() !== "" && Number.isFinite(pay) && pay >= 0;
-  if (!okDate || !okPay) return { trainingPay: null, trainingUntil: null };
-  return { trainingPay: Math.round(pay), trainingUntil: until };
+function decideTraining(
+  formData: FormData,
+  existing: { trainingPay?: number; trainingFrom?: string; trainingUntil?: string } | null,
+): { trainingPay: number | null; trainingFrom: string | null; trainingUntil: string | null } | undefined {
+  if (formData.get("trainingField") === null) return undefined;
+  const on = formData.get("trainingOn") === "on";
+  const ongoing = existing?.trainingPay != null && !!existing.trainingFrom && !existing.trainingUntil;
+  if (on) {
+    const raw = ((formData.get("trainingPay") as string | null) ?? "").trim().replace(/[,，円]/g, "");
+    const pay = Number(raw);
+    if (raw === "" || !Number.isFinite(pay) || pay < 0) return undefined;   // 額が無ければ何も変えない（画面で必須）
+    return { trainingPay: Math.round(pay), trainingFrom: ongoing ? existing!.trainingFrom! : jstDay(0), trainingUntil: null };
+  }
+  if (!ongoing) return undefined;   // もともと研修中でなければ何もしない（前の研修の記録を消さない）
+  return { trainingPay: existing!.trainingPay!, trainingFrom: existing!.trainingFrom!, trainingUntil: jstDay(-1) };
 }
 
 /** コミッションの支払日（月末じめ翌月のこの日）。空欄や変な値は既定の25日に寄せる */
@@ -115,10 +127,10 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const birthRaw = formData.get("birthDate");
   const birthDate = birthRaw === null ? undefined : ((birthRaw as string).trim() || null);
   const newPassword   = (formData.get("password") as string)?.trim() || undefined;
-  const training = readTraining(formData);
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
   const isAdmin = callerIsAdmin ? formData.get("isAdmin") === "on" : existing?.isAdmin ?? false;
+  const training = callerIsAdmin ? decideTraining(formData, existing) : undefined;
   // オーナー（歩合の対象外）の切り替えは管理者のみ
   const isOwner = callerIsAdmin ? formData.get("isOwner") === "on" : existing?.isOwner ?? false;
   // レッスンのリマインドは本人も切り替えられる（自分宛の通知なので）
