@@ -56,6 +56,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-15｜`20261115000001_trial_handover_note.sql`（体験の「次の人への引き継ぎ」trial_lessons.handover_note）
 - 2026-11-18｜`20261118000001_wiki_onsite_trial_9900.sql`（ハンドブックに 出張の体験 1名 9,900円・2名 13,500円。尚樹が実行済み）
 - 2026-11-21｜`20261121000001_ai_mail_agent.sql`（AIメール担当の表4つ agent_settings・mail_messages・agent_events・agent_api_usage。確認の表は tables_4=4・settings_row_1=1）
+- 2026-11-23｜`20261123000001_trial_pair_customer.sql`（2名の体験の2人目 pair_customer_id・pair_handover_note。確認の表は 足した列=2）
 
 ## 公開（push）はまとめる（2026-11-19。Vercel の保存容量のため）
 
