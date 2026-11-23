@@ -96,7 +96,7 @@ export interface CommissionContext {
   sessionPasses: SessionPass[];
   customerPlans: CustomerPlanRecord[];
   /** isOwner の担当者は歩合の対象外（売上がまるごと利益に残り、利益＝オーナーの取り分になる） */
-  members:       { id: string; name: string; isOwner?: boolean }[];
+  members:       CommissionMember[];
   /**
    * 担当者×顧客の組み合わせごとの支払い条件。未設定の組み合わせは既定50%。
    * fixedAmount があるときは歩合率ではなく「1レッスンにつき○円」を払う。
@@ -117,6 +117,41 @@ export interface CommissionContext {
    * 渡されないときは既定の45%で計算する。
    */
   fctStores?: { id: string; rate: number }[];
+}
+
+/** 歩合の計算に使う担当者の情報 */
+export interface CommissionMember {
+  id: string;
+  name: string;
+  isOwner?: boolean;
+  /** 研修中の1レッスンの支払額（円）。trainingUntil の日までは歩合率をかけずにこの額 */
+  trainingPay?: number;
+  /** 研修の最後の日（YYYY-MM-DD・日本時間） */
+  trainingUntil?: string;
+}
+
+/** 担当者マスタの行から、歩合の計算に要る分だけを取り出す（画面へ渡すときもこれを使う） */
+export function toCommissionMembers(
+  members: { id: string; name: string; isOwner?: boolean; trainingPay?: number; trainingUntil?: string }[],
+): CommissionMember[] {
+  return members.map((m) => ({
+    id: m.id, name: m.name, isOwner: m.isOwner,
+    ...(m.trainingPay != null && m.trainingUntil ? { trainingPay: m.trainingPay, trainingUntil: m.trainingUntil } : {}),
+  }));
+}
+
+/**
+ * 研修中なら、そのレッスンの支払額（円）。研修でなければ null。
+ * レッスンの日（日本時間）が研修の最後の日まで（その日を含む）なら研修の額。次の日からは通常の歩合。
+ */
+export function trainingPayFor(
+  memberId: string, scheduledAt: string | undefined, ctx: Pick<CommissionContext, "members">,
+): number | null {
+  if (!scheduledAt) return null;
+  const m = ctx.members.find((x) => x.id === memberId);
+  if (m?.trainingPay == null || !m.trainingUntil) return null;
+  const jstDate = new Date(new Date(scheduledAt).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  return jstDate <= m.trainingUntil ? Math.max(0, Math.round(m.trainingPay)) : null;
 }
 
 /**
@@ -205,10 +240,15 @@ export function resolveTrainerRate(memberId: string, customerId: string, ctx: Co
  * 「1レッスンにつき○円」の固定額が設定されていればそれを払う。
  * 請求額と切り離して払う契約（こちらの請求額をトレーナーに知らせない形）で使う。
  * 設定が無ければ従来どおり 単価 × 歩合率。
+ * scheduledAt（レッスンの日時）を渡すと、研修中のトレーナーは研修の額（trainingPayFor）になる。
  */
 export function resolveTrainerPay(
   memberId: string, customerId: string, fee: number, ctx: CommissionContext,
+  scheduledAt?: string,
 ): { amount: number; fixed: boolean } {
+  // 研修中のトレーナーは、お客さまごとの決まりより先に研修の額（1回○円）
+  const training = trainingPayFor(memberId, scheduledAt, ctx);
+  if (training != null) return { amount: training, fixed: true };
   const r = ctx.trainerRates?.find((x) => x.memberId === memberId && x.customerId === customerId);
   if (r?.fixedAmount != null) return { amount: Math.round(r.fixedAmount), fixed: true };
   return { amount: Math.round(fee * resolveTrainerRate(memberId, customerId, ctx)), fixed: false };
@@ -225,7 +265,7 @@ export function resolveLessonTrainerPay(
   if (isFreeTrainerPaidLesson(lesson.course)) {
     return { amount: Math.max(0, Math.round(lesson.amount ?? 0)), fixed: true };
   }
-  return resolveTrainerPay(memberId, lesson.customerId, resolveLessonFee(lesson, ctx), ctx);
+  return resolveTrainerPay(memberId, lesson.customerId, resolveLessonFee(lesson, ctx), ctx, lesson.scheduledAt);
 }
 
 /** 体験レッスン1件あたりの標準単価（プランマスタの「体験レッスン」行を優先、無ければ固定単価表） */
@@ -311,7 +351,7 @@ export function buildTrainerEntries(
   for (const tl of filteredTrials) {
     const tid  = tl.trainerMemberId!;
     const fee  = resolveTrialFee(tl, ctx);
-    const pay  = resolveTrainerPay(tid, tl.customerId, fee, ctx);
+    const pay  = resolveTrainerPay(tid, tl.customerId, fee, ctx, tl.scheduledAt);
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: tl.trainerMemberName ?? tid, lessons: [], total: 0 });

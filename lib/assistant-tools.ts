@@ -32,8 +32,7 @@ import { isOverdue as isSalesOverdue } from "./sales-targets-types";
 import { isTaskDone, isTaskOverdue } from "./tasks-types";
 import { prettyChannelText, channelKind } from "./acquisition-channel";
 import {
-  resolveLessonFee, resolveTrialFee, buildTrainerEntries, buildSalesEntries, buildHourlyEntries, isoToMonth, type CommissionContext,
-} from "./commissions";
+  resolveLessonFee, resolveTrialFee, buildTrainerEntries, buildSalesEntries, buildHourlyEntries, isoToMonth, type CommissionContext, toCommissionMembers } from "./commissions";
 
 /**
  * 管理者向けデータアシスタントの「道具」。
@@ -206,7 +205,7 @@ async function buildCtx(): Promise<Ctx> {
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses: passes, customerPlans: plans,
-    members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
+    members: toCommissionMembers(members),
     trainerRates: rates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     // 段階単価（請求書と同じ単価で歩合を出す）

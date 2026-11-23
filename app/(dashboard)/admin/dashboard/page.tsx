@@ -68,7 +68,7 @@ export default async function AdminDashboardPage() {
       customerPlans={customerPlans}
       lessonFees={buildLessonFeeMap(plansMaster)}
       sessionPassPriceMap={buildSessionPassPriceMap(sessionPassPrices)}
-      members={members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner }))}
+      members={members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner, trainingPay: m.trainingPay, trainingUntil: m.trainingUntil }))}
       trainerRates={allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount }))}
       hourlyTasks={hourlyTasks}
       expenses={expenses}

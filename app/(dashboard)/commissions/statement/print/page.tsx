@@ -13,7 +13,7 @@ import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
 import { getCommissionAdjustments } from "@/lib/commission-adjustments";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
-import { type CommissionContext } from "@/lib/commissions";
+import { type CommissionContext, toCommissionMembers } from "@/lib/commissions";
 import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { buildTrainerStatements, type StatementLine, type HourlyStatementLine, type AdjustmentStatementLine } from "@/lib/commission-statement";
 import { ISSUER, monthLabel, taxBreakdown } from "@/lib/invoices";
@@ -191,7 +191,7 @@ export default async function CommissionStatementPrintPage({
 
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
+    members: toCommissionMembers(members),
     trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     sessionPassPriceMap: buildSessionPassPriceMap(sessionPassPrices),

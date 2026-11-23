@@ -104,7 +104,7 @@ export function DetailsClient({
   customerPlans: CustomerPlanRecord[];
   lessonFees?:   Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:       { id: string; name: string; avatarUrl?: string }[];
+  members:       { id: string; name: string; avatarUrl?: string; isOwner?: boolean; trainingPay?: number; trainingUntil?: string }[];
   trainerRates:  { memberId: string; customerId: string; rate: number }[];
   rentalGyms:    { id: string; name: string; fee: number }[];
   stores:        { id: string; name: string }[];
@@ -230,7 +230,7 @@ export function DetailsClient({
       const member = members.find((m) => m.id === tid);
       const rate = resolveTrainerRate(tid, t.customerId, ctx);
       const fee = resolveTrialFee(t, ctx);
-      const pay = resolveTrainerPay(tid, t.customerId, fee, ctx);
+      const pay = resolveTrainerPay(tid, t.customerId, fee, ctx, t.scheduledAt);
       const commission = pay.amount;
 
       // 体験レッスンのレンタルジム・店舗の内訳（通常レッスンと同じ見せ方）

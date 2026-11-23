@@ -13,7 +13,7 @@ import { getAllCustomerPlans } from "@/lib/customer-plans";
 import { getAllPlans, buildLessonFeeMap } from "@/lib/plans-master";
 import { getMemberCustomerRates } from "@/lib/commission-rates";
 import { getFctStores } from "@/lib/fct-stores";
-import { buildTrainerEntries, buildSalesEntries, type CommissionContext } from "@/lib/commissions";
+import { buildTrainerEntries, buildSalesEntries, type CommissionContext, toCommissionMembers } from "@/lib/commissions";
 import { isBillableLessonStatus } from "@/lib/lessons-types";
 import {
   pendingTrainerLessons, trainerCommissionInRange, trainerMonthProjection,
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
   ]);
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
+    members: toCommissionMembers(members),
     // 歩合率は他人ぶんを渡さない（本人または管理者のみ）
     trainerRates: allRates
       .filter((r) => currentMember?.isAdmin || r.memberId === currentMember?.id)

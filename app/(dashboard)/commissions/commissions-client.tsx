@@ -459,7 +459,7 @@ export function CommissionsClient({
   hourlyTasks?: HourlyTask[];
   lessonFees?:  Record<string, number>;
   sessionPassPriceMap?: Record<number, Record<number, number>>;
-  members:      { id: string; name: string; avatarUrl?: string; commissionPayDay?: number }[];
+  members:      { id: string; name: string; avatarUrl?: string; isOwner?: boolean; commissionPayDay?: number; trainingPay?: number; trainingUntil?: string }[];
   trainerRates?: { memberId: string; customerId: string; rate: number }[];
   /** FCT店舗の歩合率（FCT経由のお客さまの売上計算に使う） */
   fctStores?:   { id: string; rate?: number }[];

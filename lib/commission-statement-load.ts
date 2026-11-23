@@ -11,7 +11,7 @@ import { getMemberCustomerRates } from "./commission-rates";
 import { getFctStores } from "./fct-stores";
 import { getCommissionAdjustments } from "./commission-adjustments";
 import { isBillableLessonStatus } from "./lessons-types";
-import type { CommissionContext } from "./commissions";
+import { type CommissionContext, toCommissionMembers } from "./commissions";
 import { buildTrainerStatements } from "./commission-statement";
 import { monthReadStart } from "./recent-months";
 
@@ -41,7 +41,7 @@ export async function loadTrainerStatements(month: string) {
 
   const ctx: CommissionContext = {
     customers, sessionPasses, customerPlans,
-    members: members.map((m) => ({ id: m.id, name: m.name, isOwner: m.isOwner })),
+    members: toCommissionMembers(members),
     trainerRates: allRates.map((r) => ({ memberId: r.memberId, customerId: r.customerId, rate: r.rate, fixedAmount: r.fixedAmount })),
     lessonFees: buildLessonFeeMap(plansMaster),
     // 段階単価（請求書と同じ単価で歩合を出す）

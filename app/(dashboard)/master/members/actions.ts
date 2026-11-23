@@ -26,6 +26,22 @@ function sameStoragePath(oldUrl: string, newUrl: string): boolean {
   return strip(oldUrl) === strip(newUrl);
 }
 
+/**
+ * 研修中の歩合（最後の日・1回の額）。両方そろっていれば研修、どちらか空なら研修なし（null）。
+ * 欄が無いフォームからは undefined（触らない）。
+ */
+function readTraining(formData: FormData): { trainingPay: number | null; trainingUntil: string | null } | undefined {
+  const untilRaw = formData.get("trainingUntil");
+  const payRaw   = formData.get("trainingPay");
+  if (untilRaw === null && payRaw === null) return undefined;
+  const until = ((untilRaw as string | null) ?? "").trim();
+  const pay   = Number(((payRaw as string | null) ?? "").trim().replace(/[,，円]/g, ""));
+  const okDate = /^\d{4}-\d{2}-\d{2}$/.test(until);
+  const okPay  = ((payRaw as string | null) ?? "").trim() !== "" && Number.isFinite(pay) && pay >= 0;
+  if (!okDate || !okPay) return { trainingPay: null, trainingUntil: null };
+  return { trainingPay: Math.round(pay), trainingUntil: until };
+}
+
 /** コミッションの支払日（月末じめ翌月のこの日）。空欄や変な値は既定の25日に寄せる */
 function readPayDay(formData: FormData): number {
   const raw = (formData.get("commissionPayDay") as string)?.trim();
@@ -99,6 +115,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   const birthRaw = formData.get("birthDate");
   const birthDate = birthRaw === null ? undefined : ((birthRaw as string).trim() || null);
   const newPassword   = (formData.get("password") as string)?.trim() || undefined;
+  const training = readTraining(formData);
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
   const isAdmin = callerIsAdmin ? formData.get("isAdmin") === "on" : existing?.isAdmin ?? false;
@@ -165,6 +182,8 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     lessonReminder,
     lineNotify,
     ...(birthDate !== undefined && { birthDate }),
+    // 研修中の歩合は支払いの条件なので管理者だけ。欄が無いフォームからは触らない
+    ...(callerIsAdmin && training !== undefined && training),
     ...(avatarUrl  !== undefined && { avatarUrl }),
     ...(authUserId !== existing?.authUserId && { authUserId }),
   });

@@ -65,7 +65,7 @@ export function pendingTrainerLessons(
       id: `trial-${tl.id}`, lessonId: tl.id, isTrial: true,
       customerName: tl.customerName, course: trialCourseLabel(tl.course),
       scheduledAt: tl.scheduledAt,
-      amount: resolveTrainerPay(memberId, tl.customerId, fee, ctx).amount,
+      amount: resolveTrainerPay(memberId, tl.customerId, fee, ctx, tl.scheduledAt).amount,
     });
   }
 
@@ -96,7 +96,7 @@ export function trainerCommissionInRange(
   for (const tl of trialLessons) {
     if (tl.trainerMemberId !== memberId || tl.status !== "completed") continue;
     if (!inRange(tl.scheduledAt)) continue;
-    total += resolveTrainerPay(memberId, tl.customerId, resolveTrialFee(tl, ctx), ctx).amount;
+    total += resolveTrainerPay(memberId, tl.customerId, resolveTrialFee(tl, ctx), ctx, tl.scheduledAt).amount;
   }
   return total;
 }
@@ -131,7 +131,7 @@ export function trainerMonthProjection(
     if (tl.trainerMemberId !== memberId || tl.status !== "scheduled") continue;
     if (isoToMonth(tl.scheduledAt) !== month) continue;
     if (new Date(tl.scheduledAt).getTime() <= t) continue;
-    remaining += resolveTrainerPay(memberId, tl.customerId, resolveTrialFee(tl, ctx), ctx).amount;
+    remaining += resolveTrainerPay(memberId, tl.customerId, resolveTrialFee(tl, ctx), ctx, tl.scheduledAt).amount;
     count++;
   }
   return { remaining, count };

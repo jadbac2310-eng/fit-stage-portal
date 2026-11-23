@@ -309,6 +309,40 @@ function MemberForm({
         <p className="text-xs text-gray-400 mt-1">コミッション明細に振込日として出ます（既定は25日）</p>
       </div>
 
+      {/* 研修中の歩合（2026-11-23）。研修の最後の日までのレッスンは 1回○円、次の日から通常の歩合（50%など）。
+          支払いの条件なので管理者だけが直せる。 */}
+      {isAdmin && (
+        <div className="bg-gold-50 rounded-xl p-3 border border-[var(--portal-line)]">
+          <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+            <CalendarClock size={12} /> 研修中の歩合 <span className="text-gray-400 font-normal">（研修中の人だけ）</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            <input
+              name="trainingUntil"
+              type="date"
+              defaultValue={defaultValues?.trainingUntil ?? ""}
+              className="px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span>まで、1回</span>
+            <input
+              name="trainingPay"
+              type="number"
+              min="0"
+              step="100"
+              inputMode="numeric"
+              defaultValue={defaultValues?.trainingPay ?? ""}
+              placeholder="3000"
+              className="w-24 px-3 py-2 rounded-xl border border-gray-300 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span>円</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1.5">
+            この日までのレッスン（体験も）は、歩合率ではなくこの額を払います。次の日から自動で通常の歩合（50%など）に戻ります。
+            研修をやめるときは両方とも空にしてください。
+          </p>
+        </div>
+      )}
+
       <div>
         <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
           <StickyNote size={12} /> メモ
@@ -486,6 +520,11 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
           {member.isOwner && (
             <span className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full font-medium">
               <Crown size={11} /> オーナー
+            </span>
+          )}
+          {isAdmin && member.trainingPay != null && member.trainingUntil && (
+            <span className="text-xs text-gold-600 bg-gold-50 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+              研修 {Number(member.trainingUntil.slice(5, 7))}/{Number(member.trainingUntil.slice(8, 10))}まで・1回{member.trainingPay.toLocaleString()}円
             </span>
           )}
         </div>
