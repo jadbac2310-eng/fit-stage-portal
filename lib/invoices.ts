@@ -408,7 +408,8 @@ export function fctLessonSummary(
       if (!inPeriod(l.scheduledAt, period)) continue;
       const rate = fctStores.find((f) => f.id === l.fctStoreId)?.rate ?? FCT_DEFAULT_RATE;
       count  += 1;
-      amount += l.amount ?? fctLessonPay(c.singleSessionPrice, rate);
+      // 無料の回は0円（「無料（トレーナーに支払う）」の金額欄はトレーナーへの支払額なので請求に入れない）
+      amount += isFreeLesson(l.course) ? 0 : (l.amount ?? fctLessonPay(c.singleSessionPrice, rate));
     }
     if (count === 0) continue;
     rows.push({ customerId: c.id, customerName: c.fullName, count, amount });

@@ -14,6 +14,7 @@ import {
   resolveLessonFee,
   resolveTrainerRate,
   resolveTrainerPay,
+  resolveLessonTrainerPay,
   resolveTrialFee,
   type CommissionContext,
 } from "@/lib/commissions";
@@ -149,7 +150,7 @@ export function DetailsClient({
       const member = members.find((m) => m.id === tid);
       const fee = resolveLessonFee(l, ctx);
       const rate = resolveTrainerRate(tid, l.customerId, ctx);
-      const pay = resolveTrainerPay(tid, l.customerId, fee, ctx);
+      const pay = resolveLessonTrainerPay(tid, l, ctx);
       const commission = pay.amount;
 
       // 回数券の内訳

@@ -3,7 +3,7 @@ import { isBillableLessonStatus } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { trialCourseLabel } from "./trial-lessons-types";
 import {
-  resolveLessonFee, resolveTrialFee, resolveTrainerPay, isOwnerMember, isoToMonth,
+  resolveLessonFee, resolveTrialFee, resolveTrainerPay, resolveLessonTrainerPay, isOwnerMember, isoToMonth,
   type CommissionContext,
 } from "./commissions";
 
@@ -52,7 +52,7 @@ export function pendingTrainerLessons(
       id: l.id, lessonId: l.id, isTrial: false,
       customerName: l.customerName, course: l.course ?? "",
       scheduledAt: l.scheduledAt,
-      amount: resolveTrainerPay(memberId, l.customerId, fee, ctx).amount,
+      amount: resolveLessonTrainerPay(memberId, l, ctx).amount,
     });
   }
 
@@ -91,7 +91,7 @@ export function trainerCommissionInRange(
   for (const l of lessons) {
     if (l.trainerMemberId !== memberId || !isBillableLessonStatus(l.status)) continue;
     if (!inRange(l.scheduledAt)) continue;
-    total += resolveTrainerPay(memberId, l.customerId, resolveLessonFee(l, ctx), ctx).amount;
+    total += resolveLessonTrainerPay(memberId, l, ctx).amount;
   }
   for (const tl of trialLessons) {
     if (tl.trainerMemberId !== memberId || tl.status !== "completed") continue;
@@ -124,7 +124,7 @@ export function trainerMonthProjection(
     if (l.trainerMemberId !== memberId || l.status !== "scheduled") continue;
     if (isoToMonth(l.scheduledAt) !== month) continue;
     if (new Date(l.scheduledAt).getTime() <= t) continue;   // 過ぎたぶんは「完了待ち」側で数える
-    remaining += resolveTrainerPay(memberId, l.customerId, resolveLessonFee(l, ctx), ctx).amount;
+    remaining += resolveLessonTrainerPay(memberId, l, ctx).amount;
     count++;
   }
   for (const tl of trialLessons) {

@@ -6,7 +6,7 @@ import { isFctCustomer } from "./customers-types";
 import type { SessionPass } from "./session-passes-types";
 import type { CustomerPlanRecord } from "./customer-plans-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount } from "./lessons-types";
+import { courseToPaymentType, isBillableLessonStatus, resolveSingleLessonAmount, isFreeLesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { trialCourseLabel } from "./trial-lessons-types";
 import { resolveTrialFee } from "./commissions";
@@ -212,6 +212,8 @@ export function buildReceivables(
     // FCT経由のお客さまはお客さまから直接もらわない（FCTからまとめて入る）ので、
     // 1回ごとの入金管理には出さない。月の合計は請求書画面の「FCT分」で見る。
     if (isFctCustomer(cust)) continue;
+    // 無料の回はお客様からもらわない。「無料（トレーナーに支払う）」の金額欄はトレーナーへの支払額なので、入金に出さない
+    if (isFreeLesson(l.course)) continue;
     // 請求書と同じ順で決める（この回だけの金額 → 段階単価 → 顧客の都度単価 → 既定）
     const amount = l.amount
       ?? data.tieredPrices?.[l.id]

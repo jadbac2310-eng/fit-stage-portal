@@ -38,7 +38,7 @@ export function dateLocale(lang: Lang): string {
 /** レッスンのコース名（データとして入っている日本語）を英語にする。知らないものはそのまま */
 const COURSE_EN: Record<string, string> = {
   "回数券": "Session pass", "月2回": "2x / month", "月4回": "4x / month", "月8回": "8x / month",
-  "都度": "Pay per session", "オンラインパーソナル": "Online", "無料": "Free", "体験レッスン": "Trial",
+  "都度": "Pay per session", "オンラインパーソナル": "Online", "無料": "Free", "無料（トレーナーに支払う）": "Free (coach paid)", "体験レッスン": "Trial",
 };
 export function courseLabel(course: string | undefined | null, lang: Lang): string {
   if (!course) return "";

@@ -81,8 +81,23 @@ export function isBillableLessonStatus(status: LessonStatus): boolean {
  */
 export const FREE_COURSE = "無料";
 
+/**
+ * お客様は無料、トレーナーには支払う回（2026-11-22 尚樹）。
+ * こちらの都合で日程を変えたお詫びにお客様は無料、でもトレーナーは普通にレッスンをしたので歩合を払う、という回。
+ * 売上・請求・入金は「無料」と同じく0円。トレーナーへの支払額はレッスンの金額欄（amount）に入れた額をそのまま払う
+ * （歩合率はかけない。lib/commissions.ts の resolveLessonTrainerPay）。
+ * 「無料」の金額欄を流用しないのは、昔の無料レッスンに数字が残っていると、急にトレーナーへ払う形になるため。
+ */
+export const FREE_TRAINER_PAID_COURSE = "無料（トレーナーに支払う）";
+
+/** お客様に請求しない回か（「無料」と「無料（トレーナーに支払う）」の両方） */
 export function isFreeLesson(course: string | null | undefined): boolean {
-  return course === FREE_COURSE;
+  return course === FREE_COURSE || course === FREE_TRAINER_PAID_COURSE;
+}
+
+/** お客様は無料で、トレーナーには金額欄の額を払う回か */
+export function isFreeTrainerPaidLesson(course: string | null | undefined): boolean {
+  return course === FREE_TRAINER_PAID_COURSE;
 }
 
 export const COURSE_OPTIONS: { value: string; label: string; paymentType: LessonPaymentType }[] = [
@@ -93,6 +108,7 @@ export const COURSE_OPTIONS: { value: string; label: string; paymentType: Lesson
   { value: "都度",   label: "都度",   paymentType: "single"       },
   { value: "オンラインパーソナル", label: "オンラインパーソナル", paymentType: "single" },
   { value: FREE_COURSE, label: "無料（請求しない回）", paymentType: "single" },
+  { value: FREE_TRAINER_PAID_COURSE, label: "無料（お客様は無料・トレーナーには支払う）", paymentType: "single" },
 ];
 
 export function courseToPaymentType(course: string | undefined): LessonPaymentType | null {

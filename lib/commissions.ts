@@ -2,7 +2,7 @@ import type { Customer, CustomerType } from "./customers-types";
 import { isFctCustomer } from "./customers-types";
 import { fctLessonPay, FCT_DEFAULT_RATE } from "./fct-types";
 import type { Lesson } from "./lessons-types";
-import { courseToPaymentType, resolveSingleLessonAmount, isFreeLesson } from "./lessons-types";
+import { courseToPaymentType, resolveSingleLessonAmount, isFreeLesson, isFreeTrainerPaidLesson } from "./lessons-types";
 import type { TrialLesson } from "./trial-lessons-types";
 import { trialCourseLabel } from "./trial-lessons-types";
 import type { SessionPass } from "./session-passes-types";
@@ -214,6 +214,20 @@ export function resolveTrainerPay(
   return { amount: Math.round(fee * resolveTrainerRate(memberId, customerId, ctx)), fixed: false };
 }
 
+/**
+ * 通常レッスン1回ぶんのトレーナーへの支払額。
+ * 「無料（トレーナーに支払う）」の回は、売上は0円のまま、金額欄に入れた額をそのまま払う（歩合率はかけない）。
+ * それ以外は今までどおり 単価 × 歩合率（または固定額）。
+ */
+export function resolveLessonTrainerPay(
+  memberId: string, lesson: Lesson, ctx: CommissionContext,
+): { amount: number; fixed: boolean } {
+  if (isFreeTrainerPaidLesson(lesson.course)) {
+    return { amount: Math.max(0, Math.round(lesson.amount ?? 0)), fixed: true };
+  }
+  return resolveTrainerPay(memberId, lesson.customerId, resolveLessonFee(lesson, ctx), ctx);
+}
+
 /** 体験レッスン1件あたりの標準単価（プランマスタの「体験レッスン」行を優先、無ければ固定単価表） */
 export function resolveTrialLessonFee(ctx: Pick<CommissionContext, "lessonFees">): number {
   return ctx.lessonFees?.[TRIAL_LESSON_COURSE_NAME] ?? getLessonFee(TRIAL_LESSON_COURSE_NAME);
@@ -280,7 +294,7 @@ export function buildTrainerEntries(
     const tid  = l.trainerMemberId!;
     // 歩合はレッスン料金そのものを対象とする(レンタルジム代は控除しない／利益計算側で差し引く)
     const fee  = resolveLessonFee(l, ctx);
-    const pay  = resolveTrainerPay(tid, l.customerId, fee, ctx);
+    const pay  = resolveLessonTrainerPay(tid, l, ctx);
 
     if (!map.has(tid)) {
       map.set(tid, { memberId: tid, memberName: l.trainerMemberName ?? tid, lessons: [], total: 0 });

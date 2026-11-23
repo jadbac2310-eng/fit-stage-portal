@@ -8,7 +8,7 @@ import {
   User, StickyNote, ChevronDown, ChevronUp, AlertTriangle,
   CheckCircle, Clock, XCircle, Ticket, Building2, FlaskConical,
 } from "lucide-react";
-import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, isFreeLesson, isPassPendingLesson, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
+import { Lesson, LessonStatus, LESSON_STATUS_LABEL, COURSE_OPTIONS, courseToPaymentType, isFreeLesson, isFreeTrainerPaidLesson, isPassPendingLesson, DELIVERY_MODE_OPTIONS, venueKindOf, venueKindOptions, venueKey, recentVenues, venueKindLabel, matchVenueByText, type DeliveryMode, type VenueKind } from "@/lib/lessons-types";
 import { SessionPass, passUsageOrdinals } from "@/lib/session-passes-types";
 import { CustomerPlanRecord } from "@/lib/customer-plans-types";
 import { Customer, isFctCustomer } from "@/lib/customers-types";
@@ -1024,7 +1024,7 @@ export function LessonForm({
             </optgroup>
           )}
           <optgroup label={tt("単発", "Single")}>
-            {singleCourses.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? (isFreeLesson(o.value) ? "Free (not billed)" : courseLabel(o.value, lang)) : o.label}</option>)}
+            {singleCourses.map((o) => <option key={o.value} value={o.value}>{lang === "en" ? (isFreeLesson(o.value) && !isFreeTrainerPaidLesson(o.value) ? "Free (not billed)" : courseLabel(o.value, lang)) : o.label}</option>)}
           </optgroup>
         </select>
         {canAddPass && !isSessionPassCourse && !hasUsablePass && (
@@ -1041,7 +1041,38 @@ export function LessonForm({
           既定は空欄にして、顧客マスタの単価は下に案内だけ出す。 */}
       {/* 無料レッスンは必ず0円。金額欄を出すと「空欄なら顧客の都度単価」になってしまうので、
           欄自体を出さずに0円を送る。 */}
-      {isFreeLesson(selectedCourse) && (
+      {/* お客様は無料・トレーナーには支払う回（2026-11-22）。金額欄はトレーナーへの支払額。
+          売上・請求・入金は0円。金額を入れられるのは管理者だけ（トレーナーの編集では今の値を据え置く） */}
+      {isFreeTrainerPaidLesson(selectedCourse) && (
+        isAdmin ? (
+          <div>
+            <label className={labelClass}>{tt("トレーナーへの支払額（円）", "Pay to the coach (¥)")}</label>
+            <input
+              name="amount"
+              type="number"
+              min="0"
+              inputMode="numeric"
+              required
+              defaultValue={defaultValues?.amount ?? ""}
+              placeholder={tt("例: 1600", "e.g. 1600")}
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {tt("お客様には請求しません（請求書は0円、売上にも入りません）。担当トレーナーには、ここに入れた額をこの回の歩合として払います。",
+                "The client is not billed (¥0 on the invoice, not counted as sales). The coach is paid this amount as the commission for this session.")}
+            </p>
+          </div>
+        ) : (
+          <>
+            <input type="hidden" name="amount" defaultValue={defaultValues?.amount ?? ""} />
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+              {tt("この回はお客様は無料です。トレーナーへの支払額は管理者が入れます。", "This session is free for the client. An admin sets the pay to the coach.")}
+            </p>
+          </>
+        )
+      )}
+
+      {isFreeLesson(selectedCourse) && !isFreeTrainerPaidLesson(selectedCourse) && (
         <>
           <input type="hidden" name="amount" value="0" />
           <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
