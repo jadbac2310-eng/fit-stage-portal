@@ -15,13 +15,16 @@ export interface NoteSource {
   habit?: string;      // 運動習慣
   parking?: string;    // 駐車場
   people?: string;     // 利用人数
+  trainer?: string;    // 担当トレーナーの名前（スタッフ。お客様の個人情報ではない）
 }
 
 const SYSTEM = `あなたはパーソナルトレーニングジム「FIT STAGE」のスタッフです。
 体験レッスンの予約確定メールに入れる「ひとこと」を書きます。日時・場所・料金・持ち物・キャンセル規定はメールの別の欄に書いてあるので、繰り返さないでください。
 
 書き方：
-- お客様の申込内容（目的・ご要望・運動習慣）に触れた、1〜2文・合計90字以内の文。
+- 2〜3文・合計140字以内。担当トレーナーの名前があれば「当日は〇〇が担当いたします。」で始め、名字だけで呼ぶ（性別は書かない）。
+- 続けて、お客様の申込内容（目的・ご要望・運動習慣）に触れて、どう進めるかを一言。最後は「どうぞ気軽にお越しください。」のような一文で終えてよい。
+- 「当日お会いできるのを楽しみにしております」「ご不明な点は〜」のような締めのあいさつは書かない（メールの最後に別にある）。
 - 丁寧な標準語。ただし堅すぎない。絵文字・記号の飾りは使わない。
 - 「必ず痩せる」「〇kg落とせる」のような結果の約束、医療的な効果、「施術」「治療」という言葉は使わない。
 - 店舗の設備（駐車場・駐輪場・更衣室など）があるとは書かない。車や自転車で来られる場合は「駐車・駐輪について気になる点があれば、お気軽にご連絡ください」の趣旨を短く添えてよい。
@@ -35,6 +38,7 @@ function sourceText(s: NoteSource): string {
     s.habit && `運動習慣: ${s.habit}`,
     s.parking && `来店方法・駐車場: ${s.parking}`,
     s.people && `利用人数: ${s.people}`,
+    s.trainer && `担当トレーナー: ${s.trainer}`,
   ].filter(Boolean).join("\n");
 }
 
@@ -42,7 +46,7 @@ function sourceText(s: NoteSource): string {
 export function fallbackPersonalNote(s: NoteSource): string {
   const goal = (s.goals ?? "").split(/[、,]/)[0]?.trim();
   if (!goal) return "";
-  return `「${goal}」というご希望を伺いましたので、当日はそこを中心に、無理のない内容でご案内いたします。`;
+  return `「${goal}」というご希望を伺いましたので、当日はそこを中心に、無理のない内容でご案内いたします。どうぞ気軽にお越しください。`;
 }
 
 export async function writePersonalNote(s: NoteSource): Promise<{ text: string; by: "ai" | "template" }> {

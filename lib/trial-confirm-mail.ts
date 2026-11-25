@@ -8,6 +8,9 @@
  * 料金・キャンセル規定を変えたら、HP の CLAUDE.md の「サイトの基本情報」とここを両方直す。
  */
 
+/** メールの最後に出す差出人（代表） */
+export const OWNER_NAME = "坂根尚樹";
+
 export interface StoreInfo {
   key: "esaka" | "shonai" | "sone-shiroyama";
   name: string;        // 「FIT STAGE 江坂店」の「江坂店」
@@ -145,19 +148,22 @@ export function buildConfirmMail(i: ConfirmMailInput): { subject: string; body: 
     "・動きやすい服装でお越しください。",
     "・お飲み物（お水など）をお持ちいただくと安心です。",
     "",
-    ...(i.personalNote?.trim() ? [i.personalNote.trim(), ""] : []),
-    "当日は、普段の運動習慣や気になるところを伺いながら進めますので、どうぞ気軽にお越しください。",
+    // ひとこと（お客様に合わせて毎回変える段落。AIの下書きを人が直す）。空のときだけ決まった一文
+    // 2026-11-25 尚樹：ひとことと決まった文に同じ言い回しが2回ずつ出ていたので、どちらか一方だけにした
+    i.personalNote?.trim()
+      ? i.personalNote.trim()
+      : "当日は、普段の運動習慣や気になるところを伺いながら進めますので、どうぞ気軽にお越しください。",
     "",
     "■ お時間の変更・お問い合わせ",
     "お時間の変更やお問い合わせは、下記のLINEにてお願いいたします。お電話でも承ります。",
     "前日21時までにご連絡いただければ、変更・キャンセルは無料です。",
     "",
     "当日お会いできることを楽しみにしております。",
-    "ご不明な点がございましたら、お気軽にお問い合わせください。",
     "",
     "――――――――――",
     `FIT STAGE${i.store ? ` ${i.store.name}` : ""}`,
-    i.trainerName ? `担当：${tidyName(i.trainerName)}` : null,
+    // 差出人は代表（2026-11-25 尚樹「メールの最後はトレーナーじゃなくて俺」）。担当トレーナーは「ご予約内容」に出ている
+    `代表：${OWNER_NAME}`,
     `TEL：${FITSTAGE_TEL}`,
     `LINE：${STORE_LINE_URL}`,
     `Web：${i.store?.url ?? "https://www.fitstage.jp/"}`,

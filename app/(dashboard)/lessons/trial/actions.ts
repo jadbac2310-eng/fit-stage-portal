@@ -317,6 +317,7 @@ export async function suggestTrialPersonalNoteAction(id: string): Promise<{ ok: 
     habit: get("運動習慣"),
     parking: get("駐車場"),
     people: get("利用人数"),
+    trainer: lesson.trainerMemberName ?? undefined,
   });
   return { ok: true, ...r };
 }
