@@ -61,7 +61,13 @@ function yen(n: number) {
 }
 
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  /** payout=YYYY-MM … コミッションの支払いの箱で見る月（無ければ先月） */
+  searchParams?: Promise<{ payout?: string }>;
+}) {
+  const payoutMonth = (await searchParams)?.payout;
   // 読み込みは1回にまとめて全部同時に取る（2回に分けると往復のぶんだけ表示が遅れる）。
   // 下で足している「今日のひとこと」「節目」「声かけリスト」は、
   // ここで取ったデータから計算するだけなので、読み込みは1件も増えていない。
@@ -227,8 +233,8 @@ export default async function DashboardPage() {
 
           {/* 代表だけ：先月ぶんのコミッションの明細・振込が済んだか（別に読むので、ほかの表示は待たせない） */}
           {currentMember?.isOwner && (
-            <Suspense fallback={<CommissionTodoSkeleton />}>
-              <CommissionTodoBox />
+            <Suspense key={payoutMonth ?? "default"} fallback={<CommissionTodoSkeleton />}>
+              <CommissionTodoBox month={payoutMonth} />
             </Suspense>
           )}
 

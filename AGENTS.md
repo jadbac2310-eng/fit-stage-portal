@@ -169,6 +169,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 月末じめ・翌月払い。担当者ごとに「明細を送った」「振り込んだ」の2つを印で残し、済んでいないものを朝のLINEで代表に知らせる。
 - **ダッシュボードの箱は代表（`members.is_owner`）だけに出る**（`dashboard/commission-todo-box.tsx`）。先月ぶんを、振込日の早い順に並べ、「明細」「振込」を押して印を付ける。
   読み込みが重いので本体とは別に読む（`Suspense`）。印を付けられるのは代表と管理者（`commission-todo-actions.ts`）。
+  **前の月も見られる**（2026-11-25 尚樹「前月の送れてるかも確認したい」）：箱の上の「‹ 9月分｜10月分（先月）｜›」で月を移る（`/dashboard?payout=YYYY-MM`）。12か月前まで。先月より先へは進めない。過去の月でも印を付け直せる。
 - 印は `commission_payouts`（`20261110000001_commission_payouts.sql`。対象月×担当者で1行、RLS有効）。**表が無いあいだも箱と知らせは動く**（全員「まだ」として出る。印だけ付けられない）。
 - **金額は明細の画面と同じ関数** `lib/commission-statement-load.ts` の `loadTrainerStatements`（明細の画面・この箱・朝の知らせの3か所が呼ぶ）。
 - **LINEの知らせ**（`lib/commission-reminders.ts`。朝9時の `daily-reminders` に入れた）。代表へ（代表がいなければ管理者へ）：
