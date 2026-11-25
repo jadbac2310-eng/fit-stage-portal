@@ -1,13 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, ChevronRight, AlertTriangle } from "lucide-react";
+import { FileText, ChevronRight, AlertTriangle, Check } from "lucide-react";
 import type { CustomerInvoice, FctSummary } from "@/lib/invoices";
 import { WITHHOLDING_RATE } from "@/lib/fct-types";
 import { formatSentAt } from "@/lib/invoice-mail-types";
 import { PageTitle } from "@/components/ui/page-title";
+import { setInvoiceDoneAction } from "./actions";
+
+/** FCT分の完了の印の鍵（lib/invoice-done.ts の FCT_BILL_KEY と同じ） */
+const FCT_KEY = "fct";
 
 /** コース未設定で請求書に載っていない実施済みレッスン */
 export interface UncountedLesson {
@@ -32,8 +36,12 @@ function monthOptions(): { value: string; label: string }[] {
 }
 
 export function InvoicesClient({
-  invoices, month, uncounted = [], fct, lastMail = {},
+  invoices, month, uncounted = [], fct, lastMail = {}, done = {}, doneReady = true,
 }: {
+  /** 完了の印（請求先の顧客ID・"fct" → 付けた時刻） */
+  done?: Record<string, string>;
+  /** 完了の印を残す表があるか（SQL未反映なら false） */
+  doneReady?: boolean;
   /** 請求先ごとの、いちばん新しいメール送信の記録（いつ・どこへ） */
   lastMail?: Record<string, { at: string; to: string; pending: boolean }>;
   invoices: CustomerInvoice[];
@@ -45,6 +53,31 @@ export function InvoicesClient({
   const router = useRouter();
   const options = useMemo(() => monthOptions(), []);
   const grandTotal = invoices.reduce((s, inv) => s + inv.total, 0);
+  // 押したらすぐ見た目を変える（サーバーの返事を待たない）。失敗したら元に戻す
+  const [localDone, setLocalDone] = useState<Record<string, boolean>>({});
+  const [doneError, setDoneError] = useState("");
+  const [, startTransition] = useTransition();
+  const isDone = (key: string) => localDone[key] ?? !!done[key];
+  const doneCount = invoices.filter((inv) => isDone(inv.customerId)).length;
+
+  function toggleDone(key: string, label: string) {
+    if (!doneReady) {
+      setDoneError("完了の印を残す表がまだありません。SQL（20261125000001_invoice_done.sql）を Supabase で流してください");
+      return;
+    }
+    const next = !isDone(key);
+    setLocalDone((m) => ({ ...m, [key]: next }));
+    setDoneError("");
+    startTransition(async () => {
+      const r = await setInvoiceDoneAction(key, label, month, next);
+      if (!r.ok) {
+        setLocalDone((m) => ({ ...m, [key]: !next }));
+        setDoneError(r.error);
+      } else {
+        router.refresh();
+      }
+    });
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -54,7 +87,7 @@ export function InvoicesClient({
       />
 
       <div className="flex items-center gap-3 mb-5">
-        <label className="text-sm font-semibold text-gray-600">対象月</label>
+        <label className="text-sm font-semibold text-gray-600 whitespace-nowrap">対象月</label>
         <select
           value={month}
           onChange={(e) => router.push(`/invoices?month=${e.target.value}`)}
@@ -62,10 +95,19 @@ export function InvoicesClient({
         >
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <span className="text-sm text-gray-500 ml-auto">
+        <span className="text-sm text-gray-500 ml-auto text-right">
           {invoices.length}件 ・ 合計 <span className="font-bold text-gray-800">{yen(grandTotal)}</span>
+          {invoices.length > 0 && (
+            <span className="block text-xs">
+              完了 <span className={`font-bold ${doneCount === invoices.length ? "text-green-700" : "text-gray-800"}`}>{doneCount}</span> / {invoices.length}
+            </span>
+          )}
         </span>
       </div>
+
+      {doneError && (
+        <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{doneError}</p>
+      )}
 
       {uncounted.length > 0 && (
         <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4">
@@ -103,6 +145,7 @@ export function InvoicesClient({
             <span className="ml-auto text-sm text-gray-500">
               {fct.count}件 ・ <span className="font-bold text-gray-800">{yen(fct.total)}</span>
             </span>
+            <DoneButton done={isDone(FCT_KEY)} onClick={() => toggleDone(FCT_KEY, "FCT分")} />
           </div>
           <p className="text-xs text-gray-400 mt-1">
             FCT経由のお客さま。請求書は出さず、FCTからまとめて入ります。会場代はかかりません。
@@ -149,18 +192,27 @@ export function InvoicesClient({
         </div>
       ) : (
         <div className="space-y-2">
-          {invoices.map((inv) => (
-            <Link
+          {invoices.map((inv) => {
+            const d = isDone(inv.customerId);
+            return (
+            <div
               key={inv.customerId}
-              href={`/invoices/print?customer=${inv.customerId}&month=${month}`}
-              className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition group"
+              className={`flex items-center gap-2 rounded-2xl border p-2 pr-3 transition ${d ? "bg-gray-50 border-gray-200" : "bg-white border-gray-200 hover:border-blue-300"}`}
             >
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <FileText size={18} className="text-blue-600" />
+            <Link
+              href={`/invoices/print?customer=${inv.customerId}&month=${month}`}
+              className="flex flex-1 min-w-0 items-center gap-3 p-2 group"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${d ? "bg-green-100" : "bg-blue-100"}`}>
+                {d ? <Check size={18} className="text-green-700" /> : <FileText size={18} className="text-blue-600" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 text-sm truncate">{inv.customerName}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{inv.lines.length}明細</p>
+                <p className={`font-semibold text-sm truncate ${d ? "text-gray-500" : "text-gray-900"}`}>{inv.customerName}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {inv.lines.length}明細
+                  {/* スマホは名前を切らないよう、金額を名前の下に出す */}
+                  <span className={`sm:hidden ml-2 text-sm font-bold ${d ? "text-gray-500" : "text-gray-800"}`}>{yen(inv.total)}</span>
+                </p>
                 {lastMail[inv.customerId] && (
                   <p className={`text-[11px] mt-0.5 truncate ${lastMail[inv.customerId].pending ? "text-amber-700" : "text-green-700"}`}>
                     {lastMail[inv.customerId].pending ? "送信を確かめてください " : "メール送信 "}
@@ -169,12 +221,33 @@ export function InvoicesClient({
                   </p>
                 )}
               </div>
-              <p className="text-base font-bold text-gray-800">{yen(inv.total)}</p>
-              <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
+              <p className={`hidden sm:block text-base font-bold ${d ? "text-gray-500" : "text-gray-800"}`}>{yen(inv.total)}</p>
+              <ChevronRight size={16} className="hidden sm:block text-gray-400 group-hover:text-blue-500 transition flex-shrink-0" />
             </Link>
-          ))}
+            <DoneButton done={d} onClick={() => toggleDone(inv.customerId, inv.customerName)} />
+            </div>
+            );
+          })}
         </div>
       )}
     </div>
+  );
+}
+
+/** 完了の印のボタン（押すたびに 完了 ⇔ 未） */
+function DoneButton({ done, onClick }: { done: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={done}
+      className={`flex-shrink-0 flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+        done
+          ? "bg-green-600 border-green-600 text-white"
+          : "bg-white border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-700"
+      }`}
+    >
+      <Check size={13} /> 完了
+    </button>
   );
 }

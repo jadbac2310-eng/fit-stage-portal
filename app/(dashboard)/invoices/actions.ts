@@ -15,6 +15,7 @@ import { tieredLessonPricesAll } from "@/lib/session-tiers";
 import { getInvoiceDueDate, setInvoiceDueDate } from "@/lib/invoice-due-dates";
 import { loadGroupInvoice, renderInvoicePdf, invoiceFilename } from "@/lib/invoice-render";
 import { isMailConfigured, mailFromAddress, sendMail } from "@/lib/mailer";
+import { setInvoiceDone, FCT_BILL_KEY } from "@/lib/invoice-done";
 import { recentInvoiceMail, markInvoiceMailStart, markInvoiceMailSent, clearInvoiceMailStart } from "@/lib/invoice-mail-guard";
 
 // 請求書の宛名（billing_name）を更新する。空なら氏名に戻す。
@@ -237,4 +238,26 @@ export async function sendInvoiceEmailAction(
   if (logId) await markInvoiceMailSent(logId, name, month, to);
   else await logActivity({ action: "create", entityType: "invoice", entityId: guardId, summary: `請求書をメール送信: ${name} ${month} → ${to}` });
   return { ok: true, to };
+}
+
+/**
+ * 請求書の「完了」の印を付ける／外す（請求先×対象月。FCT分は "fct"）。管理者だけ。
+ * 失敗の理由は文字で返す（投げると本番では伏せられて、押しても何も起きないように見えるため）。
+ */
+export async function setInvoiceDoneAction(
+  billKey: string, label: string, month: string, done: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!billKey || !/^\d{4}-\d{2}$/.test(month)) return { ok: false, error: "対象が分かりませんでした。画面を読み込み直してください" };
+  try {
+    await setInvoiceDone(billKey, month, done);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "保存できませんでした" };
+  }
+  await logActivity({
+    action: "update", entityType: "invoice", entityId: billKey === FCT_BILL_KEY ? undefined : billKey,
+    summary: `請求書 ${month}：${label} を${done ? "完了にした" : "完了から戻した"}`,
+  });
+  revalidatePath("/invoices");
+  return { ok: true };
 }

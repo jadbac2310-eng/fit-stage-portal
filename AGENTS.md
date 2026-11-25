@@ -423,6 +423,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
   LINEで送った分は、文面を作って手で貼る形なので記録が無い（送ったかどうかは分からない）。
 - 明細を税抜で出す顧客は `customers.invoice_tax_excluded`。同じ日付・品目は「数量」でまとめる（`invoiceRows`）。
 
+## 請求書の「完了」（2026-11-25 尚樹「請求書も完了欄欲しい」）
+
+- 請求書の一覧（`/invoices`）で、請求先ごとと FCT分に「完了」ボタン。押すたびに 完了 ⇔ 未。完了の行は灰色＋緑のチェック、右上に「完了 3/14」。
+- 印は `invoice_done`（`20261125000001_invoice_done.sql`。請求先の顧客ID×対象月で1行、FCT分は bill_key `fct`。付けた時刻・付けた人。外すと行を消す。RLS有効）。読み書きは `lib/invoice-done.ts`、保存は `invoices/actions.ts` の `setInvoiceDoneAction`（管理者だけ。操作ログに残る）。
+- 「完了」が何を指すか（送った／入金まで済んだ）は決めていない。尚樹が自分の区切りで押す。入金の記録（入金管理）とはつながっていない。
+- 表が無いDBでも一覧は出る（押すと「SQLを流して」と出る）。
+- スマホでは名前を切らないよう、金額を名前の下に出す。
+
 ## データアシスタント
 
 `/assistant` で、話し言葉で聞くと社内データを集計して答える（閲覧専用）。**ログインした全員が使える**（2026-11-02 に管理者限定から広げた。`/admin/assistant` は転送）。
