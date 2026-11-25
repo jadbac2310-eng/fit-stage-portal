@@ -12,7 +12,7 @@ import { buildPayoutTodos } from "@/lib/commission-payouts-types";
 import { getCommissionPayouts } from "@/lib/commission-payouts";
 import { loadTrainerStatements } from "@/lib/commission-statement-load";
 import { loadOpsFindings } from "@/lib/ops-check-load";
-import { buildOpsCheckMessage } from "@/lib/ops-check";
+import { buildOpsCheckMessage, buildTrainerPendingMessages, type OpsFinding } from "@/lib/ops-check";
 import { buildGrowthReport, buildGrowthMessage } from "@/lib/hp-growth";
 import { getSearchOverview } from "@/lib/search-console";
 import { portalUrl } from "@/lib/line-notify";
@@ -93,6 +93,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 業務チェックの読み込みは重いので、要るときに1回だけ読む（代表あてとトレーナーあてで使い回す）
+  let findingsCache: Promise<OpsFinding[]> | null = null;
+  const opsFindings = () => (findingsCache ??= loadOpsFindings(now));
+
   // 業務チェック部（AI部署）：完了忘れ・担当なし・二重登録などを、代表へ1日1通まとめて（lib/ops-check.ts）。
   // 止めるときは LINE_NOTIFY_OPS_CHECK=off。今日の分をもう送っていれば読みに行かない。
   const opsOn = (process.env.LINE_NOTIFY_OPS_CHECK ?? "").trim().toLowerCase() !== "off";
@@ -102,11 +106,32 @@ export async function GET(req: NextRequest) {
     const done = await fetchSentKeys("daily", [ref]);
     if (commissionTo.some((id) => !done.has(`${ref}__${id}`))) {
       try {
-        const text = buildOpsCheckMessage(await loadOpsFindings(now), portalUrl("/ai-office"));
+        const text = buildOpsCheckMessage(await opsFindings(), portalUrl("/ai-office"));
         if (text) reminders.push({ ref, recipientIds: commissionTo, text });
         else for (const id of commissionTo) await markSent("daily", ref, id); // 何も無い日は送らない（同じ日に読み直さない）
       } catch (e) {
         console.error("[daily-reminders] 業務チェックに失敗", e);
+      }
+    }
+  }
+
+  // トレーナー本人へ：自分の完了忘れ（昨日以前なのに予定のまま）を1日1通（2026-11-25 尚樹）。
+  // 完了忘れが無い人には送らない。代表は上の業務チェックで全員分を見ているので送らない。
+  // 止めるときは LINE_NOTIFY_TRAINER_PENDING=off。
+  const pendingOn = (process.env.LINE_NOTIFY_TRAINER_PENDING ?? "").trim().toLowerCase() !== "off";
+  if (pendingOn) {
+    const p = jstParts(now);
+    const ref = `trainer-pending:${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+    const done = await fetchSentKeys("daily", [ref]);
+    const candidates = members.filter((m) => !m.isOwner && canNotifyByLine(m) && !done.has(`${ref}__${m.id}`));
+    if (candidates.length > 0) {
+      try {
+        const ids = new Set(candidates.map((m) => m.id));
+        for (const msg of buildTrainerPendingMessages(await opsFindings(), owners)) {
+          if (ids.has(msg.trainerId)) reminders.push({ ref, recipientIds: [msg.trainerId], text: msg.text });
+        }
+      } catch (e) {
+        console.error("[daily-reminders] トレーナーへの完了忘れの知らせに失敗", e);
       }
     }
   }

@@ -36,6 +36,7 @@ export interface OpsFinding {
   customerName: string;
   scheduledAt: string;
   trainerName?: string;
+  trainerId?: string;
 }
 
 const DAY = 24 * 3600 * 1000;
@@ -65,9 +66,11 @@ export function runOpsChecks(input: {
 
   const lessonFinding = (kind: OpsCheckKind, l: Lesson): OpsFinding => ({
     kind, id: l.id, isTrial: false, customerName: l.customerName, scheduledAt: l.scheduledAt, trainerName: l.trainerMemberName,
+    trainerId: l.trainerMemberId,
   });
   const trialFinding = (kind: OpsCheckKind, t: TrialLesson): OpsFinding => ({
     kind, id: t.id, isTrial: true, customerName: t.customerName, scheduledAt: t.scheduledAt, trainerName: t.trainerMemberName,
+    trainerId: t.trainerMemberId,
   });
 
   const live = lessons.filter((l) => l.status !== "cancelled" && at(l.scheduledAt) >= from && at(l.scheduledAt) < until);
@@ -127,4 +130,37 @@ export function buildOpsCheckMessage(findings: OpsFinding[], pageUrl: string, pe
   }
   lines.push("", `▶ 全部の一覧（AI部署）\n${pageUrl}`);
   return lines.join("\n");
+}
+
+/**
+ * トレーナー本人あての「完了にしていないレッスン」（2026-11-25 尚樹「トレーナーに完了通知を足そう」）。
+ * 完了忘れ（昨日以前なのに予定のまま）を担当トレーナーごとに分けて、1人1通の本文にする。
+ * 代表（skipIds）は朝の業務チェックで全員分を見ているので入れない。完了忘れが無い人には作らない。
+ * スタッフには英語で使う人がいるので、見出しと最後の一文だけ英語を添える。
+ */
+export function buildTrainerPendingMessages(
+  findings: OpsFinding[], skipIds: string[] = [], perTrainer = 5,
+): { trainerId: string; text: string }[] {
+  const byTrainer = new Map<string, OpsFinding[]>();
+  for (const f of findings) {
+    if (f.kind !== "not-completed" || !f.trainerId || skipIds.includes(f.trainerId)) continue;
+    byTrainer.set(f.trainerId, [...(byTrainer.get(f.trainerId) ?? []), f]);
+  }
+  return [...byTrainer.entries()].map(([trainerId, items]) => {
+    const lines = [
+      `📝 完了にしていないレッスンが ${items.length}件 あります`,
+      `(${items.length} session${items.length > 1 ? "s" : ""} not marked done)`,
+      "",
+    ];
+    for (const f of items.slice(0, perTrainer)) {
+      lines.push(`・${opsSlotLabel(f.scheduledAt)} ${f.customerName} 様${f.isTrial ? "（体験）" : ""}`);
+    }
+    if (items.length > perTrainer) lines.push(`　ほか ${items.length - perTrainer}件`);
+    lines.push(
+      "",
+      "ポータルを開いて「完了」を押してください（ホームの黄色い箱からも押せます）。完了にしないと歩合に入りません。",
+      "Please open the portal and tap \"Done\". Sessions not marked done aren't paid.",
+    );
+    return { trainerId, text: lines.join("\n") };
+  });
 }

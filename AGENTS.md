@@ -395,6 +395,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
   読み込みは `lib/ops-check-load.ts`（過去 `OPS_CHECK_DAYS` 日、既定60）。画面は開いたときの状態をそのまま出す（表は作っていない）。
   朝9時の `daily-reminders` で社長へ（統括の朝の1通に入る。各項目5件まで＋件数。何も無い日は入らない）。止めるときは `LINE_NOTIFY_OPS_CHECK=off`。
   直すのは人。チェックは何も書き換えない。
+  **トレーナー本人にも朝9時に1通**（2026-11-25 尚樹「トレーナーに完了通知を足そう」）：自分が担当の完了忘れ（昨日以前なのに予定のまま。体験も）だけを並べる（5件まで＋件数）。無い人には送らない。代表は全員分を見ているので送らない。
+  本文は `lib/ops-check.ts` の `buildTrainerPendingMessages`（見出しと最後の一文だけ英語を添える）、送るのは `daily-reminders`（鍵 `trainer-pending:YYYY-MM-DD`）。業務チェックの読み込みは代表あてと1回で使い回す。止めるときは `LINE_NOTIFY_TRAINER_PENDING=off`。
 - **HP・集客部**（稼働中・2026-11-16）：`lib/hp-growth.ts`（純粋関数）が `/seo` と同じ `getSearchOverview(28)` から、今週の提案を3つまで（10位以内で押されていない言葉→タイトル・説明文／11〜20位→見出し・本文／クリックが半分以下に減ったページ）。店舗・サービスのページを優先。
   画面では `growth-section.tsx` を `Suspense` で後から出す（サーチコンソールの読み込みで画面全体を待たせない）。毎週月曜9時に社長へ LINE（`daily-reminders`。止めるときは `LINE_NOTIFY_HP_GROWTH=off`）。HP を直すのは社長の OK のあと HP のセッションで。
 - ポータル開発部（稼働中）＝ Claude Code のセッション。
