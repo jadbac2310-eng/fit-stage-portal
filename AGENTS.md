@@ -108,6 +108,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   体験は件数が少なく、引き継ぎ（最初の困りごと）に古い回が要るので全部読み、お客さまごとの最初の体験だけを `firstTrials` で渡す。
   回数券の「何回目」は、画面に出る回数券の分だけ全期間の回を軽い列で読み直して数える（`getPassLessonStubs`）。
 - **数分おきのリマインド（`/api/cron/line-reminders`）は、今から30分先までに始まるものだけ読む**（`collectNotifyItems(from, to)`・`get*InRange`）。前は数分おきに全件を読んでいた。
+- **レッスン・体験の開始30分前の LINE はやめた**（2026-11-25 尚樹「トレーナーへの30分前の通知は外していい」）。今は個人予定（通知オンのもの）だけ送る。`lib/schedule-items.ts` の `collectNotifyItems` がレッスン・体験を読まない。戻すときは Vercel に `LINE_REMINDER_LESSONS=on`。担当者マスタの切り替えは「予定のリマインドを受け取る」に名前を変えた（中身は `lesson_reminder` のまま）。
 - 新しく「全件読む」画面や定期処理を作らない。期間で絞れるものは絞る。
 
 ## 英語の切り替え（2026-11-18 尚樹「英語と日本語を切り替えられるように」）

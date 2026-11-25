@@ -439,7 +439,7 @@ function MemberForm({
         <div className="pt-3 border-t border-gray-200">
           <label className="flex items-center justify-between cursor-pointer">
             <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-              <BellRing size={12} /> レッスンのリマインドを受け取る
+              <BellRing size={12} /> 予定のリマインドを受け取る
             </span>
             <input
               type="checkbox"
@@ -449,7 +449,8 @@ function MemberForm({
             />
           </label>
           <p className="text-xs text-gray-400 mt-1.5">
-            自分が担当する予定の開始前に、LINEでお知らせします。オフにするとこの人には届きません。
+            自分の予定（通知をオンにした個人予定）の開始前に、LINEでお知らせします。オフにするとこの人には届きません。
+            レッスン・体験の開始前のお知らせは送っていません。
           </p>
         </div>
       </div>

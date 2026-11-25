@@ -22,10 +22,13 @@ export interface NotifyItem {
  * 開始が [fromIso, toIso) のものだけ読む（2026-11-16）。前は数分おきに全件を読んでいて、DBを重くしていた。
  */
 export async function collectNotifyItems(fromIso: string, toIso: string): Promise<NotifyItem[]> {
+  // レッスン・体験の開始前の知らせは 2026-11-25 にやめた（尚樹「トレーナーへの30分前の通知は外していい」）。
+  // 個人予定（通知オンのもの）だけ送る。戻すときは Vercel に LINE_REMINDER_LESSONS=on。
+  const withLessons = (process.env.LINE_REMINDER_LESSONS ?? "").trim().toLowerCase() === "on";
   const [events, lessons, trials] = await Promise.all([
     getPersonalEventsInRange(fromIso, toIso),
-    getLessonsInRange(fromIso, toIso),
-    getTrialLessonsInRange(fromIso, toIso),
+    withLessons ? getLessonsInRange(fromIso, toIso) : Promise.resolve([]),
+    withLessons ? getTrialLessonsInRange(fromIso, toIso) : Promise.resolve([]),
   ]);
 
   const items: NotifyItem[] = [];
