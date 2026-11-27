@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSubmitLock } from "@/lib/use-submit-lock";
 import {
   Plus, Pencil, Trash2, X, Mail, Briefcase, StickyNote,
-  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing, CalendarClock, Cake,
+  Camera, User, Lock, Eye, EyeOff, KeyRound, ShieldCheck, Receipt, Crown, BellRing, CalendarClock, Cake, Languages,
 } from "lucide-react";
 import { Member } from "@/lib/members";
 import { createMember, updateMemberAction, deleteMemberAction } from "./actions";
@@ -162,6 +162,38 @@ function PasswordSection({ isEdit, hasPassword }: { isEdit: boolean; hasPassword
           パスワードが一致しません
         </p>
       )}
+    </div>
+  );
+}
+
+// ─── 話せる言語 ───────────────────────────────────────
+const LANGUAGE_CHOICES = ["日本語", "English"];
+
+/** 話せる言語：日本語・English はチェック、それ以外（中国語など）は「その他」に書く */
+function LanguagesField({ value }: { value?: string }) {
+  const list = (value ?? "").split("・").map((v) => v.trim()).filter(Boolean);
+  const other = list.filter((v) => !LANGUAGE_CHOICES.includes(v)).join("・");
+  return (
+    <div>
+      <input type="hidden" name="languagesField" value="1" />
+      <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
+        <Languages size={12} /> 話せる言語 <span className="text-gray-300 font-normal">（任意）</span>
+      </label>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {LANGUAGE_CHOICES.map((l) => (
+          <label key={l} className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" name="language" value={l} defaultChecked={list.includes(l)} className="w-4 h-4 accent-blue-600" />
+            {l}
+          </label>
+        ))}
+        <input
+          name="languageOther"
+          defaultValue={other}
+          placeholder="その他（例：中国語）"
+          className="flex-1 min-w-[10rem] px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+      <p className="text-xs text-gray-400 mt-1">担当者一覧に出ます。英語のお客さまの担当を決めるときの目安に</p>
     </div>
   );
 }
@@ -328,6 +360,8 @@ function MemberForm({
         />
         <p className="text-xs text-gray-400 mt-1">「今日の一手」（運気）を出すのに使います。本人もそのページから入れられます</p>
       </div>
+
+      {isEdit && <LanguagesField value={defaultValues?.languages} />}
 
       <div>
         <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
@@ -530,6 +564,11 @@ function MemberCard({ member, isAdmin, currentMemberId }: { member: Member; isAd
           {member.email && (
             <p className="text-xs text-gray-400 mt-1 flex items-center gap-1 truncate">
               <Mail size={10} className="flex-shrink-0" />{member.email}
+            </p>
+          )}
+          {member.languages && (
+            <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+              <Languages size={11} className="flex-shrink-0 text-gray-400" />{member.languages}
             </p>
           )}
           {member.note && (

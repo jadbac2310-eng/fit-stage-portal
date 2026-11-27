@@ -54,6 +54,19 @@ function decideTraining(
   return { trainingPay: existing!.trainingPay!, trainingFrom: existing!.trainingFrom!, trainingUntil: jstDay(-1) };
 }
 
+/**
+ * 話せる言語。チェック（日本語・English）と「その他」の欄を「・」でつないで1つの文にする。
+ * 欄が無いフォームからは undefined（触らない）。何も選ばなければ null（消す）。
+ */
+function readLanguages(formData: FormData): string | null | undefined {
+  if (formData.get("languagesField") === null) return undefined;
+  const picked = formData.getAll("language").map((v) => String(v).trim()).filter(Boolean);
+  const other = String(formData.get("languageOther") ?? "")
+    .split(/[、,・/／]/).map((v) => v.trim()).filter(Boolean);
+  const all = Array.from(new Set([...picked, ...other]));
+  return all.length > 0 ? all.join("・") : null;
+}
+
 /** コミッションの支払日（月末じめ翌月のこの日）。空欄や変な値は既定の25日に寄せる */
 function readPayDay(formData: FormData): number {
   const raw = (formData.get("commissionPayDay") as string)?.trim();
@@ -126,6 +139,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
   // 生年月日は空なら消す（null）。欄が無いフォームからは触らない
   const birthRaw = formData.get("birthDate");
   const birthDate = birthRaw === null ? undefined : ((birthRaw as string).trim() || null);
+  const languages = readLanguages(formData);
   const newPassword   = (formData.get("password") as string)?.trim() || undefined;
   const [existing, callerIsAdmin, currentMember] = await Promise.all([getMember(id), getCurrentIsAdmin(), getCurrentMember()]);
   if (!callerIsAdmin && currentMember?.id !== id) throw new Error("権限がありません");
@@ -194,6 +208,7 @@ export async function updateMemberAction(id: string, formData: FormData): Promis
     lessonReminder,
     lineNotify,
     ...(birthDate !== undefined && { birthDate }),
+    ...(languages !== undefined && { languages }),
     // 研修中の歩合は支払いの条件なので管理者だけ。欄が無いフォームからは触らない
     ...(callerIsAdmin && training !== undefined && training),
     ...(avatarUrl  !== undefined && { avatarUrl }),
