@@ -61,6 +61,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-27｜`20261127000001_shonai_sone_store_fee_2100.sql`（庄内店・曽根城山店の利用料を 11/27 から 2,100円。確認の表は 庄内 11/26まで 2250×11・2500×4／11/27から 2100×3、曽根城山 11/26まで 2250×4／11/27から 2100×1）
 - 2026-11-27｜`20261123000003_member_training_from.sql`（研修中の歩合を手でオン／オフにするための members.training_from。尚樹が実行。確認の表の数字は未確認）
 - 2026-11-27｜`20261127000002_member_languages.sql`（担当者の話せる言語 members.languages。確認の表は 言語の列=1）
+- 2026-11-27｜`20261125000001_invoice_done.sql`（請求書の「完了」の印 invoice_done。確認の表は 件数0）
 
 ## 公開（push）はまとめる（2026-11-19。Vercel の保存容量のため）
 
