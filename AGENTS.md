@@ -58,6 +58,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 2026-11-21｜`20261121000001_ai_mail_agent.sql`（AIメール担当の表4つ agent_settings・mail_messages・agent_events・agent_api_usage。確認の表は tables_4=4・settings_row_1=1）
 - 2026-11-23｜`20261123000001_trial_pair_customer.sql`（2名の体験の2人目 pair_customer_id・pair_handover_note。確認の表は 足した列=2）
 - 2026-11-23｜`20261123000002_member_training_pay.sql`（研修中の歩合 members.training_pay・training_until）＋ `20261120000003_catch_up.sql`（ハンドブック：指名制を消す・担当の文・3年後に出張パーソナル）を1本にまとめて実行。確認の表は 研修の列2・指名制0・担当は変わらない0・出張の行1
+- 2026-11-27｜`20261127000001_shonai_sone_store_fee_2100.sql`（庄内店・曽根城山店の利用料を 11/27 から 2,100円。確認の表は 庄内 11/26まで 2250×11・2500×4／11/27から 2100×3、曽根城山 11/26まで 2250×4／11/27から 2100×1）
 
 ## 公開（push）はまとめる（2026-11-19。Vercel の保存容量のため）
 
